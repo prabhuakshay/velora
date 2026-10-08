@@ -47,3 +47,11 @@ jobs:
       # pytest is a pre-push hook, which prek run skips. --cov comes from pyproject.toml addopts.
       - name: Tests with coverage
         run: uv run pytest
+
+  # A broken Dockerfile (e.g. a template directory missing from the Tailwind
+  # stage) would otherwise only surface at deploy.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build --target prod .
