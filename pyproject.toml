@@ -6,11 +6,20 @@ dependencies = [
     "django>=6.1.2",
     "django-environ>=0.14.0",
     "django-simple-history>=3.13.0",
+    "django-stubs-ext>=6.1.2",
+    "gunicorn>=26.2.0",
+    "psycopg[binary]>=3.3.6",
+    "whitenoise>=6.12.0",
 ]
 
 [dependency-groups]
 dev = [
+    "django-stubs[compatible-mypy]>=6.1.2",
+    "mypy>=2.4.0",
     "prek>=0.5.5",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-django>=4.14.0",
     "ruff>=0.16.10",
 ]
 
@@ -48,6 +57,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
 "**/test_*.py" = ["S101", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
+"conftest.py" = ["S101", "S105", "PLR2004", "ARG", "INP001"]
 "manage.py" = ["INP001"]
 
 [tool.ruff.lint.pydocstyle]
@@ -65,5 +75,56 @@ max-statements = 40
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
+[tool.ruff.lint.flake8-self]
+# Model._meta is Django's documented public API.
+extend-ignore-names = ["_meta"]
+
 [tool.ruff.lint.isort]
 combine-as-imports = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+addopts = ["--strict-markers", "--strict-config", "--cov"]
+xfail_strict = true
+filterwarnings = [
+    "error",
+    # Tests never run collectstatic.
+    "ignore:No directory at:UserWarning",
+    # django-simple-history 3.13 calls select_related() with no arguments for
+    # models without foreign keys.
+    "ignore:Calling select_related\\(\\) with no arguments:django.utils.deprecation.RemovedInDjango2028Warning",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["apps", "config"]
+omit = ["**/migrations/*", "**/tests/*", "config/asgi.py", "config/wsgi.py"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+skip_covered = true
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unreachable = true
+plugins = ["mypy_django_plugin.main"]
+files = ["."]
+exclude = ["/migrations/"]
+
+[[tool.mypy.overrides]]
+module = ["environ", "simple_history.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["apps.users.admin"]
+# SimpleHistoryAdmin is untyped.
+disallow_subclassing_any = false
+
+[tool.django-stubs]
+django_settings_module = "config.settings"

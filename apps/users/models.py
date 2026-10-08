@@ -1,0 +1,70 @@
+from typing import TYPE_CHECKING, ClassVar
+
+from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import PermissionsMixin
+from django.db import models
+from django.db.models.functions import Lower
+from django.utils import timezone
+from simple_history.models import HistoricalRecords
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+class UserManager(BaseUserManager["User"]):
+    def create_user(
+        self, email: str, password: str | None = None, **extra_fields: object
+    ) -> User:
+        if not email:
+            msg = "Users must have an email address."
+            raise ValueError(msg)
+        user = self.model(email=self.normalize_email(email).lower(), **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(
+        self, email: str, password: str | None = None, **extra_fields: object
+    ) -> User:
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        return self.create_user(email, password, **extra_fields)
+
+    def get_by_natural_key(self, username: str | None) -> User:
+        return self.get(email__iexact=username)
+
+
+class User(AbstractBaseUser, PermissionsMixin):
+    email = models.EmailField(unique=True)
+    full_name = models.CharField(max_length=150, blank=True)
+    is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    date_joined = models.DateTimeField(default=timezone.now)
+
+    # Old password hashes in history would be a needless leak.
+    history = HistoricalRecords(excluded_fields=["last_login", "password"])
+    save_without_historical_record: Callable[..., None]
+
+    objects: ClassVar[UserManager] = UserManager()
+
+    EMAIL_FIELD = "email"
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS: ClassVar[list[str]] = ["full_name"]
+
+    class Meta:
+        constraints: ClassVar = [
+            models.UniqueConstraint(Lower("email"), name="users_user_email_ci_unique"),
+        ]
+
+    def __str__(self) -> str:
+        return self.email
+
+    def clean(self) -> None:
+        super().clean()
+        self.email = self.__class__.objects.normalize_email(self.email).lower()
+
+    def get_full_name(self) -> str:
+        return self.full_name
+
+    def get_short_name(self) -> str:
+        return self.full_name

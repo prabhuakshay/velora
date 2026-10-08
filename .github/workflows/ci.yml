@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: velora
+          POSTGRES_PASSWORD: velora
+          POSTGRES_DB: velora
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      SECRET_KEY: ci-only-not-secret
+      DATABASE_URL: postgres://velora:velora@localhost:5432/velora
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: uv sync --locked
+
+      - name: Lint, format, type-check
+        run: uv run prek run --all-files --show-diff-on-failure
+
+      - name: Tests with coverage
+        run: uv run pytest
