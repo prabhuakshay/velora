@@ -1,3 +1,5 @@
+"""Root URL routes; each app's routes are included under its prefix."""
+
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
