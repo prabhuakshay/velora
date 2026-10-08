@@ -8,7 +8,9 @@
     {% csrf_token %}
     {% include "partials/form_errors.html" %}
     {% for field in form %}
-      {% if field.name == "group" or field.name == "color" %}
+      {% if field.name == "hidden" %}
+        <label class="flex items-center gap-2 text-sm text-slate-700">{{ field }} Hidden</label>
+      {% elif field.name == "group" or field.name == "color" %}
         <div>
           <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ field.label }}</label>
           <div class="mt-1 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-slate-300 [&_select]:px-3 [&_select]:py-2 [&_select]:text-base">

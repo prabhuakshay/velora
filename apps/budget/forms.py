@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class CategoryGroupForm(forms.ModelForm[CategoryGroup]):
     class Meta:
         model = CategoryGroup
-        fields = ("name", "kind")
+        fields = ("name", "kind", "hidden")
 
     def __init__(self, *args: object, owner: User, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
@@ -39,7 +39,7 @@ class CategoryGroupForm(forms.ModelForm[CategoryGroup]):
 class CategoryForm(forms.ModelForm[Category]):
     class Meta:
         model = Category
-        fields = ("group", "name", "icon", "description", "color")
+        fields = ("group", "name", "icon", "description", "color", "hidden")
 
     def __init__(self, *args: object, owner: User, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]

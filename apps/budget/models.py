@@ -19,6 +19,7 @@ class CategoryGroup(models.Model):
     )
     name = models.CharField(max_length=100)
     kind = models.CharField(max_length=7, choices=Kind)
+    hidden = models.BooleanField(default=False)
 
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
@@ -70,6 +71,7 @@ class Category(models.Model):
     color = models.CharField(
         max_length=16, choices=[(name, name.title()) for name in COLOR_CLASSES]
     )
+    hidden = models.BooleanField(default=False)
 
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
