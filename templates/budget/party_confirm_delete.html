@@ -1,0 +1,15 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Delete party · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">Delete party</h1>
+  <p class="mt-4 text-slate-700">Delete <strong>{{ party.name }}</strong>? This cannot be undone.</p>
+  <form method="post" class="mt-6">
+    {% csrf_token %}
+    <button type="submit" class="w-full rounded-lg bg-red-600 px-4 py-2.5 font-medium text-white hover:bg-red-700">Delete</button>
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'party_list' %}" class="text-slate-600 underline hover:text-slate-900">Cancel</a>
+  </p>
+{% endblock %}

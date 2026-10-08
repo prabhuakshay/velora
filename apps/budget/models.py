@@ -121,3 +121,39 @@ class Category(models.Model):
     @property
     def color_class(self) -> str:
         return COLOR_CLASSES[self.color]
+
+
+class Party(models.Model):
+    """The other side of a transaction; direction lives on the transaction.
+
+    Deferred until transactions land:
+    - Transactions reference parties with PROTECT, except when the owner is
+      deleted (as `Category` does with `_protect_unless_owner_deleted`).
+    - Deleting a party is blocked while it has transactions; the user merges
+      it instead.
+    - Merging repoints the source's transactions to the target, atomically.
+
+    Deferred until accounts land: whether transfers between accounts need a
+    party.
+    """
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    name = models.CharField(max_length=100)
+    notes = models.TextField(blank=True)
+    hidden = models.BooleanField(default=False)
+
+    history = HistoricalRecords()
+    save_without_historical_record: Callable[..., None]
+
+    class Meta:
+        verbose_name_plural = "parties"
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                Lower("name"), "owner", name="budget_party_owner_name_ci_unique"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.name

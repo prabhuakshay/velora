@@ -9,9 +9,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.budget.activity import PAGE_SIZE, recent_entries
-from apps.budget.forms import CategoryForm, CategoryGroupForm
+from apps.budget.forms import CategoryForm, CategoryGroupForm, PartyForm, PartyMergeForm
 from apps.budget.icon_picker import CURATED_ICONS
-from apps.budget.models import Category, CategoryGroup
+from apps.budget.models import Category, CategoryGroup, Party
 from apps.icons.search import search_icons
 
 if TYPE_CHECKING:
@@ -23,6 +23,10 @@ if TYPE_CHECKING:
 
 def _own_groups(request: HttpRequest) -> models.QuerySet[CategoryGroup]:
     return CategoryGroup.objects.filter(owner_id=request.user.pk)
+
+
+def _own_parties(request: HttpRequest) -> models.QuerySet[Party]:
+    return Party.objects.filter(owner_id=request.user.pk)
 
 
 def _own_categories(request: HttpRequest) -> models.QuerySet[Category]:
@@ -168,11 +172,15 @@ def icon_search(request: HttpRequest) -> HttpResponse:
 
 
 def _set_hidden(
-    request: HttpRequest, obj: CategoryGroup | Category, *, hidden: bool
+    request: HttpRequest,
+    obj: CategoryGroup | Category | Party,
+    *,
+    hidden: bool,
+    list_url: str = "category_list",
 ) -> HttpResponseBase:
     obj.hidden = hidden
     obj.save()
-    response = redirect("category_list")
+    response = redirect(list_url)
     if request.GET.get("show_hidden") == "1":
         response["Location"] += "?show_hidden=1"
     return response
@@ -208,3 +216,68 @@ def category_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
     return _set_hidden(
         request, get_object_or_404(_own_categories(request), pk=pk), hidden=False
     )
+
+
+@login_required
+def party_list(request: HttpRequest) -> HttpResponse:
+    show_hidden = request.GET.get("show_hidden") == "1"
+    parties = _own_parties(request).order_by(Lower("name"))
+    if not show_hidden:
+        parties = parties.filter(hidden=False)
+    context = {"parties": parties, "show_hidden": show_hidden}
+    return render(request, "budget/party_list.html", context)
+
+
+@login_required
+def party_create(request: HttpRequest) -> HttpResponseBase:
+    form = PartyForm(request.POST or None, owner=request.user)  # type: ignore[arg-type]
+    if form.is_valid() and _saved(form):
+        return redirect("party_list")
+    return render(request, "budget/party_form.html", {"form": form})
+
+
+@login_required
+def party_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
+    party = get_object_or_404(_own_parties(request), pk=pk)
+    form = PartyForm(
+        request.POST or None,
+        instance=party,
+        owner=request.user,  # type: ignore[arg-type]
+    )
+    if form.is_valid() and _saved(form):
+        return redirect("party_list")
+    return render(request, "budget/party_form.html", {"form": form, "party": party})
+
+
+@login_required
+@require_POST
+def party_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    party = get_object_or_404(_own_parties(request), pk=pk)
+    return _set_hidden(request, party, hidden=True, list_url="party_list")
+
+
+@login_required
+@require_POST
+def party_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    party = get_object_or_404(_own_parties(request), pk=pk)
+    return _set_hidden(request, party, hidden=False, list_url="party_list")
+
+
+@login_required
+def party_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
+    source = get_object_or_404(_own_parties(request), pk=pk)
+    form = PartyMergeForm(request.POST or None, source=source)
+    if form.is_valid():
+        with transaction.atomic():
+            source.delete()
+        return redirect("party_list")
+    return render(request, "budget/party_merge.html", {"form": form, "party": source})
+
+
+@login_required
+def party_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
+    party = get_object_or_404(_own_parties(request), pk=pk)
+    if request.method == "POST":
+        party.delete()
+        return redirect("party_list")
+    return render(request, "budget/party_confirm_delete.html", {"party": party})

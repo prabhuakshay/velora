@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
 from django.conf import settings
 from django.db.models.functions import Lower
 
 from apps.budget.icon_picker import CURATED_ICONS
-from apps.budget.models import SWATCH_CLASSES, Category, CategoryGroup
+from apps.budget.models import SWATCH_CLASSES, Category, CategoryGroup, Party
 from apps.icons.templatetags.icons import read_icon
 
 if TYPE_CHECKING:
@@ -81,3 +81,42 @@ class CategoryForm(forms.ModelForm[Category]):
             if clash.exists():
                 self.add_error("name", "A category with this name already exists.")
         return cleaned
+
+
+class PartyForm(forms.ModelForm[Party]):
+    class Meta:
+        model = Party
+        fields = ("name", "notes", "hidden")
+        widgets: ClassVar = {"notes": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args: object, owner: User, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.owner = owner
+
+    def clean_name(self) -> str:
+        name: str = self.cleaned_data["name"]
+        clash = Party.objects.filter(owner=self.owner, name__iexact=name)
+        if self.instance.pk:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            msg = "A party with this name already exists."
+            raise forms.ValidationError(msg)
+        return name
+
+    def save(self, commit: bool = True) -> Party:  # noqa: FBT001, FBT002
+        self.instance.owner = self.owner
+        return super().save(commit=commit)
+
+
+class PartyMergeForm(forms.Form):
+    target = forms.ModelChoiceField(
+        queryset=Party.objects.none(), label="Merge into", empty_label=None
+    )
+
+    def __init__(self, *args: object, source: Party, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.fields["target"].queryset = (  # type: ignore[attr-defined]
+            Party.objects.filter(owner_id=source.owner_id)
+            .exclude(pk=source.pk)
+            .order_by(Lower("name"))
+        )
