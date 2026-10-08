@@ -9,9 +9,6 @@ name: velora-prod
 
 x-app: &app
   image: velora:${DOCKER_IMAGE_TAG:-latest}
-  build:
-    context: .
-    target: prod
   env_file:
     # raw: compose would otherwise expand `$` and truncate secrets.
     - path: .env
@@ -33,15 +30,27 @@ x-app: &app
     options:
       max-size: 10m
       max-file: "3"
+  deploy:
+    resources:
+      limits:
+        cpus: "${DOCKER_CPU_LIMIT:-2.0}"
+        memory: ${DOCKER_MEMORY_LIMIT:-1g}
+        pids: 200
 
 services:
   migrate:
     <<: *app
+    # The only service that builds: django runs the image this produces.
+    build:
+      context: .
+      target: prod
     command: python manage.py migrate --noinput
     restart: "no"
 
   django:
     <<: *app
+    # Never pulled: the image only exists locally, built by migrate.
+    pull_policy: never
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -58,12 +67,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-    deploy:
-      resources:
-        limits:
-          cpus: "${DOCKER_CPU_LIMIT:-2.0}"
-          memory: ${DOCKER_MEMORY_LIMIT:-1g}
-          pids: 200
 
 volumes:
   media:

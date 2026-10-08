@@ -7,7 +7,7 @@
 # stage holds source, venv and compiled assets, and no toolchain.
 
 ARG PYTHON_VERSION=3.14
-ARG NODE_VERSION=25
+ARG NODE_VERSION=24
 ARG UV_VERSION=0.12
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
@@ -18,13 +18,17 @@ FROM node:${NODE_VERSION}-slim AS tailwind
 ARG DOCKER_UID=1000
 ARG DOCKER_GID=1000
 
+ENV npm_config_cache=/cache/npm
+
 WORKDIR /app
 
 # Docker seeds the anonymous node_modules volume from the image, ownership
 # included; without this it arrives root-owned and npm can't write to it.
-RUN mkdir -p /app/node_modules && chown -R ${DOCKER_UID}:${DOCKER_GID} /app
+RUN mkdir -p /app/node_modules /cache/npm \
+    && chown -R ${DOCKER_UID}:${DOCKER_GID} /app /cache/npm
 
-CMD ["sh", "-c", "npm install --no-audit --no-fund && npm run watch"]
+# ci, not install: install would rewrite package-lock.json in the bind mount.
+CMD ["sh", "-c", "npm ci --no-audit --no-fund && npm run watch"]
 
 
 FROM python:${PYTHON_VERSION}-slim AS dev
@@ -101,8 +105,8 @@ RUN groupadd --system --gid 10001 app \
 
 WORKDIR /app
 
-# Owned by root and only readable by app, so a compromised worker can't
-# rewrite the code it runs.
+# Owned by root: the app user can read the code, but a compromised worker
+# can't rewrite it.
 COPY --from=builder /opt/venv /opt/venv
 COPY manage.py ./
 COPY config/ config/
