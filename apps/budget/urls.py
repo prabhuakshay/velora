@@ -7,6 +7,7 @@ urlpatterns = [
     path("groups/new/", views.group_create, name="group_create"),
     path("groups/<int:pk>/edit/", views.group_edit, name="group_edit"),
     path("groups/<int:pk>/delete/", views.group_delete, name="group_delete"),
+    path("icons/search/", views.icon_search, name="icon_search"),
     path("groups/<int:pk>/hide/", views.group_hide, name="group_hide"),
     path("groups/<int:pk>/unhide/", views.group_unhide, name="group_unhide"),
     path("<int:pk>/hide/", views.category_hide, name="category_hide"),

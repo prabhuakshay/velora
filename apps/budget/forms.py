@@ -4,6 +4,7 @@ from django import forms
 from django.conf import settings
 from django.db.models.functions import Lower
 
+from apps.budget.icon_picker import CURATED_ICONS
 from apps.budget.models import Category, CategoryGroup
 from apps.icons.templatetags.icons import read_icon
 
@@ -47,6 +48,14 @@ class CategoryForm(forms.ModelForm[Category]):
             owner=owner
         ).order_by(Lower("name"))
         self.fields["icon"].required = False
+
+    @property
+    def icon_picker(self) -> dict[str, Any]:
+        selected = str(self["icon"].value() or "tag")
+        icons = list(CURATED_ICONS)
+        if selected not in icons:
+            icons.insert(0, selected)
+        return {"icons": icons, "selected": selected}
 
     def clean_icon(self) -> str:
         icon: str = self.cleaned_data["icon"].strip() or "tag"
