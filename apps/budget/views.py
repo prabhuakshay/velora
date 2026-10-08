@@ -1,12 +1,15 @@
 from typing import TYPE_CHECKING
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db.models import Case, IntegerField, Prefetch, Value, When
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.budget.forms import CategoryForm, CategoryGroupForm
+from apps.budget.icon_picker import CURATED_ICONS
 from apps.budget.models import Category, CategoryGroup
+from apps.icons.search import search_icons
 
 if TYPE_CHECKING:
     from django.db import models
@@ -113,4 +116,15 @@ def category_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
         return redirect("category_list")
     return render(
         request, "budget/category_confirm_delete.html", {"category": category}
+    )
+
+
+@login_required
+def icon_search(request: HttpRequest) -> HttpResponse:
+    selected = request.GET.get("icon", "")
+    icons = search_icons(str(settings.LUCIDE_ICON_DIR), request.GET.get("q", ""))
+    if selected and selected not in CURATED_ICONS and selected not in icons:
+        icons.insert(0, selected)
+    return render(
+        request, "budget/_icon_options.html", {"icons": icons, "selected": selected}
     )

@@ -18,6 +18,8 @@
             <p class="mt-1 text-sm text-red-600">{{ error }}</p>
           {% endfor %}
         </div>
+      {% elif field.name == "icon" %}
+        {% include "budget/_icon_picker.html" %}
       {% else %}
         {% include "partials/field.html" with field=field %}
       {% endif %}
