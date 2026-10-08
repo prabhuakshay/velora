@@ -19,8 +19,6 @@ x-app: &app
       format: raw
   extra_hosts:
     - "host.docker.internal:host-gateway"
-  volumes:
-    - media:/app/media
   # Reaps processes reparented to PID 1 that gunicorn wouldn't.
   init: true
   read_only: true
@@ -51,6 +49,8 @@ services:
       # Loopback only: gunicorn trusts forwarded headers from any peer.
       - "127.0.0.1:${DOCKER_HOST_PORT:-8000}:8000"
     restart: unless-stopped
+    volumes:
+      - media:/app/media
     stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz/', timeout=5)"]
@@ -61,8 +61,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${DOCKER_CPU_LIMIT:-2.0}
+          cpus: "${DOCKER_CPU_LIMIT:-2.0}"
           memory: ${DOCKER_MEMORY_LIMIT:-1g}
+          pids: 200
 
 volumes:
   media:

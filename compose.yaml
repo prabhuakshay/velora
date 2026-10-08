@@ -22,7 +22,7 @@ services:
     # settings.py reads /app/.env from the bind mount; these only override it.
     environment:
       DEBUG: ${DEBUG:-true}
-      ALLOWED_HOSTS: localhost,127.0.0.1,${ALLOWED_HOSTS:-}
+      ALLOWED_HOSTS: localhost,127.0.0.1${ALLOWED_HOSTS:+,$ALLOWED_HOSTS}
     volumes:
       - .:/app
       # Host-platform artifacts that must not leak into the container.

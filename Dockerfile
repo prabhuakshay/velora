@@ -44,8 +44,8 @@ ENV PYTHONUNBUFFERED=1 \
 ARG DOCKER_UID=1000
 ARG DOCKER_GID=1000
 
-RUN mkdir -p /opt/venv /cache/uv \
-    && chown -R ${DOCKER_UID}:${DOCKER_GID} /opt/venv /cache/uv
+RUN mkdir -p /opt/venv /cache/uv /app/staticfiles \
+    && chown -R ${DOCKER_UID}:${DOCKER_GID} /opt/venv /cache/uv /app/staticfiles
 
 WORKDIR /app
 
