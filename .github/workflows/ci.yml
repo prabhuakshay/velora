@@ -2,7 +2,6 @@
 # main that skipped them locally (e.g. a commit made with --no-verify).
 name: CI
 
-# Every push to main, and every PR against any branch.
 on:
   push:
     branches: [main]
@@ -12,7 +11,6 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
-    # Tests run against real Postgres, not SQLite, to match production.
     services:
       postgres:
         image: postgres:16
@@ -28,7 +26,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-    # Settings require these to be set; the values only need to work inside this job.
+    # CI-only values; settings refuse to load without them.
     env:
       SECRET_KEY: ci-only-not-secret
       DATABASE_URL: postgres://velora:velora@localhost:5432/velora
@@ -43,11 +41,9 @@ jobs:
       # --locked fails if uv.lock is out of date with pyproject.toml instead of silently updating it.
       - run: uv sync --locked
 
-      # Runs the pre-commit stage hooks from .pre-commit-config.yaml on every file.
       - name: Lint, format, type-check
         run: uv run prek run --all-files --show-diff-on-failure
 
-      # pytest is a pre-push hook, which the step above doesn't run, so it gets its own step.
-      # Coverage comes from --cov in pyproject.toml's pytest addopts.
+      # pytest is a pre-push hook, which prek run skips. --cov comes from pyproject.toml addopts.
       - name: Tests with coverage
         run: uv run pytest
