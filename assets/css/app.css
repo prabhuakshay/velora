@@ -1,9 +1,15 @@
+/* Tailwind source; `npm run build`/`watch` compiles it to static/css/app.css. Edit this, not the output. */
+
+/* source(none) disables auto-detection so only the @source paths below are scanned for classes. */
 @import "tailwindcss" source(none);
 
 @source "../../templates";
 @source "../../apps";
 
-/* Here, not htmx's injected <style>: head-support drops that on the first boosted swap. */
+/*
+ * Here, not htmx's injected <style>: head-support drops that on the first boosted swap.
+ * base.html sets includeIndicatorStyles to false for the same reason.
+ */
 .htmx-indicator {
   opacity: 0;
   visibility: hidden;
