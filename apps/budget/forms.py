@@ -6,9 +6,8 @@ from django import forms
 from django.conf import settings
 from django.db.models.functions import Lower
 
-from apps.budget.icon_picker import CURATED_ICONS
+from apps.budget.icons import CURATED_ICONS, read_icon
 from apps.budget.models import SWATCH_CLASSES, Category, ExpenseAccount
-from apps.icons.templatetags.icons import read_icon
 
 if TYPE_CHECKING:
     from apps.users.models import User

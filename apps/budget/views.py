@@ -11,9 +11,8 @@ from django.views.decorators.http import require_POST
 
 from apps.budget.activity import PAGE_SIZE, recent_entries
 from apps.budget.forms import CategoryForm, ExpenseAccountForm, ExpenseAccountMergeForm
-from apps.budget.icon_picker import CURATED_ICONS
+from apps.budget.icons import CURATED_ICONS, search_icons
 from apps.budget.models import Category, ExpenseAccount
-from apps.icons.search import search_icons
 
 if TYPE_CHECKING:
     from django import forms

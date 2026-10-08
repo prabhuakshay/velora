@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from django.template import engines
 from django.test import override_settings
 
-from apps.icons.templatetags import icons
+from apps.budget import icons
 
 if TYPE_CHECKING:
     import pytest
