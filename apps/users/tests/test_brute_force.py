@@ -65,7 +65,7 @@ def test_login_posts_are_rate_limited_per_ip(
     )
 
     assert response.status_code == 429
-    assert b"Too many requests" in response.content
+    assert "429.html" in [t.name for t in response.templates]
 
 
 def test_password_reset_posts_are_rate_limited_per_ip(client: Client) -> None:

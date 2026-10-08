@@ -1,0 +1,11 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Too many requests · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">Too many requests</h1>
+  <p class="mt-2 text-sm text-slate-600">Wait a while, then try again.</p>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'login' %}" class="link">Back to log in</a>
+  </p>
+{% endblock %}

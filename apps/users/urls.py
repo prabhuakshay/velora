@@ -2,6 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from apps.users.throttle import throttle
+from apps.users.views import LoginView
 
 limit_login = throttle("LOGIN_RATE_LIMIT")
 limit_password_reset = throttle("PASSWORD_RESET_RATE_LIMIT")
@@ -9,7 +10,7 @@ limit_password_reset = throttle("PASSWORD_RESET_RATE_LIMIT")
 urlpatterns = [
     path(
         "login/",
-        limit_login(auth_views.LoginView.as_view(redirect_authenticated_user=True)),
+        limit_login(LoginView.as_view()),
         name="login",
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),

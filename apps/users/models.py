@@ -38,7 +38,7 @@ class UserManager(BaseUserManager["User"]):
 
     @override
     def get_by_natural_key(self, username: str | None) -> User:
-        return self.get(email__iexact=username)
+        return self.get(email=self.normalize_email(username).lower())
 
 
 class User(AbstractBaseUser, PermissionsMixin):

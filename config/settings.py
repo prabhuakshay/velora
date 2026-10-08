@@ -126,7 +126,6 @@ TEMPLATES = [
                 "django.template.context_processors.csp",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "apps.users.context_processors.client_ip",
             ],
             # Available in every template without {% load %}.
             "builtins": ["django.templatetags.static", "apps.icons.templatetags.icons"],

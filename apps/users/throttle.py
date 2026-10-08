@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
-from django.http import HttpResponse
+from django.shortcuts import render
 
 from apps.users.client_ip import get_client_ip
 
@@ -37,7 +37,7 @@ def throttle(setting: str) -> Callable[[View], View]:
         @wraps(view)
         def wrapper(
             request: HttpRequest, *args: object, **kwargs: object
-        ) -> HttpResponse | HttpResponseBase:
+        ) -> HttpResponseBase:
             if request.method == "POST":
                 limit, window = parse_rate(str(getattr(settings, setting)))
                 key = f"throttle:{setting}:{get_client_ip(request)}"
@@ -51,7 +51,7 @@ def throttle(setting: str) -> Callable[[View], View]:
                     cache.set(key, 1, window)
                     count = 1
                 if count > limit:
-                    return HttpResponse("Too many requests.", status=429)
+                    return render(request, "429.html", status=429)
             return view(request, *args, **kwargs)
 
         return wrapper
