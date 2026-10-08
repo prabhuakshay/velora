@@ -1,0 +1,10 @@
+{% for entry in entries %}
+  <li class="py-2">{{ entry.text }} <span class="text-slate-500">· {{ entry.when|timesince }} ago</span></li>
+{% empty %}
+  <li class="py-2 text-slate-500">No activity yet.</li>
+{% endfor %}
+{% if next_offset %}
+  <li class="py-2">
+    <button type="button" hx-get="{% url 'category_activity' %}?offset={{ next_offset }}" hx-target="closest li" hx-swap="outerHTML" class="text-slate-600 underline hover:text-slate-900">Show more</button>
+  </li>
+{% endif %}

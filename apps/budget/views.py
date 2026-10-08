@@ -5,6 +5,7 @@ from django.db.models import Case, IntegerField, Prefetch, Value, When
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.budget.activity import PAGE_SIZE, recent_entries
 from apps.budget.forms import CategoryForm, CategoryGroupForm
 from apps.budget.models import Category, CategoryGroup
 
@@ -38,7 +39,24 @@ def category_list(request: HttpRequest) -> HttpResponse:
             Prefetch("categories", Category.objects.order_by(Lower("name")))
         )
     )
-    return render(request, "budget/category_list.html", {"groups": groups})
+    activity = _activity_context(request, 0)
+    return render(request, "budget/category_list.html", {"groups": groups, **activity})
+
+
+def _activity_context(request: HttpRequest, offset: int) -> dict[str, object]:
+    entries, has_more = recent_entries(request.user.pk, offset)  # type: ignore[arg-type]
+    return {
+        "entries": entries,
+        "next_offset": offset + PAGE_SIZE if has_more else None,
+    }
+
+
+@login_required
+def category_activity(request: HttpRequest) -> HttpResponse:
+    offset = max(int(request.GET.get("offset", 0) or 0), 0)
+    return render(
+        request, "budget/activity_items.html", _activity_context(request, offset)
+    )
 
 
 @login_required
