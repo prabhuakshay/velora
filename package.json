@@ -4,13 +4,14 @@
   "scripts": {
     "build": "npm run vendor && tailwindcss -i assets/css/app.css -o static/css/app.css --minify",
     "watch": "npm run vendor && tailwindcss -i assets/css/app.css -o static/css/app.css --watch=always",
-    "vendor": "mkdir -p static/js && cat node_modules/htmx.org/dist/htmx.min.js node_modules/htmx-ext-head-support/dist/head-support.min.js > static/js/htmx.min.js && cp node_modules/@alpinejs/csp/dist/cdn.min.js static/js/alpine.min.js"
+    "vendor": "mkdir -p static/js && cat node_modules/htmx.org/dist/htmx.min.js node_modules/htmx-ext-head-support/dist/head-support.min.js > static/js/htmx.min.js && cp node_modules/@alpinejs/csp/dist/cdn.min.js static/js/alpine.min.js && mkdir -p static/icons && cp node_modules/lucide-static/icons/*.svg node_modules/lucide-static/tags.json static/icons/"
   },
   "devDependencies": {
     "@alpinejs/csp": "3.17.4",
     "@tailwindcss/cli": "4.3.3",
     "htmx-ext-head-support": "2.0.5",
     "htmx.org": "2.0.11",
+    "lucide-static": "1.53.0",
     "tailwindcss": "4.3.3"
   }
 }

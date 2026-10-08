@@ -363,20 +363,6 @@ wheels = [
 ]
 
 [[package]]
-name = "lucide"
-version = "1.1.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/fd/47/ee3c40e705747a932b64f56b343464bf11111d758e945223755538be3d17/lucide-1.1.4.tar.gz", hash = "sha256:9386940c57a801d92d62a3805d3d584a9e6ca3a43d54765203d72acf8f4965d4", size = 445501, upload-time = "2026-07-09T13:45:48.377Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ef/3d/a99fbb96be09f7cf6ed1b431c87350676dbb4924f01aa39a25848d7e0145/lucide-1.1.4-py3-none-any.whl", hash = "sha256:c2aa88a2bd7d99fcb56a9cdd4959cdf0c5ecd75f05d7ebbeb41010341639f449", size = 443438, upload-time = "2026-07-09T13:45:46.86Z" },
-]
-
-[package.optional-dependencies]
-django = [
-    { name = "django" },
-]
-
-[[package]]
 name = "mypy"
 version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -649,7 +635,6 @@ dependencies = [
     { name = "django-simple-history" },
     { name = "django-stubs-ext" },
     { name = "gunicorn" },
-    { name = "lucide", extra = ["django"] },
     { name = "psycopg", extra = ["binary"] },
     { name = "whitenoise", extra = ["brotli"] },
 ]
@@ -673,7 +658,6 @@ requires-dist = [
     { name = "django-simple-history", specifier = ">=3.13.0" },
     { name = "django-stubs-ext", specifier = ">=6.1.2" },
     { name = "gunicorn", specifier = ">=26.2.0" },
-    { name = "lucide", extras = ["django"], specifier = ">=1.1.4" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6" },
     { name = "whitenoise", extras = ["brotli"], specifier = ">=6.12.0" },
 ]

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from django.conf import settings
 from django.core.cache import cache
@@ -18,6 +20,9 @@ def pytest_configure() -> None:
     # Defaults to on unless DEBUG, which made tests pass only with a local .env
     # setting DEBUG=True; the test client speaks plain HTTP and got 301s.
     settings.SECURE_SSL_REDIRECT = False
+    settings.LUCIDE_ICON_DIR = (
+        Path(__file__).parent / "apps" / "icons" / "tests" / "fixtures" / "icons"
+    )
 
 
 @pytest.fixture(autouse=True)
