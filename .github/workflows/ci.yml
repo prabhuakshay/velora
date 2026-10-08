@@ -1,5 +1,8 @@
+# Runs the same checks as the local git hooks, on GitHub, so nothing reaches
+# main that skipped them locally (e.g. a commit made with --no-verify).
 name: CI
 
+# Every push to main, and every PR against any branch.
 on:
   push:
     branches: [main]
@@ -9,6 +12,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
+    # Tests run against real Postgres, not SQLite, to match production.
     services:
       postgres:
         image: postgres:16
@@ -17,12 +21,14 @@ jobs:
           POSTGRES_PASSWORD: velora
           POSTGRES_DB: velora
         ports: ["5432:5432"]
+        # Steps start only once Postgres reports healthy, so tests don't race its startup.
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
 
+    # Settings require these to be set; the values only need to work inside this job.
     env:
       SECRET_KEY: ci-only-not-secret
       DATABASE_URL: postgres://velora:velora@localhost:5432/velora
@@ -34,10 +40,14 @@ jobs:
         with:
           enable-cache: true
 
+      # --locked fails if uv.lock is out of date with pyproject.toml instead of silently updating it.
       - run: uv sync --locked
 
+      # Runs the pre-commit stage hooks from .pre-commit-config.yaml on every file.
       - name: Lint, format, type-check
         run: uv run prek run --all-files --show-diff-on-failure
 
+      # pytest is a pre-push hook, which the step above doesn't run, so it gets its own step.
+      # Coverage comes from --cov in pyproject.toml's pytest addopts.
       - name: Tests with coverage
         run: uv run pytest
