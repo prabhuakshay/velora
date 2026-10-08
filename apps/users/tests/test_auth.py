@@ -81,7 +81,7 @@ def test_password_reset_flow(
     assert match
     # The emailed link redirects to a token-free URL before the form is shown.
     form_url = client.get(match.group(1))["Location"]
-    new_password = "a-brand-new-passphrase"  # noqa: S105
+    new_password = "a-brand-new-passphrase"
     response = client.post(
         form_url, {"new_password1": new_password, "new_password2": new_password}
     )
@@ -99,7 +99,7 @@ def test_password_change_requires_login(client: Client) -> None:
 
 def test_password_change_keeps_user_signed_in(client: Client, user: User) -> None:
     client.force_login(user)
-    new_password = "a-brand-new-passphrase"  # noqa: S105
+    new_password = "a-brand-new-passphrase"
 
     response = client.post(
         reverse("password_change"),
