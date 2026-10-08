@@ -1,0 +1,11 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Account locked · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">Too many failed attempts</h1>
+  <p class="mt-2 text-sm text-slate-600">Logins for this account are paused. Try again later or reset your password.</p>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'password_reset' %}" class="text-slate-600 underline hover:text-slate-900">Reset password</a>
+  </p>
+{% endblock %}

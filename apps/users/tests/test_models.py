@@ -1,7 +1,8 @@
 import pytest
 from django.contrib.auth import authenticate
 from django.db import IntegrityError
-from django.test import Client
+from django.test import Client, RequestFactory
+from django.urls import reverse
 
 from apps.users.models import User
 from conftest import PASSWORD
@@ -34,7 +35,12 @@ def test_email_is_unique_ignoring_case(user: User) -> None:
 
 
 def test_authenticate_ignores_email_case(user: User) -> None:
-    assert authenticate(username=user.email.upper(), password=PASSWORD) == user
+    assert (
+        authenticate(
+            RequestFactory().post("/"), username=user.email.upper(), password=PASSWORD
+        )
+        == user
+    )
 
 
 def test_clean_normalizes_email() -> None:
@@ -60,7 +66,7 @@ def test_edit_creates_history(user: User) -> None:
 
 
 def test_login_does_not_create_history(user: User) -> None:
-    Client().login(username=user.email, password=PASSWORD)
+    Client().post(reverse("login"), {"username": user.email, "password": PASSWORD})
 
     user.refresh_from_db()
     assert user.last_login is not None

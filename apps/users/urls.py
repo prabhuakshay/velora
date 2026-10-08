@@ -1,10 +1,21 @@
+from django.conf import settings
 from django.contrib.auth import views as auth_views
 from django.urls import path
+from django_ratelimit.decorators import ratelimit
+
+limit_login = ratelimit(
+    key="ip", rate=lambda _group, _request: settings.LOGIN_RATE_LIMIT, method="POST"
+)
+limit_password_reset = ratelimit(
+    key="ip",
+    rate=lambda _group, _request: settings.PASSWORD_RESET_RATE_LIMIT,
+    method="POST",
+)
 
 urlpatterns = [
     path(
         "login/",
-        auth_views.LoginView.as_view(redirect_authenticated_user=True),
+        limit_login(auth_views.LoginView.as_view(redirect_authenticated_user=True)),
         name="login",
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
@@ -20,7 +31,7 @@ urlpatterns = [
     ),
     path(
         "password-reset/",
-        auth_views.PasswordResetView.as_view(),
+        limit_password_reset(auth_views.PasswordResetView.as_view()),
         name="password_reset",
     ),
     path(

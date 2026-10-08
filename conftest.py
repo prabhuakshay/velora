@@ -1,5 +1,6 @@
 import pytest
 from django.conf import settings
+from django.core.cache import cache
 
 from apps.users.models import User
 
@@ -14,6 +15,12 @@ def pytest_configure() -> None:
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
         },
     }
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache() -> None:
+    # Rate-limit counters live in the cache and would leak between tests.
+    cache.clear()
 
 
 @pytest.fixture

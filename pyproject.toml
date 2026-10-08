@@ -4,7 +4,9 @@ version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
     "django>=6.1.2",
+    "django-axes[ipware]>=8.3.1",
     "django-environ>=0.14.0",
+    "django-ratelimit>=4.1.0",
     "django-simple-history>=3.13.0",
     "django-stubs-ext>=6.1.2",
     "gunicorn>=26.2.0",
@@ -118,7 +120,7 @@ files = ["."]
 exclude = ["/migrations/"]
 
 [[tool.mypy.overrides]]
-module = ["environ", "simple_history.*"]
+module = ["environ", "simple_history.*", "axes.*", "django_ratelimit.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

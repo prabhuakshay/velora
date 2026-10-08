@@ -9,6 +9,7 @@ from conftest import PASSWORD
 if TYPE_CHECKING:
     from django.core.mail import EmailMessage
     from django.test import Client
+    from pytest_django import Settings
 
     from apps.users.models import User
 
@@ -19,6 +20,19 @@ def test_login_page_shows_client_ip(client: Client) -> None:
     response = client.get(reverse("login"), REMOTE_ADDR="203.0.113.7")
 
     assert b"203.0.113.7" in response.content
+
+
+def test_login_page_shows_forwarded_client_ip(
+    client: Client, settings: Settings
+) -> None:
+    settings.TRUSTED_PROXY_COUNT = 1
+
+    response = client.get(
+        reverse("login"), REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="203.0.113.7"
+    )
+
+    assert b"203.0.113.7" in response.content
+    assert b"10.0.0.1" not in response.content
 
 
 def test_login_redirects_to_index(client: Client, user: User) -> None:

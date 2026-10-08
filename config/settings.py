@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "simple_history",
+    "axes",
     "apps.users",
 ]
 
@@ -54,6 +55,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
+    "django_ratelimit.middleware.RatelimitMiddleware",
+    "axes.middleware.AxesMiddleware",
 ]
 
 TEMPLATES = [
@@ -67,6 +70,7 @@ TEMPLATES = [
                 "django.template.context_processors.csp",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.users.context_processors.client_ip",
             ],
         },
     },
@@ -91,6 +95,11 @@ CACHES = {"default": env.cache_url("CACHE_URL", default="locmemcache://")}
 
 # Authentication
 
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation."
@@ -103,6 +112,30 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+
+# Brute-force protection
+# Axes locks a username per IP after repeated failures; ratelimit caps total
+# requests per IP so one address can't spray many usernames.
+
+# Number of reverse proxies in front of the app that append to
+# X-Forwarded-For. 0 means clients connect directly and REMOTE_ADDR is used.
+TRUSTED_PROXY_COUNT = env.int("TRUSTED_PROXY_COUNT", default=0)
+AXES_CLIENT_IP_CALLABLE = "apps.users.client_ip.get_client_ip"
+RATELIMIT_IP_META_KEY = "apps.users.client_ip.get_client_ip"
+
+AXES_FAILURE_LIMIT = env.int("AXES_FAILURE_LIMIT", default=5)
+AXES_COOLOFF_TIME = env.int("AXES_COOLOFF_HOURS", default=1)
+# Locking the pair, not the username alone, stops attackers from locking out
+# real users from other addresses.
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_USERNAME_CALLABLE = "apps.users.lockout.lockout_username"
+AXES_RESET_ON_SUCCESS = True
+AXES_LOCKOUT_TEMPLATE = "registration/locked_out.html"
+
+RATELIMIT_VIEW = "apps.users.views.ratelimited"
+LOGIN_RATE_LIMIT = env.str("LOGIN_RATE_LIMIT", default="20/m")
+PASSWORD_RESET_RATE_LIMIT = env.str("PASSWORD_RESET_RATE_LIMIT", default="5/h")
 
 
 # Internationalization

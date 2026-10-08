@@ -19,6 +19,6 @@
 
 {% block below_card %}
   <p class="mt-6 text-center text-xs text-slate-500">
-    Your IP address: <span class="font-mono">{{ request.META.REMOTE_ADDR }}</span>
+    Your IP address: <span class="font-mono">{{ client_ip }}</span>
   </p>
 {% endblock %}
