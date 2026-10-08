@@ -1,3 +1,5 @@
+"""Client IP resolution behind trusted reverse proxies."""
+
 import ipaddress
 from typing import TYPE_CHECKING
 
@@ -8,6 +10,7 @@ if TYPE_CHECKING:
 
 
 def get_client_ip(request: HttpRequest) -> str:
+    """Return the client's IP, trusting only the configured proxies."""
     remote_addr = str(request.META.get("REMOTE_ADDR", ""))
     proxy_count: int = settings.TRUSTED_PROXY_COUNT
     if not proxy_count:

@@ -40,11 +40,7 @@ ignore = [
     "ISC001",
     # No license header policy for this project.
     "CPY001",
-    # Missing docstrings: names and types should carry intent; docstrings where they add value.
-    "D100",
-    "D101",
-    "D102",
-    "D103",
+    # Package, magic-method, Meta and __init__ docstrings add noise in Django.
     "D104",
     "D105",
     "D106",
@@ -56,15 +52,22 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["S101", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
-"**/test_*.py" = ["S101", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
-"conftest.py" = ["S101", "S105", "PLR2004", "ARG", "INP001"]
-"manage.py" = ["INP001"]
+"**/tests/**" = ["D1", "S101", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
+"**/test_*.py" = ["D1", "S101", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
+"conftest.py" = ["D1", "S101", "S105", "PLR2004", "ARG", "INP001"]
+"manage.py" = ["D1", "INP001"]
+"config/**" = ["D1"]
+"apps/*/admin.py" = ["D1"]
+"apps/*/apps.py" = ["D1"]
+"apps/*/urls.py" = ["D1"]
+"apps/*/*_urls.py" = ["D1"]
 # Gunicorn config, not a package; /dev/shm is its documented heartbeat dir.
 "docker/gunicorn.conf.py" = ["INP001", "S108"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+ignore-decorators = ["django.dispatch.receiver", "typing.override"]
+property-decorators = ["django.utils.functional.cached_property"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 8

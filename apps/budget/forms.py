@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING, Any, ClassVar
+"""Forms for categories and expense accounts."""
+
+from typing import TYPE_CHECKING, Any, ClassVar, override
 
 from django import forms
 from django.conf import settings
@@ -13,6 +15,8 @@ if TYPE_CHECKING:
 
 
 class CategoryForm(forms.ModelForm[Category]):
+    """Create or edit one of the owner's categories."""
+
     class Meta:
         model = Category
         fields = ("kind", "name", "icon", "description", "color", "hidden")
@@ -24,6 +28,7 @@ class CategoryForm(forms.ModelForm[Category]):
 
     @property
     def icon_picker(self) -> dict[str, Any]:
+        """Curated icons plus the current one, if it is not curated."""
         selected = str(self["icon"].value() or "tag")
         icons = list(CURATED_ICONS)
         if selected not in icons:
@@ -32,18 +37,21 @@ class CategoryForm(forms.ModelForm[Category]):
 
     @property
     def color_swatches(self) -> list[tuple[str, str, bool]]:
+        """Each colour's name, swatch class and whether it is selected."""
         selected = self["color"].value()
         return [
             (name, swatch, name == selected) for name, swatch in SWATCH_CLASSES.items()
         ]
 
     def clean_icon(self) -> str:
+        """Default a blank icon to the tag and reject names with no SVG."""
         icon: str = self.cleaned_data["icon"].strip() or "tag"
         if read_icon(str(settings.LUCIDE_ICON_DIR), icon) is None:
             msg = "Unknown icon name."
             raise forms.ValidationError(msg)
         return icon
 
+    @override
     def clean(self) -> dict[str, Any]:
         cleaned: dict[str, Any] = super().clean() or {}
         kind, name = cleaned.get("kind"), cleaned.get("name")
@@ -57,12 +65,15 @@ class CategoryForm(forms.ModelForm[Category]):
                 self.add_error("name", "A category with this name already exists.")
         return cleaned
 
-    def save(self, commit: bool = True) -> Category:  # noqa: FBT001, FBT002
+    @override
+    def save(self, commit: bool = True) -> Category:
         self.instance.owner = self.owner
         return super().save(commit=commit)
 
 
 class ExpenseAccountForm(forms.ModelForm[ExpenseAccount]):
+    """Create or edit one of the owner's expense accounts."""
+
     class Meta:
         model = ExpenseAccount
         fields = ("name", "notes", "hidden")
@@ -73,6 +84,7 @@ class ExpenseAccountForm(forms.ModelForm[ExpenseAccount]):
         self.owner = owner
 
     def clean_name(self) -> str:
+        """Reject a name the owner already uses, ignoring case."""
         name: str = self.cleaned_data["name"]
         clash = ExpenseAccount.objects.filter(owner=self.owner, name__iexact=name)
         if self.instance.pk:
@@ -82,12 +94,15 @@ class ExpenseAccountForm(forms.ModelForm[ExpenseAccount]):
             raise forms.ValidationError(msg)
         return name
 
-    def save(self, commit: bool = True) -> ExpenseAccount:  # noqa: FBT001, FBT002
+    @override
+    def save(self, commit: bool = True) -> ExpenseAccount:
         self.instance.owner = self.owner
         return super().save(commit=commit)
 
 
 class ExpenseAccountMergeForm(forms.Form):
+    """Pick another of the owner's expense accounts to merge into."""
+
     target = forms.ModelChoiceField(
         queryset=ExpenseAccount.objects.none(), label="Merge into", empty_label=None
     )

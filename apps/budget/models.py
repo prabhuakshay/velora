@@ -1,3 +1,5 @@
+"""Budget models: categories and expense accounts."""
+
 from typing import TYPE_CHECKING, ClassVar
 
 from django.conf import settings
@@ -79,6 +81,7 @@ class Category(models.Model):
 
     @property
     def color_class(self) -> str:
+        """Tailwind text colour class for the category's colour."""
         return COLOR_CLASSES[self.color]
 
 

@@ -1,3 +1,5 @@
+"""Icons offered in the category icon picker before any search."""
+
 CURATED_ICONS = (
     "tag",
     "wallet",

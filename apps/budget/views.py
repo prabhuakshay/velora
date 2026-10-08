@@ -1,3 +1,5 @@
+"""Views for managing categories and expense accounts."""
+
 from typing import TYPE_CHECKING
 
 from django.conf import settings
@@ -41,6 +43,7 @@ def _saved(form: forms.ModelForm) -> bool:  # type: ignore[type-arg]
 
 @login_required
 def category_list(request: HttpRequest) -> HttpResponse:
+    """List the user's categories by kind, with recent activity."""
     show_hidden = request.GET.get("show_hidden") == "1"
     categories = _own_categories(request).order_by(Lower("name"))
     if not show_hidden:
@@ -67,6 +70,7 @@ def _activity_context(request: HttpRequest, offset: int) -> dict[str, object]:
 
 @login_required
 def category_activity(request: HttpRequest) -> HttpResponse:
+    """Render the next page of the activity feed."""
     try:
         offset = max(int(request.GET.get("offset", "0")), 0)
     except ValueError:
@@ -78,6 +82,7 @@ def category_activity(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def category_create(request: HttpRequest) -> HttpResponseBase:
+    """Create a category."""
     form = CategoryForm(request.POST or None, owner=request.user)  # type: ignore[arg-type]
     if form.is_valid() and _saved(form):
         return redirect("category_list")
@@ -86,6 +91,7 @@ def category_create(request: HttpRequest) -> HttpResponseBase:
 
 @login_required
 def category_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Edit one of the user's categories."""
     category = get_object_or_404(_own_categories(request), pk=pk)
     form = CategoryForm(
         request.POST or None,
@@ -101,6 +107,7 @@ def category_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 @login_required
 def category_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Confirm, then delete one of the user's categories."""
     category = get_object_or_404(_own_categories(request), pk=pk)
     if request.method == "POST":
         category.delete()
@@ -112,6 +119,7 @@ def category_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 @login_required
 def icon_search(request: HttpRequest) -> HttpResponse:
+    """Render icons matching the search, keeping the selected one."""
     selected = request.GET.get("icon", "")
     icons = search_icons(str(settings.LUCIDE_ICON_DIR), request.GET.get("q", ""))
     if selected and selected not in CURATED_ICONS and selected not in icons:
@@ -139,6 +147,7 @@ def _set_hidden(
 @login_required
 @require_POST
 def category_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Hide a category from the default list."""
     return _set_hidden(
         request, get_object_or_404(_own_categories(request), pk=pk), hidden=True
     )
@@ -147,6 +156,7 @@ def category_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 @require_POST
 def category_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Show a hidden category in the default list again."""
     return _set_hidden(
         request, get_object_or_404(_own_categories(request), pk=pk), hidden=False
     )
@@ -154,6 +164,7 @@ def category_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 @login_required
 def expense_account_list(request: HttpRequest) -> HttpResponse:
+    """List the user's expense accounts by name."""
     show_hidden = request.GET.get("show_hidden") == "1"
     expense_accounts = _own_expense_accounts(request).order_by(Lower("name"))
     if not show_hidden:
@@ -164,6 +175,7 @@ def expense_account_list(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def expense_account_create(request: HttpRequest) -> HttpResponseBase:
+    """Create an expense account."""
     form = ExpenseAccountForm(request.POST or None, owner=request.user)  # type: ignore[arg-type]
     if form.is_valid() and _saved(form):
         return redirect("expense_account_list")
@@ -172,6 +184,7 @@ def expense_account_create(request: HttpRequest) -> HttpResponseBase:
 
 @login_required
 def expense_account_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Edit one of the user's expense accounts."""
     expense_account = get_object_or_404(_own_expense_accounts(request), pk=pk)
     form = ExpenseAccountForm(
         request.POST or None,
@@ -190,6 +203,7 @@ def expense_account_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 @require_POST
 def expense_account_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Hide an expense account from the default list."""
     expense_account = get_object_or_404(_own_expense_accounts(request), pk=pk)
     return _set_hidden(
         request, expense_account, hidden=True, list_url="expense_account_list"
@@ -199,6 +213,7 @@ def expense_account_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 @require_POST
 def expense_account_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Show a hidden expense account in the default list again."""
     expense_account = get_object_or_404(_own_expense_accounts(request), pk=pk)
     return _set_hidden(
         request, expense_account, hidden=False, list_url="expense_account_list"
@@ -207,6 +222,7 @@ def expense_account_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 @login_required
 def expense_account_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Merge an expense account into another of the user's."""
     source = get_object_or_404(_own_expense_accounts(request), pk=pk)
     form = ExpenseAccountMergeForm(request.POST or None, source=source)
     if form.is_valid():
@@ -222,6 +238,7 @@ def expense_account_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 @login_required
 def expense_account_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Confirm, then delete one of the user's expense accounts."""
     expense_account = get_object_or_404(_own_expense_accounts(request), pk=pk)
     if request.method == "POST":
         expense_account.delete()

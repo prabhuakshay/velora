@@ -1,3 +1,5 @@
+"""Per-IP rate limiting for POST views."""
+
 from functools import wraps
 from typing import TYPE_CHECKING
 
@@ -20,6 +22,7 @@ UNIT_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 
 
 def parse_rate(rate: str) -> tuple[int, int]:
+    """Parse "<count>/<s|m|h|d>" into a request count and window in seconds."""
     count, _, unit = rate.partition("/")
     if not count.isdigit() or unit not in UNIT_SECONDS:
         msg = f"Invalid rate {rate!r}, expected '<count>/<s|m|h|d>'"

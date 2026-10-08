@@ -1,3 +1,5 @@
+"""Search the icon directory by name and tag."""
+
 import json
 from functools import cache
 from pathlib import Path
@@ -19,6 +21,7 @@ def _index(directory: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 
 def search_icons(directory: str, query: str, limit: int = MAX_RESULTS) -> list[str]:
+    """Return icon names whose name or tags contain the query."""
     needle = query.strip().lower()
     if not needle:
         return []

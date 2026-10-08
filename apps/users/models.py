@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING, ClassVar
+"""Custom user model that signs in by email."""
+
+from typing import TYPE_CHECKING, ClassVar, override
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
@@ -12,9 +14,12 @@ if TYPE_CHECKING:
 
 
 class UserManager(BaseUserManager["User"]):
+    """Create users keyed by a lowercased email."""
+
     def create_user(
         self, email: str, password: str | None = None, **extra_fields: object
     ) -> User:
+        """Create a user with a lowercased email and the given password."""
         if not email:
             msg = "Users must have an email address."
             raise ValueError(msg)
@@ -26,15 +31,19 @@ class UserManager(BaseUserManager["User"]):
     def create_superuser(
         self, email: str, password: str | None = None, **extra_fields: object
     ) -> User:
+        """Create a user with staff and superuser rights."""
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
 
+    @override
     def get_by_natural_key(self, username: str | None) -> User:
         return self.get(email__iexact=username)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    """A person who signs in with their email address."""
+
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=150, blank=True)
     is_staff = models.BooleanField(default=False)
@@ -59,12 +68,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self) -> str:
         return self.email
 
+    @override
     def clean(self) -> None:
         super().clean()
         self.email = self.__class__.objects.normalize_email(self.email).lower()
 
     def get_full_name(self) -> str:
+        """The user's full name, for the admin."""
         return self.full_name
 
     def get_short_name(self) -> str:
+        """The user's full name; there is no shorter form."""
         return self.full_name

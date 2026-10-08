@@ -1,3 +1,5 @@
+"""Readable activity feed built from category history."""
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -19,6 +21,8 @@ CHANGED_LABELS = {
 
 @dataclass
 class Entry:
+    """One line of the activity feed."""
+
     text: str
     when: datetime
 
