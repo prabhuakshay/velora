@@ -38,3 +38,7 @@ docs/
 .gitignore
 .dockerignore
 .pre-commit-config.yaml
+
+# Tests never run in the image; dev bind-mounts the tree instead.
+**/tests/
+conftest.py
