@@ -10,7 +10,7 @@
     {% for field in form %}
       {% if field.name == "hidden" %}
         <label class="flex items-center gap-2 text-sm text-slate-700">{{ field }} Hidden</label>
-      {% elif field.name == "group" or field.name == "color" %}
+      {% elif field.name == "group" %}
         <div>
           <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ field.label }}</label>
           <div class="mt-1 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-slate-300 [&_select]:px-3 [&_select]:py-2 [&_select]:text-base">
@@ -20,6 +20,8 @@
             <p class="mt-1 text-sm text-red-600">{{ error }}</p>
           {% endfor %}
         </div>
+      {% elif field.name == "color" %}
+        {% include "budget/_color_picker.html" %}
       {% elif field.name == "icon" %}
         {% include "budget/_icon_picker.html" %}
       {% else %}

@@ -68,6 +68,19 @@ COLOR_CLASSES = {
 }
 
 
+SWATCH_CLASSES = {
+    "slate": "bg-slate-600",
+    "red": "bg-red-600",
+    "orange": "bg-orange-600",
+    "amber": "bg-amber-600",
+    "green": "bg-green-600",
+    "cyan": "bg-cyan-600",
+    "blue": "bg-blue-600",
+    "violet": "bg-violet-600",
+    "pink": "bg-pink-600",
+}
+
+
 class Category(models.Model):
     """A budget category inside a group.
 

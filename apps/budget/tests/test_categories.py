@@ -246,3 +246,15 @@ def test_concurrent_duplicate_category_name_shows_error(
 
     assert response.status_code == 200
     assert "already" in response.content.decode()
+
+
+def test_category_form_offers_a_swatch_per_colour(
+    signed_in: Client, user: User
+) -> None:
+    make_group(user, "Food")
+
+    body = signed_in.get(reverse("category_create")).content.decode()
+
+    assert 'type="radio" name="color" value="cyan"' in body
+    assert "bg-cyan-600" in body
+    assert '<select name="color"' not in body

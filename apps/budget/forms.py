@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db.models.functions import Lower
 
 from apps.budget.icon_picker import CURATED_ICONS
-from apps.budget.models import Category, CategoryGroup
+from apps.budget.models import SWATCH_CLASSES, Category, CategoryGroup
 from apps.icons.templatetags.icons import read_icon
 
 if TYPE_CHECKING:
@@ -56,6 +56,13 @@ class CategoryForm(forms.ModelForm[Category]):
         if selected not in icons:
             icons.insert(0, selected)
         return {"icons": icons, "selected": selected}
+
+    @property
+    def color_swatches(self) -> list[tuple[str, str, bool]]:
+        selected = self["color"].value()
+        return [
+            (name, swatch, name == selected) for name, swatch in SWATCH_CLASSES.items()
+        ]
 
     def clean_icon(self) -> str:
         icon: str = self.cleaned_data["icon"].strip() or "tag"
