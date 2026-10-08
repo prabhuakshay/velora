@@ -1,0 +1,3 @@
+- Checks: `uv run prek run --all-files`, then `uv run pytest`. Hooks reject the commit on failure.
+- GitHub identity is `prabhuakshay`; set git credentials locally (`gh auth setup-git`), never globally.
+- Client IP: `get_client_ip` with the axes trusted-proxy setting in `config/settings.py`.
