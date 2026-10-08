@@ -28,7 +28,7 @@
               <p class="text-xs text-slate-500">{{ group.get_kind_display }}</p>
             </div>
             <div class="flex shrink-0 gap-3 text-sm">
-              <form method="post" action="{% url group.hidden|yesno:'group_unhide,group_hide' group.pk %}">
+              <form method="post" action="{% url group.hidden|yesno:'group_unhide,group_hide' group.pk %}{% if show_hidden %}?show_hidden=1{% endif %}">
                 {% csrf_token %}
                 <button class="text-slate-600 underline hover:text-slate-900">{% if group.hidden %}Unhide{% else %}Hide{% endif %}</button>
               </form>
@@ -44,7 +44,7 @@
                   <span class="truncate">{{ category.name }}</span>
                 </span>
                 <span class="flex shrink-0 gap-3 text-sm">
-                  <form method="post" action="{% url category.hidden|yesno:'category_unhide,category_hide' category.pk %}">
+                  <form method="post" action="{% url category.hidden|yesno:'category_unhide,category_hide' category.pk %}{% if show_hidden %}?show_hidden=1{% endif %}">
                     {% csrf_token %}
                     <button class="text-slate-600 underline hover:text-slate-900">{% if category.hidden %}Unhide{% else %}Hide{% endif %}</button>
                   </form>

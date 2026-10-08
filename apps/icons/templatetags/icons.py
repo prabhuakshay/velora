@@ -13,13 +13,26 @@ FALLBACK = "tag"
 _CLASS_ATTR = re.compile(r'class="([^"]*)"')
 
 
+_LEADING_COMMENT = re.compile(r"\A\s*<!--.*?-->\s*", re.DOTALL)
+
+
 @cache
+def _names(directory: str) -> frozenset[str]:
+    return frozenset(path.stem for path in Path(directory).glob("*.svg"))
+
+
+@cache
+def load_svg(directory: str, name: str) -> str:
+    svg = (Path(directory) / f"{name}.svg").read_text(encoding="utf-8")
+    return _LEADING_COMMENT.sub("", svg, count=1)
+
+
 def read_icon(directory: str, name: str) -> str | None:
-    path = Path(directory) / f"{name}.svg"
-    # Names come from user-editable data; never let one escape the directory.
-    if path.parent != Path(directory) or not path.is_file():
+    # Checking the directory listing first keeps the cache bounded to real icons,
+    # and stops names from user-editable data escaping the directory.
+    if name not in _names(directory):
         return None
-    return path.read_text(encoding="utf-8")
+    return load_svg(directory, name)
 
 
 @register.simple_tag

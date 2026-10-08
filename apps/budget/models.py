@@ -1,12 +1,31 @@
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.functions import Lower
 from simple_history.models import HistoricalRecords
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from django.db.models.deletion import Collector
+
+
+def _protect_unless_owner_deleted(
+    collector: Collector,
+    field: models.Field[Any, Any],
+    sub_objs: models.QuerySet[Category],
+    using: str,
+) -> None:
+    """PROTECT, except when the group is going away because its owner is."""
+    owners = {user.pk for user in collector.data.get(get_user_model(), ())}
+    cascading = sub_objs.filter(group__owner_id__in=owners)
+    if cascading:
+        models.CASCADE(collector, field, cascading, using)
+    protected = sub_objs.exclude(pk__in=cascading.values("pk"))
+    if protected:
+        models.PROTECT(collector, field, protected, using)
 
 
 class CategoryGroup(models.Model):
@@ -60,7 +79,9 @@ class Category(models.Model):
     """
 
     group = models.ForeignKey(
-        CategoryGroup, on_delete=models.PROTECT, related_name="categories"
+        CategoryGroup,
+        on_delete=_protect_unless_owner_deleted,
+        related_name="categories",
     )
     name = models.CharField(max_length=100)
     icon = models.CharField(max_length=64, default="tag")

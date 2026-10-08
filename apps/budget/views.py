@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
 from django.db.models import Case, IntegerField, Prefetch, Value, When
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,6 +15,7 @@ from apps.budget.models import Category, CategoryGroup
 from apps.icons.search import search_icons
 
 if TYPE_CHECKING:
+    from django import forms
     from django.db import models
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
@@ -29,6 +31,17 @@ def _own_categories(request: HttpRequest) -> models.QuerySet[Category]:
     )
 
 
+def _saved(form: forms.ModelForm) -> bool:  # type: ignore[type-arg]
+    """Save, turning a concurrent duplicate name into a form error."""
+    try:
+        with transaction.atomic():
+            form.save()
+    except IntegrityError:
+        form.add_error("name", "This name already exists.")
+        return False
+    return True
+
+
 @login_required
 def category_list(request: HttpRequest) -> HttpResponse:
     expense_first = Case(
@@ -36,7 +49,7 @@ def category_list(request: HttpRequest) -> HttpResponse:
         default=Value(1),
         output_field=IntegerField(),
     )
-    show_hidden = bool(request.GET.get("show_hidden"))
+    show_hidden = request.GET.get("show_hidden") == "1"
     groups = _own_groups(request)
     categories = Category.objects.order_by(Lower("name"))
     if not show_hidden:
@@ -63,7 +76,10 @@ def _activity_context(request: HttpRequest, offset: int) -> dict[str, object]:
 
 @login_required
 def category_activity(request: HttpRequest) -> HttpResponse:
-    offset = max(int(request.GET.get("offset", 0) or 0), 0)
+    try:
+        offset = max(int(request.GET.get("offset", "0")), 0)
+    except ValueError:
+        offset = 0
     return render(
         request, "budget/activity_items.html", _activity_context(request, offset)
     )
@@ -72,8 +88,7 @@ def category_activity(request: HttpRequest) -> HttpResponse:
 @login_required
 def group_create(request: HttpRequest) -> HttpResponseBase:
     form = CategoryGroupForm(request.POST or None, owner=request.user)  # type: ignore[arg-type]
-    if form.is_valid():
-        form.save()
+    if form.is_valid() and _saved(form):
         return redirect("category_list")
     return render(request, "budget/group_form.html", {"form": form})
 
@@ -86,8 +101,7 @@ def group_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
         instance=group,
         owner=request.user,  # type: ignore[arg-type]
     )
-    if form.is_valid():
-        form.save()
+    if form.is_valid() and _saved(form):
         return redirect("category_list")
     return render(request, "budget/group_form.html", {"form": form, "group": group})
 
@@ -111,8 +125,7 @@ def group_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 def category_create(request: HttpRequest) -> HttpResponseBase:
     form = CategoryForm(request.POST or None, owner=request.user)  # type: ignore[arg-type]
-    if form.is_valid():
-        form.save()
+    if form.is_valid() and _saved(form):
         return redirect("category_list")
     return render(request, "budget/category_form.html", {"form": form})
 
@@ -125,8 +138,7 @@ def category_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
         instance=category,
         owner=request.user,  # type: ignore[arg-type]
     )
-    if form.is_valid():
-        form.save()
+    if form.is_valid() and _saved(form):
         return redirect("category_list")
     return render(
         request, "budget/category_form.html", {"form": form, "category": category}
@@ -155,31 +167,44 @@ def icon_search(request: HttpRequest) -> HttpResponse:
     )
 
 
-def _set_hidden(obj: CategoryGroup | Category, *, hidden: bool) -> HttpResponseBase:
+def _set_hidden(
+    request: HttpRequest, obj: CategoryGroup | Category, *, hidden: bool
+) -> HttpResponseBase:
     obj.hidden = hidden
     obj.save()
-    return redirect("category_list")
+    response = redirect("category_list")
+    if request.GET.get("show_hidden") == "1":
+        response["Location"] += "?show_hidden=1"
+    return response
 
 
 @login_required
 @require_POST
 def group_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
-    return _set_hidden(get_object_or_404(_own_groups(request), pk=pk), hidden=True)
+    return _set_hidden(
+        request, get_object_or_404(_own_groups(request), pk=pk), hidden=True
+    )
 
 
 @login_required
 @require_POST
 def group_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
-    return _set_hidden(get_object_or_404(_own_groups(request), pk=pk), hidden=False)
+    return _set_hidden(
+        request, get_object_or_404(_own_groups(request), pk=pk), hidden=False
+    )
 
 
 @login_required
 @require_POST
 def category_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
-    return _set_hidden(get_object_or_404(_own_categories(request), pk=pk), hidden=True)
+    return _set_hidden(
+        request, get_object_or_404(_own_categories(request), pk=pk), hidden=True
+    )
 
 
 @login_required
 @require_POST
 def category_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
-    return _set_hidden(get_object_or_404(_own_categories(request), pk=pk), hidden=False)
+    return _set_hidden(
+        request, get_object_or_404(_own_categories(request), pk=pk), hidden=False
+    )

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from django.urls import reverse
@@ -132,3 +132,41 @@ def test_hidden_and_unhidden_wording(signed_in: Client, user: User) -> None:
     group.hidden = False
     group.save()
     assert "Unhidden Food" in panel(signed_in)
+
+
+def test_non_numeric_offset_falls_back_to_first_page(
+    signed_in: Client, user: User
+) -> None:
+    make_group(user, "Food")
+
+    response = signed_in.get(reverse("category_activity"), {"offset": "abc"})
+
+    assert response.status_code == 200
+    assert "Created Food" in response.content.decode()
+
+
+def test_moved_entry_uses_group_name_at_that_time(
+    signed_in: Client, user: User
+) -> None:
+    category = make_category(make_group(user, "Food"), "Groceries")
+    home = make_group(user, "Home")
+    category.group = home
+    category.save()
+    home.name = "House"
+    home.save()
+
+    assert "Moved Groceries to Home" in panel(signed_in)
+
+
+def test_panel_query_count_does_not_grow_with_entries(
+    signed_in: Client, user: User, django_assert_max_num_queries: Any
+) -> None:
+    group = make_group(user, "Food")
+    other = make_group(user, "Home")
+    for i in range(5):
+        category = make_category(group, f"Cat {i}")
+        category.group = other
+        category.save()
+
+    with django_assert_max_num_queries(12):
+        panel(signed_in)

@@ -149,3 +149,29 @@ def test_hiding_is_recorded_in_history(
     assert group.history.first().hidden
     assert category.history.first().hidden
     assert group.history.count() == 2
+
+
+def test_show_hidden_only_on_for_exactly_one(
+    signed_in: Client, group: CategoryGroup
+) -> None:
+    group.hidden = True
+    group.save()
+
+    assert "Housing" not in list_page(signed_in, "?show_hidden=0")
+
+
+@pytest.mark.parametrize("name", HIDE_ACTIONS)
+def test_hide_actions_keep_show_hidden(
+    signed_in: Client, group: CategoryGroup, category: Category, name: str
+) -> None:
+    pk = group.pk if name.startswith("group") else category.pk
+
+    response = signed_in.post(reverse(name, args=[pk]) + "?show_hidden=1")
+
+    assert response["Location"] == reverse("category_list") + "?show_hidden=1"
+
+
+def test_list_forms_carry_show_hidden(signed_in: Client, group: CategoryGroup) -> None:
+    content = list_page(signed_in, "?show_hidden=1")
+
+    assert reverse("group_hide", args=[group.pk]) + "?show_hidden=1" in content

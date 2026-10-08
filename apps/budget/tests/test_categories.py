@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 import pytest
 from django.urls import reverse
 
+from apps.budget.forms import CategoryForm
 from apps.budget.models import Category, CategoryGroup
 
 if TYPE_CHECKING:
@@ -227,3 +228,21 @@ def test_admin_shows_categories_with_history(client: Client, superuser: User) ->
     assert client.get(reverse("admin:budget_category_changelist")).status_code == 200
     history = reverse("admin:budget_category_history", args=[category.pk])
     assert client.get(history).status_code == 200
+
+
+def test_concurrent_duplicate_category_name_shows_error(
+    signed_in: Client, user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    group = CategoryGroup.objects.create(
+        owner=user, name="Food", kind=CategoryGroup.Kind.EXPENSE
+    )
+    Category.objects.create(group=group, name="Rent", color="red")
+    monkeypatch.setattr(CategoryForm, "clean", lambda self: self.cleaned_data)
+
+    response = signed_in.post(
+        reverse("category_create"),
+        {"group": group.pk, "name": "rent", "color": "red", "icon": ""},
+    )
+
+    assert response.status_code == 200
+    assert "already" in response.content.decode()

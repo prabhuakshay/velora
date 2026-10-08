@@ -3,6 +3,23 @@
 from django.db import migrations, models
 
 
+REMAP = {
+    "lime": "green",
+    "emerald": "green",
+    "teal": "cyan",
+    "sky": "cyan",
+    "fuchsia": "pink",
+    "rose": "pink",
+}
+
+
+def remap_colors(apps, schema_editor):
+    for model_name in ("Category", "HistoricalCategory"):
+        model = apps.get_model("budget", model_name)
+        for old, new in REMAP.items():
+            model.objects.filter(color=old).update(color=new)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,6 +27,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(remap_colors, migrations.RunPython.noop),
         migrations.AlterField(
             model_name='category',
             name='color',

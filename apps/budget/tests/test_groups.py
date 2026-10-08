@@ -1,9 +1,11 @@
 from typing import TYPE_CHECKING
 
 import pytest
+from django.db.models import ProtectedError
 from django.urls import reverse
 
-from apps.budget.models import CategoryGroup
+from apps.budget.forms import CategoryGroupForm
+from apps.budget.models import Category, CategoryGroup
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -206,3 +208,42 @@ def test_admin_shows_groups_with_history(client: Client, superuser: User) -> Non
     )
     history = reverse("admin:budget_categorygroup_history", args=[group.pk])
     assert client.get(history).status_code == 200
+
+
+def test_deleting_a_user_removes_their_groups_and_categories(user: User) -> None:
+    group = CategoryGroup.objects.create(
+        owner=user, name="Food", kind=CategoryGroup.Kind.EXPENSE
+    )
+    Category.objects.create(group=group, name="Groceries", color="red")
+
+    user.delete()
+
+    assert not CategoryGroup.objects.exists()
+    assert not Category.objects.exists()
+
+
+def test_group_with_categories_is_still_protected(user: User) -> None:
+    group = CategoryGroup.objects.create(
+        owner=user, name="Food", kind=CategoryGroup.Kind.EXPENSE
+    )
+    Category.objects.create(group=group, name="Groceries", color="red")
+
+    with pytest.raises(ProtectedError):
+        group.delete()
+
+
+def test_concurrent_duplicate_group_name_shows_error(
+    signed_in: Client, user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    CategoryGroup.objects.create(
+        owner=user, name="Food", kind=CategoryGroup.Kind.EXPENSE
+    )
+    # Simulates the race: validation passed before the other request committed.
+    monkeypatch.setattr(CategoryGroupForm, "clean_name", lambda self: "Food")
+
+    response = signed_in.post(
+        reverse("group_create"), {"name": "food", "kind": "EXPENSE"}
+    )
+
+    assert response.status_code == 200
+    assert "already" in response.content.decode()

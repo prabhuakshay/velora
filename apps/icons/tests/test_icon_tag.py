@@ -43,7 +43,7 @@ def test_path_traversal_name_falls_back_to_tag() -> None:
 
 
 def test_repeated_renders_do_not_reread_file(monkeypatch: pytest.MonkeyPatch) -> None:
-    icons.read_icon.cache_clear()
+    icons.load_svg.cache_clear()
     reads: list[Path] = []
     original = Path.read_text
 
@@ -61,10 +61,23 @@ def test_repeated_renders_do_not_reread_file(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_icon_directory_comes_from_setting(tmp_path: Path) -> None:
     (tmp_path / "tag.svg").write_text('<svg class="lucide lucide-tag"></svg>')
-    icons.read_icon.cache_clear()
+    icons.load_svg.cache_clear()
 
     with override_settings(LUCIDE_ICON_DIR=tmp_path):
         html = render('{% icon "wallet" %}')
 
     assert "lucide-tag" in html
-    icons.read_icon.cache_clear()
+    icons.load_svg.cache_clear()
+
+
+def test_license_comment_is_stripped() -> None:
+    assert "@license" not in render('{% icon "wallet" %}')
+
+
+def test_unknown_names_are_not_cached() -> None:
+    icons.load_svg.cache_clear()
+
+    for i in range(5):
+        render(f'{{% icon "nope-{i}" %}}')
+
+    assert icons.load_svg.cache_info().currsize <= 1
