@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <main class="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-12">
+    <p class="mb-6 text-center text-2xl font-bold tracking-tight">Velora</p>
+    <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      {% block card %}{% endblock %}
+    </div>
+    {% block below_card %}{% endblock %}
+  </main>
+{% endblock %}

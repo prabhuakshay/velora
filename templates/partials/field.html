@@ -1,0 +1,12 @@
+<div>
+  <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ field.label }}</label>
+  <div class="mt-1 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-slate-300 [&_input]:px-3 [&_input]:py-2 [&_input]:text-base [&_input:focus]:border-slate-900 [&_input:focus]:outline-none">
+    {{ field }}
+  </div>
+  {% if field.help_text %}
+    <div class="mt-1 text-xs text-slate-500 [&_ul]:list-disc [&_ul]:pl-4">{{ field.help_text|safe }}</div>
+  {% endif %}
+  {% for error in field.errors %}
+    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+  {% endfor %}
+</div>

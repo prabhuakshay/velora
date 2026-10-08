@@ -24,6 +24,9 @@ ADMIN_URL = env.str("ADMIN_URL", default="admin/")
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 AUTH_USER_MODEL = "users.User"
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "index"
+LOGOUT_REDIRECT_URL = "login"
 
 
 # Applications
@@ -147,7 +150,9 @@ if env.bool("USE_X_FORWARDED_PROTO", default=False):
 SECURE_CSP = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF, CSP.NONCE],
-    "style-src": [CSP.SELF, CSP.NONCE],
+    # The Tailwind CDN injects <style> tags without a nonce; drop once Tailwind
+    # is built locally.
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
     "img-src": [CSP.SELF, "data:"],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],

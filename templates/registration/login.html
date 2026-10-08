@@ -1,0 +1,24 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Log in · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">Log in</h1>
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    {% include "partials/form_errors.html" %}
+    {% include "partials/field.html" with field=form.username %}
+    {% include "partials/field.html" with field=form.password %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% include "partials/submit.html" with label="Log in" %}
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'password_reset' %}" class="text-slate-600 underline hover:text-slate-900">Forgot password?</a>
+  </p>
+{% endblock %}
+
+{% block below_card %}
+  <p class="mt-6 text-center text-xs text-slate-500">
+    Your IP address: <span class="font-mono">{{ request.META.REMOTE_ADDR }}</span>
+  </p>
+{% endblock %}
