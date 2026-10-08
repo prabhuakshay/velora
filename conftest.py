@@ -15,6 +15,9 @@ def pytest_configure() -> None:
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
         },
     }
+    # Defaults to on unless DEBUG, which made tests pass only with a local .env
+    # setting DEBUG=True; the test client speaks plain HTTP and got 301s.
+    settings.SECURE_SSL_REDIRECT = False
 
 
 @pytest.fixture(autouse=True)
