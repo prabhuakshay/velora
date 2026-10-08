@@ -59,5 +59,11 @@
         <p class="text-slate-500">No category groups yet.</p>
       {% endfor %}
     </div>
+    <section class="mt-8">
+      <h2 class="font-semibold">Recent activity</h2>
+      <ul id="activity" class="mt-2 divide-y divide-slate-100 text-sm">
+        {% include "budget/activity_items.html" %}
+      </ul>
+    </section>
   </main>
 {% endblock %}

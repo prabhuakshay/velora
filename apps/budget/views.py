@@ -7,6 +7,7 @@ from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.budget.activity import PAGE_SIZE, recent_entries
 from apps.budget.forms import CategoryForm, CategoryGroupForm
 from apps.budget.icon_picker import CURATED_ICONS
 from apps.budget.models import Category, CategoryGroup
@@ -44,8 +45,28 @@ def category_list(request: HttpRequest) -> HttpResponse:
     groups = groups.order_by(expense_first, Lower("name")).prefetch_related(
         Prefetch("categories", categories)
     )
-    context = {"groups": groups, "show_hidden": show_hidden}
+    context = {
+        "groups": groups,
+        "show_hidden": show_hidden,
+        **_activity_context(request, 0),
+    }
     return render(request, "budget/category_list.html", context)
+
+
+def _activity_context(request: HttpRequest, offset: int) -> dict[str, object]:
+    entries, has_more = recent_entries(request.user.pk, offset)  # type: ignore[arg-type]
+    return {
+        "entries": entries,
+        "next_offset": offset + PAGE_SIZE if has_more else None,
+    }
+
+
+@login_required
+def category_activity(request: HttpRequest) -> HttpResponse:
+    offset = max(int(request.GET.get("offset", 0) or 0), 0)
+    return render(
+        request, "budget/activity_items.html", _activity_context(request, offset)
+    )
 
 
 @login_required

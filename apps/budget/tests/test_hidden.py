@@ -34,7 +34,9 @@ def category(group: CategoryGroup) -> Category:
 
 
 def list_page(client: Client, query: str = "") -> str:
-    return client.get(reverse("category_list") + query).content.decode()
+    body = client.get(reverse("category_list") + query).content.decode()
+    # The activity panel names hidden items too.
+    return body.split('id="activity"')[0]
 
 
 def test_hiding_group_removes_it_and_its_categories(
