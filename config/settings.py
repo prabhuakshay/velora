@@ -41,7 +41,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "simple_history",
     "axes",
-    "lucide",
     "apps.users",
 ]
 
@@ -75,7 +74,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.users.context_processors.client_ip",
             ],
-            "builtins": ["django.templatetags.static", "lucide.templatetags.lucide"],
+            "builtins": ["django.templatetags.static", "apps.icons.templatetags.icons"],
         },
     },
 ]
@@ -154,6 +153,9 @@ STATIC_URL = env.str("STATIC_URL", default="static/")
 STATIC_ROOT = env.path("STATIC_ROOT", default=BASE_DIR / "staticfiles")
 # Built by the tailwind container (npm run build/watch); not in git.
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Written by `npm run vendor`.
+LUCIDE_ICON_DIR = env.path("LUCIDE_ICON_DIR", default=BASE_DIR / "static" / "icons")
 MEDIA_URL = env.str("MEDIA_URL", default="media/")
 MEDIA_ROOT = env.path("MEDIA_ROOT", default=BASE_DIR / "media")
 
