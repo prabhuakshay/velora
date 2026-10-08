@@ -41,10 +41,13 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "simple_history",
     "axes",
+    "lucide",
     "apps.users",
 ]
 
 MIDDLEWARE = [
+    # First, so container probes skip the HTTPS redirect and host validation.
+    "config.middleware.HealthCheckMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "config.middleware.NoStoreMiddleware",
@@ -73,6 +76,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.users.context_processors.client_ip",
             ],
+            "builtins": ["django.templatetags.static", "lucide.templatetags.lucide"],
         },
     },
 ]
@@ -151,6 +155,8 @@ USE_TZ = True
 
 STATIC_URL = env.str("STATIC_URL", default="static/")
 STATIC_ROOT = env.path("STATIC_ROOT", default=BASE_DIR / "staticfiles")
+# Built by the tailwind container (npm run build/watch); not in git.
+STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = env.str("MEDIA_URL", default="media/")
 MEDIA_ROOT = env.path("MEDIA_ROOT", default=BASE_DIR / "media")
 
@@ -184,8 +190,7 @@ if env.bool("USE_X_FORWARDED_PROTO", default=False):
 SECURE_CSP = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF, CSP.NONCE],
-    # The Tailwind CDN injects <style> tags without a nonce; drop once Tailwind
-    # is built locally.
+    # Error pages render without a request, so their <style> has no nonce.
     "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
     "img-src": [CSP.SELF, "data:"],
     "object-src": [CSP.NONE],

@@ -1,0 +1,68 @@
+# Prod stack: `docker compose -f compose.prod.yaml up -d --build`.
+#
+# No database service: DATABASE_URL in .env is used as-is. The app publishes
+# on loopback only; a reverse proxy on this host terminates TLS, sets
+# X-Forwarded-Proto and X-Forwarded-For, and must strip client-sent copies.
+# Set USE_X_FORWARDED_PROTO=True and TRUSTED_PROXY_COUNT=1 in .env for it.
+
+name: velora-prod
+
+x-app: &app
+  image: velora:${DOCKER_IMAGE_TAG:-latest}
+  build:
+    context: .
+    target: prod
+  env_file:
+    # raw: compose would otherwise expand `$` and truncate secrets.
+    - path: .env
+      required: true
+      format: raw
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  volumes:
+    - media:/app/media
+  # Reaps processes reparented to PID 1 that gunicorn wouldn't.
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  migrate:
+    <<: *app
+    command: python manage.py migrate --noinput
+    restart: "no"
+
+  django:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      # Loopback only: gunicorn trusts forwarded headers from any peer.
+      - "127.0.0.1:${DOCKER_HOST_PORT:-8000}:8000"
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz/', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: ${DOCKER_CPU_LIMIT:-2.0}
+          memory: ${DOCKER_MEMORY_LIMIT:-1g}
+
+volumes:
+  media:

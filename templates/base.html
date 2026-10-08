@@ -4,10 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Velora{% endblock %}</title>
-    <script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <script nonce="{{ csp_nonce }}" src="{% static 'js/htmx.min.js' %}" defer></script>
+    <script nonce="{{ csp_nonce }}" src="{% static 'js/alpine.min.js' %}" defer></script>
     {% include "partials/forget_post.html" %}
   </head>
-  <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+  <body class="min-h-screen bg-slate-50 text-slate-900 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     {% block content %}{% endblock %}
   </body>
 </html>

@@ -1,0 +1,25 @@
+# Host-built or generated.
+.venv/
+node_modules/
+static/
+staticfiles/
+media/
+
+# Secrets: containers read config from the environment at run time.
+.env
+.env.*
+
+.git/
+.github/
+.claude/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+__pycache__/
+*.py[cod]
+
+compose*.yaml
+Dockerfile
+*.md
+LICENSE
