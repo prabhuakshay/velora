@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Categories · Velora{% endblock %}
+
+{% block content %}
+  <main class="mx-auto max-w-2xl px-4 py-8">
+    <a href="{% url 'index' %}" class="text-sm text-slate-600 underline hover:text-slate-900">Home</a>
+    <div class="mt-2 flex items-center justify-between gap-3">
+      <h1 class="text-2xl font-bold tracking-tight">Categories</h1>
+      <a href="{% url 'group_create' %}" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">New group</a>
+    </div>
+    <div class="mt-6 space-y-3">
+      {% for group in groups %}
+        <section class="flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <div class="min-w-0">
+            <h2 class="truncate font-semibold">{{ group.name }}</h2>
+            <p class="text-xs text-slate-500">{{ group.get_kind_display }}</p>
+          </div>
+          <div class="flex shrink-0 gap-3 text-sm">
+            <a href="{% url 'group_edit' group.pk %}" class="text-slate-600 underline hover:text-slate-900">Edit</a>
+            <a href="{% url 'group_delete' group.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
+          </div>
+        </section>
+      {% empty %}
+        <p class="text-slate-500">No category groups yet.</p>
+      {% endfor %}
+    </div>
+  </main>
+{% endblock %}

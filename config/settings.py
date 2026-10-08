@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "axes",
     "lucide",
     "apps.users",
+    "apps.budget",
 ]
 
 MIDDLEWARE = [
