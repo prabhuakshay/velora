@@ -1,9 +1,9 @@
 {% extends "auth_base.html" %}
 
-{% block title %}{% if party %}Edit party{% else %}New party{% endif %} · Velora{% endblock %}
+{% block title %}{% if expense_account %}Edit expense account{% else %}New expense account{% endif %} · Velora{% endblock %}
 
 {% block card %}
-  <h1 class="text-xl font-semibold">{% if party %}Edit party{% else %}New party{% endif %}</h1>
+  <h1 class="text-xl font-semibold">{% if expense_account %}Edit expense account{% else %}New expense account{% endif %}</h1>
   <form method="post" class="mt-6 space-y-4">
     {% csrf_token %}
     {% include "partials/form_errors.html" %}
@@ -15,6 +15,6 @@
     {% include "partials/submit.html" with label="Save" %}
   </form>
   <p class="mt-4 text-center text-sm">
-    <a href="{% url 'party_list' %}" class="text-slate-600 underline hover:text-slate-900">Cancel</a>
+    <a href="{% url 'expense_account_list' %}" class="text-slate-600 underline hover:text-slate-900">Cancel</a>
   </p>
 {% endblock %}

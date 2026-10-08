@@ -8,6 +8,6 @@ A personal budgeting app where each user organises money into categories and tra
 A budget bucket that money is assigned to. Owned by one user and either income or expense.
 _Avoid_: Tag, envelope
 
-**Party**:
-The other side of a transaction, whether money goes to them or comes from them. Owned by one user; direction lives on the transaction, not the party.
-_Avoid_: Payee, counterparty, merchant, vendor
+**Expense Account**:
+Where money goes when the user spends it, such as a shop or a landlord. Owned by one user.
+_Avoid_: Party, payee, counterparty, merchant, vendor

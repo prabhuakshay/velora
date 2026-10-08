@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Expense accounts · Velora{% endblock %}
+
+{% block content %}
+  <main class="mx-auto max-w-2xl px-4 py-8">
+    <a href="{% url 'index' %}" class="text-sm text-slate-600 underline hover:text-slate-900">Home</a>
+    <div class="mt-2 flex items-center justify-between gap-3">
+      <h1 class="text-2xl font-bold tracking-tight">Expense accounts</h1>
+      <a href="{% url 'expense_account_create' %}" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">New expense account</a>
+    </div>
+    <p class="mt-4 text-sm">
+      {% if show_hidden %}
+        <a href="{% url 'expense_account_list' %}" class="text-slate-600 underline hover:text-slate-900">Hide hidden</a>
+      {% else %}
+        <a href="?show_hidden=1" class="text-slate-600 underline hover:text-slate-900">Show hidden</a>
+      {% endif %}
+    </p>
+    <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+      {% for expense_account in expense_accounts %}
+        <li class="{% if expense_account.hidden %}opacity-50 {% endif %}flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <p class="truncate font-medium">{{ expense_account.name }}</p>
+            {% if expense_account.notes %}<p class="truncate text-xs text-slate-500">{{ expense_account.notes }}</p>{% endif %}
+          </div>
+          <div class="flex shrink-0 gap-3 text-sm">
+            <form method="post" action="{% url expense_account.hidden|yesno:'expense_account_unhide,expense_account_hide' expense_account.pk %}{% if show_hidden %}?show_hidden=1{% endif %}">
+              {% csrf_token %}
+              <button class="text-slate-600 underline hover:text-slate-900">{% if expense_account.hidden %}Unhide{% else %}Hide{% endif %}</button>
+            </form>
+            <a href="{% url 'expense_account_edit' expense_account.pk %}" class="text-slate-600 underline hover:text-slate-900">Edit</a>
+            <a href="{% url 'expense_account_merge' expense_account.pk %}" class="text-slate-600 underline hover:text-slate-900">Merge</a>
+            <a href="{% url 'expense_account_delete' expense_account.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
+          </div>
+        </li>
+      {% empty %}
+        <li class="py-3 text-slate-500">No expense accounts yet.</li>
+      {% endfor %}
+    </ul>
+  </main>
+{% endblock %}

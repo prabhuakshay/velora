@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db.models.functions import Lower
 
 from apps.budget.icon_picker import CURATED_ICONS
-from apps.budget.models import SWATCH_CLASSES, Category, Party
+from apps.budget.models import SWATCH_CLASSES, Category, ExpenseAccount
 from apps.icons.templatetags.icons import read_icon
 
 if TYPE_CHECKING:
@@ -62,9 +62,9 @@ class CategoryForm(forms.ModelForm[Category]):
         return super().save(commit=commit)
 
 
-class PartyForm(forms.ModelForm[Party]):
+class ExpenseAccountForm(forms.ModelForm[ExpenseAccount]):
     class Meta:
-        model = Party
+        model = ExpenseAccount
         fields = ("name", "notes", "hidden")
         widgets: ClassVar = {"notes": forms.Textarea(attrs={"rows": 3})}
 
@@ -74,28 +74,28 @@ class PartyForm(forms.ModelForm[Party]):
 
     def clean_name(self) -> str:
         name: str = self.cleaned_data["name"]
-        clash = Party.objects.filter(owner=self.owner, name__iexact=name)
+        clash = ExpenseAccount.objects.filter(owner=self.owner, name__iexact=name)
         if self.instance.pk:
             clash = clash.exclude(pk=self.instance.pk)
         if clash.exists():
-            msg = "A party with this name already exists."
+            msg = "An expense account with this name already exists."
             raise forms.ValidationError(msg)
         return name
 
-    def save(self, commit: bool = True) -> Party:  # noqa: FBT001, FBT002
+    def save(self, commit: bool = True) -> ExpenseAccount:  # noqa: FBT001, FBT002
         self.instance.owner = self.owner
         return super().save(commit=commit)
 
 
-class PartyMergeForm(forms.Form):
+class ExpenseAccountMergeForm(forms.Form):
     target = forms.ModelChoiceField(
-        queryset=Party.objects.none(), label="Merge into", empty_label=None
+        queryset=ExpenseAccount.objects.none(), label="Merge into", empty_label=None
     )
 
-    def __init__(self, *args: object, source: Party, **kwargs: object) -> None:
+    def __init__(self, *args: object, source: ExpenseAccount, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
         self.fields["target"].queryset = (  # type: ignore[attr-defined]
-            Party.objects.filter(owner_id=source.owner_id)
+            ExpenseAccount.objects.filter(owner_id=source.owner_id)
             .exclude(pk=source.pk)
             .order_by(Lower("name"))
         )

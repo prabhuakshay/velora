@@ -8,9 +8,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.budget.activity import PAGE_SIZE, recent_entries
-from apps.budget.forms import CategoryForm, PartyForm, PartyMergeForm
+from apps.budget.forms import CategoryForm, ExpenseAccountForm, ExpenseAccountMergeForm
 from apps.budget.icon_picker import CURATED_ICONS
-from apps.budget.models import Category, Party
+from apps.budget.models import Category, ExpenseAccount
 from apps.icons.search import search_icons
 
 if TYPE_CHECKING:
@@ -20,8 +20,8 @@ if TYPE_CHECKING:
     from django.http.response import HttpResponseBase
 
 
-def _own_parties(request: HttpRequest) -> models.QuerySet[Party]:
-    return Party.objects.filter(owner_id=request.user.pk)
+def _own_expense_accounts(request: HttpRequest) -> models.QuerySet[ExpenseAccount]:
+    return ExpenseAccount.objects.filter(owner_id=request.user.pk)
 
 
 def _own_categories(request: HttpRequest) -> models.QuerySet[Category]:
@@ -123,7 +123,7 @@ def icon_search(request: HttpRequest) -> HttpResponse:
 
 def _set_hidden(
     request: HttpRequest,
-    obj: Category | Party,
+    obj: Category | ExpenseAccount,
     *,
     hidden: bool,
     list_url: str = "category_list",
@@ -153,65 +153,81 @@ def category_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 
 @login_required
-def party_list(request: HttpRequest) -> HttpResponse:
+def expense_account_list(request: HttpRequest) -> HttpResponse:
     show_hidden = request.GET.get("show_hidden") == "1"
-    parties = _own_parties(request).order_by(Lower("name"))
+    expense_accounts = _own_expense_accounts(request).order_by(Lower("name"))
     if not show_hidden:
-        parties = parties.filter(hidden=False)
-    context = {"parties": parties, "show_hidden": show_hidden}
-    return render(request, "budget/party_list.html", context)
+        expense_accounts = expense_accounts.filter(hidden=False)
+    context = {"expense_accounts": expense_accounts, "show_hidden": show_hidden}
+    return render(request, "budget/expense_account_list.html", context)
 
 
 @login_required
-def party_create(request: HttpRequest) -> HttpResponseBase:
-    form = PartyForm(request.POST or None, owner=request.user)  # type: ignore[arg-type]
+def expense_account_create(request: HttpRequest) -> HttpResponseBase:
+    form = ExpenseAccountForm(request.POST or None, owner=request.user)  # type: ignore[arg-type]
     if form.is_valid() and _saved(form):
-        return redirect("party_list")
-    return render(request, "budget/party_form.html", {"form": form})
+        return redirect("expense_account_list")
+    return render(request, "budget/expense_account_form.html", {"form": form})
 
 
 @login_required
-def party_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
-    party = get_object_or_404(_own_parties(request), pk=pk)
-    form = PartyForm(
+def expense_account_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
+    expense_account = get_object_or_404(_own_expense_accounts(request), pk=pk)
+    form = ExpenseAccountForm(
         request.POST or None,
-        instance=party,
+        instance=expense_account,
         owner=request.user,  # type: ignore[arg-type]
     )
     if form.is_valid() and _saved(form):
-        return redirect("party_list")
-    return render(request, "budget/party_form.html", {"form": form, "party": party})
+        return redirect("expense_account_list")
+    return render(
+        request,
+        "budget/expense_account_form.html",
+        {"form": form, "expense_account": expense_account},
+    )
 
 
 @login_required
 @require_POST
-def party_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
-    party = get_object_or_404(_own_parties(request), pk=pk)
-    return _set_hidden(request, party, hidden=True, list_url="party_list")
+def expense_account_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    expense_account = get_object_or_404(_own_expense_accounts(request), pk=pk)
+    return _set_hidden(
+        request, expense_account, hidden=True, list_url="expense_account_list"
+    )
 
 
 @login_required
 @require_POST
-def party_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
-    party = get_object_or_404(_own_parties(request), pk=pk)
-    return _set_hidden(request, party, hidden=False, list_url="party_list")
+def expense_account_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    expense_account = get_object_or_404(_own_expense_accounts(request), pk=pk)
+    return _set_hidden(
+        request, expense_account, hidden=False, list_url="expense_account_list"
+    )
 
 
 @login_required
-def party_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
-    source = get_object_or_404(_own_parties(request), pk=pk)
-    form = PartyMergeForm(request.POST or None, source=source)
+def expense_account_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
+    source = get_object_or_404(_own_expense_accounts(request), pk=pk)
+    form = ExpenseAccountMergeForm(request.POST or None, source=source)
     if form.is_valid():
         with transaction.atomic():
             source.delete()
-        return redirect("party_list")
-    return render(request, "budget/party_merge.html", {"form": form, "party": source})
+        return redirect("expense_account_list")
+    return render(
+        request,
+        "budget/expense_account_merge.html",
+        {"form": form, "expense_account": source},
+    )
 
 
 @login_required
-def party_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
-    party = get_object_or_404(_own_parties(request), pk=pk)
+def expense_account_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
+    expense_account = get_object_or_404(_own_expense_accounts(request), pk=pk)
     if request.method == "POST":
-        party.delete()
-        return redirect("party_list")
-    return render(request, "budget/party_confirm_delete.html", {"party": party})
+        expense_account.delete()
+        return redirect("expense_account_list")
+    return render(
+        request,
+        "budget/expense_account_confirm_delete.html",
+        {"expense_account": expense_account},
+    )

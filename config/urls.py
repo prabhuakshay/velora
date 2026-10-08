@@ -12,6 +12,6 @@ urlpatterns = [
     ),
     path("accounts/", include("apps.users.urls")),
     path("categories/", include("apps.budget.urls")),
-    path("parties/", include("apps.budget.party_urls")),
+    path("expense-accounts/", include("apps.budget.expense_account_urls")),
     path(settings.ADMIN_URL, admin.site.urls),
 ]

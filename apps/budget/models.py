@@ -82,18 +82,15 @@ class Category(models.Model):
         return COLOR_CLASSES[self.color]
 
 
-class Party(models.Model):
-    """The other side of a transaction; direction lives on the transaction.
+class ExpenseAccount(models.Model):
+    """Where money goes when the user spends it.
 
     Deferred until transactions land:
-    - Transactions reference parties with PROTECT, except when the owner is
-      deleted.
-    - Deleting a party is blocked while it has transactions; the user merges
-      it instead.
+    - Transactions reference expense accounts with PROTECT, except when the
+      owner is deleted.
+    - Deleting an expense account is blocked while it has transactions; the
+      user merges it instead.
     - Merging repoints the source's transactions to the target, atomically.
-
-    Deferred until accounts land: whether transfers between accounts need a
-    party.
     """
 
     owner = models.ForeignKey(
@@ -107,10 +104,12 @@ class Party(models.Model):
     save_without_historical_record: Callable[..., None]
 
     class Meta:
-        verbose_name_plural = "parties"
+        verbose_name_plural = "expense accounts"
         constraints: ClassVar = [
             models.UniqueConstraint(
-                Lower("name"), "owner", name="budget_party_owner_name_ci_unique"
+                Lower("name"),
+                "owner",
+                name="budget_expenseaccount_owner_name_ci_unique",
             ),
         ]
 
