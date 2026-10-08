@@ -1,0 +1,19 @@
+{% extends "errors/base.html" %}
+
+{% block title %}Page not found{% endblock %}
+{% block accent %}#e11d48{% endblock %}
+{% block ghost %}404{% endblock %}
+{% block kind %}Lost &amp; found slip{% endblock %}
+
+{% block headline %}This page went off the books.{% endblock %}
+{% block message %}The link may be old, or the page has moved. We checked every ledger and came up empty.{% endblock %}
+
+{% block items %}
+  <div><dt>Looked for</dt><dd>{{ request.path }}</dd></div>
+  <div><dt>Pages found</dt><dd>0.00</dd></div>
+  <div><dt>Charged to you</dt><dd>Nothing</dd></div>
+{% endblock %}
+
+{% block status %}404{% endblock %}
+{% block stamp %}Not found{% endblock %}
+{% block thanks %}No refunds needed. Your accounts are exactly as you left them.{% endblock %}

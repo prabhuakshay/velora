@@ -1,0 +1,18 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Error page previews · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">Error page previews</h1>
+  <p class="mt-2 text-sm text-slate-600">Rendered exactly as visitors see them, with the real status code.</p>
+  <ul class="mt-4 divide-y divide-slate-200">
+    {% for name, page in previews.items %}
+      <li>
+        <a href="{% url 'errors:preview' name %}" class="flex items-center justify-between py-3 text-sm hover:text-slate-600">
+          <span class="font-medium">{{ name }}</span>
+          <span class="font-mono text-slate-500">{{ page.template }}</span>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}

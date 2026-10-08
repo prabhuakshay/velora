@@ -1,0 +1,448 @@
+<!doctype html>
+{% comment %}
+  Self-contained on purpose: 500 and CSRF pages render without a request, so
+  there is no CSP nonce for scripts and the Tailwind CDN would be blocked.
+  Everything here is inline CSS (allowed by style-src) and works without JS.
+{% endcomment %}
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex">
+    <meta name="color-scheme" content="light dark">
+    <title>{% block title %}{% endblock %} · Velora</title>
+    <style>
+      :root {
+        --accent: {% block accent %}#e11d48{% endblock %};
+        --bg: #eceee6;
+        --rule: rgb(30 41 59 / 0.075);
+        --ghost: rgb(15 23 42 / 0.09);
+        --text: #0f172a;
+        --muted: #475569;
+        --paper: #fdfbf5;
+        --ink: #1d1c19;
+        --ink-soft: #625d53;
+        --perf: #d6cfbe;
+        --shadow: rgb(15 23 42 / 0.2);
+        --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+        --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b0e13;
+          --rule: rgb(148 163 184 / 0.06);
+          --ghost: rgb(148 163 184 / 0.1);
+          --text: #e2e8f0;
+          --muted: #94a3b8;
+          --paper: #f7f3e9;
+          --shadow: rgb(0 0 0 / 0.65);
+        }
+      }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      html { -webkit-text-size-adjust: 100%; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding:
+          max(2.5rem, env(safe-area-inset-top))
+          max(1rem, env(safe-area-inset-right))
+          max(2.5rem, env(safe-area-inset-bottom))
+          max(1rem, env(safe-area-inset-left));
+        overflow-x: hidden;
+        background-color: var(--bg);
+        background-image:
+          radial-gradient(ellipse at 50% 35%, transparent 35%, rgb(0 0 0 / 0.07)),
+          linear-gradient(90deg, transparent 2.75rem, color-mix(in srgb, var(--accent) 30%, transparent) 2.75rem calc(2.75rem + 1.5px), transparent calc(2.75rem + 1.5px)),
+          linear-gradient(var(--rule) 1px, transparent 1px);
+        background-size: auto, auto, 100% 1.75rem;
+        background-attachment: fixed;
+        color: var(--text);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Giant outlined status code behind the receipt. */
+      .ghost {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .ghost span {
+        transform: translateY(-18vh);
+        font: 900 clamp(9rem, 46vw, 30rem)/1 var(--sans);
+        letter-spacing: -0.06em;
+        color: transparent;
+        -webkit-text-stroke: 2px var(--ghost);
+        animation: drift 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+
+      .wrap {
+        position: relative;
+        width: min(100%, 24rem);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        color: var(--text);
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        text-decoration: none;
+      }
+
+      .coin {
+        display: grid;
+        place-items: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 50%;
+        background: var(--text);
+        color: var(--bg);
+        font: 800 0.85rem/1 var(--sans);
+        box-shadow: inset 0 0 0 2px var(--bg), 0 0 0 1.5px var(--text);
+      }
+
+      /* drop-shadow on the parent follows the masked zigzag edges. */
+      .lift {
+        filter: drop-shadow(0 1.25rem 1.75rem var(--shadow)) drop-shadow(0 2px 2px var(--shadow));
+        animation: print 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+
+      .receipt {
+        --z: 0.5rem;
+        --teeth: #0000, #000 1deg 89deg, #0000 90deg;
+        position: relative;
+        padding: calc(1.5rem + var(--z)) 1.375rem calc(1.25rem + var(--z));
+        background:
+          linear-gradient(90deg, rgb(0 0 0 / 0.035), transparent 10%, transparent 90%, rgb(0 0 0 / 0.035)),
+          var(--paper);
+        color: var(--ink);
+        -webkit-mask:
+          conic-gradient(from 135deg at top, var(--teeth)) 50% 0 / calc(2 * var(--z)) 51% repeat-x,
+          conic-gradient(from -45deg at bottom, var(--teeth)) 50% 100% / calc(2 * var(--z)) 51% repeat-x;
+        mask:
+          conic-gradient(from 135deg at top, var(--teeth)) 50% 0 / calc(2 * var(--z)) 51% repeat-x,
+          conic-gradient(from -45deg at bottom, var(--teeth)) 50% 100% / calc(2 * var(--z)) 51% repeat-x;
+        animation: jolt 0.3s ease-out 1.05s both;
+      }
+
+      .r-head {
+        text-align: center;
+        font-family: var(--mono);
+        padding-bottom: 1rem;
+        border-bottom: 2px dashed var(--perf);
+      }
+
+      .r-name {
+        margin: 0;
+        font-weight: 800;
+        font-size: 1rem;
+        letter-spacing: 0.45em;
+        text-indent: 0.45em;
+      }
+
+      .r-sub, .r-meta {
+        margin: 0.25rem 0 0;
+        font-size: 0.6875rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+
+      .r-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.75rem;
+      }
+
+      .headline {
+        margin: 1.25rem 0 0;
+        font: 800 clamp(1.4rem, 6vw, 1.7rem)/1.15 var(--sans);
+        letter-spacing: -0.025em;
+        text-wrap: balance;
+      }
+
+      .lede {
+        margin: 0.625rem 0 0;
+        font-size: 0.9375rem;
+        line-height: 1.55;
+        color: var(--ink-soft);
+        text-wrap: pretty;
+      }
+
+      .ledger {
+        position: relative;
+        margin-top: 1.25rem;
+        padding-top: 1rem;
+        border-top: 2px dashed var(--perf);
+      }
+
+      .items {
+        margin: 0;
+        font: 0.8125rem/1.4 var(--mono);
+      }
+
+      .items > div {
+        display: flex;
+        align-items: baseline;
+        gap: 0.375rem;
+        padding: 0.3rem 0;
+      }
+
+      /* Dotted leader between label and value, like a till receipt. */
+      .items dt {
+        display: flex;
+        flex: 1 1 auto;
+        min-width: 4.5rem;
+        color: var(--ink-soft);
+      }
+
+      .items dt::after {
+        content: "";
+        flex: 1;
+        margin-left: 0.375rem;
+        border-bottom: 2px dotted var(--perf);
+        transform: translateY(-0.3em);
+      }
+
+      .items dd {
+        flex: 0 1 auto;
+        max-width: 62%;
+        margin: 0;
+        font-weight: 700;
+        text-align: right;
+        overflow-wrap: anywhere;
+      }
+
+      .total {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        /* Blank band for the stamp so it never covers a value. */
+        margin-top: 4.25rem;
+        padding: 0.75rem 0 0;
+        border-top: 3px double var(--ink);
+        font-family: var(--mono);
+      }
+
+      .total span {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+
+      .total strong {
+        font-size: 1.75rem;
+        line-height: 1;
+        letter-spacing: 0.04em;
+      }
+
+      .stamp {
+        position: absolute;
+        left: 50%;
+        bottom: 3.35rem;
+        padding: 0.4em 0.7em;
+        border: 3px solid currentColor;
+        border-radius: 0.375rem;
+        outline: 1.5px solid currentColor;
+        outline-offset: 3px;
+        color: var(--accent);
+        font: 800 clamp(0.95rem, 4.4vw, 1.15rem)/1 var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        mix-blend-mode: multiply;
+        pointer-events: none;
+        transform: translateX(-50%) rotate(-10deg);
+        opacity: 0.85;
+        /* Speckled ink so it reads as a rubber stamp, not a badge. */
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -6 0 0 0 4.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 140px 140px;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -6 0 0 0 4.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 140px 140px;
+        animation: stamp 0.45s cubic-bezier(0.3, 1.5, 0.55, 1) 0.8s both;
+      }
+
+      .r-foot {
+        margin-top: 1.25rem;
+        padding-top: 1rem;
+        border-top: 2px dashed var(--perf);
+        text-align: center;
+        font-family: var(--mono);
+      }
+
+      .barcode {
+        height: 2.75rem;
+        margin: 0 auto;
+        width: min(100%, 15rem);
+        background: repeating-linear-gradient(90deg,
+          var(--ink) 0 2px, #0000 2px 4px, var(--ink) 4px 5px, #0000 5px 7px,
+          var(--ink) 7px 10px, #0000 10px 11px, var(--ink) 11px 12px, #0000 12px 15px,
+          var(--ink) 15px 17px, #0000 17px 18px, var(--ink) 18px 19px, #0000 19px 22px,
+          var(--ink) 22px 25px, #0000 25px 27px, var(--ink) 27px 28px, #0000 28px 29px,
+          var(--ink) 29px 31px, #0000 31px 34px, var(--ink) 34px 35px, #0000 35px 36px,
+          var(--ink) 36px 39px, #0000 39px 41px, var(--ink) 41px 42px, #0000 42px 45px,
+          var(--ink) 45px 46px, #0000 46px 47px, var(--ink) 47px 50px, #0000 50px 53px);
+      }
+
+      .ref {
+        margin: 0.375rem 0 0;
+        font-size: 0.6875rem;
+        letter-spacing: 0.3em;
+        color: var(--ink-soft);
+      }
+
+      .thanks {
+        margin: 0.875rem 0 0;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        color: var(--ink-soft);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1.75rem;
+        animation: rise 0.6s ease-out 1.1s both;
+      }
+
+      .btn {
+        flex: 1 1 10rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 3rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 999px;
+        font: 600 0.9375rem/1.2 var(--sans);
+        text-align: center;
+        text-decoration: none;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .btn:active { transform: scale(0.97); }
+
+      .btn:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 3px;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 0.5rem 1.5rem -0.5rem var(--accent);
+      }
+
+      .btn-secondary {
+        color: var(--text);
+        box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 28%, transparent);
+      }
+
+      @media (hover: hover) {
+        .btn-primary:hover { box-shadow: 0 0.75rem 1.75rem -0.5rem var(--accent); transform: translateY(-1px); }
+        .btn-secondary:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+      }
+
+      .fine {
+        margin: 1.25rem 0 0;
+        text-align: center;
+        font: 0.75rem/1.5 var(--mono);
+        color: var(--muted);
+        animation: rise 0.6s ease-out 1.2s both;
+      }
+
+      @keyframes print {
+        from { opacity: 0; transform: translateY(-2.5rem); }
+        to { opacity: 1; transform: none; }
+      }
+
+      @media (min-width: 40rem) {
+        .lift { animation-name: print-tilt; transform: rotate(-0.8deg); }
+      }
+
+      @keyframes print-tilt {
+        from { opacity: 0; transform: translateY(-2.5rem) rotate(-2.5deg); }
+        to { opacity: 1; transform: rotate(-0.8deg); }
+      }
+
+      @keyframes stamp {
+        from { opacity: 0; transform: translateX(-50%) rotate(-22deg) scale(2.6); }
+        55% { opacity: 0.9; }
+        to { opacity: 0.85; transform: translateX(-50%) rotate(-10deg) scale(1); }
+      }
+
+      @keyframes jolt {
+        0%, 100% { transform: none; }
+        35% { transform: translateY(3px) scale(0.995); }
+      }
+
+      @keyframes drift {
+        from { opacity: 0; transform: translateY(-14vh) scale(0.94); }
+        to { opacity: 1; transform: translateY(-18vh); }
+      }
+
+      @keyframes rise {
+        from { opacity: 0; transform: translateY(0.5rem); }
+        to { opacity: 1; transform: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation: none !important; transition: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ghost" aria-hidden="true"><span>{% block ghost %}{% endblock %}</span></div>
+
+    <main class="wrap">
+      <a class="brand" href="/"><span class="coin" aria-hidden="true">V</span>Velora</a>
+
+      <div class="lift">
+        <article class="receipt">
+          <header class="r-head">
+            <p class="r-name">VELORA</p>
+            <p class="r-sub">{% block kind %}Transaction record{% endblock %}</p>
+            <p class="r-meta"><span>{% now "d M Y" %}</span><span>{% now "H:i" %}</span></p>
+          </header>
+
+          <h1 class="headline">{% block headline %}{% endblock %}</h1>
+          <p class="lede">{% block message %}{% endblock %}</p>
+
+          <div class="ledger">
+            <dl class="items">{% block items %}{% endblock %}</dl>
+            <div class="total"><span>Status</span><strong>{% block status %}{% endblock %}</strong></div>
+            <div class="stamp" aria-hidden="true">{% block stamp %}{% endblock %}</div>
+          </div>
+
+          <footer class="r-foot">
+            <div class="barcode" aria-hidden="true"></div>
+            <p class="ref">VLR{% now "ymdHis" %}</p>
+            <p class="thanks">{% block thanks %}Keep this receipt for your records.{% endblock %}</p>
+          </footer>
+        </article>
+      </div>
+
+      <nav class="actions" aria-label="Where to next">
+        {% block actions %}<a class="btn btn-primary" href="/">Back to dashboard</a>{% endblock %}
+      </nav>
+
+      {% block fine %}{% endblock %}
+    </main>
+  </body>
+</html>

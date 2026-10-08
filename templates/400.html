@@ -1,0 +1,19 @@
+{% extends "errors/base.html" %}
+
+{% block title %}Bad request{% endblock %}
+{% block accent %}#c2410c{% endblock %}
+{% block ghost %}400{% endblock %}
+{% block kind %}Returned item notice{% endblock %}
+
+{% block headline %}That request bounced.{% endblock %}
+{% block message %}Something in it didn't add up, so we sent it back unprocessed instead of guessing.{% endblock %}
+
+{% block items %}
+  <div><dt>Request</dt><dd>Malformed</dd></div>
+  <div><dt>Processed</dt><dd>No</dd></div>
+  <div><dt>Bounce fee</dt><dd>0.00</dd></div>
+{% endblock %}
+
+{% block status %}400{% endblock %}
+{% block stamp %}Bounced{% endblock %}
+{% block thanks %}Reload the page or start again from your dashboard.{% endblock %}

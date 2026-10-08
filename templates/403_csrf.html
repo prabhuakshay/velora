@@ -1,0 +1,20 @@
+{% extends "errors/base.html" %}
+
+{% block title %}Form expired{% endblock %}
+{% block accent %}#0e7490{% endblock %}
+{% block ghost %}403{% endblock %}
+{% block kind %}Returned cheque{% endblock %}
+
+{% block headline %}This form's signature expired.{% endblock %}
+{% block message %}For your safety every form carries a one-time signature. This one was missing or stale, so we didn't process it.{% endblock %}
+
+{% block items %}
+  <div><dt>Submission</dt><dd>Not processed</dd></div>
+  <div><dt>Changes saved</dt><dd>None</dd></div>
+  {% if no_cookie %}<div><dt>Cookies</dt><dd>Blocked</dd></div>{% endif %}
+  {% if DEBUG %}<div><dt>Reason</dt><dd>{{ reason }}</dd></div>{% endif %}
+{% endblock %}
+
+{% block status %}403{% endblock %}
+{% block stamp %}Expired{% endblock %}
+{% block thanks %}Go back, refresh the page and submit again.{% if no_cookie %} Velora needs cookies enabled to keep forms secure.{% endif %}{% endblock %}

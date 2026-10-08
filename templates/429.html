@@ -1,8 +1,23 @@
-{% extends "auth_base.html" %}
+{% extends "errors/base.html" %}
 
-{% block title %}Too many requests · Velora{% endblock %}
+{% block title %}Too many requests{% endblock %}
+{% block accent %}#0f766e{% endblock %}
+{% block ghost %}429{% endblock %}
+{% block kind %}Spending limit notice{% endblock %}
 
-{% block card %}
-  <h1 class="text-xl font-semibold">Too many requests</h1>
-  <p class="mt-2 text-sm text-slate-600">Please wait a few minutes and try again.</p>
+{% block headline %}Too many requests. Breathe.{% endblock %}
+{% block message %}You've hit the limit for how often this can be tried. It resets on its own in a few minutes.{% endblock %}
+
+{% block items %}
+  <div><dt>Attempts</dt><dd>Over limit</dd></div>
+  <div><dt>Cooldown</dt><dd>A few minutes</dd></div>
+  <div><dt>Your account</dt><dd>Safe</dd></div>
+{% endblock %}
+
+{% block status %}429{% endblock %}
+{% block stamp %}On hold{% endblock %}
+{% block thanks %}Limits like this keep password guessers out of your money.{% endblock %}
+
+{% block actions %}
+  <a class="btn btn-primary" href="{% url 'login' %}">Back to sign in</a>
 {% endblock %}
