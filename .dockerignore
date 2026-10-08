@@ -4,10 +4,13 @@ node_modules/
 static/
 staticfiles/
 media/
+db.sqlite3*
+*.log
 
 # Secrets: containers read config from the environment at run time.
 .env
 .env.*
+.envrc
 
 .git/
 .github/
@@ -16,10 +19,22 @@ media/
 .pytest_cache/
 .ruff_cache/
 .coverage
-__pycache__/
-*.py[cod]
+**/__pycache__/
+**/*.py[cod]
+.coverage.*
+htmlcov/
+.hypothesis/
+.tox/
+.nox/
+.idea/
+.vscode/
 
 compose*.yaml
 Dockerfile
 *.md
 LICENSE
+docs/
+.editorconfig
+.gitignore
+.dockerignore
+.pre-commit-config.yaml
