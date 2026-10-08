@@ -20,7 +20,7 @@ def make_group(owner: User, name: str) -> CategoryGroup:
 
 
 def make_category(group: CategoryGroup, name: str) -> Category:
-    return Category.objects.create(group=group, name=name, color="sky")
+    return Category.objects.create(group=group, name=name, color="cyan")
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ def test_wording_for_each_change_type(signed_in: Client, user: User) -> None:
 
     assert "Renamed Groceries → Food shopping" in edit(name="Food shopping")
     assert "Changed icon of Food shopping" in edit(icon="wallet")
-    assert "Changed colour of Food shopping" in edit(color="rose")
+    assert "Changed colour of Food shopping" in edit(color="pink")
     assert "Changed description of Food shopping" in edit(description="x")
     assert "Moved Food shopping to Home" in edit(group=other)
     assert "ago" in panel(signed_in)
@@ -121,3 +121,14 @@ def test_activity_endpoint_requires_login(client: Client) -> None:
 
     assert response.status_code == 302
     assert "login" in response["Location"]
+
+
+def test_hidden_and_unhidden_wording(signed_in: Client, user: User) -> None:
+    group = make_group(user, "Food")
+    group.hidden = True
+    group.save()
+    assert "Hidden Food" in panel(signed_in)
+
+    group.hidden = False
+    group.save()
+    assert "Unhidden Food" in panel(signed_in)

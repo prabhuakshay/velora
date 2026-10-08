@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Case, IntegerField, Prefetch, Value, When
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.budget.activity import PAGE_SIZE, recent_entries
 from apps.budget.forms import CategoryForm, CategoryGroupForm
@@ -32,15 +33,21 @@ def category_list(request: HttpRequest) -> HttpResponse:
         default=Value(1),
         output_field=IntegerField(),
     )
-    groups = (
-        _own_groups(request)
-        .order_by(expense_first, Lower("name"))
-        .prefetch_related(
-            Prefetch("categories", Category.objects.order_by(Lower("name")))
-        )
+    show_hidden = bool(request.GET.get("show_hidden"))
+    groups = _own_groups(request)
+    categories = Category.objects.order_by(Lower("name"))
+    if not show_hidden:
+        groups = groups.filter(hidden=False)
+        categories = categories.filter(hidden=False)
+    groups = groups.order_by(expense_first, Lower("name")).prefetch_related(
+        Prefetch("categories", categories)
     )
-    activity = _activity_context(request, 0)
-    return render(request, "budget/category_list.html", {"groups": groups, **activity})
+    context = {
+        "groups": groups,
+        "show_hidden": show_hidden,
+        **_activity_context(request, 0),
+    }
+    return render(request, "budget/category_list.html", context)
 
 
 def _activity_context(request: HttpRequest, offset: int) -> dict[str, object]:
@@ -132,3 +139,33 @@ def category_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     return render(
         request, "budget/category_confirm_delete.html", {"category": category}
     )
+
+
+def _set_hidden(obj: CategoryGroup | Category, *, hidden: bool) -> HttpResponseBase:
+    obj.hidden = hidden
+    obj.save()
+    return redirect("category_list")
+
+
+@login_required
+@require_POST
+def group_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    return _set_hidden(get_object_or_404(_own_groups(request), pk=pk), hidden=True)
+
+
+@login_required
+@require_POST
+def group_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    return _set_hidden(get_object_or_404(_own_groups(request), pk=pk), hidden=False)
+
+
+@login_required
+@require_POST
+def category_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    return _set_hidden(get_object_or_404(_own_categories(request), pk=pk), hidden=True)
+
+
+@login_required
+@require_POST
+def category_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
+    return _set_hidden(get_object_or_404(_own_categories(request), pk=pk), hidden=False)
