@@ -41,14 +41,11 @@ COLOR_CLASSES = {
     "red": "text-red-600",
     "orange": "text-orange-600",
     "amber": "text-amber-600",
-    "lime": "text-lime-600",
-    "emerald": "text-emerald-600",
-    "teal": "text-teal-600",
-    "sky": "text-sky-600",
+    "green": "text-green-600",
+    "cyan": "text-cyan-600",
     "blue": "text-blue-600",
     "violet": "text-violet-600",
-    "fuchsia": "text-fuchsia-600",
-    "rose": "text-rose-600",
+    "pink": "text-pink-600",
 }
 
 

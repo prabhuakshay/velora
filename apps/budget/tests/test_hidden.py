@@ -51,7 +51,7 @@ def test_hiding_group_removes_it_and_its_categories(
 def test_hiding_category_removes_only_it(
     signed_in: Client, group: CategoryGroup, category: Category
 ) -> None:
-    Category.objects.create(group=group, name="Water", color="sky")
+    Category.objects.create(group=group, name="Water", color="cyan")
 
     signed_in.post(reverse("category_hide", args=[category.pk]))
 
