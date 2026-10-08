@@ -4,12 +4,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Velora{% endblock %}</title>
+    {% comment %}
+      No history cache: snapshots would sit in localStorage and let Back show
+      signed-in pages after logout. Error responses are swapped too, so a
+      boosted form shows its lockout or CSRF page instead of doing nothing.
+    {% endcomment %}
+    <meta name="htmx-config" content='{"includeIndicatorStyles": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true, "responseHandling": [{"code": "204", "swap": false}, {"code": "...", "swap": true}]}'>
+    {% comment %}
+      No nonce on these: 'self' already allows them, and a per-request nonce
+      would make head-support see them as new and re-run them on every swap.
+    {% endcomment %}
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
-    <script nonce="{{ csp_nonce }}" src="{% static 'js/htmx.min.js' %}" defer></script>
-    <script nonce="{{ csp_nonce }}" src="{% static 'js/alpine.min.js' %}" defer></script>
+    <script src="{% static 'js/htmx.min.js' %}" defer></script>
+    <script src="{% static 'js/alpine.min.js' %}" defer></script>
     {% include "partials/forget_post.html" %}
   </head>
-  <body class="min-h-screen bg-slate-50 text-slate-900 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-    {% block content %}{% endblock %}
+  <body class="min-h-screen bg-slate-50 text-slate-900 antialiased" hx-boost="true" hx-ext="head-support">
+    {% comment %}
+      Not on <body>: boosting swaps only its contents, so a header there would
+      keep the token from before login rotated it.
+    {% endcomment %}
+    <div class="contents" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+      {% block content %}{% endblock %}
+    </div>
   </body>
 </html>

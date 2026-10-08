@@ -37,3 +37,13 @@ def test_login_page_leaves_history_alone(client: Client) -> None:
     response = client.get(reverse("login"))
 
     assert b"history.replaceState" not in response.content
+
+
+def test_boosted_failed_login_leaves_history_alone(client: Client, user: User) -> None:
+    response = client.post(
+        reverse("login"),
+        {"username": user.email, "password": "wrong"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert b"history.replaceState" not in response.content
