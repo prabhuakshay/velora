@@ -1,16 +1,10 @@
-from django.conf import settings
 from django.contrib.auth import views as auth_views
 from django.urls import path
-from django_ratelimit.decorators import ratelimit
 
-limit_login = ratelimit(
-    key="ip", rate=lambda _group, _request: settings.LOGIN_RATE_LIMIT, method="POST"
-)
-limit_password_reset = ratelimit(
-    key="ip",
-    rate=lambda _group, _request: settings.PASSWORD_RESET_RATE_LIMIT,
-    method="POST",
-)
+from apps.users.throttle import throttle
+
+limit_login = throttle("LOGIN_RATE_LIMIT")
+limit_password_reset = throttle("PASSWORD_RESET_RATE_LIMIT")
 
 urlpatterns = [
     path(

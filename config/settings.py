@@ -59,7 +59,6 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
-    "django_ratelimit.middleware.RatelimitMiddleware",
     "axes.middleware.AxesMiddleware",
 ]
 
@@ -120,14 +119,13 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # Brute-force protection
-# Axes locks a username per IP after repeated failures; ratelimit caps total
+# Axes locks a username per IP after repeated failures; throttle caps total
 # requests per IP so one address can't spray many usernames.
 
 # Number of reverse proxies in front of the app that append to
 # X-Forwarded-For. 0 means clients connect directly and REMOTE_ADDR is used.
 TRUSTED_PROXY_COUNT = env.int("TRUSTED_PROXY_COUNT", default=0)
 AXES_CLIENT_IP_CALLABLE = "apps.users.client_ip.get_client_ip"
-RATELIMIT_IP_META_KEY = "apps.users.client_ip.get_client_ip"
 
 AXES_FAILURE_LIMIT = env.int("AXES_FAILURE_LIMIT", default=5)
 AXES_COOLOFF_TIME = env.int("AXES_COOLOFF_HOURS", default=1)
@@ -138,7 +136,6 @@ AXES_USERNAME_CALLABLE = "apps.users.lockout.lockout_username"
 AXES_RESET_ON_SUCCESS = True
 AXES_LOCKOUT_TEMPLATE = "registration/locked_out.html"
 
-RATELIMIT_VIEW = "apps.users.views.ratelimited"
 LOGIN_RATE_LIMIT = env.str("LOGIN_RATE_LIMIT", default="20/m")
 PASSWORD_RESET_RATE_LIMIT = env.str("PASSWORD_RESET_RATE_LIMIT", default="5/h")
 

@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.urls import reverse
 
 from conftest import PASSWORD
@@ -107,3 +108,10 @@ def test_rate_limit_uses_forwarded_client_ip(
     )
 
     assert response.status_code == 302
+
+
+def test_invalid_rate_is_rejected(client: Client, settings: Settings) -> None:
+    settings.LOGIN_RATE_LIMIT = "5/w"
+
+    with pytest.raises(ImproperlyConfigured):
+        client.post(reverse("login"), {"username": "a@example.com", "password": "x"})
