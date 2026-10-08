@@ -1,0 +1,69 @@
+[project]
+name = "velora"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "django>=6.1.2",
+    "django-environ>=0.14.0",
+    "django-simple-history>=3.13.0",
+]
+
+[dependency-groups]
+dev = [
+    "prek>=0.5.5",
+    "ruff>=0.16.10",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+extend-exclude = ["**/migrations/*"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # Conflict with ruff format.
+    "COM812",
+    "ISC001",
+    # No license header policy for this project.
+    "CPY001",
+    # Missing docstrings: names and types should carry intent; docstrings where they add value.
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    # Django's Meta/admin/form class attributes are idiomatically mutable lists.
+    "RUF012",
+    # Overlaps with EM; forcing a custom exception class per message is overkill.
+    "TRY003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
+"**/test_*.py" = ["S101", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
+"manage.py" = ["INP001"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 8
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-branches = 10
+max-returns = 4
+max-statements = 40
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
