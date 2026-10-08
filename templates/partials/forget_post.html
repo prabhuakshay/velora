@@ -1,0 +1,8 @@
+{% if request.method == "POST" and csp_nonce %}
+  {% comment %}
+    no-store pages rendered from a POST can't be restored from history, so
+    Back shows "Document Expired". Turning the entry into a GET lets the
+    browser simply re-fetch it instead.
+  {% endcomment %}
+  <script nonce="{{ csp_nonce }}">history.replaceState(null, "", location.href);</script>
+{% endif %}
