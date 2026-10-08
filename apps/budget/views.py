@@ -1,12 +1,12 @@
 from typing import TYPE_CHECKING
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Case, IntegerField, Value, When
+from django.db.models import Case, IntegerField, Prefetch, Value, When
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.budget.forms import CategoryGroupForm
-from apps.budget.models import CategoryGroup
+from apps.budget.forms import CategoryForm, CategoryGroupForm
+from apps.budget.models import Category, CategoryGroup
 
 if TYPE_CHECKING:
     from django.db import models
@@ -18,6 +18,12 @@ def _own_groups(request: HttpRequest) -> models.QuerySet[CategoryGroup]:
     return CategoryGroup.objects.filter(owner_id=request.user.pk)
 
 
+def _own_categories(request: HttpRequest) -> models.QuerySet[Category]:
+    return Category.objects.filter(group__owner_id=request.user.pk).select_related(
+        "group"
+    )
+
+
 @login_required
 def category_list(request: HttpRequest) -> HttpResponse:
     expense_first = Case(
@@ -25,7 +31,13 @@ def category_list(request: HttpRequest) -> HttpResponse:
         default=Value(1),
         output_field=IntegerField(),
     )
-    groups = _own_groups(request).order_by(expense_first, Lower("name"))
+    groups = (
+        _own_groups(request)
+        .order_by(expense_first, Lower("name"))
+        .prefetch_related(
+            Prefetch("categories", Category.objects.order_by(Lower("name")))
+        )
+    )
     return render(request, "budget/category_list.html", {"groups": groups})
 
 
@@ -55,7 +67,50 @@ def group_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 def group_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     group = get_object_or_404(_own_groups(request), pk=pk)
-    if request.method == "POST":
+    category_count = group.categories.count()
+    if request.method == "POST" and category_count == 0:
         group.delete()
         return redirect("category_list")
-    return render(request, "budget/group_confirm_delete.html", {"group": group})
+    context = {"group": group, "category_count": category_count}
+    return render(
+        request,
+        "budget/group_confirm_delete.html",
+        context,
+        status=409 if request.method == "POST" else 200,
+    )
+
+
+@login_required
+def category_create(request: HttpRequest) -> HttpResponseBase:
+    form = CategoryForm(request.POST or None, owner=request.user)  # type: ignore[arg-type]
+    if form.is_valid():
+        form.save()
+        return redirect("category_list")
+    return render(request, "budget/category_form.html", {"form": form})
+
+
+@login_required
+def category_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
+    category = get_object_or_404(_own_categories(request), pk=pk)
+    form = CategoryForm(
+        request.POST or None,
+        instance=category,
+        owner=request.user,  # type: ignore[arg-type]
+    )
+    if form.is_valid():
+        form.save()
+        return redirect("category_list")
+    return render(
+        request, "budget/category_form.html", {"form": form, "category": category}
+    )
+
+
+@login_required
+def category_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
+    category = get_object_or_404(_own_categories(request), pk=pk)
+    if request.method == "POST":
+        category.delete()
+        return redirect("category_list")
+    return render(
+        request, "budget/category_confirm_delete.html", {"category": category}
+    )
