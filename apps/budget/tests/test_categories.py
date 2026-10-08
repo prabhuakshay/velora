@@ -4,7 +4,7 @@ import pytest
 from django.urls import reverse
 
 from apps.budget.forms import CategoryForm
-from apps.budget.models import Category, CategoryGroup
+from apps.budget.models import Category
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -14,14 +14,17 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def make_group(owner: User, name: str) -> CategoryGroup:
-    return CategoryGroup.objects.create(
-        owner=owner, name=name, kind=CategoryGroup.Kind.EXPENSE
-    )
+def make_category(
+    owner: User, name: str, kind: str = Category.Kind.EXPENSE, **extra: str
+) -> Category:
+    extra.setdefault("color", "cyan")
+    return Category.objects.create(owner=owner, name=name, kind=kind, **extra)
 
 
-def make_category(group: CategoryGroup, name: str, **extra: str) -> Category:
-    return Category.objects.create(group=group, name=name, **extra)
+def payload(
+    name: str, kind: str = Category.Kind.EXPENSE, **extra: str
+) -> dict[str, str]:
+    return {"kind": kind, "name": name, "color": "cyan", "icon": "", **extra}
 
 
 @pytest.fixture
@@ -31,71 +34,72 @@ def signed_in(client: Client, user: User) -> Client:
 
 
 def test_create_category_defaults_icon_to_tag(signed_in: Client, user: User) -> None:
-    group = make_group(user, "Food")
     assert signed_in.get(reverse("category_create")).status_code == 200
 
     response = signed_in.post(
-        reverse("category_create"),
-        {"group": group.pk, "name": "Groceries", "color": "green", "icon": ""},
+        reverse("category_create"), payload("Groceries", color="green")
     )
 
     assert response["Location"] == reverse("category_list")
     category = Category.objects.get()
-    assert (category.group, category.name, category.icon, category.color) == (
-        group,
+    assert (category.owner, category.kind, category.name, category.icon) == (
+        user,
+        Category.Kind.EXPENSE,
         "Groceries",
         "tag",
-        "green",
     )
-    assert category.description == ""
+    assert (category.color, category.description) == ("green", "")
 
 
-def test_list_shows_categories_alphabetically_with_icon_in_colour(
+def test_list_groups_by_kind_expense_first_alphabetically_with_colour(
     signed_in: Client, user: User
 ) -> None:
-    group = make_group(user, "Food")
-    make_category(group, "Snacks", icon="wallet", color="pink")
-    make_category(group, "Bread", icon="house", color="cyan")
+    make_category(user, "Snacks", icon="wallet", color="pink")
+    make_category(user, "Bread", icon="house", color="cyan")
+    make_category(user, "Salary", Category.Kind.INCOME)
 
     body = signed_in.get(reverse("category_list")).content.decode()
 
-    assert body.index("Bread") < body.index("Snacks")
+    assert body.index("Bread") < body.index("Snacks") < body.index("Salary")
+    assert body.index("Expense") < body.index("Income")
     assert "text-pink-600" in body
     assert "text-cyan-600" in body
 
 
-def payload(group: CategoryGroup, name: str, **extra: str) -> dict[str, str | int]:
-    return {"group": group.pk, "name": name, "color": "cyan", "icon": "", **extra}
-
-
-def test_duplicate_name_in_same_group_any_case_shows_error(
+def test_duplicate_name_of_same_kind_any_case_shows_error(
     signed_in: Client, user: User
 ) -> None:
-    group = make_group(user, "Food")
-    make_category(group, "Groceries", color="cyan")
+    make_category(user, "Groceries")
 
-    response = signed_in.post(reverse("category_create"), payload(group, "gROCERIES"))
+    response = signed_in.post(reverse("category_create"), payload("gROCERIES"))
 
     assert response.status_code == 200
     assert b"already exists" in response.content
     assert Category.objects.count() == 1
 
 
-def test_same_name_in_another_group_is_allowed(signed_in: Client, user: User) -> None:
-    make_category(make_group(user, "Food"), "Misc", color="cyan")
-    travel = make_group(user, "Travel")
+def test_same_name_of_the_other_kind_is_allowed(signed_in: Client, user: User) -> None:
+    make_category(user, "Refund")
 
-    response = signed_in.post(reverse("category_create"), payload(travel, "Misc"))
+    response = signed_in.post(
+        reverse("category_create"), payload("Refund", Category.Kind.INCOME)
+    )
 
     assert response.status_code == 302
     assert Category.objects.count() == 2
 
 
-def test_unknown_icon_is_rejected(signed_in: Client, user: User) -> None:
-    group = make_group(user, "Food")
+def test_other_users_names_do_not_clash(signed_in: Client, other_user: User) -> None:
+    make_category(other_user, "Groceries")
 
+    response = signed_in.post(reverse("category_create"), payload("Groceries"))
+
+    assert response.status_code == 302
+
+
+def test_unknown_icon_is_rejected(signed_in: Client) -> None:
     response = signed_in.post(
-        reverse("category_create"), payload(group, "Bread", icon="../secret")
+        reverse("category_create"), payload("Bread", icon="../secret")
     )
 
     assert response.status_code == 200
@@ -103,21 +107,26 @@ def test_unknown_icon_is_rejected(signed_in: Client, user: User) -> None:
     assert Category.objects.count() == 0
 
 
-def test_edit_changes_fields_and_moves_group(signed_in: Client, user: User) -> None:
-    food = make_group(user, "Food")
-    home = make_group(user, "Home")
-    category = make_category(food, "Bread", color="cyan")
+def test_edit_changes_fields_and_kind(signed_in: Client, user: User) -> None:
+    category = make_category(user, "Bread")
     url = reverse("category_edit", args=[category.pk])
     assert signed_in.get(url).status_code == 200
 
     response = signed_in.post(
-        url, payload(home, "Bread", icon="house", description="Daily", color="pink")
+        url,
+        payload(
+            "Bread",
+            Category.Kind.INCOME,
+            icon="house",
+            description="Daily",
+            color="pink",
+        ),
     )
 
     assert response.status_code == 302
     category.refresh_from_db()
-    assert (category.group, category.icon, category.description, category.color) == (
-        home,
+    assert (category.kind, category.icon, category.description, category.color) == (
+        Category.Kind.INCOME,
         "house",
         "Daily",
         "pink",
@@ -125,33 +134,19 @@ def test_edit_changes_fields_and_moves_group(signed_in: Client, user: User) -> N
 
 
 def test_edit_keeping_own_name_is_allowed(signed_in: Client, user: User) -> None:
-    group = make_group(user, "Food")
-    category = make_category(group, "Bread", color="cyan")
+    category = make_category(user, "Bread")
 
     response = signed_in.post(
-        reverse("category_edit", args=[category.pk]), payload(group, "bread")
+        reverse("category_edit", args=[category.pk]), payload("bread")
     )
 
     assert response.status_code == 302
 
 
-def test_group_dropdown_excludes_other_users_groups(
-    signed_in: Client, user: User, other_user: User
-) -> None:
-    make_group(user, "Mine")
-    theirs = make_group(other_user, "Theirs")
-
-    response = signed_in.post(reverse("category_create"), payload(theirs, "Bread"))
-
-    assert response.status_code == 200
-    assert b"Theirs" not in response.content
-    assert Category.objects.count() == 0
-
-
 def test_delete_requires_confirmation_then_deletes(
     signed_in: Client, user: User
 ) -> None:
-    category = make_category(make_group(user, "Food"), "Bread", color="cyan")
+    category = make_category(user, "Bread")
     url = reverse("category_delete", args=[category.pk])
 
     assert signed_in.get(url).status_code == 200
@@ -163,22 +158,12 @@ def test_delete_requires_confirmation_then_deletes(
     assert Category.objects.count() == 0
 
 
-def test_delete_of_group_with_categories_is_blocked_with_count(
-    signed_in: Client, user: User
-) -> None:
-    group = make_group(user, "Food")
-    make_category(group, "Bread", color="cyan")
-    make_category(group, "Milk", color="cyan")
-    url = reverse("group_delete", args=[group.pk])
+def test_deleting_the_owner_deletes_their_categories(user: User) -> None:
+    make_category(user, "Bread")
 
-    page = signed_in.get(url)
-    refused = signed_in.post(url)
+    user.delete()
 
-    assert b"2 categories" in page.content
-    assert b"<button" not in page.content
-    assert refused.status_code == 409
-    assert CategoryGroup.objects.count() == 1
-    assert Category.objects.count() == 2
+    assert Category.objects.count() == 0
 
 
 @pytest.mark.parametrize("url_name", ["category_edit", "category_delete"])
@@ -186,7 +171,7 @@ def test_delete_of_group_with_categories_is_blocked_with_count(
 def test_other_users_category_is_not_found(
     signed_in: Client, other_user: User, url_name: str, method: str
 ) -> None:
-    category = make_category(make_group(other_user, "Food"), "Bread", color="cyan")
+    category = make_category(other_user, "Bread")
 
     response = getattr(signed_in, method)(reverse(url_name, args=[category.pk]))
 
@@ -209,10 +194,9 @@ def test_anonymous_is_redirected_to_login(
 
 
 def test_every_change_is_recorded(signed_in: Client, user: User) -> None:
-    group = make_group(user, "Food")
-    signed_in.post(reverse("category_create"), payload(group, "Bread"))
+    signed_in.post(reverse("category_create"), payload("Bread"))
     category = Category.objects.get()
-    signed_in.post(reverse("category_edit", args=[category.pk]), payload(group, "Loaf"))
+    signed_in.post(reverse("category_edit", args=[category.pk]), payload("Loaf"))
     signed_in.post(reverse("category_delete", args=[category.pk]))
 
     records = list(Category.history.order_by("history_date"))
@@ -223,7 +207,7 @@ def test_every_change_is_recorded(signed_in: Client, user: User) -> None:
 
 def test_admin_shows_categories_with_history(client: Client, superuser: User) -> None:
     client.force_login(superuser)
-    category = make_category(make_group(superuser, "Food"), "Bread", color="cyan")
+    category = make_category(superuser, "Bread")
 
     assert client.get(reverse("admin:budget_category_changelist")).status_code == 200
     history = reverse("admin:budget_category_history", args=[category.pk])
@@ -233,26 +217,16 @@ def test_admin_shows_categories_with_history(client: Client, superuser: User) ->
 def test_concurrent_duplicate_category_name_shows_error(
     signed_in: Client, user: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    group = CategoryGroup.objects.create(
-        owner=user, name="Food", kind=CategoryGroup.Kind.EXPENSE
-    )
-    Category.objects.create(group=group, name="Rent", color="red")
+    make_category(user, "Rent", color="red")
     monkeypatch.setattr(CategoryForm, "clean", lambda self: self.cleaned_data)
 
-    response = signed_in.post(
-        reverse("category_create"),
-        {"group": group.pk, "name": "rent", "color": "red", "icon": ""},
-    )
+    response = signed_in.post(reverse("category_create"), payload("rent", color="red"))
 
     assert response.status_code == 200
     assert "already" in response.content.decode()
 
 
-def test_category_form_offers_a_swatch_per_colour(
-    signed_in: Client, user: User
-) -> None:
-    make_group(user, "Food")
-
+def test_category_form_offers_a_swatch_per_colour(signed_in: Client) -> None:
     body = signed_in.get(reverse("category_create")).content.decode()
 
     assert 'type="radio" name="color" value="cyan"' in body

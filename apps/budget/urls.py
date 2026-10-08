@@ -5,12 +5,7 @@ from apps.budget import views
 urlpatterns = [
     path("", views.category_list, name="category_list"),
     path("activity/", views.category_activity, name="category_activity"),
-    path("groups/new/", views.group_create, name="group_create"),
-    path("groups/<int:pk>/edit/", views.group_edit, name="group_edit"),
-    path("groups/<int:pk>/delete/", views.group_delete, name="group_delete"),
     path("icons/search/", views.icon_search, name="icon_search"),
-    path("groups/<int:pk>/hide/", views.group_hide, name="group_hide"),
-    path("groups/<int:pk>/unhide/", views.group_unhide, name="group_unhide"),
     path("<int:pk>/hide/", views.category_hide, name="category_hide"),
     path("<int:pk>/unhide/", views.category_unhide, name="category_unhide"),
     path("new/", views.category_create, name="category_create"),

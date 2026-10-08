@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import pytest
 from django.urls import reverse
 
-from apps.budget.models import Category, CategoryGroup
+from apps.budget.models import Category
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -72,8 +72,9 @@ def test_search_keeps_selected_icon_checked(signed_in: Client) -> None:
 def test_form_shows_curated_grid_with_current_icon_selected(
     signed_in: Client, user: User
 ) -> None:
-    group = CategoryGroup.objects.create(owner=user, name="Food")
-    category = Category.objects.create(group=group, name="Rent", icon="house")
+    category = Category.objects.create(
+        owner=user, kind="EXPENSE", name="Rent", icon="house"
+    )
 
     body = signed_in.get(reverse("category_edit", args=[category.pk])).content.decode()
 
@@ -94,8 +95,9 @@ def test_form_includes_current_icon_outside_curated_grid(
     (tmp_path / "zebra.svg").write_text(SVG)
     (tmp_path / "tag.svg").write_text(SVG)
     settings.LUCIDE_ICON_DIR = tmp_path
-    group = CategoryGroup.objects.create(owner=user, name="Food")
-    category = Category.objects.create(group=group, name="Pets", icon="zebra")
+    category = Category.objects.create(
+        owner=user, kind="EXPENSE", name="Pets", icon="zebra"
+    )
 
     body = signed_in.get(reverse("category_edit", args=[category.pk])).content.decode()
 
@@ -103,11 +105,10 @@ def test_form_includes_current_icon_outside_curated_grid(
 
 
 def test_saving_a_searched_icon_stores_it(signed_in: Client, user: User) -> None:
-    group = CategoryGroup.objects.create(owner=user, name="Food")
 
     signed_in.post(
         reverse("category_create"),
-        {"group": group.pk, "name": "Cash", "color": "cyan", "icon": "wallet"},
+        {"kind": "EXPENSE", "name": "Cash", "color": "cyan", "icon": "wallet"},
     )
 
     assert Category.objects.get().icon == "wallet"

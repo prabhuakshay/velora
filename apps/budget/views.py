@@ -3,15 +3,14 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
-from django.db.models import Case, IntegerField, Prefetch, Value, When
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.budget.activity import PAGE_SIZE, recent_entries
-from apps.budget.forms import CategoryForm, CategoryGroupForm, PartyForm, PartyMergeForm
+from apps.budget.forms import CategoryForm, PartyForm, PartyMergeForm
 from apps.budget.icon_picker import CURATED_ICONS
-from apps.budget.models import Category, CategoryGroup, Party
+from apps.budget.models import Category, Party
 from apps.icons.search import search_icons
 
 if TYPE_CHECKING:
@@ -21,18 +20,12 @@ if TYPE_CHECKING:
     from django.http.response import HttpResponseBase
 
 
-def _own_groups(request: HttpRequest) -> models.QuerySet[CategoryGroup]:
-    return CategoryGroup.objects.filter(owner_id=request.user.pk)
-
-
 def _own_parties(request: HttpRequest) -> models.QuerySet[Party]:
     return Party.objects.filter(owner_id=request.user.pk)
 
 
 def _own_categories(request: HttpRequest) -> models.QuerySet[Category]:
-    return Category.objects.filter(group__owner_id=request.user.pk).select_related(
-        "group"
-    )
+    return Category.objects.filter(owner_id=request.user.pk)
 
 
 def _saved(form: forms.ModelForm) -> bool:  # type: ignore[type-arg]
@@ -48,22 +41,16 @@ def _saved(form: forms.ModelForm) -> bool:  # type: ignore[type-arg]
 
 @login_required
 def category_list(request: HttpRequest) -> HttpResponse:
-    expense_first = Case(
-        When(kind=CategoryGroup.Kind.EXPENSE, then=Value(0)),
-        default=Value(1),
-        output_field=IntegerField(),
-    )
     show_hidden = request.GET.get("show_hidden") == "1"
-    groups = _own_groups(request)
-    categories = Category.objects.order_by(Lower("name"))
+    categories = _own_categories(request).order_by(Lower("name"))
     if not show_hidden:
-        groups = groups.filter(hidden=False)
         categories = categories.filter(hidden=False)
-    groups = groups.order_by(expense_first, Lower("name")).prefetch_related(
-        Prefetch("categories", categories)
-    )
+    sections = [
+        (kind.label, [c for c in categories if c.kind == kind])
+        for kind in (Category.Kind.EXPENSE, Category.Kind.INCOME)
+    ]
     context = {
-        "groups": groups,
+        "sections": sections,
         "show_hidden": show_hidden,
         **_activity_context(request, 0),
     }
@@ -86,43 +73,6 @@ def category_activity(request: HttpRequest) -> HttpResponse:
         offset = 0
     return render(
         request, "budget/activity_items.html", _activity_context(request, offset)
-    )
-
-
-@login_required
-def group_create(request: HttpRequest) -> HttpResponseBase:
-    form = CategoryGroupForm(request.POST or None, owner=request.user)  # type: ignore[arg-type]
-    if form.is_valid() and _saved(form):
-        return redirect("category_list")
-    return render(request, "budget/group_form.html", {"form": form})
-
-
-@login_required
-def group_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
-    group = get_object_or_404(_own_groups(request), pk=pk)
-    form = CategoryGroupForm(
-        request.POST or None,
-        instance=group,
-        owner=request.user,  # type: ignore[arg-type]
-    )
-    if form.is_valid() and _saved(form):
-        return redirect("category_list")
-    return render(request, "budget/group_form.html", {"form": form, "group": group})
-
-
-@login_required
-def group_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
-    group = get_object_or_404(_own_groups(request), pk=pk)
-    category_count = group.categories.count()
-    if request.method == "POST" and category_count == 0:
-        group.delete()
-        return redirect("category_list")
-    context = {"group": group, "category_count": category_count}
-    return render(
-        request,
-        "budget/group_confirm_delete.html",
-        context,
-        status=409 if request.method == "POST" else 200,
     )
 
 
@@ -173,7 +123,7 @@ def icon_search(request: HttpRequest) -> HttpResponse:
 
 def _set_hidden(
     request: HttpRequest,
-    obj: CategoryGroup | Category | Party,
+    obj: Category | Party,
     *,
     hidden: bool,
     list_url: str = "category_list",
@@ -184,22 +134,6 @@ def _set_hidden(
     if request.GET.get("show_hidden") == "1":
         response["Location"] += "?show_hidden=1"
     return response
-
-
-@login_required
-@require_POST
-def group_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
-    return _set_hidden(
-        request, get_object_or_404(_own_groups(request), pk=pk), hidden=True
-    )
-
-
-@login_required
-@require_POST
-def group_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
-    return _set_hidden(
-        request, get_object_or_404(_own_groups(request), pk=pk), hidden=False
-    )
 
 
 @login_required

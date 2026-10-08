@@ -4,12 +4,8 @@ A personal budgeting app where each user organises money into categories and tra
 
 ## Language
 
-**Category Group**:
-A named, user-owned collection of categories that is either income or expense.
-_Avoid_: Folder, section
-
 **Category**:
-A budget bucket inside a category group that money is assigned to.
+A budget bucket that money is assigned to. Owned by one user and either income or expense.
 _Avoid_: Tag, envelope
 
 **Party**:
