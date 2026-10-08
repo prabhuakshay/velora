@@ -134,7 +134,6 @@ AXES_COOLOFF_TIME = env.int("AXES_COOLOFF_HOURS", default=1)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_USERNAME_CALLABLE = "apps.users.lockout.lockout_username"
 AXES_RESET_ON_SUCCESS = True
-AXES_LOCKOUT_TEMPLATE = "registration/locked_out.html"
 
 LOGIN_RATE_LIMIT = env.str("LOGIN_RATE_LIMIT", default="20/m")
 PASSWORD_RESET_RATE_LIMIT = env.str("PASSWORD_RESET_RATE_LIMIT", default="5/h")

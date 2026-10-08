@@ -4,14 +4,14 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
-from django.shortcuts import render
+from django.http import HttpResponse
 
 from apps.users.client_ip import get_client_ip
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from django.http import HttpRequest, HttpResponse
+    from django.http import HttpRequest
     from django.http.response import HttpResponseBase
 
     type View = Callable[..., HttpResponseBase]
@@ -48,7 +48,7 @@ def throttle(setting: str) -> Callable[[View], View]:
                     cache.set(key, 1, window)
                     count = 1
                 if count > limit:
-                    return render(request, "429.html", status=429)
+                    return HttpResponse("Too many requests.", status=429)
             return view(request, *args, **kwargs)
 
         return wrapper

@@ -33,7 +33,7 @@ def test_repeated_failures_lock_out_username_and_ip(client: Client, user: User) 
     )
 
     assert response.status_code == 429
-    assert b"Too many failed attempts" in response.content
+    assert b"Account locked" in response.content
     assert "_auth_user_id" not in client.session
 
 
