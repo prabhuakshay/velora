@@ -189,8 +189,8 @@ if env.bool("USE_X_FORWARDED_PROTO", default=False):
 SECURE_CSP = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF, CSP.NONCE],
-    # Error pages render without a request, so their <style> has no nonce.
-    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    # The admin change list has a nonced <style> block.
+    "style-src": [CSP.SELF, CSP.NONCE],
     "img-src": [CSP.SELF, "data:"],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],
