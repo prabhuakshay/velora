@@ -114,3 +114,12 @@ def test_password_change_keeps_user_signed_in(client: Client, user: User) -> Non
     user.refresh_from_db()
     assert user.check_password(new_password)
     assert client.get(reverse("index")).status_code == 200
+
+
+def test_password_help_text_is_linked_to_its_input(client: Client, user: User) -> None:
+    client.force_login(user)
+
+    response = client.get(reverse("password_change"))
+
+    assert b'aria-describedby="id_new_password1_helptext"' in response.content
+    assert b'id="id_new_password1_helptext"' in response.content

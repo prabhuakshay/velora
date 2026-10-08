@@ -9,21 +9,13 @@
     <form method="post" class="mt-6 space-y-4">
       {% csrf_token %}
       {% include "partials/form_errors.html" %}
-      <div>
-        <label for="{{ form.target.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ form.target.label }}</label>
-        <div class="mt-1 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-slate-300 [&_select]:px-3 [&_select]:py-2 [&_select]:text-base">
-          {{ form.target }}
-        </div>
-        {% for error in form.target.errors %}
-          <p class="mt-1 text-sm text-red-600">{{ error }}</p>
-        {% endfor %}
-      </div>
+      {% include "partials/field.html" with field=form.target %}
       {% include "partials/submit.html" with label="Merge" %}
     </form>
   {% else %}
     <p class="mt-4 text-slate-700">There is no other expense account to merge <strong>{{ expense_account.name }}</strong> into.</p>
   {% endif %}
   <p class="mt-4 text-center text-sm">
-    <a href="{% url 'expense_account_list' %}" class="text-slate-600 underline hover:text-slate-900">Cancel</a>
+    <a href="{% url 'expense_account_list' %}" class="link">Cancel</a>
   </p>
 {% endblock %}

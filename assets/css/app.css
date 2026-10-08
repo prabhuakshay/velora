@@ -21,3 +21,21 @@
   opacity: 1;
   visibility: visible;
 }
+
+@layer components {
+  .btn-primary {
+    @apply rounded-lg bg-slate-900 px-4 py-2.5 font-medium text-white hover:bg-slate-700;
+  }
+
+  .btn-secondary {
+    @apply rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100;
+  }
+
+  .link {
+    @apply text-slate-600 underline hover:text-slate-900;
+  }
+
+  .field-control :is(input, select, textarea) {
+    @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-slate-900 focus:outline-none;
+  }
+}

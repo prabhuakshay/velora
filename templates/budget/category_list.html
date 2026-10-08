@@ -4,18 +4,18 @@
 
 {% block content %}
   <main class="mx-auto max-w-2xl px-4 py-8">
-    <a href="{% url 'index' %}" class="text-sm text-slate-600 underline hover:text-slate-900">Home</a>
+    <a href="{% url 'index' %}" class="link text-sm">Home</a>
     <div class="mt-2 flex items-center justify-between gap-3">
       <h1 class="text-2xl font-bold tracking-tight">Categories</h1>
       <div class="flex gap-2">
-        <a href="{% url 'category_create' %}" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">New category</a>
+        <a href="{% url 'category_create' %}" class="btn-primary py-2 text-sm">New category</a>
       </div>
     </div>
     <p class="mt-4 text-sm">
       {% if show_hidden %}
-        <a href="{% url 'category_list' %}" class="text-slate-600 underline hover:text-slate-900">Hide hidden</a>
+        <a href="{% url 'category_list' %}" class="link">Hide hidden</a>
       {% else %}
-        <a href="?show_hidden=1" class="text-slate-600 underline hover:text-slate-900">Show hidden</a>
+        <a href="?show_hidden=1" class="link">Show hidden</a>
       {% endif %}
     </p>
     <div class="mt-4 space-y-3">
@@ -32,9 +32,9 @@
                 <span class="flex shrink-0 gap-3 text-sm">
                   <form method="post" action="{% url category.hidden|yesno:'category_unhide,category_hide' category.pk %}{% if show_hidden %}?show_hidden=1{% endif %}">
                     {% csrf_token %}
-                    <button class="text-slate-600 underline hover:text-slate-900">{% if category.hidden %}Unhide{% else %}Hide{% endif %}</button>
+                    <button class="link">{% if category.hidden %}Unhide{% else %}Hide{% endif %}</button>
                   </form>
-                  <a href="{% url 'category_edit' category.pk %}" class="text-slate-600 underline hover:text-slate-900">Edit</a>
+                  <a href="{% url 'category_edit' category.pk %}" class="link">Edit</a>
                   <a href="{% url 'category_delete' category.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
                 </span>
               </li>
