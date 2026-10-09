@@ -337,3 +337,17 @@ def test_request_just_under_12_mb_reaches_the_form(signed_in: Client) -> None:
     response = create_with(signed_in, pdf_of(12 * MB - 64 * 1024))
 
     assert_rejected(response, TOO_LARGE)
+
+
+def test_file_picker_carries_the_limit_for_the_browser_check(
+    signed_in: Client,
+) -> None:
+    transaction = recorded()
+    attach(transaction, content=pdf_bytes(3 * MB))
+
+    response = signed_in.get(transaction_url("transaction_edit", transaction))
+
+    page = response.content.decode()
+    assert f'data-max-total-bytes="{10 * MB}"' in page
+    assert f'data-existing-bytes="{3 * MB}"' in page
+    assert f'data-too-large="{TOO_LARGE}"' in page

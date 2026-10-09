@@ -1,1 +1,11 @@
-<button type="submit" class="btn-primary w-full">{{ label }}</button>
+{% comment %}
+  htmx marks the form with .htmx-request while it submits, so the button shows
+  it is working; a large upload can take a while before any response shows.
+{% endcomment %}
+<button type="submit" class="btn-primary flex w-full items-center justify-center gap-2 in-[.htmx-request]:pointer-events-none in-[.htmx-request]:opacity-70">
+  <svg class="hidden size-4 animate-spin in-[.htmx-request]:block" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+    <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+  </svg>
+  {{ label }}
+</button>

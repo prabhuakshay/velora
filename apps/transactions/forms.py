@@ -77,6 +77,9 @@ class MultipleFileField(forms.FileField):
         ]
 
 
+TOO_LARGE = f"A Transaction's Attachments can total at most {MAX_TOTAL_MB} MB."
+
+
 class TransactionForm(forms.ModelForm[Transaction]):
     """The Transaction's own fields: date, Party and description.
 
@@ -98,6 +101,20 @@ class TransactionForm(forms.ModelForm[Transaction]):
         super().__init__(*args, **kwargs)
         if not self.instance.pk:
             self.initial["date"] = timezone.localdate()
+        self.existing = (
+            self.instance.attachments.aggregate(count=Count("pk"), size=Sum("size"))
+            if self.instance.pk
+            else {"count": 0, "size": 0}
+        )
+        # The browser checks the total before uploading; the server only refuses
+        # once the whole request body has arrived.
+        self.fields["attachments"].widget.attrs.update(
+            {
+                "data-max-total-bytes": MAX_TOTAL_BYTES,
+                "data-existing-bytes": self.existing["size"] or 0,
+                "data-too-large": TOO_LARGE,
+            }
+        )
         party = cast("forms.ModelChoiceField[Party]", self.fields["party"])
         party.queryset = visible_or_current(
             Party.objects.order_by(Lower("name")), self.instance.party_id
@@ -122,20 +139,14 @@ class TransactionForm(forms.ModelForm[Transaction]):
                 errors.extend(error.messages)
         if not files:
             return checked
-        existing = (
-            self.instance.attachments.aggregate(count=Count("pk"), size=Sum("size"))
-            if self.instance.pk
-            else {"count": 0, "size": 0}
-        )
+        existing = self.existing
         if existing["count"] + len(files) > MAX_ATTACHMENTS:
             errors.append(
                 f"A Transaction can have at most {MAX_ATTACHMENTS} Attachments."
             )
         total = (existing["size"] or 0) + sum(file.size or 0 for file in files)
         if total > MAX_TOTAL_BYTES:
-            errors.append(
-                f"A Transaction's Attachments can total at most {MAX_TOTAL_MB} MB."
-            )
+            errors.append(TOO_LARGE)
         if errors:
             raise forms.ValidationError(errors)
         return checked
