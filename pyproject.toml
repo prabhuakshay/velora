@@ -58,6 +58,8 @@ ignore = [
 "conftest.py" = ["D1", "S101", "S105", "S106", "PLR2004", "ARG", "INP001"]
 "manage.py" = ["D1", "INP001"]
 "apps/*/admin.py" = ["D1"]
+# Dummy dev data: weak randomness and arbitrary odds are the point.
+"apps/*/management/commands/seed_*.py" = ["S311", "PLR2004"]
 "apps/*/apps.py" = ["D1"]
 "apps/*/urls.py" = ["D1"]
 "apps/*/*_urls.py" = ["D1"]
