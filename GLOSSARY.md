@@ -67,3 +67,7 @@ _Avoid_: Transfer, combine, consolidate
 **Number Format**:
 How the user chooses to see amounts grouped: Indian, in lakhs and crores (₹12,34,567.89), or International, in thousands and millions (₹1,234,567.89). It changes only how amounts look, never their value.
 _Avoid_: Locale, currency format
+
+**Privacy Mode**:
+A setting that masks every amount Velora shows, so someone who sees the screen can't learn what the user has, owes or spends. It changes only what is shown, never any value.
+_Avoid_: Hide amounts, stealth mode, incognito
