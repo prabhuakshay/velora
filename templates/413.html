@@ -1,0 +1,11 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Files too large · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">Files too large</h1>
+  <p class="mt-2 text-sm text-slate-600">A Transaction's Attachments can total {{ max_total_mb }} MB.</p>
+  <p class="mt-4 text-center text-sm">
+    <a href="{{ request.path }}" class="link">Back</a>
+  </p>
+{% endblock %}

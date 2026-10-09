@@ -3,14 +3,19 @@
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
-from django.db.models import Q, QuerySet
+from django.db.models import Count, Q, QuerySet, Sum
 from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.formats import date_format
 
 from apps.accounts.models import BALANCE_KINDS, Account
 from apps.classification.models import Party, Tag
-from apps.transactions.attachment_rules import MAX_ATTACHMENTS, checked_content_type
+from apps.transactions.attachment_rules import (
+    MAX_ATTACHMENTS,
+    MAX_TOTAL_BYTES,
+    MAX_TOTAL_MB,
+    checked_content_type,
+)
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -115,10 +120,21 @@ class TransactionForm(forms.ModelForm[Transaction]):
                 checked.append((file, checked_content_type(file)))
             except forms.ValidationError as error:
                 errors.extend(error.messages)
-        existing = self.instance.attachments.count() if self.instance.pk else 0
-        if existing + len(files) > MAX_ATTACHMENTS:
+        if not files:
+            return checked
+        existing = (
+            self.instance.attachments.aggregate(count=Count("pk"), size=Sum("size"))
+            if self.instance.pk
+            else {"count": 0, "size": 0}
+        )
+        if existing["count"] + len(files) > MAX_ATTACHMENTS:
             errors.append(
                 f"A Transaction can have at most {MAX_ATTACHMENTS} Attachments."
+            )
+        total = (existing["size"] or 0) + sum(file.size or 0 for file in files)
+        if total > MAX_TOTAL_BYTES:
+            errors.append(
+                f"A Transaction's Attachments can total at most {MAX_TOTAL_MB} MB."
             )
         if errors:
             raise forms.ValidationError(errors)

@@ -17,8 +17,12 @@ if TYPE_CHECKING:
 
     from django.core.files.uploadedfile import UploadedFile
 
-MAX_SIZE_MB = 20
 MAX_ATTACHMENTS = 10
+MB = 1024 * 1024
+MAX_TOTAL_MB = 10
+MAX_TOTAL_BYTES = MAX_TOTAL_MB * MB
+# The headroom above the total covers the other form fields and multipart framing.
+MAX_REQUEST_BYTES = MAX_TOTAL_BYTES + 2 * MB
 
 HEIC_BRANDS = {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1"}
 
@@ -132,9 +136,6 @@ def checked_content_type(upload: UploadedFile[bytes]) -> str:
     file_type = FILE_TYPES.get(PurePath(name).suffix.lower())
     if file_type is None:
         msg = f"{name} isn't a file type you can attach."
-        raise ValidationError(msg)
-    if (upload.size or 0) > MAX_SIZE_MB * 1024 * 1024:
-        msg = f"{name} is over {MAX_SIZE_MB} MB, the most an Attachment can be."
         raise ValidationError(msg)
     upload.seek(0)
     data = upload.read()

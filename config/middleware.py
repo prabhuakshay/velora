@@ -4,7 +4,10 @@ from typing import TYPE_CHECKING
 
 from django.db import connection
 from django.http import HttpResponse
+from django.shortcuts import render
 from django.utils.cache import add_never_cache_headers
+
+from apps.transactions.attachment_rules import MAX_REQUEST_BYTES, MAX_TOTAL_MB
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -45,4 +48,27 @@ class HealthCheckMiddleware:
         if request.path == "/healthz/":
             connection.ensure_connection()
             return HttpResponse("ok", content_type="text/plain")
+        return self.get_response(request)
+
+
+class RequestSizeMiddleware:
+    """Refuse a request declaring a body too large for any form to accept.
+
+    Django spools large uploads to /tmp, which is a small tmpfs in production,
+    so the refusal must come before anything reads the body.
+    """
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        """Return 413 when Content-Length is over the limit; pass others on."""
+        try:
+            length = int(request.headers.get("content-length") or 0)
+        except ValueError:
+            length = 0
+        if length > MAX_REQUEST_BYTES:
+            return render(
+                request, "413.html", {"max_total_mb": MAX_TOTAL_MB}, status=413
+            )
         return self.get_response(request)

@@ -99,6 +99,8 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     # Right after SecurityMiddleware, as WhiteNoise recommends.
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # Before anything that reads the request body.
+    "config.middleware.RequestSizeMiddleware",
     "config.middleware.NoStoreMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",

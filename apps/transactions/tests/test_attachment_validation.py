@@ -8,7 +8,9 @@ from django.urls import reverse
 from apps.accounts.tests.conftest import make_account
 from apps.transactions.models import Transaction
 from apps.transactions.tests.conftest import (
+    attach,
     form_data,
+    recorded,
     stored_names,
     transaction_url,
     upload,
@@ -155,21 +157,42 @@ def test_zip_that_cannot_be_read_is_rejected(signed_in: Client, content: bytes) 
 MB = 1024 * 1024
 
 
-def test_file_over_20_mb_is_rejected_naming_the_limit(signed_in: Client) -> None:
-    big = upload("scan.pdf", b"%PDF" + b"0" * (20 * MB - 3))
-
-    response = create_with(signed_in, big)
-
-    assert_rejected(response, "scan.pdf is over 20 MB, the most an Attachment can be.")
+TOO_LARGE = "A Transaction&#x27;s Attachments can total at most 10 MB."
 
 
-def test_file_of_exactly_20_mb_is_accepted(signed_in: Client) -> None:
+def pdf_bytes(size: int) -> bytes:
+    return b"%PDF" + b"0" * (size - 4)
+
+
+def pdf_of(size: int, name: str = "scan.pdf") -> SimpleUploadedFile:
+    return upload(name, pdf_bytes(size))
+
+
+def test_files_totalling_exactly_10_mb_are_accepted(signed_in: Client) -> None:
     response = create_with(
-        signed_in, upload("scan.pdf", b"%PDF" + b"0" * (20 * MB - 4))
+        signed_in, pdf_of(6 * MB, "one.pdf"), pdf_of(4 * MB, "two.pdf")
     )
 
     assert response["Location"] == reverse("transaction_list")
-    assert len(stored_names()) == 1
+    assert len(stored_names()) == 2
+
+
+def test_files_totalling_over_10_mb_are_rejected_naming_the_limit(
+    signed_in: Client,
+) -> None:
+    response = create_with(
+        signed_in, pdf_of(6 * MB, "one.pdf"), pdf_of(4 * MB + 1, "two.pdf")
+    )
+
+    assert_rejected(response, TOO_LARGE)
+    assert "Pick them again." in response.content.decode()
+
+
+def test_single_file_over_10_mb_is_rejected(signed_in: Client) -> None:
+    response = create_with(signed_in, pdf_of(10 * MB + 1))
+
+    assert_rejected(response, TOO_LARGE)
+    assert "the most an Attachment can be" not in response.content.decode()
 
 
 def pdfs(count: int) -> list[SimpleUploadedFile]:
@@ -230,3 +253,87 @@ def test_edit_may_fill_up_to_the_limit(signed_in: Client) -> None:
     edit_with(signed_in, transaction, *pdfs(1))
 
     assert transaction.attachments.count() == 10
+
+
+def test_edit_counts_existing_attachment_sizes_towards_the_total(
+    signed_in: Client,
+) -> None:
+    transaction = recorded()
+    attach(transaction, content=pdf_bytes(6 * MB))
+    existing = stored_names()
+
+    response = edit_with(signed_in, transaction, pdf_of(4 * MB + 1))
+
+    assert TOO_LARGE in response.content.decode()
+    transaction.refresh_from_db()
+    assert transaction.description == ""
+    assert transaction.attachments.count() == 1
+    assert stored_names() == existing
+
+
+def test_edit_may_fill_up_to_the_total(signed_in: Client) -> None:
+    transaction = recorded()
+    attach(transaction, content=pdf_bytes(6 * MB))
+
+    response = edit_with(signed_in, transaction, pdf_of(4 * MB))
+
+    assert response.status_code == 302
+    assert transaction.attachments.count() == 2
+
+
+def over_the_total() -> Transaction:
+    """A Transaction whose Attachments already total more than 10 MB."""
+    transaction = recorded()
+    attach(transaction, content=pdf_bytes(11 * MB))
+    return transaction
+
+
+def test_edit_without_files_of_a_transaction_over_the_total_is_saved(
+    signed_in: Client,
+) -> None:
+    transaction = over_the_total()
+
+    response = edit_with(signed_in, transaction)
+
+    assert response.status_code == 302
+    transaction.refresh_from_db()
+    assert transaction.description == "Changed"
+
+
+def test_any_file_added_to_a_transaction_over_the_total_is_rejected(
+    signed_in: Client,
+) -> None:
+    transaction = over_the_total()
+
+    response = edit_with(signed_in, transaction, upload("tiny.pdf", b"%PDF"))
+
+    assert TOO_LARGE in response.content.decode()
+    assert transaction.attachments.count() == 1
+
+
+def test_request_declaring_over_12_mb_is_refused_before_it_is_read(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    groceries = make_account("Groceries", "expense")
+
+    response = signed_in.post(
+        reverse("transaction_create"),
+        form_data(bank, groceries, attachments=[upload("bill.pdf", b"%PDF")]),
+        CONTENT_LENGTH=str(12 * MB + 1),
+    )
+
+    assert response.status_code == 413
+    assert "413.html" in [t.name for t in response.templates]
+    page = response.content.decode()
+    assert "Files too large" in page
+    assert "A Transaction's Attachments can total 10 MB." in page
+    assert not Transaction.objects.exists()
+    assert stored_names() == []
+
+
+def test_request_just_under_12_mb_reaches_the_form(signed_in: Client) -> None:
+    # Leaves room for the other fields and multipart framing.
+    response = create_with(signed_in, pdf_of(12 * MB - 64 * 1024))
+
+    assert_rejected(response, TOO_LARGE)
