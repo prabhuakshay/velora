@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import pytest
 from django.urls import reverse
 
-from apps.accounts.tests.conftest import account_url, list_page
+from apps.accounts.tests.conftest import account_url, edit_account, list_page
 from apps.accounts.tests.test_balance import opening
 from apps.accounts.tests.test_net_worth import home_page
 from apps.accounts.tests.test_opening_balance import (
@@ -23,15 +23,7 @@ CHECKED_BOX = b'name="include_in_net_worth" id="id_include_in_net_worth" checked
 
 
 def exclude(client: Client, account: Account) -> None:
-    response = client.post(
-        account_url("account_edit", account),
-        {
-            "name": account.name,
-            "opening_balance": account.opening_balance,
-            "opening_balance_date": account.opening_balance_date,
-        },
-    )
-    assert response.status_code == 302
+    edit_account(client, account, include_in_net_worth=False)
 
 
 @pytest.mark.parametrize("kind", KINDS_WITH_BALANCE)

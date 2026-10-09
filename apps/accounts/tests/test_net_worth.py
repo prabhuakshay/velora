@@ -5,7 +5,7 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.accounts.tests.conftest import account_url, make_account
+from apps.accounts.tests.conftest import account_url, edit_account, make_account
 from apps.accounts.tests.test_balance import opening, record
 from apps.transactions.tests.conftest import form_data
 
@@ -105,8 +105,7 @@ def test_transactions_after_as_of_date_dont_count(signed_in: Client) -> None:
 def test_account_opening_after_as_of_date_counts_as_zero(signed_in: Client) -> None:
     opening("Bank", "asset", "1000.00")
     card = opening("Card", "liability", "300.00")
-    card.opening_balance_date = date(2026, 5, 1)
-    card.save()
+    edit_account(signed_in, card, opening_balance_date=date(2026, 5, 1))
 
     before = home_page(signed_in, as_of="2026-04-30")
     assert "Liabilities ₹0.00" in before

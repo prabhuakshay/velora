@@ -31,3 +31,21 @@ def make_account(name: str, kind: str, *, hidden: bool = False) -> Account:
         account.opening_balance_date = date(2026, 1, 1)
     account.save()
     return account
+
+
+def edit_account(
+    client: Client,
+    account: Account,
+    *,
+    opening_balance_date: date | None = None,
+    include_in_net_worth: bool = True,
+) -> None:
+    data = {
+        "name": account.name,
+        "opening_balance": account.opening_balance,
+        "opening_balance_date": opening_balance_date or account.opening_balance_date,
+    }
+    if include_in_net_worth:
+        data["include_in_net_worth"] = "on"
+    response = client.post(account_url("account_edit", account), data)
+    assert response.status_code == 302
