@@ -168,9 +168,10 @@ class Command(BaseCommand):
                 spent += amount
                 if source is card:
                     on_card += amount
-            # Income beats spending and the card is cleared each month, so the
-            # bank never dips below its Opening Balance and Net Worth grows.
-            pay = (spent * Decimal("0.65")).quantize(Decimal("0.01"))
+            # Income is 90-170% of spending so Net Worth trends up but some
+            # months dip; the worst case (-10% a month) can't drain the bank.
+            share = Decimal(str(random.uniform(0.45, 0.85)))
+            pay = (spent * share).quantize(Decimal("0.01"))
             rows.append((first, random.choice(incomes), bank, pay))
             rows.append((first + timedelta(days=14), random.choice(incomes), bank, pay))
             rows.append((first + timedelta(days=days - 1), bank, card, on_card))
