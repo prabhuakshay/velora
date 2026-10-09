@@ -1,9 +1,10 @@
+import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from django.urls import reverse
 
-from apps.budget.models import Category
+from apps.budget.models import Category, ExpenseAccount
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -23,8 +24,12 @@ def signed_in(client: Client, user: User) -> Client:
     return client
 
 
-def panel(client: Client) -> str:
-    return client.get(reverse("category_list")).content.decode()
+def make_expense_account(name: str) -> ExpenseAccount:
+    return ExpenseAccount.objects.create(name=name)
+
+
+def panel(client: Client, page: str = "category_list") -> str:
+    return client.get(reverse(page)).content.decode()
 
 
 def test_panel_shows_latest_five_newest_first(signed_in: Client) -> None:
@@ -68,7 +73,7 @@ def test_show_more_returns_next_five_and_last_page_has_no_button(
     assert "Created Cat 4" not in first
     assert "offset=5" in first
 
-    url = reverse("category_activity")
+    url = reverse("activity")
     second = signed_in.get(url, {"offset": 5}).content.decode()
     assert "Created Cat 4" in second
     assert "Created Cat 0" in second
@@ -77,7 +82,7 @@ def test_show_more_returns_next_five_and_last_page_has_no_button(
 
 
 def test_activity_endpoint_requires_login(client: Client) -> None:
-    response = client.get(reverse("category_activity"))
+    response = client.get(reverse("activity"))
 
     assert response.status_code == 302
     assert "login" in response["Location"]
@@ -97,7 +102,7 @@ def test_hidden_and_unhidden_wording(signed_in: Client) -> None:
 def test_non_numeric_offset_falls_back_to_first_page(signed_in: Client) -> None:
     make_category("Food")
 
-    response = signed_in.get(reverse("category_activity"), {"offset": "abc"})
+    response = signed_in.get(reverse("activity"), {"offset": "abc"})
 
     assert response.status_code == 200
     assert "Created Food" in response.content.decode()
@@ -110,6 +115,93 @@ def test_panel_query_count_does_not_grow_with_entries(
         category = make_category(f"Cat {i}")
         category.icon = "wallet"
         category.save()
+        expense_account = make_expense_account(f"Shop {i}")
+        expense_account.notes = "x"
+        expense_account.save()
 
     with django_assert_max_num_queries(10):
         panel(signed_in)
+
+
+def test_expense_account_wording(signed_in: Client) -> None:
+    expense_account = make_expense_account("Walmrt")
+    assert "Created Walmrt" in panel(signed_in)
+
+    def edit(**fields: object) -> str:
+        for key, value in fields.items():
+            setattr(expense_account, key, value)
+        expense_account.save()
+        return panel(signed_in)
+
+    assert "Renamed Walmrt → Walmart" in edit(name="Walmart")
+    assert "Hidden Walmart" in edit(hidden=True)
+    assert "Unhidden Walmart" in edit(hidden=False)
+    assert "Changed notes of Walmart" in edit(notes="Groceries")
+    expense_account.delete()
+    assert "Deleted Walmart" in panel(signed_in)
+
+
+def test_merge_reads_as_merge_not_delete(signed_in: Client) -> None:
+    source = make_expense_account("Walmrt")
+    target = make_expense_account("Walmart")
+
+    signed_in.post(
+        reverse("expense_account_merge", args=[source.pk]), {"target": target.pk}
+    )
+
+    body = panel(signed_in)
+    assert "Merged Walmrt into Walmart" in body
+    assert "Deleted Walmrt" not in body
+
+
+def test_mixed_types_are_newest_first(signed_in: Client) -> None:
+    make_category("Food")
+    make_expense_account("Walmart")
+    make_category("Rent")
+
+    body = panel(signed_in)
+
+    rent = body.index("Created Rent")
+    walmart = body.index("Created Walmart")
+    food = body.index("Created Food")
+    assert rent < walmart < food
+
+
+def test_show_more_spans_both_types_without_gaps(signed_in: Client) -> None:
+    names = []
+    for i in range(6):
+        make_category(f"Cat {i}")
+        make_expense_account(f"Shop {i}")
+        names += [f"Created Cat {i}", f"Created Shop {i}"]
+
+    url = reverse("activity")
+    pages = [
+        panel(signed_in),
+        *(signed_in.get(url, {"offset": o}).content.decode() for o in (5, 10)),
+    ]
+
+    seen = [m for page in pages for m in re.findall(r"Created (?:Cat|Shop) \d", page)]
+    assert seen == list(reversed(names))
+    assert "Show more" not in pages[-1]
+
+
+def test_feed_renders_on_expense_account_list(signed_in: Client) -> None:
+    make_category("Food")
+    make_expense_account("Walmart")
+
+    body = panel(signed_in, "expense_account_list")
+
+    assert "Created Food" in body
+    assert "Created Walmart" in body
+
+
+def test_each_line_has_a_labelled_type_icon(signed_in: Client) -> None:
+    make_category("Food")
+    make_expense_account("Walmart")
+
+    body = panel(signed_in)
+
+    assert 'aria-label="Category"' in body
+    assert 'aria-label="Expense Account"' in body
+    assert "lucide-tag" in body
+    assert "lucide-store" in body

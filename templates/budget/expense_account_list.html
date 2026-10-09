@@ -35,4 +35,10 @@
       <li class="py-3 text-slate-500">No expense accounts yet.</li>
     {% endfor %}
   </ul>
+  <section class="mt-8">
+    <h2 class="font-semibold">Recent activity</h2>
+    <ul id="activity" class="mt-2 divide-y divide-slate-100 text-sm">
+      {% include "budget/activity_items.html" %}
+    </ul>
+  </section>
 {% endblock %}

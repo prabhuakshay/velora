@@ -154,7 +154,8 @@ def test_hide_removes_expense_account_from_default_list(signed_in: Client) -> No
     )
 
     assert response["Location"] == reverse("expense_account_list")
-    assert "Walmart" not in list_page(signed_in)
+    edit_url = reverse("expense_account_edit", args=[expense_account.pk])
+    assert edit_url not in list_page(signed_in)
 
 
 def test_show_hidden_reveals_dimmed_expense_account_with_unhide(
@@ -191,7 +192,8 @@ def test_edit_form_can_set_hidden(signed_in: Client) -> None:
         {"name": "Walmart", "hidden": "on"},
     )
 
-    assert "Walmart" not in list_page(signed_in)
+    edit_url = reverse("expense_account_edit", args=[expense_account.pk])
+    assert edit_url not in list_page(signed_in)
 
 
 @pytest.mark.parametrize("name", ["expense_account_hide", "expense_account_unhide"])

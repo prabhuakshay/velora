@@ -59,7 +59,7 @@ def _activity_context(offset: int) -> dict[str, object]:
 
 
 @login_required
-def category_activity(request: HttpRequest) -> HttpResponse:
+def activity(request: HttpRequest) -> HttpResponse:
     """Render the next page of the activity feed."""
     try:
         offset = max(int(request.GET.get("offset", "0")), 0)
@@ -147,12 +147,16 @@ def category_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 @login_required
 def expense_account_list(request: HttpRequest) -> HttpResponse:
-    """List expense accounts by name."""
+    """List expense accounts by name, with recent activity."""
     show_hidden = request.GET.get("show_hidden") == "1"
     expense_accounts = ExpenseAccount.objects.order_by(Lower("name"))
     if not show_hidden:
         expense_accounts = expense_accounts.filter(hidden=False)
-    context = {"expense_accounts": expense_accounts, "show_hidden": show_hidden}
+    context = {
+        "expense_accounts": expense_accounts,
+        "show_hidden": show_hidden,
+        **_activity_context(0),
+    }
     return render(request, "budget/expense_account_list.html", context)
 
 
@@ -208,6 +212,7 @@ def expense_account_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
     source = get_object_or_404(ExpenseAccount, pk=pk)
     form = ExpenseAccountMergeForm(request.POST or None, source=source)
     if form.is_valid():
+        source._change_reason = form.cleaned_data["target"].name  # type: ignore[attr-defined]  # noqa: SLF001
         with transaction.atomic():
             source.delete()
         return redirect("expense_account_list")
