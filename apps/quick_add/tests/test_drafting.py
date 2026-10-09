@@ -9,8 +9,7 @@ from apps.accounts.models import Account
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
 from apps.quick_add.models import AICall, QuickAdd
-from apps.quick_add.tasks import process_quick_add
-from apps.quick_add.tests.conftest import quick_add, reply, split
+from apps.quick_add.tests.conftest import process, quick_add, reply, split
 
 if TYPE_CHECKING:
     from apps.quick_add.tests.conftest import FakeOpenRouter
@@ -32,7 +31,7 @@ def test_a_valid_reply_becomes_a_draft(fake_openrouter: FakeOpenRouter) -> None:
         )
     )
 
-    process_quick_add(quick_add_id=lunch.pk)
+    process(lunch)
 
     lunch.refresh_from_db()
     assert lunch.status == QuickAdd.Status.DRAFT
@@ -57,7 +56,7 @@ def test_several_splits_become_draft_splits(fake_openrouter: FakeOpenRouter) -> 
         reply(split(card, groceries, "500"), split(card, household, "300"))
     )
 
-    process_quick_add(quick_add_id=note.pk)
+    process(note)
 
     splits = QuickAdd.objects.get(pk=note.pk).draft.splits.all()
     assert [(s.to_account, s.amount) for s in splits] == [
@@ -76,7 +75,7 @@ def test_date_defaults_to_the_day_it_was_written(
     QuickAdd.objects.filter(pk=note.pk).update(created_at=written)
     fake_openrouter.replies.append(reply(split(bank, rent, "25000")))
 
-    process_quick_add(quick_add_id=note.pk)
+    process(note)
 
     assert QuickAdd.objects.get(pk=note.pk).draft.date == date(2026, 9, 30)
 
@@ -91,7 +90,7 @@ def test_a_new_party_is_only_named_not_created(
         reply(split(bank, food, "1200"), new_party_name="Brik Oven")
     )
 
-    process_quick_add(quick_add_id=note.pk)
+    process(note)
 
     draft = QuickAdd.objects.get(pk=note.pk).draft
     assert (draft.party, draft.new_party_name) == (None, "Brik Oven")
@@ -106,7 +105,7 @@ def test_every_request_records_an_ai_call_with_its_usage(
     note = quick_add()
     fake_openrouter.replies.append(reply(split(bank, food, "850")))
 
-    process_quick_add(quick_add_id=note.pk)
+    process(note)
 
     call = AICall.objects.get()
     assert (
@@ -130,7 +129,7 @@ def test_the_prompt_has_the_text_and_only_active_accounts_and_parties(
     note = quick_add()
     fake_openrouter.replies.append(reply(split(bank, food, "850")))
 
-    process_quick_add(quick_add_id=note.pk)
+    process(note)
 
     [prompt] = fake_openrouter.requests
     sent = " ".join(message["content"] for message in prompt)
@@ -146,6 +145,6 @@ def test_a_draft_changes_no_balance(fake_openrouter: FakeOpenRouter) -> None:
     note = quick_add()
     fake_openrouter.replies.append(reply(split(bank, food, "850")))
 
-    process_quick_add(quick_add_id=note.pk)
+    process(note)
 
     assert Account.objects.with_balance().get(pk=bank.pk).balance == 0
