@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import DecimalField, F, OuterRef, QuerySet, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, Lower
@@ -9,7 +10,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.accounts.forms import AccountForm
+from apps.accounts.forms import AccountForm, AccountMergeForm
+from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
 from apps.core.views import save_unique_name, set_hidden
 from apps.transactions.models import Split
@@ -103,6 +105,14 @@ def account_unhide(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase
 def account_delete(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
     """Confirm, then delete an Account of the kind in the URL."""
     account = get_object_or_404(Account, pk=pk, kind=kind)
+    if account.splits_out.exists() or account.splits_in.exists():
+        label = Account.Kind(kind).label
+        messages.info(
+            request,
+            f"{account} is used by Transactions, so it cannot be deleted. "
+            f"Merge it into another {label} Account, or hide it instead.",
+        )
+        return redirect("account_merge", kind=kind, pk=pk)
     if request.method == "POST":
         account.delete()
         return redirect("account_list", kind=kind)
@@ -114,4 +124,23 @@ def account_delete(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase
             "noun": f"{Account.Kind(kind).label} Account",
             "list_url": reverse("account_list", kwargs={"kind": kind}),
         },
+    )
+
+
+@login_required
+def account_merge(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
+    """Choose a target and see the impact, then Merge the Account into it."""
+    source = get_object_or_404(Account, pk=pk, kind=kind)
+    form = AccountMergeForm(source, request.POST or request.GET or None)
+    merge = None
+    if form.is_valid():
+        merge = AccountMerge(source, form.cleaned_data["target"])
+        if request.method == "POST":
+            merge.run()
+            messages.success(request, f"Merged {source} into {merge.target}.")
+            return redirect("account_list", kind=kind)
+    return render(
+        request,
+        "accounts/account_merge.html",
+        {"form": form, "kind": Account.Kind(kind), "source": source, "merge": merge},
     )

@@ -4,7 +4,6 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
-from django.db.models import ProtectedError
 from django.urls import reverse
 
 from apps.accounts.tests.conftest import account_url, make_account
@@ -97,15 +96,21 @@ def test_hidden_account_and_party_are_kept_when_editing(signed_in: Client) -> No
     assert transaction.splits.get().amount == Decimal(6)
 
 
-def test_accounts_in_use_cannot_be_deleted(signed_in: Client) -> None:
+@pytest.mark.parametrize("method", ["get", "post"])
+def test_deleting_an_account_in_use_sends_to_merge(
+    signed_in: Client, method: str
+) -> None:
     bank = make_account("Bank", "asset")
     groceries = make_account("Groceries", "expense")
     signed_in.post(reverse("transaction_create"), form_data(bank, groceries))
 
-    for url in [
-        account_url("account_delete", bank),
-        account_url("account_delete", groceries),
-    ]:
-        with pytest.raises(ProtectedError):
-            signed_in.post(url)
+    for account in [bank, groceries]:
+        response = getattr(signed_in, method)(
+            account_url("account_delete", account), follow=True
+        )
+
+        assert response.redirect_chain == [(account_url("account_merge", account), 302)]
+        body = response.content.decode()
+        assert f"{account} is used by Transactions" in body
+        assert "hide it" in body
     assert Transaction.objects.get().splits.count() == 1

@@ -67,18 +67,24 @@ def test_merge_points_transactions_at_target_and_removes_source(
     moved = [record(source), record(source)]
     untouched = record(None)
 
-    response = signed_in.post(merge_url(source), {"target": target.pk})
+    response = signed_in.post(merge_url(source), {"target": target.pk}, follow=True)
 
-    assert response["Location"] == reverse("party_list")
+    assert response.redirect_chain == [(reverse("party_list"), 302)]
+    assert "Merged Big Bazar into Big Bazaar." in response.content.decode()
     assert list(Party.objects.all()) == [target]
     assert set(target.transactions.all()) == set(moved)
     untouched.refresh_from_db()
     assert untouched.party is None
+    reason = "Merged Big Bazar into Big Bazaar"
     deleted = Party.history.get(id=source.pk, history_type="-")
-    assert deleted.history_user == user
+    assert (deleted.history_user, deleted.history_change_reason) == (user, reason)
     for transaction in moved:
         latest = transaction.history.latest()
-        assert (latest.party_id, latest.history_user) == (target.pk, user)
+        assert (latest.party_id, latest.history_user, latest.history_change_reason) == (
+            target.pk,
+            user,
+            reason,
+        )
 
 
 def test_merge_into_itself_is_rejected(signed_in: Client) -> None:

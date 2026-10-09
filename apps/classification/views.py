@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.classification.forms import PartyForm, PartyMergeForm, TagForm
+from apps.classification.merge import merge_party
 from apps.classification.models import Party, Tag
 from apps.core.views import save_unique_name, set_hidden
 
@@ -99,7 +100,9 @@ def party_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
     party = get_object_or_404(Party, pk=pk)
     form = PartyMergeForm(party, request.POST or None)
     if form.is_valid():
-        party.merge_into(form.cleaned_data["target"])
+        target = form.cleaned_data["target"]
+        merge_party(party, target)
+        messages.success(request, f"Merged {party} into {target}.")
         return redirect("party_list")
     count = party.transactions.count()
     return render(

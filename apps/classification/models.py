@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, ClassVar
 
-from django.db import models, transaction
+from django.db import models
 from django.db.models.functions import Lower
 from simple_history.models import HistoricalRecords
 
@@ -44,15 +44,6 @@ class Party(models.Model):
 
     def __str__(self) -> str:
         return self.name
-
-    @transaction.atomic
-    def merge_into(self, target: Party) -> None:
-        """Point every Transaction at the target, then delete this Party."""
-        # Saved one by one, not with update(), so change history records each.
-        for money_event in self.transactions.all():
-            money_event.party = target
-            money_event.save()
-        self.delete()
 
 
 class Tag(models.Model):
