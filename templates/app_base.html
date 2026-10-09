@@ -3,11 +3,23 @@
 {% block content %}
   {% url 'index' as home_url %}
   {% url 'password_change' as password_change_url %}
+  {% url 'party_list' as parties_url %}
+  {% url 'tag_list' as tags_url %}
   <div class="md:flex md:min-h-screen">
     <aside class="border-b border-slate-200 bg-white p-4 text-sm md:w-56 md:shrink-0 md:border-r md:border-b-0">
       <a href="{{ home_url }}" class="text-lg font-bold tracking-tight">Velora</a>
       <nav class="mt-4 flex flex-wrap gap-1 md:flex-col">
         <a href="{{ home_url }}" class="nav-link{% if request.path == home_url %} nav-link-active{% endif %}">Home</a>
+        <details class="group w-full"{% if parties_url in request.path or tags_url in request.path %} open{% endif %}>
+          <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+            Classification
+            <span class="text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+          </summary>
+          <div class="mt-1 ml-3 flex flex-col gap-1 border-l border-slate-200 pl-2">
+            <a href="{{ parties_url }}" class="nav-link{% if parties_url in request.path %} nav-link-active{% endif %}">Parties</a>
+            <a href="{{ tags_url }}" class="nav-link{% if tags_url in request.path %} nav-link-active{% endif %}">Tags</a>
+          </div>
+        </details>
         <details class="group w-full"{% if password_change_url in request.path %} open{% endif %}>
           <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
             Account

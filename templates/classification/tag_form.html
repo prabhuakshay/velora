@@ -1,0 +1,33 @@
+{% extends "app_base.html" %}
+
+{% block title %}{% if tag %}Edit tag{% else %}New tag{% endif %} · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">{% if tag %}Edit tag{% else %}New tag{% endif %}</h1>
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    {% include "partials/form_errors.html" %}
+    {% include "partials/field.html" with field=form.name %}
+    <fieldset>
+      <legend class="block text-sm font-medium text-slate-700">{{ form.color.label }}</legend>
+      <div class="mt-1 flex flex-wrap gap-3">
+        {% for name, swatch, checked in form.color_swatches %}
+          <label class="cursor-pointer">
+            <input type="radio" name="color" value="{{ name }}"{% if checked %} checked{% endif %} class="peer sr-only">
+            <span title="{{ name }}" class="block size-9 rounded-full {{ swatch }} ring-offset-2 peer-checked:ring-2 peer-checked:ring-slate-900 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-400"></span>
+          </label>
+        {% endfor %}
+      </div>
+      {% for error in form.color.errors %}
+        <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+      {% endfor %}
+    </fieldset>
+    <label class="flex items-center gap-2 text-sm text-slate-700">
+      {{ form.hidden }} Hidden
+    </label>
+    {% include "partials/submit.html" with label="Save" %}
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'tag_list' %}" class="link">Cancel</a>
+  </p>
+{% endblock %}

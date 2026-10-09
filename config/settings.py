@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "axes",
     # Local
     "apps.users",
+    "apps.classification",
 ]
 
 

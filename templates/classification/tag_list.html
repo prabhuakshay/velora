@@ -1,0 +1,37 @@
+{% extends "app_base.html" %}
+
+{% block title %}Tags · Velora{% endblock %}
+
+{% block main %}
+  <div class="flex items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold tracking-tight">Tags</h1>
+    <a href="{% url 'tag_create' %}" class="btn-primary py-2 text-sm">New tag</a>
+  </div>
+  <p class="mt-4 text-sm">
+    {% if show_hidden %}
+      <a href="{% url 'tag_list' %}" class="link">Hide hidden</a>
+    {% else %}
+      <a href="?show_hidden=1" class="link">Show hidden</a>
+    {% endif %}
+  </p>
+  <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+    {% for tag in tags %}
+      <li class="{% if tag.hidden %}opacity-50 {% endif %}flex items-center justify-between gap-3 py-3">
+        <span class="flex min-w-0 items-center gap-2">
+          <span class="size-3 shrink-0 rounded-full {{ tag.swatch_class }}" aria-hidden="true"></span>
+          <span class="truncate font-medium">{{ tag.name }}</span>
+        </span>
+        <div class="flex shrink-0 gap-3 text-sm">
+          <form method="post" action="{% url tag.hidden|yesno:'tag_unhide,tag_hide' tag.pk %}{% if show_hidden %}?show_hidden=1{% endif %}">
+            {% csrf_token %}
+            <button class="link">{% if tag.hidden %}Unhide{% else %}Hide{% endif %}</button>
+          </form>
+          <a href="{% url 'tag_edit' tag.pk %}" class="link">Edit</a>
+          <a href="{% url 'tag_delete' tag.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
+        </div>
+      </li>
+    {% empty %}
+      <li class="py-3 text-slate-500">No tags yet.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
