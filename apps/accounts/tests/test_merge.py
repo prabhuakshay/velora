@@ -178,3 +178,19 @@ def test_target_of_another_kind_is_rejected(signed_in: Client) -> None:
     ]:
         assert "Select a valid choice." in response.content.decode()
     assert Account.objects.count() == 2
+
+
+def test_merge_works_with_the_longest_names(signed_in: Client) -> None:
+    source = make_account("a" * 100, "asset")
+    target = make_account("b" * 100, "asset")
+    groceries = make_account("Groceries", "expense")
+    transaction = Transaction.objects.create(date=date(2026, 3, 1))
+    split = transaction.splits.create(
+        from_account=source, to_account=groceries, amount=Decimal(5)
+    )
+
+    signed_in.post(account_url("account_merge", source), {"target": target.pk})
+
+    assert not Account.objects.filter(pk=source.pk).exists()
+    split.refresh_from_db()
+    assert split.from_account == target

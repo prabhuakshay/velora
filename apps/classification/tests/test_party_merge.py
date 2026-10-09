@@ -100,6 +100,17 @@ def test_merge_into_itself_is_rejected(signed_in: Client) -> None:
     assert Party.objects.get() == source
 
 
+def test_merge_works_with_the_longest_names(signed_in: Client) -> None:
+    source = Party.objects.create(name="a" * 100)
+    target = Party.objects.create(name="b" * 100)
+    record(source)
+
+    signed_in.post(merge_url(source), {"target": target.pk})
+
+    assert not Party.objects.filter(pk=source.pk).exists()
+    assert Transaction.objects.get().party == target
+
+
 @pytest.mark.parametrize("method", ["get", "post"])
 def test_deleting_party_in_use_redirects_to_merge_mentioning_hide(
     signed_in: Client, method: str

@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING, Protocol
 
+from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.shortcuts import redirect
 
@@ -44,3 +45,15 @@ def set_hidden(
     if request.GET.get("show_hidden") == "1":
         response["Location"] += "?show_hidden=1"
     return response
+
+
+def redirect_in_use_to_merge(
+    request: HttpRequest, obj: object, noun: str, merge_url: str
+) -> HttpResponseBase:
+    """Explain why an in-use record cannot be deleted, then go to its Merge."""
+    messages.info(
+        request,
+        f"{obj} is used by Transactions, so it cannot be deleted. Merge it into "
+        f"another {noun}, or hide it to keep it off new Transactions.",
+    )
+    return redirect(merge_url)

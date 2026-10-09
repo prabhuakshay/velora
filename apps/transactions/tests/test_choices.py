@@ -46,7 +46,7 @@ def test_account_choices_are_grouped_by_kind(signed_in: Client) -> None:
     ]
 
 
-def test_hidden_accounts_and_parties_are_left_out_of_new_entries(
+def test_hidden_accounts_and_parties_are_left_out_of_new_transactions(
     signed_in: Client,
 ) -> None:
     make_account("Old bank", "asset", hidden=True)
@@ -58,7 +58,7 @@ def test_hidden_accounts_and_parties_are_left_out_of_new_entries(
     assert "Closed shop" not in body
 
 
-def test_hidden_account_cannot_be_posted_on_new_entries(signed_in: Client) -> None:
+def test_hidden_account_cannot_be_posted_on_new_transactions(signed_in: Client) -> None:
     old_bank = make_account("Old bank", "asset", hidden=True)
     groceries = make_account("Groceries", "expense")
     shop = Party.objects.create(name="Closed shop", hidden=True)

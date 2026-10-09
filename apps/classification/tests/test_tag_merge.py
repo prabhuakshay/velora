@@ -122,6 +122,17 @@ def test_change_history_records_the_merge(
         assert [t.tag_id for t in latest.tags.all()] == [travel.pk]
 
 
+def test_merge_works_with_the_longest_names(signed_in: Client) -> None:
+    source = Tag.objects.create(name="a" * 100)
+    target = Tag.objects.create(name="b" * 100)
+    split = make_split(source)
+
+    signed_in.post(reverse("tag_merge", args=[source.pk]), {"target": target.pk})
+
+    assert not Tag.objects.filter(pk=source.pk).exists()
+    assert list(split.tags.all()) == [target]
+
+
 def test_deleting_an_unused_tag_asks_to_confirm(signed_in: Client) -> None:
     tag = Tag.objects.create(name="Trip")
 
@@ -159,3 +170,21 @@ def test_force_delete_removes_the_tag_and_keeps_transactions_and_splits(
         [travel],
         [travel],
     ]
+
+
+def test_force_delete_is_recorded_in_split_change_history(
+    signed_in: Client, user: User, trips: tuple[Tag, Tag]
+) -> None:
+    goa, travel = trips
+    carrying = list(goa.splits.order_by("pk"))
+
+    signed_in.post(reverse("tag_delete", args=[goa.pk]))
+
+    expected = [[], [travel.pk]]
+    for split, tags in zip(carrying, expected, strict=True):
+        latest = split.history.latest()
+        assert (latest.history_user, latest.history_change_reason) == (
+            user,
+            "Deleted Goa trip",
+        )
+        assert [t.tag_id for t in latest.tags.all()] == tags

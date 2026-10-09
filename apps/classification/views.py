@@ -10,12 +10,15 @@ from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.classification.forms import PartyForm, PartyMergeForm, TagForm, TagMergeForm
-from apps.classification.merge import merge_party, merge_tag
+from apps.classification.forms import PartyForm, TagForm
+from apps.classification.merge import delete_tag, merge_party, merge_tag
 from apps.classification.models import Party, Tag
-from apps.core.views import save_unique_name, set_hidden
+from apps.core.forms import MergeForm
+from apps.core.views import redirect_in_use_to_merge, save_unique_name, set_hidden
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
 
@@ -78,12 +81,8 @@ def party_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Confirm, then delete a party."""
     party = get_object_or_404(Party, pk=pk)
     if party.transactions.exists():
-        messages.info(
-            request,
-            f"{party} is used by Transactions, so it cannot be deleted. Merge it "
-            "into another party, or hide it to keep it out of new entries.",
-        )
-        return redirect("party_merge", pk=party.pk)
+        merge_url = reverse("party_merge", args=[party.pk])
+        return redirect_in_use_to_merge(request, party, "party", merge_url)
     if request.method == "POST":
         party.delete()
         return redirect("party_list")
@@ -98,24 +97,9 @@ def party_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
 def party_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Choose a target, then Merge a party into it."""
     party = get_object_or_404(Party, pk=pk)
-    form = PartyMergeForm(party, request.POST or None)
-    if form.is_valid():
-        target = form.cleaned_data["target"]
-        merge_party(party, target)
-        messages.success(request, f"Merged {party} into {target}.")
-        return redirect("party_list")
     count = party.transactions.count()
-    return render(
-        request,
-        "merge.html",
-        {
-            "object": party,
-            "noun": "party",
-            "form": form,
-            "impact": [f"{count} Transaction{pluralize(count)} will move."],
-            "list_url": reverse("party_list"),
-        },
-    )
+    impact = f"{count} Transaction{pluralize(count)} will move."
+    return _merge(request, party, merge_party, "party", impact)
 
 
 @login_required
@@ -174,7 +158,7 @@ def tag_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Confirm, then delete a tag; one in use is removed from its Splits."""
     tag = get_object_or_404(Tag, pk=pk)
     if request.method == "POST":
-        tag.delete()
+        delete_tag(tag)
         return redirect("tag_list")
     if split_count := tag.splits.count():
         return render(
@@ -193,21 +177,34 @@ def tag_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
 def tag_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Choose a target, then Merge a tag into it."""
     tag = get_object_or_404(Tag, pk=pk)
-    form = TagMergeForm(tag, request.POST or None)
+    count = tag.splits.count()
+    impact = f"{count} Split{pluralize(count)} will move."
+    return _merge(request, tag, merge_tag, "tag", impact)
+
+
+def _merge[R: (Party, Tag)](
+    request: HttpRequest,
+    source: R,
+    merge: Callable[[R, R], None],
+    noun: str,
+    impact: str,
+) -> HttpResponseBase:
+    targets = type(source).objects.exclude(pk=source.pk).order_by(Lower("name"))
+    form = MergeForm(targets, request.POST or None)
+    list_url = reverse(f"{noun}_list")
     if form.is_valid():
         target = form.cleaned_data["target"]
-        merge_tag(tag, target)
-        messages.success(request, f"Merged {tag} into {target}.")
-        return redirect("tag_list")
-    count = tag.splits.count()
+        merge(source, target)
+        messages.success(request, f"Merged {source} into {target}.")
+        return redirect(list_url)
     return render(
         request,
         "merge.html",
         {
-            "object": tag,
-            "noun": "tag",
+            "object": source,
+            "noun": noun,
             "form": form,
-            "impact": [f"{count} Split{pluralize(count)} will move."],
-            "list_url": reverse("tag_list"),
+            "impact": [impact],
+            "list_url": list_url,
         },
     )

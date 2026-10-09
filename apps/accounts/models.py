@@ -1,13 +1,15 @@
 """Accounts: anything money moves from or to."""
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Self
 
+from django.apps import apps
 from django.db import models
-from django.db.models.functions import Lower
+from django.db.models.functions import Coalesce, Lower
 from simple_history.models import HistoricalRecords
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from datetime import date
 
 
 class AccountKind(models.TextChoices):
@@ -20,6 +22,32 @@ class AccountKind(models.TextChoices):
 
 
 BALANCE_KINDS = (AccountKind.ASSET, AccountKind.LIABILITY)
+
+
+def _split_total(account_field: str) -> Coalesce:
+    # Looked up by name: the transactions app imports this module.
+    split = apps.get_model("transactions", "Split")
+    totals = (
+        split.objects.filter(**{account_field: models.OuterRef("pk")})
+        .values(account_field)
+        .annotate(total=models.Sum("amount"))
+        .values("total")
+    )
+    money = models.DecimalField(max_digits=15, decimal_places=2)
+    return Coalesce(models.Subquery(totals), models.Value(0), output_field=money)
+
+
+class AccountQuerySet(models.QuerySet["Account"]):
+    """Queries over Accounts."""
+
+    def with_balance(self) -> Self:
+        """Annotate each Account's Balance; a Liability's reads as what is owed."""
+        moved_in = _split_total("to_account") - _split_total("from_account")
+        signed = models.Case(
+            models.When(kind=AccountKind.LIABILITY, then=-moved_in),
+            default=moved_in,
+        )
+        return self.annotate(balance=models.F("opening_balance") + signed)
 
 
 class Account(models.Model):
@@ -40,6 +68,7 @@ class Account(models.Model):
     )
     opening_balance_date = models.DateField(null=True, blank=True)
 
+    objects = AccountQuerySet.as_manager()
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
 
@@ -76,3 +105,8 @@ class Account(models.Model):
     def has_opening_balance(self) -> bool:
         """Whether this kind of Account carries an Opening Balance."""
         return self.kind in BALANCE_KINDS
+
+    def opens_after(self, when: date) -> bool:
+        """Whether the date falls before this Account's Opening Balance date."""
+        started = self.opening_balance_date
+        return started is not None and when < started

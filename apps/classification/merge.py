@@ -1,8 +1,10 @@
-"""Merge one Party or Tag into another of the same type."""
+"""Merge or delete Parties and Tags, recording each change in history."""
 
 from typing import TYPE_CHECKING
 
 from django.db import transaction as db_transaction
+
+from apps.core.history import with_reason
 
 if TYPE_CHECKING:
     from apps.classification.models import Party, Tag
@@ -17,10 +19,8 @@ def merge_party(source: Party, target: Party) -> None:
     with db_transaction.atomic():
         for transaction in source.transactions.all():
             transaction.party = target
-            transaction._change_reason = reason  # type: ignore[attr-defined]  # noqa: SLF001
-            transaction.save()
-        source._change_reason = reason  # type: ignore[attr-defined]  # noqa: SLF001
-        source.delete()
+            with_reason(transaction, reason).save()
+        with_reason(source, reason).delete()
 
 
 def merge_tag(source: Tag, target: Tag) -> None:
@@ -32,8 +32,19 @@ def merge_tag(source: Tag, target: Tag) -> None:
     reason = f"Merged {source} into {target}"
     with db_transaction.atomic():
         for split in source.splits.all():
-            split._change_reason = reason  # type: ignore[attr-defined]  # noqa: SLF001
+            with_reason(split, reason)
             split.tags.add(target)
             split.tags.remove(source)
-        source._change_reason = reason  # type: ignore[attr-defined]  # noqa: SLF001
-        source.delete()
+        with_reason(source, reason).delete()
+
+
+def delete_tag(tag: Tag) -> None:
+    """Take the Tag off every Split carrying it, then remove it.
+
+    Like merge_tag, changes each Split so Split change history records it.
+    """
+    reason = f"Deleted {tag}"
+    with db_transaction.atomic():
+        for split in tag.splits.all():
+            with_reason(split, reason).tags.remove(tag)
+        with_reason(tag, reason).delete()

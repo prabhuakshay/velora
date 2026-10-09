@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from apps.accounts.tests.conftest import make_account
 from apps.transactions.models import Transaction
-from apps.transactions.tests.conftest import form_data
+from apps.transactions.tests.conftest import form_data, row, split_rows
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -127,6 +127,33 @@ def test_date_before_an_opening_balance_date_is_rejected(
         "The date cannot be before the Opening Balance date of Card (2 Mar 2026)."
         in body
     )
+
+
+def test_opening_balance_errors_show_on_each_offending_split_row(
+    signed_in: Client,
+) -> None:
+    card, cash, loan = (
+        make_account(name, kind)
+        for name, kind in [("Card", "liability"), ("Cash", "asset"), ("Loan", "asset")]
+    )
+    for account in (card, cash):
+        account.opening_balance_date = date(2026, 3, 2)
+        account.save()
+    food = make_account("Food", "expense")
+    data = split_rows(row(loan, food), row(card, food), row(cash, card))
+
+    body = post(signed_in, data)
+
+    def error(name: str) -> str:
+        return f"Opening Balance date of {name} (2 Mar 2026)."
+
+    date_field, *rows = body.split("<legend")
+    assert "Opening Balance" not in date_field
+    assert "Opening Balance" not in rows[0]
+    assert error("Card") in rows[1]
+    assert error("Cash") not in rows[1]
+    assert error("Cash") in rows[2]
+    assert error("Card") in rows[2]
 
 
 def test_date_on_the_opening_balance_date_is_allowed(signed_in: Client) -> None:

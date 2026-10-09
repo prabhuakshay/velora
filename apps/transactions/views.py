@@ -1,6 +1,6 @@
 """Views for recording and reviewing Transactions."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -9,7 +9,7 @@ from django.db.models import Prefetch, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from apps.transactions.forms import SplitFormSet, TransactionForm, kept_splits
+from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -37,12 +37,17 @@ def transaction_list(request: HttpRequest) -> HttpResponse:
     return render(request, "transactions/transaction_list.html", {"page": page})
 
 
-def _edit(request: HttpRequest, instance: Transaction) -> HttpResponseBase:
+def _save_transaction_forms(
+    request: HttpRequest, instance: Transaction
+) -> HttpResponseBase:
+    """Show the create or edit form, saving the Transaction and Splits once valid."""
     form = TransactionForm(request.POST or None, instance=instance)
-    formset = SplitFormSet(request.POST or None, instance=instance)
+    formset = cast(
+        "BaseSplitFormSet", SplitFormSet(request.POST or None, instance=instance)
+    )
     # Validate both so errors show on the Transaction and its Split at once.
     valid = all([form.is_valid(), formset.is_valid()])
-    if valid and form.check_opening_balances(kept_splits(formset)):
+    if valid and formset.check_opening_balances(form.cleaned_data["date"]):
         with db_transaction.atomic():
             formset.instance = form.save()
             formset.save()
@@ -61,13 +66,13 @@ def _edit(request: HttpRequest, instance: Transaction) -> HttpResponseBase:
 @login_required
 def transaction_create(request: HttpRequest) -> HttpResponseBase:
     """Record a new Transaction."""
-    return _edit(request, Transaction())
+    return _save_transaction_forms(request, Transaction())
 
 
 @login_required
 def transaction_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Edit a Transaction and its Splits."""
-    return _edit(request, get_object_or_404(Transaction, pk=pk))
+    return _save_transaction_forms(request, get_object_or_404(Transaction, pk=pk))
 
 
 @login_required

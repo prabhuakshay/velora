@@ -147,7 +147,7 @@ def test_removed_split_is_not_checked_against_opening_balance(
     assert transaction.splits.count() == 1
 
 
-def test_hidden_tags_are_left_out_of_new_entries_but_kept_when_editing(
+def test_hidden_tags_are_left_out_of_new_transactions_but_kept_when_editing(
     signed_in: Client,
 ) -> None:
     bank = make_account("Bank", "asset")

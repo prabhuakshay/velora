@@ -1,9 +1,8 @@
 """Forms for parties and tags."""
 
-from typing import Any, ClassVar, cast
+from typing import ClassVar
 
 from django import forms
-from django.db.models.functions import Lower
 
 from apps.classification.models import SWATCH_CLASSES, Party, Tag
 
@@ -53,25 +52,3 @@ class TagForm(forms.ModelForm[Tag]):
             msg = "A tag with this name already exists."
             raise forms.ValidationError(msg)
         return name
-
-
-class PartyMergeForm(forms.Form):
-    """Choose the Party to Merge a source Party into."""
-
-    target = forms.ModelChoiceField(queryset=Party.objects.none(), label="Merge into")
-
-    def __init__(self, source: Party, data: dict[str, Any] | None = None) -> None:
-        super().__init__(data)
-        target = cast("forms.ModelChoiceField[Party]", self.fields["target"])
-        target.queryset = Party.objects.exclude(pk=source.pk).order_by(Lower("name"))
-
-
-class TagMergeForm(forms.Form):
-    """Choose the Tag to Merge a source Tag into."""
-
-    target = forms.ModelChoiceField(queryset=Tag.objects.none(), label="Merge into")
-
-    def __init__(self, source: Tag, data: dict[str, Any] | None = None) -> None:
-        super().__init__(data)
-        target = cast("forms.ModelChoiceField[Tag]", self.fields["target"])
-        target.queryset = Tag.objects.exclude(pk=source.pk).order_by(Lower("name"))

@@ -13,7 +13,7 @@ from apps.classification.models import Party, Tag
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from datetime import date
 
 Kind = Account.Kind
 
@@ -74,21 +74,6 @@ class TransactionForm(forms.ModelForm[Transaction]):
             raise forms.ValidationError(msg)
         return when
 
-    def check_opening_balances(self, splits: Iterable[Split]) -> bool:
-        """Reject a date before the Opening Balance date of any Account used."""
-        when = self.cleaned_data["date"]
-        for split in splits:
-            for account in (split.from_account, split.to_account):
-                started = account.opening_balance_date
-                if started and when < started:
-                    self.add_error(
-                        "date",
-                        "The date cannot be before the Opening Balance date of "
-                        f"{account} ({date_format(started, 'j M Y')}).",
-                    )
-                    return False
-        return True
-
 
 class SplitForm(forms.ModelForm[Split]):
     """One Split: an amount from one Account to another."""
@@ -134,6 +119,27 @@ class BaseSplitFormSet(forms.BaseInlineFormSet[Split, Transaction, SplitForm]):
         "too_few_forms": "Add at least one Split.",
     }
 
+    def check_opening_balances(self, when: date) -> bool:
+        """Reject a date before the Opening Balance date of any Account used.
+
+        Each kept Split row gets an error per Account of it that opens later.
+        """
+        valid = True
+        for form in self.forms:
+            if not form.cleaned_data or form in self.deleted_forms:
+                continue
+            split = form.instance
+            for account in (split.from_account, split.to_account):
+                if account.opens_after(when):
+                    started = date_format(account.opening_balance_date, "j M Y")  # type: ignore[arg-type]
+                    form.add_error(
+                        None,
+                        "The date cannot be before the Opening Balance date of "
+                        f"{account} ({started}).",
+                    )
+                    valid = False
+        return valid
+
 
 SplitFormSet = forms.inlineformset_factory(
     Transaction,
@@ -144,14 +150,3 @@ SplitFormSet = forms.inlineformset_factory(
     min_num=1,
     validate_min=True,
 )
-
-
-def kept_splits(
-    formset: forms.BaseInlineFormSet[Split, Transaction, SplitForm],
-) -> list[Split]:
-    """The Splits a valid formset will save: filled in and not removed."""
-    return [
-        form.instance
-        for form in formset.forms
-        if form.cleaned_data and form not in formset.deleted_forms
-    ]

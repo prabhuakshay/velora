@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.db import transaction as db_transaction
-from django.db.models import Model, Q
+from django.db.models import Q
 
+from apps.core.history import with_reason
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -56,15 +57,15 @@ class AccountMerge:
         with db_transaction.atomic():
             emptied = list(self.emptied_transactions)
             for split in self.self_splits:
-                _with_reason(split, reason).delete()
+                with_reason(split, reason).delete()
             for transaction in emptied:
-                _with_reason(transaction, reason).delete()
+                with_reason(transaction, reason).delete()
             for split in self.moved_splits:
                 if split.from_account_id == source.pk:
                     split.from_account = target
                 if split.to_account_id == source.pk:
                     split.to_account = target
-                _with_reason(split, reason).save()
+                with_reason(split, reason).save()
             if target.has_opening_balance:
                 # Both are set for these kinds, by a constraint mypy cannot see.
                 target.opening_balance += source.opening_balance  # type: ignore[operator]
@@ -72,11 +73,5 @@ class AccountMerge:
                     target.opening_balance_date,  # type: ignore[type-var]
                     source.opening_balance_date,
                 )
-                _with_reason(target, reason).save()
-            _with_reason(source, reason).delete()
-
-
-def _with_reason[M: Model](record: M, reason: str) -> M:
-    # simple_history takes the next history record's reason from this attribute.
-    record._change_reason = reason  # type: ignore[attr-defined]  # noqa: SLF001
-    return record
+                with_reason(target, reason).save()
+            with_reason(source, reason).delete()
