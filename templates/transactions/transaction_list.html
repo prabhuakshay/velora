@@ -21,6 +21,12 @@
           {% endfor %}
         </div>
         <div class="flex shrink-0 items-center gap-3 text-sm">
+          {% if transaction.attachment_count %}
+            <span class="flex items-center gap-1 text-slate-500" aria-label="{{ transaction.attachment_count }} Attachment{{ transaction.attachment_count|pluralize }}" title="{{ transaction.attachment_count }} Attachment{{ transaction.attachment_count|pluralize }}">
+              <svg viewBox="0 0 24 24" class="size-4 fill-none stroke-current stroke-2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+              <span class="tabular-nums" aria-hidden="true">{{ transaction.attachment_count }}</span>
+            </span>
+          {% endif %}
           <span class="font-medium tabular-nums">{% amount transaction.total %}</span>
           <a href="{% url 'transaction_edit' transaction.pk %}" class="link">Edit</a>
           <a href="{% url 'transaction_delete' transaction.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>

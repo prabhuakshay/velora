@@ -4,14 +4,14 @@ from typing import TYPE_CHECKING, cast
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
-from django.db.models import Prefetch, Sum
+from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from apps.core.views import paginate
 from apps.transactions.attachments import save_attachments
 from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
-from apps.transactions.models import Split, Transaction
+from apps.transactions.models import Attachment, Split, Transaction
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
@@ -30,7 +30,16 @@ def transaction_list(request: HttpRequest) -> HttpResponse:
                 queryset=Split.objects.select_related("from_account", "to_account"),
             )
         )
-        .annotate(total=Sum("splits__amount"))
+        .annotate(
+            total=Sum("splits__amount"),
+            # A subquery, as joining attachments would multiply the splits total.
+            attachment_count=Subquery(
+                Attachment.objects.filter(transaction=OuterRef("pk"))
+                .values("transaction")
+                .annotate(count=Count("pk"))
+                .values("count")
+            ),
+        )
         .order_by("-date", "-pk")
     )
     page = paginate(request, transactions)
