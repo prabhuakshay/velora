@@ -36,6 +36,10 @@ _Avoid_: Category, income source
 What an Asset or Liability Account held on the day the user started recording it in Velora.
 _Avoid_: Initial balance, starting amount
 
+**Balance**:
+What an Asset or Liability Account holds now: its Opening Balance moved by every Split into or out of it. For a Liability Account it is what the user owes.
+_Avoid_: Total, net
+
 **Transaction**:
 One real-world money event, such as paying a bill or receiving salary, with a date and optionally a Party. It is made of one or more Splits.
 _Avoid_: Entry, journal, payment
@@ -43,6 +47,10 @@ _Avoid_: Entry, journal, payment
 **Split**:
 One part of a Transaction that moves an amount from one Account to another, and can carry Tags.
 _Avoid_: Line, leg, posting
+
+**Transfer**:
+A Transaction whose Splits only move money between Asset and Liability Accounts, such as withdrawing cash or paying a credit card bill.
+_Avoid_: Move, internal transaction
 
 **Refund**:
 A Split from an Expense Account back to an Asset or Liability Account, which reduces what was spent under that Expense Account.

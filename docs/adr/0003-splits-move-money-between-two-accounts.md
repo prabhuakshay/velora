@@ -1,0 +1,3 @@
+# Splits move money between two Accounts, not double-entry postings
+
+Each Split records one positive amount moving from one Account to another, instead of signed debit and credit postings that sum to zero per Transaction. One user entering everyday spending thinks in "from Bank to Groceries", every Split balances by construction so no Transaction can be lopsided, and the direction rules (Income only as a source, Expense only as a destination or Refund source, never Income to Expense) read straight off the from and to Accounts. The cost is that a Transaction like a salary with deductions needs one Split per destination, and moving to postings later means rewriting every Split and every Balance calculation.
