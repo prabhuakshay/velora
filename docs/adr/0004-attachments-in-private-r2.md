@@ -1,0 +1,3 @@
+# Attachments live in a private R2 bucket and never outlive their records
+
+Attachments are stored in a private Cloudflare R2 bucket and opened through short-lived presigned URLs, because receipts are sensitive and the prod container's filesystem is read-only. Uploads go through Django, not straight from the browser to R2, so every file is checked before it is stored and nothing is uploaded without a Transaction to own it. Deleting an Attachment or its Transaction removes the R2 object before the database commit, and if R2 fails the whole delete is rolled back: we accept that a delete can fail rather than leave stray files in the bucket. An object R2 reports as already gone counts as deleted, so a delete that failed partway can simply be retried.

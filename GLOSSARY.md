@@ -52,6 +52,10 @@ _Avoid_: Entry, journal, payment
 One part of a Transaction that moves an amount from one Account to another, and can carry Tags.
 _Avoid_: Line, leg, posting
 
+**Attachment**:
+A file the user keeps with a Transaction as evidence or reference, such as a receipt, invoice or warranty card. It belongs to the whole Transaction, not to any one Split.
+_Avoid_: Receipt, document, file
+
 **Transfer**:
 A Transaction whose Splits only move money between Asset and Liability Accounts, such as withdrawing cash or paying a credit card bill.
 _Avoid_: Move, internal transaction
