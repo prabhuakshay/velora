@@ -3,40 +3,17 @@
 from typing import TYPE_CHECKING
 
 from django.contrib.auth.decorators import login_required
-from django.db import IntegrityError, transaction
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.classification.forms import PartyForm, TagForm
 from apps.classification.models import Party, Tag
+from apps.core.views import save_unique_name, set_hidden
 
 if TYPE_CHECKING:
-    from django import forms
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
-
-
-def _saved(form: forms.ModelForm) -> bool:  # type: ignore[type-arg]
-    """Save, turning a concurrent duplicate name into a form error."""
-    try:
-        with transaction.atomic():
-            form.save()
-    except IntegrityError:
-        form.add_error("name", "This name already exists.")
-        return False
-    return True
-
-
-def _set_hidden(
-    request: HttpRequest, obj: Party | Tag, list_url: str, *, hidden: bool
-) -> HttpResponseBase:
-    obj.hidden = hidden
-    obj.save()
-    response = redirect(list_url)
-    if request.GET.get("show_hidden") == "1":
-        response["Location"] += "?show_hidden=1"
-    return response
 
 
 @login_required
@@ -57,7 +34,7 @@ def party_list(request: HttpRequest) -> HttpResponse:
 def party_create(request: HttpRequest) -> HttpResponseBase:
     """Create a party."""
     form = PartyForm(request.POST or None)
-    if form.is_valid() and _saved(form):
+    if form.is_valid() and save_unique_name(form):
         return redirect("party_list")
     return render(request, "classification/party_form.html", {"form": form})
 
@@ -67,7 +44,7 @@ def party_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Edit a party."""
     party = get_object_or_404(Party, pk=pk)
     form = PartyForm(request.POST or None, instance=party)
-    if form.is_valid() and _saved(form):
+    if form.is_valid() and save_unique_name(form):
         return redirect("party_list")
     return render(
         request, "classification/party_form.html", {"form": form, "party": party}
@@ -78,7 +55,7 @@ def party_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @require_POST
 def party_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Hide a party from the default list."""
-    return _set_hidden(
+    return set_hidden(
         request, get_object_or_404(Party, pk=pk), "party_list", hidden=True
     )
 
@@ -87,7 +64,7 @@ def party_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
 @require_POST
 def party_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Show a hidden party in the default list again."""
-    return _set_hidden(
+    return set_hidden(
         request, get_object_or_404(Party, pk=pk), "party_list", hidden=False
     )
 
@@ -124,7 +101,7 @@ def tag_list(request: HttpRequest) -> HttpResponse:
 def tag_create(request: HttpRequest) -> HttpResponseBase:
     """Create a tag."""
     form = TagForm(request.POST or None)
-    if form.is_valid() and _saved(form):
+    if form.is_valid() and save_unique_name(form):
         return redirect("tag_list")
     return render(request, "classification/tag_form.html", {"form": form})
 
@@ -134,7 +111,7 @@ def tag_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Edit a tag."""
     tag = get_object_or_404(Tag, pk=pk)
     form = TagForm(request.POST or None, instance=tag)
-    if form.is_valid() and _saved(form):
+    if form.is_valid() and save_unique_name(form):
         return redirect("tag_list")
     return render(request, "classification/tag_form.html", {"form": form, "tag": tag})
 
@@ -143,14 +120,14 @@ def tag_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @require_POST
 def tag_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Hide a tag from the default list."""
-    return _set_hidden(request, get_object_or_404(Tag, pk=pk), "tag_list", hidden=True)
+    return set_hidden(request, get_object_or_404(Tag, pk=pk), "tag_list", hidden=True)
 
 
 @login_required
 @require_POST
 def tag_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Show a hidden tag in the default list again."""
-    return _set_hidden(request, get_object_or_404(Tag, pk=pk), "tag_list", hidden=False)
+    return set_hidden(request, get_object_or_404(Tag, pk=pk), "tag_list", hidden=False)
 
 
 @login_required
