@@ -35,6 +35,14 @@
     @apply text-slate-600 underline hover:text-slate-900;
   }
 
+  .nav-link {
+    @apply block rounded-lg px-3 py-2 font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900;
+  }
+
+  .nav-link-active {
+    @apply bg-slate-100 text-slate-900;
+  }
+
   .field-control :is(input, select, textarea) {
     @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-slate-900 focus:outline-none;
   }
