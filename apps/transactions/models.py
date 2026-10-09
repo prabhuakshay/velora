@@ -8,7 +8,7 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Account
-from apps.classification.models import Party
+from apps.classification.models import Party, Tag
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -51,8 +51,9 @@ class Split(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.01"))],
     )
+    tags = models.ManyToManyField(Tag, blank=True, related_name="splits")
 
-    history = HistoricalRecords()
+    history = HistoricalRecords(m2m_fields=[tags])
     save_without_historical_record: Callable[..., None]
 
     class Meta:

@@ -25,5 +25,33 @@ def form_data(
     }
 
 
+def row(
+    source: Account, destination: Account, amount: str = "100.00", **fields: Any
+) -> dict[str, Any]:
+    return {
+        "from_account": source.pk,
+        "to_account": destination.pk,
+        "amount": amount,
+        **fields,
+    }
+
+
+def split_rows(
+    *rows: dict[str, Any], initial: int = 0, **fields: Any
+) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "date": "2026-03-01",
+        "party": "",
+        "description": "",
+        "splits-TOTAL_FORMS": str(len(rows)),
+        "splits-INITIAL_FORMS": str(initial),
+        **fields,
+    }
+    for index, values in enumerate(rows):
+        for name, value in values.items():
+            data[f"splits-{index}-{name}"] = value
+    return data
+
+
 def transaction_url(name: str, transaction: Transaction) -> str:
     return reverse(name, kwargs={"pk": transaction.pk})
