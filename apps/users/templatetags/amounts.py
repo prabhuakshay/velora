@@ -41,3 +41,14 @@ def amount(context: Context, value: Decimal) -> str:
     digits, cents = f"{abs(value):.2f}".split(".")
     sign = "-" if value < 0 else ""
     return f"{sign}₹{_group(digits, number_format)}.{cents}"
+
+
+@register.simple_tag(takes_context=True)
+def amount_color(context: Context, value: Decimal) -> str:
+    """The class that shows a negative amount in red.
+
+    Nothing under Privacy Mode, where red would give away the sign.
+    """
+    if value < 0 and not getattr(context.get("user"), "privacy_mode", False):
+        return "text-red-600"
+    return ""

@@ -3,6 +3,7 @@ from django.test import Client
 from django.urls import reverse
 
 from apps.users.models import User
+from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 from conftest import PASSWORD
 
 pytestmark = pytest.mark.django_db
@@ -64,29 +65,25 @@ def test_admin_rejects_duplicate_email_in_other_case(
     assert User.objects.count() == 1
 
 
-def hide(client: Client) -> None:
-    client.post(reverse("privacy_mode_on"))
-
-
 @pytest.mark.parametrize(
     "url_name",
     ["admin:index", "admin:users_user_changelist", "admin:users_user_change"],
 )
-def test_admin_redirects_to_unhide_page_in_privacy_mode(
+def test_admin_redirects_to_privacy_mode_off_page_in_privacy_mode(
     admin_client: Client, superuser: User, url_name: str
 ) -> None:
     args = [superuser.pk] if url_name.endswith("change") else []
     url = reverse(url_name, args=args)
-    hide(admin_client)
+    turn_on(admin_client)
 
     response = admin_client.get(url)
 
     assert response.status_code == 302
-    assert response["Location"] == f"{reverse('privacy_mode_off')}?next={url}"
+    assert response["Location"] == privacy_mode_off_url(url)
 
 
 def test_admin_loads_after_privacy_mode_is_turned_off(admin_client: Client) -> None:
-    hide(admin_client)
+    turn_on(admin_client)
     admin_client.post(reverse("privacy_mode_off"), {"password": PASSWORD})
 
     assert admin_client.get(reverse("admin:index")).status_code == 200

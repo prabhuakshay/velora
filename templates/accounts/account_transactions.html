@@ -9,7 +9,7 @@
     <a href="{% url 'account_edit' kind account.pk %}" class="btn-primary py-2 text-sm">Edit</a>
   </div>
   {% if account.has_opening_balance %}
-    <p class="mt-2 text-sm{% if account.balance < 0 and not user.privacy_mode %} text-red-600{% endif %}">Balance {% amount account.balance %}</p>
+    <p class="mt-2 text-sm {% amount_color account.balance %}">Balance {% amount account.balance %}</p>
     <p class="text-xs text-slate-500">Opening Balance {% amount account.opening_balance %} on {{ account.opening_balance_date }}</p>
   {% endif %}
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">

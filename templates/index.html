@@ -12,7 +12,7 @@
   <div class="mt-4 space-y-1">
     <p class="text-sm text-slate-600">Assets {% amount net_worth.assets %}</p>
     <p class="text-sm text-slate-600">Liabilities {% amount net_worth.liabilities %}</p>
-    <p class="text-lg font-semibold{% if net_worth.total < 0 and not user.privacy_mode %} text-red-600{% endif %}">Net Worth {% amount net_worth.total %}</p>
+    <p class="text-lg font-semibold {% amount_color net_worth.total %}">Net Worth {% amount net_worth.total %}</p>
   </div>
   <section class="mt-8" aria-labelledby="history-heading">
     <h2 id="history-heading" class="text-lg font-semibold">Net Worth history</h2>

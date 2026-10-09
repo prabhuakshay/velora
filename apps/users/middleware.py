@@ -1,10 +1,14 @@
-"""Middleware that enforces Privacy Mode across the site."""
+"""Middleware that blocks the Django admin while Privacy Mode is on.
+
+The admin's views are Django's own, so they can't take the
+blocked_in_privacy_mode decorator; middleware is the one place to guard them.
+"""
 
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.contrib.auth.views import redirect_to_login
-from django.urls import reverse
+
+from apps.users.privacy_mode import redirect_to_privacy_mode_off
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -13,7 +17,7 @@ if TYPE_CHECKING:
 
 
 class PrivacyModeAdminMiddleware:
-    """Send admin requests to the unhide page while Privacy Mode is on.
+    """Send admin requests to the Privacy Mode off page while Privacy Mode is on.
 
     The admin shows real amounts and offers no masking, so it would get
     around Privacy Mode entirely.
@@ -24,11 +28,9 @@ class PrivacyModeAdminMiddleware:
         self.admin_prefix = f"/{settings.ADMIN_URL}"
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        """Redirect to the unhide page, with next pointing back here."""
+        """Redirect to the Privacy Mode off page, with next pointing back here."""
         if request.path.startswith(self.admin_prefix) and getattr(
             request.user, "privacy_mode", False
         ):
-            return redirect_to_login(
-                request.get_full_path(), reverse("privacy_mode_off")
-            )
+            return redirect_to_privacy_mode_off(request)
         return self.get_response(request)

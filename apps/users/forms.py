@@ -1,6 +1,6 @@
 """Forms for the email-based user model."""
 
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, cast, override
 
 from django import forms
 from django.contrib.auth import authenticate
@@ -44,10 +44,9 @@ class PrivacyModeOffForm(forms.Form):
         widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
     )
 
-    def __init__(self, request: HttpRequest, user: User, data: object = None) -> None:
+    def __init__(self, request: HttpRequest, data: object = None) -> None:
         super().__init__(data)  # type: ignore[arg-type]
         self.request = request
-        self.user = user
 
     @override
     def clean(self) -> dict[str, object]:
@@ -55,9 +54,10 @@ class PrivacyModeOffForm(forms.Form):
         cleaned = super().clean() or {}
         # authenticate, not check_password, so axes counts a wrong password
         # and refuses a locked-out user exactly as it does at login.
-        if "password" in cleaned and not authenticate(
-            self.request, username=self.user.email, password=cleaned["password"]
-        ):
+        if "password" not in cleaned:
+            return cleaned
+        email = cast("User", self.request.user).email
+        if not authenticate(self.request, username=email, password=cleaned["password"]):
             msg = "Wrong password."
             raise forms.ValidationError(msg)
         return cleaned

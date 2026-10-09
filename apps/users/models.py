@@ -87,6 +87,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         super().clean()
         self.email = self.__class__.objects.normalize_email(self.email).lower()
 
+    def set_privacy_mode(self, *, on: bool) -> None:
+        """Turn Privacy Mode on or off, leaving no history row."""
+        self.privacy_mode = on
+        self.save_without_historical_record(update_fields=["privacy_mode"])
+
     def get_full_name(self) -> str:
         """The user's full name, for the admin."""
         return self.full_name

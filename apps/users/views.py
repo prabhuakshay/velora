@@ -56,20 +56,16 @@ def _safe_next(request: HttpRequest) -> str:
 @login_required
 def privacy_mode_on(request: HttpRequest) -> HttpResponseBase:
     """Turn Privacy Mode on and go back to where the user was."""
-    user = cast("User", request.user)
-    user.privacy_mode = True
-    user.save_without_historical_record(update_fields=["privacy_mode"])
+    cast("User", request.user).set_privacy_mode(on=True)
     return redirect(_safe_next(request))
 
 
 @login_required
 def privacy_mode_off(request: HttpRequest) -> HttpResponseBase:
     """Turn Privacy Mode off once the user re-enters their password."""
-    user = cast("User", request.user)
-    form = PrivacyModeOffForm(request, user, request.POST or None)
+    form = PrivacyModeOffForm(request, request.POST or None)
     if form.is_valid():
-        user.privacy_mode = False
-        user.save_without_historical_record(update_fields=["privacy_mode"])
+        cast("User", request.user).set_privacy_mode(on=False)
         return redirect(_safe_next(request))
     return render(
         request,
