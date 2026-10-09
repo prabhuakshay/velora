@@ -9,17 +9,45 @@ Someone outside the user who money is paid to or received from, such as a shop, 
 _Avoid_: Payee, payer, counterparty, merchant, vendor
 
 **Tag**:
-A free-form label the user attaches to money movements to group them across Parties and accounts, such as a trip or "reimbursable". It plays no part in budgeting.
+A free-form label the user attaches to Splits to group them across Parties and Accounts, such as a trip or "reimbursable". It plays no part in budgeting.
 _Avoid_: Label, category
 
+**Account**:
+Anything money moves from or to. Every Account is exactly one of Asset, Liability, Income or Expense, and never changes kind. Never used for the user's login.
+_Avoid_: Ledger, head, wallet
+
+**Asset Account**:
+An Account for something the user owns or is owed, such as a bank account, cash in hand or money lent to a friend.
+_Avoid_: Wallet, bank
+
+**Liability Account**:
+An Account for money the user owes, such as a credit card or a loan.
+_Avoid_: Debt, credit account
+
 **Expense Account**:
-A bucket that spent money is budgeted and reported under, such as Groceries or Rent.
+An Account that spent money is budgeted and reported under, such as Groceries or Rent.
 _Avoid_: Category, envelope
 
 **Income Account**:
-A bucket that earned money is reported under, such as Salary or Interest.
+An Account that earned money is reported under, such as Salary or Interest.
 _Avoid_: Category, income source
 
+**Opening Balance**:
+What an Asset or Liability Account held on the day the user started recording it in Velora.
+_Avoid_: Initial balance, starting amount
+
+**Transaction**:
+One real-world money event, such as paying a bill or receiving salary, with a date and optionally a Party. It is made of one or more Splits.
+_Avoid_: Entry, journal, payment
+
+**Split**:
+One part of a Transaction that moves an amount from one Account to another, and can carry Tags.
+_Avoid_: Line, leg, posting
+
+**Refund**:
+A Split from an Expense Account back to an Asset or Liability Account, which reduces what was spent under that Expense Account.
+_Avoid_: Return, reversal, income
+
 **Merge**:
-Folding one Party into another, or one Tag into another. The source disappears and everything that pointed at it points at the target.
+Folding one Party into another, one Tag into another, or one Account into another of the same kind. The source disappears and everything that pointed at it points at the target.
 _Avoid_: Transfer, combine, consolidate
