@@ -282,3 +282,52 @@ def test_wrong_passwords_lock_out_unhide_and_login(
     user.refresh_from_db()
     assert user.privacy_mode
     assert login_response.status_code == 429
+
+
+def unhide_url(next_url: str) -> str:
+    return f"{reverse('privacy_mode_off')}?next={quote(next_url)}"
+
+
+def test_transaction_edit_sends_to_unhide_page(signed_in: Client) -> None:
+    bank = opening("Bank", "asset", "0")
+    rent = make_account("Rent", "expense")
+    edit_url = reverse(
+        "transaction_edit", args=[record(date(2026, 3, 1), bank, rent, "50", "R").pk]
+    )
+    hide(signed_in)
+
+    response = signed_in.get(edit_url)
+
+    assert response.status_code == 302
+    assert response["Location"] == unhide_url(edit_url)
+
+
+def test_account_edit_sends_to_unhide_page(signed_in: Client) -> None:
+    edit_url = account_url("account_edit", opening("Bank", "asset", "1000"))
+    hide(signed_in)
+
+    response = signed_in.get(edit_url)
+
+    assert response.status_code == 302
+    assert response["Location"] == unhide_url(edit_url)
+
+
+@pytest.mark.parametrize(
+    "url", [reverse("transaction_create"), reverse("account_create", args=["asset"])]
+)
+def test_create_pages_stay_open(signed_in: Client, url: str) -> None:
+    hide(signed_in)
+
+    assert signed_in.get(url).status_code == 200
+
+
+def test_edit_pages_open_while_off(signed_in: Client) -> None:
+    bank = opening("Bank", "asset", "0")
+    rent = make_account("Rent", "expense")
+    transaction = record(date(2026, 3, 1), bank, rent, "50", "R")
+
+    for url in (
+        reverse("transaction_edit", args=[transaction.pk]),
+        account_url("account_edit", bank),
+    ):
+        assert signed_in.get(url).status_code == 200

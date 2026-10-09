@@ -11,6 +11,7 @@ from django.urls import reverse
 from apps.core.views import paginate
 from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
 from apps.transactions.models import Split, Transaction
+from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -68,6 +69,7 @@ def transaction_create(request: HttpRequest) -> HttpResponseBase:
 
 
 @login_required
+@blocked_in_privacy_mode
 def transaction_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Edit a Transaction and its Splits."""
     return _save_transaction_forms(request, get_object_or_404(Transaction, pk=pk))
