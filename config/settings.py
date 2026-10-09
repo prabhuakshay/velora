@@ -130,7 +130,10 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
             ],
             # Available in every template without {% load %}.
-            "builtins": ["django.templatetags.static"],
+            "builtins": [
+                "django.templatetags.static",
+                "apps.users.templatetags.amounts",
+            ],
         },
     },
 ]

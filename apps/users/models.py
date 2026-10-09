@@ -41,6 +41,13 @@ class UserManager(BaseUserManager["User"]):
         return self.get(email=self.normalize_email(username).lower())
 
 
+class NumberFormat(models.TextChoices):
+    """How amounts are grouped when shown."""
+
+    INDIAN = "indian", "Indian (₹12,34,567.89)"
+    INTERNATIONAL = "international", "International (₹1,234,567.89)"
+
+
 class User(AbstractBaseUser, PermissionsMixin):
     """A person who signs in with their email address."""
 
@@ -49,6 +56,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(default=timezone.now)
+    number_format = models.CharField(
+        max_length=13, choices=NumberFormat, default=NumberFormat.INDIAN
+    )
 
     # Old password hashes in history would be a needless leak.
     history = HistoricalRecords(excluded_fields=["last_login", "password"])

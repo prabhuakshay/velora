@@ -21,7 +21,7 @@
           {% endfor %}
         </div>
         <div class="flex shrink-0 items-center gap-3 text-sm">
-          <span class="font-medium tabular-nums">₹{{ transaction.total }}</span>
+          <span class="font-medium tabular-nums">{% amount transaction.total %}</span>
           <a href="{% url 'transaction_edit' transaction.pk %}" class="link">Edit</a>
           <a href="{% url 'transaction_delete' transaction.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
         </div>

@@ -1,0 +1,34 @@
+"""Show amounts in the signed-in user's Number Format."""
+
+from typing import TYPE_CHECKING
+
+from django import template
+
+from apps.users.models import NumberFormat
+
+if TYPE_CHECKING:
+    from decimal import Decimal
+
+    from django.template.context import Context
+
+register = template.Library()
+
+
+def _group(digits: str, number_format: NumberFormat) -> str:
+    if number_format == NumberFormat.INTERNATIONAL:
+        return f"{int(digits):,}"
+    head, tail = digits[:-3], digits[-3:]
+    groups: list[str] = []
+    while head:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    return ",".join([*groups, tail])
+
+
+@register.simple_tag(takes_context=True)
+def amount(context: Context, value: Decimal) -> str:
+    """The value with ₹, its sign and two decimals, grouped by Number Format."""
+    number_format = getattr(context.get("user"), "number_format", NumberFormat.INDIAN)
+    digits, cents = f"{abs(value):.2f}".split(".")
+    sign = "-" if value < 0 else ""
+    return f"{sign}₹{_group(digits, number_format)}.{cents}"

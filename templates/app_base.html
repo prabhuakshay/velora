@@ -3,6 +3,7 @@
 {% block content %}
   {% url 'index' as home_url %}
   {% url 'password_change' as password_change_url %}
+  {% url 'preferences' as preferences_url %}
   {% url 'party_list' as parties_url %}
   {% url 'tag_list' as tags_url %}
   {% url 'transaction_list' as transactions_url %}
@@ -38,12 +39,13 @@
             <a href="{{ income_accounts_url }}" class="nav-link{% if income_accounts_url in request.path %} nav-link-active{% endif %}">Income</a>
           </div>
         </details>
-        <details class="group w-full"{% if password_change_url in request.path %} open{% endif %}>
+        <details class="group w-full"{% if password_change_url in request.path or preferences_url in request.path %} open{% endif %}>
           <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
             Profile
             <span class="text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
           </summary>
           <div class="mt-1 ml-3 flex flex-col gap-1 border-l border-slate-200 pl-2">
+            <a href="{{ preferences_url }}" class="nav-link{% if preferences_url in request.path %} nav-link-active{% endif %}">Preferences</a>
             <a href="{{ password_change_url }}" class="nav-link{% if password_change_url in request.path %} nav-link-active{% endif %}">Change password</a>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}

@@ -121,4 +121,4 @@ def test_list_shows_opening_balance(signed_in: Client) -> None:
 
     response = signed_in.get(reverse("account_list", kwargs={"kind": "liability"}))
 
-    assert b"-1500.75" in response.content
+    assert "Opening Balance -₹1,500.75" in response.content.decode()

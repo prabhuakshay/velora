@@ -10,9 +10,9 @@
     <button type="submit" class="btn-secondary">Show</button>
   </form>
   <div class="mt-4 space-y-1">
-    <p class="text-sm text-slate-600">Assets ₹{{ net_worth.assets }}</p>
-    <p class="text-sm text-slate-600">Liabilities ₹{{ net_worth.liabilities }}</p>
-    <p class="text-lg font-semibold{% if net_worth.total < 0 %} text-red-600{% endif %}">Net Worth ₹{{ net_worth.total }}</p>
+    <p class="text-sm text-slate-600">Assets {% amount net_worth.assets %}</p>
+    <p class="text-sm text-slate-600">Liabilities {% amount net_worth.liabilities %}</p>
+    <p class="text-lg font-semibold{% if net_worth.total < 0 %} text-red-600{% endif %}">Net Worth {% amount net_worth.total %}</p>
   </div>
   <section class="mt-8" aria-labelledby="history-heading">
     <h2 id="history-heading" class="text-lg font-semibold">Net Worth history</h2>
@@ -31,7 +31,7 @@
         <thead><tr><th scope="col">Date</th><th scope="col">Net Worth</th></tr></thead>
         <tbody>
           {% for when, value in history %}
-            <tr><td>{{ when|date:"j M Y" }}</td><td>₹{{ value }}</td></tr>
+            <tr><td>{{ when|date:"j M Y" }}</td><td>{% amount value %}</td></tr>
           {% endfor %}
         </tbody>
       </table>

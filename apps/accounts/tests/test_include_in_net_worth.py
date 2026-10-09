@@ -54,7 +54,7 @@ def test_excluded_accounts_drop_out_of_net_worth(signed_in: Client) -> None:
 
     page = home_page(signed_in)
 
-    assert "Assets ₹1000.00" in page
+    assert "Assets ₹1,000.00" in page
     assert "Liabilities ₹200.00" in page
     assert "Net Worth ₹800.00" in page
 
@@ -76,15 +76,15 @@ def test_hiding_and_unhiding_keep_the_include_setting(signed_in: Client) -> None
     exclude(signed_in, car)
 
     signed_in.post(account_url("account_hide", car))
-    assert "Net Worth ₹1000.00" in home_page(signed_in)
+    assert "Net Worth ₹1,000.00" in home_page(signed_in)
 
     signed_in.post(account_url("account_unhide", car))
-    assert "Net Worth ₹1000.00" in home_page(signed_in)
+    assert "Net Worth ₹1,000.00" in home_page(signed_in)
 
 
 @pytest.mark.parametrize(
     ("exclude_source", "net_worth"),
-    [(True, "Net Worth ₹1050.00"), (False, "Net Worth ₹0.00")],
+    [(True, "Net Worth ₹1,050.00"), (False, "Net Worth ₹0.00")],
 )
 def test_merge_keeps_the_targets_include_setting(
     signed_in: Client, *, exclude_source: bool, net_worth: str

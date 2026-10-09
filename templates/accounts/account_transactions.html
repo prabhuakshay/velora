@@ -9,8 +9,8 @@
     <a href="{% url 'account_edit' kind account.pk %}" class="btn-primary py-2 text-sm">Edit</a>
   </div>
   {% if account.has_opening_balance %}
-    <p class="mt-2 text-sm{% if account.balance < 0 %} text-red-600{% endif %}">Balance ₹{{ account.balance }}</p>
-    <p class="text-xs text-slate-500">Opening Balance ₹{{ account.opening_balance }} on {{ account.opening_balance_date }}</p>
+    <p class="mt-2 text-sm{% if account.balance < 0 %} text-red-600{% endif %}">Balance {% amount account.balance %}</p>
+    <p class="text-xs text-slate-500">Opening Balance {% amount account.opening_balance %} on {{ account.opening_balance_date }}</p>
   {% endif %}
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
     {% for transaction in page %}
@@ -22,7 +22,7 @@
           </p>
           {% if transaction.description %}<p class="truncate text-sm text-slate-700">{{ transaction.description }}</p>{% endif %}
           {% for split in transaction.splits.all %}
-            <p class="truncate text-xs text-slate-500">{{ split.from_account }} → {{ split.to_account }} <span class="tabular-nums">₹{{ split.amount }}</span></p>
+            <p class="truncate text-xs text-slate-500">{{ split.from_account }} → {{ split.to_account }} <span class="tabular-nums">{% amount split.amount %}</span></p>
           {% endfor %}
         </div>
         <div class="flex shrink-0 items-center gap-3 text-sm">

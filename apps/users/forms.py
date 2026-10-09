@@ -1,5 +1,6 @@
 """Admin forms for the email-based user model."""
 
+from django import forms
 from django.contrib.auth.forms import AdminUserCreationForm, UserChangeForm
 
 from apps.users.models import User
@@ -19,3 +20,11 @@ class UserChangeAdminForm(UserChangeForm[User]):
     class Meta:
         model = User
         fields = "__all__"
+
+
+class PreferencesForm(forms.ModelForm[User]):
+    """The user's display preferences."""
+
+    class Meta:
+        model = User
+        fields = ("number_format",)

@@ -35,8 +35,8 @@ def test_net_worth_is_asset_balances(signed_in: Client) -> None:
 
     page = home_page(signed_in)
 
-    assert "Assets ₹1250.50" in page
-    assert "Net Worth ₹1250.50" in page
+    assert "Assets ₹1,250.50" in page
+    assert "Net Worth ₹1,250.50" in page
 
 
 def test_liability_balances_reduce_net_worth(signed_in: Client) -> None:
@@ -47,16 +47,16 @@ def test_liability_balances_reduce_net_worth(signed_in: Client) -> None:
 
     page = home_page(signed_in)
 
-    assert "Assets ₹3000.00" in page
-    assert "Liabilities ₹1700.00" in page
-    assert "Net Worth ₹1300.00" in page
+    assert "Assets ₹3,000.00" in page
+    assert "Liabilities ₹1,700.00" in page
+    assert "Net Worth ₹1,300.00" in page
 
 
 def test_liabilities_above_assets_show_negative_net_worth(signed_in: Client) -> None:
     opening("Bank", "asset", "100.00")
     opening("Loan", "liability", "400.00")
 
-    assert "Net Worth ₹-300.00" in home_page(signed_in)
+    assert "Net Worth -₹300.00" in home_page(signed_in)
 
 
 def test_income_and_expense_accounts_never_count(signed_in: Client) -> None:
@@ -98,8 +98,8 @@ def test_transactions_after_as_of_date_dont_count(signed_in: Client) -> None:
     )
     assert response.status_code == 302
 
-    assert "Net Worth ₹1200.00" in home_page(signed_in, as_of="2026-03-31")
-    assert "Net Worth ₹1250.00" in home_page(signed_in, as_of="2026-04-01")
+    assert "Net Worth ₹1,200.00" in home_page(signed_in, as_of="2026-03-31")
+    assert "Net Worth ₹1,250.00" in home_page(signed_in, as_of="2026-04-01")
 
 
 def test_account_opening_after_as_of_date_counts_as_zero(signed_in: Client) -> None:
@@ -109,7 +109,7 @@ def test_account_opening_after_as_of_date_counts_as_zero(signed_in: Client) -> N
 
     before = home_page(signed_in, as_of="2026-04-30")
     assert "Liabilities ₹0.00" in before
-    assert "Net Worth ₹1000.00" in before
+    assert "Net Worth ₹1,000.00" in before
     assert "Net Worth ₹700.00" in home_page(signed_in, as_of="2026-05-01")
 
 
@@ -134,7 +134,7 @@ def test_invalid_or_future_as_of_date_falls_back_to_today(
     assert response.status_code == 200
     page = response.content.decode()
     assert f'value="{timezone.localdate().isoformat()}"' in page
-    assert "Net Worth ₹1000.00" in page
+    assert "Net Worth ₹1,000.00" in page
 
 
 def test_home_page_charts_net_worth_history(signed_in: Client) -> None:

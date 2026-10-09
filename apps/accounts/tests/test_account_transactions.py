@@ -73,7 +73,7 @@ def test_view_shows_balance_for_balance_kinds(signed_in: Client) -> None:
     groceries = make_account("Groceries", "expense")
     record(date(2026, 3, 1), bank, groceries, "100", "Weekly")
 
-    assert "Balance ₹-100.00" in view_page(signed_in, bank)
+    assert "Balance -₹100.00" in view_page(signed_in, bank)
     assert "Balance" not in view_page(signed_in, groceries)
 
 
