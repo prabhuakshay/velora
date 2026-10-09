@@ -4,19 +4,40 @@ from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models.functions import Lower
+from django.db.models import DecimalField, F, OuterRef, QuerySet, Subquery, Sum, Value
+from django.db.models.functions import Coalesce, Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.accounts.forms import AccountForm, AccountMergeForm
 from apps.accounts.merge import AccountMerge
-from apps.accounts.models import Account
+from apps.accounts.models import BALANCE_KINDS, Account
 from apps.core.views import save_unique_name, set_hidden
+from apps.transactions.models import Split
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
+
+
+def _split_total(account_field: str) -> Coalesce:
+    totals = (
+        Split.objects.filter(**{account_field: OuterRef("pk")})
+        .values(account_field)
+        .annotate(total=Sum("amount"))
+        .values("total")
+    )
+    money = DecimalField(max_digits=15, decimal_places=2)
+    return Coalesce(Subquery(totals), Value(0), output_field=money)
+
+
+def with_balance(accounts: QuerySet[Account], kind: str) -> QuerySet[Account]:
+    """Annotate each Account's Balance; a Liability's reads as what is owed."""
+    moved_in = _split_total("to_account") - _split_total("from_account")
+    if kind == Account.Kind.LIABILITY:
+        moved_in = -moved_in
+    return accounts.annotate(balance=F("opening_balance") + moved_in)
 
 
 @login_required
@@ -26,6 +47,8 @@ def account_list(request: HttpRequest, kind: str) -> HttpResponse:
     accounts = Account.objects.filter(kind=kind).order_by(Lower("name"))
     if not show_hidden:
         accounts = accounts.filter(hidden=False)
+    if kind in BALANCE_KINDS:
+        accounts = with_balance(accounts, kind)
     return render(
         request,
         "accounts/account_list.html",
