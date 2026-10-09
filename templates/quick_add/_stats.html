@@ -1,0 +1,8 @@
+<dl class="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200 sm:grid-cols-3">
+  <div><dt class="text-slate-500">All-time cost</dt><dd class="font-medium tabular-nums">${{ stats.total_cost|floatformat:4 }}</dd></div>
+  <div><dt class="text-slate-500">This month</dt><dd class="font-medium tabular-nums">${{ stats.month_cost|floatformat:4 }}</dd></div>
+  <div><dt class="text-slate-500">Quick Adds</dt><dd class="font-medium tabular-nums">{{ stats.quick_adds }}</dd></div>
+  <div><dt class="text-slate-500">AI calls</dt><dd class="font-medium tabular-nums">{{ stats.calls }}</dd></div>
+  <div><dt class="text-slate-500">Average per Quick Add</dt><dd class="font-medium tabular-nums">${{ stats.average_cost|floatformat:4 }}</dd></div>
+  <div><dt class="text-slate-500">Posted without edits</dt><dd class="font-medium tabular-nums">{% if stats.posted_without_edits_percent is None %}—{% else %}{{ stats.posted_without_edits_percent|floatformat:0 }}%{% endif %}</dd></div>
+</dl>

@@ -14,6 +14,7 @@ from apps.quick_add import openrouter
 from apps.quick_add.forms import QuickAddForm
 from apps.quick_add.models import DraftSplit, QuickAdd
 from apps.quick_add.posting import DraftNotPostableError, post_draft
+from apps.quick_add.stats import ai_stats
 from apps.quick_add.tasks import process_quick_add
 
 if TYPE_CHECKING:
@@ -77,6 +78,7 @@ def draft_list(request: HttpRequest) -> HttpResponseBase:
                 quick_add.status == QuickAdd.Status.PROCESSING
                 for quick_add in quick_adds
             ),
+            "stats": ai_stats(),
         },
     )
 

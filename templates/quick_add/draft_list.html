@@ -4,6 +4,7 @@
 
 {% block main %}
   <h1 class="text-2xl font-bold tracking-tight">Drafts</h1>
+  {% include "quick_add/_stats.html" %}
   {% comment %}
     Polls only while something is processing; the swapped-in list drops the
     trigger once nothing is left to wait for.
