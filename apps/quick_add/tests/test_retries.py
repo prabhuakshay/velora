@@ -92,6 +92,25 @@ def test_a_server_error_then_a_valid_reply_becomes_a_draft(
     assert list(AICall.objects.values_list("succeeded", flat=True)) == [False, True]
 
 
+def test_a_server_error_on_the_corrective_retry_uses_up_the_one_retry(
+    fake_openrouter: FakeOpenRouter, signed_in: Client
+) -> None:
+    bank = make_account("Bank", "asset")
+    food = make_account("Eating Out", "expense")
+    quick_add_ = quick_add()
+    fake_openrouter.replies += [
+        reply(split(bank, food, "850"), mood="hungry"),
+        http_error(503),
+    ]
+
+    process(quick_add_)
+
+    assert len(fake_openrouter.requests) == 2
+    failed = QuickAdd.objects.get(pk=quick_add_.pk)
+    assert failed.status == QuickAdd.Status.FAILED
+    assert "mood" in failed.failure_reason
+
+
 def test_a_refused_request_fails_without_retrying(
     fake_openrouter: FakeOpenRouter, signed_in: Client
 ) -> None:

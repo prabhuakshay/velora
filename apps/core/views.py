@@ -57,12 +57,17 @@ def set_hidden(
 
 
 def redirect_in_use_to_merge(
-    request: HttpRequest, obj: object, noun: str, merge_url: str
+    request: HttpRequest,
+    obj: object,
+    noun: str,
+    merge_url: str,
+    *,
+    used_by: str = "Transactions",
 ) -> HttpResponseBase:
     """Explain why an in-use record cannot be deleted, then go to its Merge."""
     messages.info(
         request,
-        f"{obj} is used by Transactions, so it cannot be deleted. Merge it into "
+        f"{obj} is used by {used_by}, so it cannot be deleted. Merge it into "
         f"another {noun}, or hide it to keep it off new Transactions.",
     )
     return redirect(merge_url)

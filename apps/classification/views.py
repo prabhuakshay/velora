@@ -104,9 +104,11 @@ def party_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
 def party_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Confirm, then delete a party."""
     party = get_object_or_404(Party, pk=pk)
-    if party.transactions.exists():
+    if party.transactions.exists() or party.drafts.exists():
         merge_url = reverse("party_merge", args=[party.pk])
-        return redirect_in_use_to_merge(request, party, "party", merge_url)
+        return redirect_in_use_to_merge(
+            request, party, "party", merge_url, used_by="Transactions or Drafts"
+        )
     if request.method == "POST":
         party.delete()
         return redirect("party_list")

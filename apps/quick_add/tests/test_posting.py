@@ -113,6 +113,33 @@ def test_posting_fails_once_an_account_is_merged_away(signed_in: Client) -> None
     assert not Transaction.objects.exists()
 
 
+def test_merging_the_drafts_party_posts_it_with_the_target(signed_in: Client) -> None:
+    card = make_account("HDFC Card", "liability")
+    food = make_account("Eating Out", "expense")
+    source = Party.objects.create(name="Toit")
+    target = Party.objects.create(name="Toit Brewpub")
+    quick_add = make_draft((card, food, "850"), party=source)
+
+    signed_in.post(reverse("party_merge", args=[source.pk]), {"target": target.pk})
+    post(signed_in, quick_add)
+
+    assert Transaction.objects.get().party == target
+
+
+def test_a_party_on_a_draft_cannot_be_deleted(signed_in: Client) -> None:
+    card = make_account("HDFC Card", "liability")
+    food = make_account("Eating Out", "expense")
+    toit = Party.objects.create(name="Toit")
+    quick_add = make_draft((card, food, "850"), party=toit)
+
+    response = signed_in.post(reverse("party_delete", args=[toit.pk]), follow=True)
+
+    assert response.redirect_chain == [(reverse("party_merge", args=[toit.pk]), 302)]
+    assert "used by Transactions or Drafts" in response.content.decode()
+    quick_add.draft.refresh_from_db()
+    assert quick_add.draft.party == toit
+
+
 def test_rejecting_keeps_the_draft_and_creates_no_party(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")

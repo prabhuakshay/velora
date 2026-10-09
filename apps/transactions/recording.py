@@ -1,5 +1,6 @@
 """Validating and saving a Transaction with its Splits and Attachments."""
 
+from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction as db_transaction
@@ -54,16 +55,19 @@ class TransactionForms:
                 found.extend(f"{where}: {error}" for error in errors)
         return found
 
-    def save(self) -> Transaction:
+    def save(
+        self, *, within: AbstractContextManager[object] | None = None
+    ) -> Transaction:
         """Save the valid Transaction, its Splits and its new Attachments.
 
         Call outside any atomic block when there are Attachments: the block
         here must be the real commit, so a failed commit is seen and the new
-        files can be removed.
+        files can be removed. Other writes that must stand or fall with the
+        Transaction go in `within`, which wraps the save inside that block.
         """
         saved: list[Attachment] = []
         try:
-            with db_transaction.atomic():
+            with db_transaction.atomic(), within or nullcontext():
                 self.formset.instance = self.form.save()
                 self.formset.save()
                 saved = save_attachments(

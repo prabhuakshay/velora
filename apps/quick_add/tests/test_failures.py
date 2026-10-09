@@ -1,4 +1,7 @@
+import json
+import urllib.request
 from datetime import timedelta
+from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -236,3 +239,54 @@ def test_a_draft_made_after_a_failure_drops_the_old_reason(
 
     assert QuickAdd.objects.get(pk=note.pk).failure_reason == ""
     assert "Unknown field" not in drafts_page(signed_in)
+
+
+def openrouter_responds(monkeypatch: pytest.MonkeyPatch, body: object) -> None:
+    """Make every request to OpenRouter get this JSON body back."""
+
+    def urlopen(*_args: object, **_kwargs: object) -> BytesIO:
+        return BytesIO(json.dumps(body).encode())
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+
+
+USAGE = {"prompt_tokens": 10, "completion_tokens": 0, "cost": 0.0001}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"usage": USAGE},
+        {"choices": [], "usage": USAGE},
+        {"choices": [{"message": {"content": None}}], "usage": USAGE},
+        {"choices": [{"message": None}], "usage": USAGE},
+        ["not", "an", "object"],
+    ],
+    ids=["no choices", "empty choices", "null content", "null message", "list"],
+)
+def test_a_response_without_reply_content_fails_the_quick_add(
+    monkeypatch: pytest.MonkeyPatch, body: object
+) -> None:
+    openrouter_responds(monkeypatch, body)
+    quick_add_ = quick_add()
+
+    process(quick_add_)
+
+    failed = QuickAdd.objects.get(pk=quick_add_.pk)
+    assert failed.status == QuickAdd.Status.FAILED
+    assert failed.failure_reason.startswith("The AI's reply was invalid")
+    assert AICall.objects.count() == 2
+
+
+def test_an_unexpected_error_fails_the_quick_add_instead_of_leaving_it_processing(
+    fake_openrouter: FakeOpenRouter, signed_in: Client
+) -> None:
+    quick_add_ = quick_add()
+    fake_openrouter.replies.append(RuntimeError("boom"))
+
+    with pytest.raises(RuntimeError):
+        process(quick_add_)
+
+    failed = QuickAdd.objects.get(pk=quick_add_.pk)
+    assert failed.status == QuickAdd.Status.FAILED
+    assert "Something went wrong" in drafts_page(signed_in)

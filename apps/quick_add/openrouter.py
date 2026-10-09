@@ -39,8 +39,18 @@ def is_configured() -> bool:
     return bool(settings.OPENROUTER_API_KEY)
 
 
-def parsed(content: str) -> Any:  # noqa: ANN401
-    """The content as JSON, or the raw text when it isn't JSON."""
+def reply_content(data: dict[str, Any]) -> object:
+    """The model's message content, or None when the response has none."""
+    try:
+        return data["choices"][0]["message"]["content"]
+    except KeyError, IndexError, TypeError:
+        return None
+
+
+def parsed(content: object) -> Any:  # noqa: ANN401
+    """The content as JSON, or as it came when it isn't JSON text."""
+    if not isinstance(content, str):
+        return content
     try:
         return json.loads(content)
     except ValueError:
@@ -79,9 +89,12 @@ def complete(messages: list[dict[str, str]], schema: dict[str, Any]) -> Reply:
     )
     with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
         data = json.load(response)
+    if not isinstance(data, dict):
+        msg = "OpenRouter's response is not a JSON object."
+        raise ValueError(msg)  # noqa: TRY004
     usage = data.get("usage") or {}
     return Reply(
-        content=parsed(data["choices"][0]["message"]["content"]),
+        content=parsed(reply_content(data)),
         model=data.get("model") or settings.OPENROUTER_MODEL,
         usage=Usage(
             prompt_tokens=usage.get("prompt_tokens", 0),

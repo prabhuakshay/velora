@@ -1,5 +1,6 @@
 """Views for writing Quick Adds and reviewing their Drafts."""
 
+from contextlib import suppress
 from functools import wraps
 from typing import TYPE_CHECKING
 
@@ -15,12 +16,12 @@ from apps.quick_add import openrouter
 from apps.quick_add.forms import NewPartyForm, QuickAddForm
 from apps.quick_add.models import DraftSplit, QuickAdd
 from apps.quick_add.posting import (
+    DraftGoneError,
     DraftNotPostableError,
     form_data,
-    mark_posted,
     matching_party,
-    party_named,
     post_draft,
+    posting_edited,
 )
 from apps.quick_add.stats import ai_stats
 from apps.quick_add.tasks import process_quick_add
@@ -128,10 +129,13 @@ def draft_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
         forms = TransactionForms(request.POST, request.FILES, instance=Transaction())
         new_party = NewPartyForm(request.POST)
         if forms.is_valid() and new_party.is_valid():
-            name = new_party.cleaned_data["new_party_name"]
-            if name and not forms.form.cleaned_data["party"]:
-                forms.form.instance.party = party_named(name)
-            mark_posted(quick_add, forms.save(), without_edits=False)
+            posting = posting_edited(
+                quick_add,
+                forms.form.instance,
+                new_party.cleaned_data["new_party_name"],
+            )
+            with suppress(DraftGoneError):
+                forms.save(within=posting)
             return redirect("draft_list")
     else:
         party = matching_party(draft)

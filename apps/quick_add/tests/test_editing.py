@@ -10,6 +10,7 @@ from apps.classification.models import Party, Tag
 from apps.quick_add.models import QuickAdd
 from apps.quick_add.tests.conftest import make_draft
 from apps.transactions.models import Transaction
+from apps.transactions.recording import TransactionForms
 from apps.transactions.tests.conftest import upload
 
 if TYPE_CHECKING:
@@ -146,6 +147,37 @@ def test_new_party_name_is_offered_and_created_on_save(signed_in: Client) -> Non
     )
 
     assert Transaction.objects.get().party == Party.objects.get(name="Brik Oven")
+
+
+def test_a_draft_posted_meanwhile_is_not_posted_again(
+    signed_in: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    card = make_account("HDFC Card", "liability")
+    food = make_account("Eating Out", "expense")
+    quick_add = make_draft((card, food, "1200"), new_party_name="Brik Oven")
+    is_valid = TransactionForms.is_valid
+
+    def posted_by_another_request(forms: TransactionForms) -> bool:
+        QuickAdd.objects.filter(pk=quick_add.pk).update(status=QuickAdd.Status.POSTED)
+        return is_valid(forms)
+
+    monkeypatch.setattr(TransactionForms, "is_valid", posted_by_another_request)
+
+    response = signed_in.post(
+        reverse("draft_edit", args=[quick_add.pk]),
+        edited(
+            new_party_name="Brik Oven",
+            **{
+                "splits-0-from_account": card.pk,
+                "splits-0-to_account": food.pk,
+                "splits-0-amount": "1200",
+            },
+        ),
+    )
+
+    assert response["Location"] == reverse("draft_list")
+    assert not Transaction.objects.exists()
+    assert not Party.objects.exists()
 
 
 def test_new_party_name_matching_a_party_picks_it(signed_in: Client) -> None:

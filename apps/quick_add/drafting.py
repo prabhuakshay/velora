@@ -190,7 +190,8 @@ def draft_quick_add(quick_add: QuickAdd, *, last_attempt: bool = True) -> None:
 
     An invalid reply is asked again once, with the errors fed back. A network
     or server failure raises TransientError for the job to be retried, unless
-    this is the job's last attempt.
+    this is the job's last attempt or the failed request was that corrective
+    retry: retrying the job would start over and spend the one retry again.
     """
     messages = build_messages(quick_add)
     errors: list[str] = []
@@ -204,6 +205,8 @@ def draft_quick_add(quick_add: QuickAdd, *, last_attempt: bool = True) -> None:
             if reason := request_failure(error):
                 fail(quick_add, reason)
                 return
+            if errors:
+                break
             if not last_attempt:
                 raise TransientError from error
             fail(quick_add, "Couldn't reach OpenRouter; try again later.")

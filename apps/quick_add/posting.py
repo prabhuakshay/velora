@@ -1,6 +1,7 @@
 """Turn a Draft into a Transaction, or drop it (ADR 0006)."""
 
-from typing import Any
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction as db_transaction
 
@@ -8,6 +9,9 @@ from apps.classification.models import Party
 from apps.quick_add.models import Draft, QuickAdd
 from apps.transactions.models import Transaction
 from apps.transactions.recording import TransactionForms
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class DraftNotPostableError(Exception):
@@ -73,6 +77,29 @@ def mark_posted(
             "failure_reason",
         ]
     )
+
+
+class DraftGoneError(Exception):
+    """The Draft was posted or rejected by another request meanwhile."""
+
+
+@contextmanager
+def posting_edited(
+    quick_add: QuickAdd, transaction: Transaction, new_party_name: str
+) -> Iterator[None]:
+    """Wrap saving the edited Transaction so the Draft is posted with it.
+
+    Run inside the save's database transaction: the Quick Add is locked and
+    checked to still be a Draft, so it is posted once, and the new Party is
+    created only if the Transaction is saved.
+    """
+    locked = QuickAdd.objects.select_for_update().get(pk=quick_add.pk)
+    if locked.status != QuickAdd.Status.DRAFT:
+        raise DraftGoneError
+    if new_party_name and transaction.party is None:
+        transaction.party = party_named(new_party_name)
+    yield
+    mark_posted(locked, transaction, without_edits=False)
 
 
 @db_transaction.atomic

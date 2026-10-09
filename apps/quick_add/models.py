@@ -66,9 +66,11 @@ class Draft(models.Model):
         QuickAdd, on_delete=models.CASCADE, related_name="draft"
     )
     date = models.DateField()
+    # Merging the Party repoints the Draft and deleting it is refused, so
+    # the Party never silently drops out of the Draft.
     party = models.ForeignKey(
         Party,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="drafts",
