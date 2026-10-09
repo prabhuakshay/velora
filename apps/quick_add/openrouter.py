@@ -39,11 +39,21 @@ def is_configured() -> bool:
     return bool(settings.OPENROUTER_API_KEY)
 
 
+def parsed(content: str) -> Any:  # noqa: ANN401
+    """The content as JSON, or the raw text when it isn't JSON."""
+    try:
+        return json.loads(content)
+    except ValueError:
+        return content
+
+
 def complete(messages: list[dict[str, str]], schema: dict[str, Any]) -> Reply:
     """Send the messages and get back a reply that follows the JSON schema.
 
     Raises urllib.error.URLError (HTTPError for non-2xx) on network failures,
-    and ValueError when the reply isn't the JSON it should be.
+    and ValueError when OpenRouter's response isn't the JSON it should be.
+    Content the model sent that isn't JSON is returned as the raw text, so
+    the request's usage is still known.
     """
     body = {
         "model": settings.OPENROUTER_MODEL,
@@ -71,7 +81,7 @@ def complete(messages: list[dict[str, str]], schema: dict[str, Any]) -> Reply:
         data = json.load(response)
     usage = data.get("usage") or {}
     return Reply(
-        content=json.loads(data["choices"][0]["message"]["content"]),
+        content=parsed(data["choices"][0]["message"]["content"]),
         model=data.get("model") or settings.OPENROUTER_MODEL,
         usage=Usage(
             prompt_tokens=usage.get("prompt_tokens", 0),

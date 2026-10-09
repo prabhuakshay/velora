@@ -3,15 +3,21 @@
 import json
 from datetime import date
 from decimal import Decimal
+from http import HTTPStatus
 from typing import Any
+from urllib.error import HTTPError
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import Account
 from apps.classification.models import Party
-from apps.quick_add import openrouter
+from apps.quick_add import openrouter, validation
 from apps.quick_add.models import AICall, Draft, DraftSplit, QuickAdd
+
+# An invalid reply gets one more try, with its errors fed back.
+INVALID_REPLY_TRIES = 2
 
 NULLABLE_STRING = {"type": ["string", "null"]}
 NULLABLE_INTEGER = {"type": ["integer", "null"]}
@@ -97,9 +103,21 @@ def build_messages(quick_add: QuickAdd) -> list[dict[str, str]]:
     ]
 
 
-def ask_ai(quick_add: QuickAdd) -> tuple[openrouter.Reply, AICall]:
-    """Send one request for the Quick Add and record what it cost."""
-    reply = openrouter.complete(build_messages(quick_add), SCHEMA)
+def ask_ai(
+    quick_add: QuickAdd, messages: list[dict[str, str]]
+) -> tuple[openrouter.Reply, AICall]:
+    """Send one request for the Quick Add and record what it cost.
+
+    A request that fails is still recorded, with no usage.
+    """
+    try:
+        reply = openrouter.complete(messages, SCHEMA)
+    except Exception as error:
+        AICall.objects.create(quick_add=quick_add, model=settings.OPENROUTER_MODEL)
+        if isinstance(error, HTTPError):
+            # It holds the open error response; only its status code is needed.
+            error.close()
+        raise
     call = AICall.objects.create(
         quick_add=quick_add,
         model=reply.model,
@@ -127,18 +145,74 @@ def save_draft(quick_add: QuickAdd, content: dict[str, Any]) -> Draft:
             draft=draft,
             from_account_id=split["from_account_id"],
             to_account_id=split["to_account_id"],
-            amount=Decimal(split["amount"]),
+            amount=Decimal(str(split["amount"])),
         )
         for split in content["splits"]
     )
     quick_add.status = QuickAdd.Status.DRAFT
-    quick_add.save(update_fields=["status"])
+    quick_add.failure_reason = ""
+    quick_add.save(update_fields=["status", "failure_reason"])
     return draft
 
 
-def draft_quick_add(quick_add: QuickAdd) -> None:
-    """Ask the AI for a Draft of the Quick Add and save it."""
-    reply, call = ask_ai(quick_add)
-    save_draft(quick_add, reply.content)
-    call.succeeded = True
-    call.save(update_fields=["succeeded"])
+class TransientError(Exception):
+    """OpenRouter couldn't be reached or failed on its side; worth retrying."""
+
+
+def fail(quick_add: QuickAdd, reason: str) -> None:
+    """Mark the Quick Add failed, with a reason the user can read."""
+    quick_add.status = QuickAdd.Status.FAILED
+    quick_add.failure_reason = reason
+    quick_add.save(update_fields=["status", "failure_reason"])
+
+
+def request_failure(error: OSError) -> str | None:
+    """Why the request failed, or None when it is worth retrying."""
+    if isinstance(error, HTTPError) and error.code < HTTPStatus.INTERNAL_SERVER_ERROR:
+        return f"OpenRouter refused the request (HTTP {error.code})."
+    return None
+
+
+def feedback(content: object, errors: list[str]) -> list[dict[str, str]]:
+    """The AI's invalid reply and why, so its next try can correct it."""
+    return [
+        {"role": "assistant", "content": json.dumps(content)},
+        {
+            "role": "user",
+            "content": "That reply broke these rules; send a corrected one.\n"
+            + "\n".join(f"- {error}" for error in errors),
+        },
+    ]
+
+
+def draft_quick_add(quick_add: QuickAdd, *, last_attempt: bool = True) -> None:
+    """Ask the AI for a Draft of the Quick Add and save it, or mark it failed.
+
+    An invalid reply is asked again once, with the errors fed back. A network
+    or server failure raises TransientError for the job to be retried, unless
+    this is the job's last attempt.
+    """
+    messages = build_messages(quick_add)
+    errors: list[str] = []
+    for _ in range(INVALID_REPLY_TRIES):
+        try:
+            reply, call = ask_ai(quick_add, messages)
+        except ValueError:
+            errors = ["The reply was not valid JSON."]
+            continue
+        except OSError as error:
+            if reason := request_failure(error):
+                fail(quick_add, reason)
+                return
+            if not last_attempt:
+                raise TransientError from error
+            fail(quick_add, "Couldn't reach OpenRouter; try again later.")
+            return
+        errors = validation.reply_errors(reply.content, written_on(quick_add))
+        if not errors:
+            save_draft(quick_add, reply.content)
+            call.succeeded = True
+            call.save(update_fields=["succeeded"])
+            return
+        messages = [*messages, *feedback(reply.content, errors)]
+    fail(quick_add, "The AI's reply was invalid: " + " ".join(errors))

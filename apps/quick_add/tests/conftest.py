@@ -1,12 +1,15 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
 from apps.quick_add import openrouter
 from apps.quick_add.models import QuickAdd
+from apps.quick_add.tasks import process_quick_add
 
 if TYPE_CHECKING:
+    from procrastinate import JobContext
     from pytest_django import Settings
 
 
@@ -17,18 +20,24 @@ def _openrouter_key(settings: Settings) -> None:
 
 
 class FakeOpenRouter:
-    """Stands in for openrouter.complete: hands out canned replies in order."""
+    """Stands in for openrouter.complete: hands out canned replies in order.
+
+    A reply that is an exception is raised instead, as a failed request would.
+    """
 
     def __init__(self) -> None:
-        self.replies: list[dict[str, Any]] = []
+        self.replies: list[Any] = []
         self.requests: list[list[dict[str, str]]] = []
 
     def complete(
         self, messages: list[dict[str, str]], schema: dict[str, Any]
     ) -> openrouter.Reply:
         self.requests.append(messages)
+        content = self.replies.pop(0)
+        if isinstance(content, Exception):
+            raise content
         return openrouter.Reply(
-            content=self.replies.pop(0),
+            content=content,
             model="test/model-2026",
             usage=openrouter.Usage(
                 prompt_tokens=1200, completion_tokens=80, cost=Decimal("0.00042")
@@ -65,3 +74,9 @@ def split(source: Any, destination: Any, amount: str) -> dict[str, Any]:
 
 def quick_add(text: str = "lunch at Toit 850 on hdfc card") -> QuickAdd:
     return QuickAdd.objects.create(text=text)
+
+
+def process(note: QuickAdd, *, attempts: int = 0) -> None:
+    """Run the job as the worker would on its `attempts`-th retry."""
+    context = SimpleNamespace(job=SimpleNamespace(attempts=attempts))
+    process_quick_add(cast("JobContext", context), quick_add_id=note.pk)
