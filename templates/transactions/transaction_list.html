@@ -7,6 +7,14 @@
     <h1 class="text-2xl font-bold tracking-tight">Transactions</h1>
     <a href="{% url 'transaction_create' %}" class="btn-primary py-2 text-sm">New Transaction</a>
   </div>
+  {% if quick_add_enabled %}
+    <form method="post" action="{% url 'quick_add_create' %}" class="mt-4 flex gap-2">
+      {% csrf_token %}
+      <label for="quick-add-text" class="sr-only">Quick Add</label>
+      <input id="quick-add-text" type="text" name="text" required maxlength="{{ quick_add_max_length }}" placeholder="Quick Add, like “lunch at Toit 850 on hdfc card”" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      <button type="submit" class="btn-primary py-2 text-sm">Add</button>
+    </form>
+  {% endif %}
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
     {% for transaction in page %}
       <li class="flex items-center justify-between gap-3 py-3">

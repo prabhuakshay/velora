@@ -12,5 +12,6 @@ urlpatterns = [
     path("", include("apps.classification.urls")),
     path("", include("apps.accounts.urls")),
     path("", include("apps.transactions.urls")),
+    path("", include("apps.quick_add.urls")),
     path(settings.ADMIN_URL, admin.site.urls),
 ]

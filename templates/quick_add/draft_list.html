@@ -1,0 +1,41 @@
+{% extends "app_base.html" %}
+
+{% block title %}Drafts · Velora{% endblock %}
+
+{% block main %}
+  <h1 class="text-2xl font-bold tracking-tight">Drafts</h1>
+  {% comment %}
+    Polls only while something is processing; the swapped-in list drops the
+    trigger once nothing is left to wait for.
+  {% endcomment %}
+  <div id="drafts"{% if processing %} hx-get="{% url 'draft_list' %}" hx-trigger="every 3s" hx-select="#drafts" hx-target="this" hx-swap="outerHTML"{% endif %}>
+    <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+      {% for quick_add in quick_adds %}
+        <li class="py-3">
+          <p class="text-sm text-slate-500">“{{ quick_add.text }}”</p>
+          {% if quick_add.status == "processing" %}
+            <p class="mt-1 text-sm text-slate-700">Processing…</p>
+          {% elif quick_add.status == "failed" %}
+            <p class="mt-1 text-sm text-red-600">Failed{% if quick_add.failure_reason %}: {{ quick_add.failure_reason }}{% endif %}</p>
+          {% else %}
+            {% with draft=quick_add.draft %}
+              <p class="mt-1 font-medium">
+                <span class="text-slate-500">{{ draft.date|date:"j M Y" }}</span>
+                {% if draft.party %}· {{ draft.party }}{% elif draft.new_party_name %}· {{ draft.new_party_name }} <span class="text-xs text-slate-500">(new Party)</span>{% endif %}
+              </p>
+              {% if draft.description %}<p class="text-sm text-slate-700">{{ draft.description }}</p>{% endif %}
+              {% for split in draft.splits.all %}
+                <p class="flex justify-between gap-3 text-xs text-slate-500">
+                  <span class="truncate">{{ split.from_account }} → {{ split.to_account }}</span>
+                  <span class="tabular-nums">{% amount split.amount %}</span>
+                </p>
+              {% endfor %}
+            {% endwith %}
+          {% endif %}
+        </li>
+      {% empty %}
+        <li class="py-3 text-slate-500">No Drafts. Write a Quick Add on the Transactions page.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

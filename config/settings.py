@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     "apps.classification",
     "apps.accounts",
     "apps.transactions",
+    "apps.quick_add",
 ]
 
 
@@ -135,6 +136,7 @@ TEMPLATES = [
                 "django.template.context_processors.csp",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.quick_add.context_processors.quick_add",
             ],
             # Available in every template without {% load %}.
             "builtins": [
