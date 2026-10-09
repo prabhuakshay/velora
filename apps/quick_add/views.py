@@ -7,12 +7,13 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
 from django.http import Http404
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.quick_add import openrouter
 from apps.quick_add.forms import QuickAddForm
 from apps.quick_add.models import DraftSplit, QuickAdd
+from apps.quick_add.posting import DraftNotPostableError, post_draft
 from apps.quick_add.tasks import process_quick_add
 
 if TYPE_CHECKING:
@@ -78,3 +79,33 @@ def draft_list(request: HttpRequest) -> HttpResponseBase:
             ),
         },
     )
+
+
+@login_required
+@requires_quick_add
+@require_POST
+def draft_post(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
+    """Record the Draft as a Transaction, unchanged, or keep why it can't be."""
+    # Locked for the request's transaction, so a double click posts once.
+    quick_add = get_object_or_404(
+        QuickAdd.objects.select_for_update(), pk=pk, status=QuickAdd.Status.DRAFT
+    )
+    try:
+        post_draft(quick_add)
+    except DraftNotPostableError as error:
+        quick_add.failure_reason = str(error)
+        quick_add.save(update_fields=["failure_reason"])
+    return redirect("draft_list")
+
+
+@login_required
+@requires_quick_add
+@require_POST
+def draft_reject(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
+    """Drop the Draft; the Quick Add and Draft are kept, marked rejected."""
+    quick_add = get_object_or_404(
+        QuickAdd.objects.select_for_update(), pk=pk, status=QuickAdd.Status.DRAFT
+    )
+    quick_add.status = QuickAdd.Status.REJECTED
+    quick_add.save(update_fields=["status"])
+    return redirect("draft_list")

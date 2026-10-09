@@ -1,6 +1,6 @@
 """Views for recording and reviewing Transactions."""
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -14,11 +14,10 @@ from apps.core.views import paginate
 from apps.transactions.attachments import (
     AttachmentDeleteError,
     delete_attachment_files,
-    remove_files,
-    save_attachments,
 )
-from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
+from apps.transactions.forms import SplitFormSet
 from apps.transactions.models import Attachment, Split, Transaction
+from apps.transactions.recording import TransactionForms
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
@@ -57,28 +56,13 @@ def _save_transaction_forms(
     request: HttpRequest, instance: Transaction
 ) -> HttpResponseBase:
     """Show the create or edit form, saving the Transaction and Splits once valid."""
-    form = TransactionForm(
+    forms = TransactionForms(
         request.POST or None, request.FILES or None, instance=instance
     )
-    formset = cast(
-        "BaseSplitFormSet", SplitFormSet(request.POST or None, instance=instance)
-    )
-    # Validate both so errors show on the Transaction and its Split at once.
-    valid = all([form.is_valid(), formset.is_valid()])
-    if valid and formset.check_opening_balances(form.cleaned_data["date"]):
-        saved: list[Attachment] = []
-        try:
-            with db_transaction.atomic():
-                formset.instance = form.save()
-                formset.save()
-                saved = save_attachments(
-                    formset.instance, form.cleaned_data["attachments"]
-                )
-        except Exception:
-            # Rolling back the rows can't take the files back out of storage.
-            remove_files(saved)
-            raise
+    if forms.is_valid():
+        forms.save()
         return redirect("transaction_list")
+    form, formset = forms.form, forms.formset
     if request.FILES:
         form.add_error(
             "attachments",
@@ -95,8 +79,8 @@ def _save_transaction_forms(
     )
 
 
-# The atomic block in _save_transaction_forms must be the real commit, so a
-# failed commit is seen there and the new files can be removed.
+# TransactionForms.save must be the real commit, so a failed commit is seen
+# there and the new files can be removed.
 @db_transaction.non_atomic_requests
 @login_required
 def transaction_create(request: HttpRequest) -> HttpResponseBase:
