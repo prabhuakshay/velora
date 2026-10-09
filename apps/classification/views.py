@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from django.contrib.auth.decorators import login_required
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.classification.forms import PartyForm, TagForm
@@ -78,8 +79,8 @@ def party_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
         return redirect("party_list")
     return render(
         request,
-        "classification/confirm_delete.html",
-        {"object": party, "noun": "party", "list_url": "party_list"},
+        "confirm_delete.html",
+        {"object": party, "noun": "party", "list_url": reverse("party_list")},
     )
 
 
@@ -139,6 +140,6 @@ def tag_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
         return redirect("tag_list")
     return render(
         request,
-        "classification/confirm_delete.html",
-        {"object": tag, "noun": "tag", "list_url": "tag_list"},
+        "confirm_delete.html",
+        {"object": tag, "noun": "tag", "list_url": reverse("tag_list")},
     )
