@@ -136,3 +136,22 @@ def test_invalid_or_future_as_of_date_falls_back_to_today(
     page = response.content.decode()
     assert f'value="{timezone.localdate().isoformat()}"' in page
     assert "Net Worth ₹1000.00" in page
+
+
+def test_home_page_charts_net_worth_history(signed_in: Client) -> None:
+    opening("Bank", "asset", "1000.00")
+
+    page = home_page(signed_in)
+
+    assert "<svg" in page
+    assert "Net Worth history" in page
+    assert "31 Jan 2026" in page
+
+
+def test_no_balance_accounts_shows_no_chart(signed_in: Client) -> None:
+    make_account("Salary", "income")
+
+    page = home_page(signed_in)
+
+    assert "<svg" not in page
+    assert "No Net Worth history yet" in page

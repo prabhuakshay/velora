@@ -13,7 +13,12 @@ from django.views.decorators.http import require_POST
 from apps.accounts.forms import AccountForm
 from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
-from apps.accounts.net_worth import as_of_date, net_worth
+from apps.accounts.net_worth import (
+    as_of_date,
+    history_line,
+    net_worth,
+    net_worth_history,
+)
 from apps.core.forms import MergeForm
 from apps.core.views import redirect_in_use_to_merge, save_unique_name, set_hidden
 
@@ -26,13 +31,18 @@ if TYPE_CHECKING:
 def home(request: HttpRequest) -> HttpResponse:
     """Show Net Worth with the Assets and Liabilities totals behind it."""
     as_of = as_of_date(request.GET.get("as_of"))
+    today = timezone.localdate()
+    history = net_worth_history(today)
+    line = history_line([value for _, value in history], 600, 200) if history else ""
     return render(
         request,
         "index.html",
         {
             "as_of": as_of,
-            "today": timezone.localdate(),
+            "today": today,
             "net_worth": net_worth(as_of),
+            "history": history,
+            "history_line": line,
         },
     )
 
