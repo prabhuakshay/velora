@@ -65,7 +65,7 @@ services:
       - /app/node_modules
       - npm-cache:/cache/npm
     healthcheck:
-      test: ["CMD-SHELL", "test -s static/css/app.css && test -s static/js/htmx.min.js && test -s static/js/alpine.min.js && test -s static/icons/tag.svg && test -s static/icons/tags.json"]
+      test: ["CMD-SHELL", "test -s static/css/app.css && test -s static/js/htmx.min.js && test -s static/js/alpine.min.js"]
       interval: 30s
       timeout: 3s
       retries: 5

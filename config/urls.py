@@ -6,8 +6,6 @@ from django.contrib.auth.decorators import login_required
 from django.urls import include, path
 from django.views.generic import TemplateView
 
-from apps.budget.views import activity
-
 urlpatterns = [
     path(
         "",
@@ -15,8 +13,5 @@ urlpatterns = [
         name="index",
     ),
     path("accounts/", include("apps.users.urls")),
-    path("activity/", activity, name="activity"),
-    path("categories/", include("apps.budget.urls")),
-    path("expense-accounts/", include("apps.budget.expense_account_urls")),
     path(settings.ADMIN_URL, admin.site.urls),
 ]

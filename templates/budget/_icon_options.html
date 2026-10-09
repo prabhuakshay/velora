@@ -1,8 +1,0 @@
-{% for name in icons %}
-  <label class="cursor-pointer">
-    <input type="radio" name="icon" value="{{ name }}"{% if name == selected %} checked{% endif %} class="peer sr-only">
-    <span title="{{ name }}" class="flex size-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 peer-checked:border-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-slate-400">
-      {% icon name "size-5" %}
-    </span>
-  </label>
-{% endfor %}

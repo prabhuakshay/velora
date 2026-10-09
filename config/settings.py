@@ -81,7 +81,6 @@ INSTALLED_APPS = [
     "axes",
     # Local
     "apps.users",
-    "apps.budget",
 ]
 
 
@@ -128,7 +127,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
             ],
             # Available in every template without {% load %}.
-            "builtins": ["django.templatetags.static", "apps.budget.icons"],
+            "builtins": ["django.templatetags.static"],
         },
     },
 ]
@@ -222,9 +221,6 @@ STATIC_URL = env.str("STATIC_URL", default="static/")
 STATIC_ROOT = env.path("STATIC_ROOT", default=BASE_DIR / "staticfiles")
 # Built by the tailwind container (npm run build/watch); not in git.
 STATICFILES_DIRS = [BASE_DIR / "static"]
-
-# Written by `npm run vendor`.
-LUCIDE_ICON_DIR = env.path("LUCIDE_ICON_DIR", default=BASE_DIR / "static" / "icons")
 
 # WARNING: WhiteNoise does not serve media. Uploads need a separate web
 # server or object storage in production.
