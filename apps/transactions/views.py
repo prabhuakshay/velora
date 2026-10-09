@@ -12,9 +12,9 @@ from django.views.decorators.http import require_POST
 
 from apps.core.views import paginate
 from apps.transactions.attachments import (
-    STORAGE_DELETE_FAILED,
+    AttachmentDeleteError,
     attachment_url,
-    delete_attachment,
+    delete_attachment_files,
     save_attachments,
 )
 from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
@@ -127,19 +127,26 @@ def attachment_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Delete an Attachment and its stored file, then return to its Transaction."""
     attachment = get_object_or_404(Attachment, pk=pk)
     try:
-        delete_attachment(attachment)
-    # Storage backends raise their own error types, such as botocore's on R2.
-    except Exception:  # noqa: BLE001
-        messages.error(request, STORAGE_DELETE_FAILED)
+        with db_transaction.atomic():
+            attachment.delete()
+            delete_attachment_files([attachment])
+    except AttachmentDeleteError as error:
+        messages.error(request, error.message)
     return redirect("transaction_edit", pk=attachment.transaction_id)
 
 
 @login_required
 def transaction_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Confirm, then delete a Transaction and its Splits."""
+    """Confirm, then delete a Transaction, its Splits and its Attachments."""
     transaction = get_object_or_404(Transaction, pk=pk)
     if request.method == "POST":
-        transaction.delete()
+        try:
+            with db_transaction.atomic():
+                delete_attachment_files(transaction.attachments.all())
+                transaction.delete()
+        except AttachmentDeleteError as error:
+            messages.error(request, error.message)
+            return redirect("transaction_delete", pk=pk)
         return redirect("transaction_list")
     return render(
         request,

@@ -3,7 +3,6 @@
 import inspect
 from typing import TYPE_CHECKING
 
-from django.db import transaction as db_transaction
 from django.utils.http import content_disposition_header
 
 from apps.transactions.models import Attachment
@@ -15,10 +14,6 @@ if TYPE_CHECKING:
     from django.db.models.fields.files import FieldFile
 
     from apps.transactions.models import Transaction
-
-STORAGE_DELETE_FAILED = (
-    "Couldn't remove attachments from storage; nothing was deleted. Try again."
-)
 
 
 def attachment_url(attachment: Attachment) -> str:
@@ -72,13 +67,26 @@ def save_attachments(
         raise
 
 
-def delete_attachment(attachment: Attachment) -> None:
-    """Delete the Attachment and its stored file, or neither.
+class AttachmentDeleteError(Exception):
+    """Storage couldn't delete an Attachment's file; roll the delete back."""
 
-    The file goes last, inside the database transaction, so a storage
-    failure rolls the row back. Storages treat a missing file as deleted,
-    so a delete that failed partway can be retried.
+    message = (
+        "Couldn't remove attachments from storage; nothing was deleted. Try again."
+    )
+
+
+def delete_attachment_files(attachments: Iterable[Attachment]) -> None:
+    """Delete each Attachment's stored file.
+
+    Call inside the database transaction that deletes the rows, and roll it
+    back on AttachmentDeleteError so the rows and storage keep agreeing. A
+    file already gone counts as deleted, so a delete that failed partway can
+    be retried.
     """
-    with db_transaction.atomic():
-        attachment.delete()
-        attachment.file.delete(save=False)
+    for attachment in attachments:
+        try:
+            attachment.file.delete(save=False)
+        except FileNotFoundError:
+            pass
+        except Exception as error:
+            raise AttachmentDeleteError(AttachmentDeleteError.message) from error
