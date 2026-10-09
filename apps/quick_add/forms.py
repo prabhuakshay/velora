@@ -2,7 +2,7 @@
 
 from django import forms
 
-from apps.quick_add.models import QuickAdd
+from apps.quick_add.models import PARTY_NAME_MAX_LENGTH, QuickAdd
 
 
 class QuickAddForm(forms.ModelForm[QuickAdd]):
@@ -24,7 +24,7 @@ class NewPartyForm(forms.Form):
 
     new_party_name = forms.CharField(
         label="New Party",
-        max_length=100,
+        max_length=PARTY_NAME_MAX_LENGTH,
         required=False,
         help_text="Created on save when no Party is picked above.",
     )

@@ -9,7 +9,7 @@ from apps.accounts.models import Account
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
 from apps.quick_add.models import AICall, QuickAdd
-from apps.quick_add.tests.conftest import process, quick_add, reply, split
+from apps.quick_add.tests.conftest import make_quick_add, process, reply, split
 
 if TYPE_CHECKING:
     from apps.quick_add.tests.conftest import FakeOpenRouter
@@ -21,7 +21,7 @@ def test_a_valid_reply_becomes_a_draft(fake_openrouter: FakeOpenRouter) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
     toit = Party.objects.create(name="Toit Brewpub")
-    lunch = quick_add()
+    lunch = make_quick_add()
     fake_openrouter.replies.append(
         reply(
             split(card, food, "850.00"),
@@ -51,14 +51,14 @@ def test_several_splits_become_draft_splits(fake_openrouter: FakeOpenRouter) -> 
     card = make_account("HDFC Card", "liability")
     groceries = make_account("Groceries", "expense")
     household = make_account("Household", "expense")
-    note = quick_add("groceries 500 and household 300 on hdfc")
+    quick_add = make_quick_add("groceries 500 and household 300 on hdfc")
     fake_openrouter.replies.append(
         reply(split(card, groceries, "500"), split(card, household, "300"))
     )
 
-    process(note)
+    process(quick_add)
 
-    splits = QuickAdd.objects.get(pk=note.pk).draft.splits.all()
+    splits = QuickAdd.objects.get(pk=quick_add.pk).draft.splits.all()
     assert [(s.to_account, s.amount) for s in splits] == [
         (groceries, Decimal(500)),
         (household, Decimal(300)),
@@ -70,14 +70,14 @@ def test_date_defaults_to_the_day_it_was_written(
 ) -> None:
     bank = make_account("Bank", "asset")
     rent = make_account("Rent", "expense")
-    note = quick_add("rent 25000")
+    quick_add = make_quick_add("rent 25000")
     written = datetime(2026, 9, 30, 12, tzinfo=timezone.get_current_timezone())
-    QuickAdd.objects.filter(pk=note.pk).update(created_at=written)
+    QuickAdd.objects.filter(pk=quick_add.pk).update(created_at=written)
     fake_openrouter.replies.append(reply(split(bank, rent, "25000")))
 
-    process(note)
+    process(quick_add)
 
-    assert QuickAdd.objects.get(pk=note.pk).draft.date == date(2026, 9, 30)
+    assert QuickAdd.objects.get(pk=quick_add.pk).draft.date == date(2026, 9, 30)
 
 
 def test_a_new_party_is_only_named_not_created(
@@ -85,14 +85,14 @@ def test_a_new_party_is_only_named_not_created(
 ) -> None:
     bank = make_account("Bank", "asset")
     food = make_account("Eating Out", "expense")
-    note = quick_add("dinner at Brik Oven 1200")
+    quick_add = make_quick_add("dinner at Brik Oven 1200")
     fake_openrouter.replies.append(
         reply(split(bank, food, "1200"), new_party_name="Brik Oven")
     )
 
-    process(note)
+    process(quick_add)
 
-    draft = QuickAdd.objects.get(pk=note.pk).draft
+    draft = QuickAdd.objects.get(pk=quick_add.pk).draft
     assert (draft.party, draft.new_party_name) == (None, "Brik Oven")
     assert not Party.objects.exists()
 
@@ -102,10 +102,10 @@ def test_every_request_records_an_ai_call_with_its_usage(
 ) -> None:
     bank = make_account("Bank", "asset")
     food = make_account("Eating Out", "expense")
-    note = quick_add()
+    quick_add = make_quick_add()
     fake_openrouter.replies.append(reply(split(bank, food, "850")))
 
-    process(note)
+    process(quick_add)
 
     call = AICall.objects.get()
     assert (
@@ -115,7 +115,7 @@ def test_every_request_records_an_ai_call_with_its_usage(
         call.completion_tokens,
         call.cost,
         call.succeeded,
-    ) == (note, "test/model-2026", 1200, 80, Decimal("0.00042"), True)
+    ) == (quick_add, "test/model-2026", 1200, 80, Decimal("0.00042"), True)
 
 
 def test_the_prompt_has_the_text_and_only_active_accounts_and_parties(
@@ -126,10 +126,10 @@ def test_the_prompt_has_the_text_and_only_active_accounts_and_parties(
     make_account("Old Wallet", "asset", hidden=True)
     Party.objects.create(name="Toit Brewpub")
     Party.objects.create(name="Closed Cafe", hidden=True)
-    note = quick_add()
+    quick_add = make_quick_add()
     fake_openrouter.replies.append(reply(split(bank, food, "850")))
 
-    process(note)
+    process(quick_add)
 
     [prompt] = fake_openrouter.requests
     sent = " ".join(message["content"] for message in prompt)
@@ -142,9 +142,9 @@ def test_the_prompt_has_the_text_and_only_active_accounts_and_parties(
 def test_a_draft_changes_no_balance(fake_openrouter: FakeOpenRouter) -> None:
     bank = make_account("Bank", "asset")
     food = make_account("Eating Out", "expense")
-    note = quick_add()
+    quick_add = make_quick_add()
     fake_openrouter.replies.append(reply(split(bank, food, "850")))
 
-    process(note)
+    process(quick_add)
 
     assert Account.objects.with_balance().get(pk=bank.pk).balance == 0

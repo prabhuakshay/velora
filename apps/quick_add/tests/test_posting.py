@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def post(client: Client, note: QuickAdd) -> str:
-    response = client.post(reverse("draft_post", args=[note.pk]), follow=True)
+def post(client: Client, quick_add: QuickAdd) -> str:
+    response = client.post(reverse("draft_post", args=[quick_add.pk]), follow=True)
     assert response.redirect_chain == [(reverse("draft_list"), 302)]
     return response.content.decode()
 
@@ -30,14 +30,14 @@ def test_posting_creates_the_transaction_and_links_it(signed_in: Client) -> None
     food = make_account("Eating Out", "expense")
     fun = make_account("Fun", "expense")
     toit = Party.objects.create(name="Toit Brewpub")
-    note = make_draft(
+    quick_add = make_draft(
         (card, food, "850"),
         (card, fun, "150.50"),
         party=toit,
         description="Team lunch",
     )
 
-    post(signed_in, note)
+    post(signed_in, quick_add)
 
     transaction = Transaction.objects.get()
     assert (transaction.date, transaction.party, transaction.description) == (
@@ -49,18 +49,18 @@ def test_posting_creates_the_transaction_and_links_it(signed_in: Client) -> None
         (split.from_account, split.to_account, split.amount)
         for split in transaction.splits.order_by("pk")
     ] == [(card, food, Decimal("850.00")), (card, fun, Decimal("150.50"))]
-    note.refresh_from_db()
-    assert note.status == QuickAdd.Status.POSTED
-    assert note.posted_without_edits
-    assert note.transaction == transaction
+    quick_add.refresh_from_db()
+    assert quick_add.status == QuickAdd.Status.POSTED
+    assert quick_add.posted_without_edits
+    assert quick_add.transaction == transaction
 
 
 def test_posting_creates_the_new_party(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "1200"), new_party_name="Brik Oven")
+    quick_add = make_draft((card, food, "1200"), new_party_name="Brik Oven")
 
-    post(signed_in, note)
+    post(signed_in, quick_add)
 
     assert Transaction.objects.get().party == Party.objects.get(name="Brik Oven")
 
@@ -71,9 +71,9 @@ def test_posting_reuses_a_party_matching_the_new_name_in_any_case(
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
     toit = Party.objects.create(name="Toit Brewpub")
-    note = make_draft((card, food, "850"), new_party_name="toit brewpub")
+    quick_add = make_draft((card, food, "850"), new_party_name="toit brewpub")
 
-    post(signed_in, note)
+    post(signed_in, quick_add)
 
     assert Transaction.objects.get().party == toit
     assert Party.objects.count() == 1
@@ -84,29 +84,29 @@ def test_posting_fails_with_a_reason_once_an_account_is_deactivated(
 ) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "1200"), new_party_name="Brik Oven")
+    quick_add = make_draft((card, food, "1200"), new_party_name="Brik Oven")
     card.hidden = True
     card.save()
 
-    body = post(signed_in, note)
+    body = post(signed_in, quick_add)
 
     assert "Couldn't post" in body
     assert "That Account is inactive or no longer exists." in body
-    assert reverse("draft_edit", args=[note.pk]) in body
+    assert reverse("draft_edit", args=[quick_add.pk]) in body
     assert not Transaction.objects.exists()
     assert not Party.objects.exists()
-    note.refresh_from_db()
-    assert note.status == QuickAdd.Status.DRAFT
+    quick_add.refresh_from_db()
+    assert quick_add.status == QuickAdd.Status.DRAFT
 
 
 def test_posting_fails_once_an_account_is_merged_away(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
     fun = make_account("Fun", "expense")
-    note = make_draft((card, food, "850"), (card, fun, "150"))
+    quick_add = make_draft((card, food, "850"), (card, fun, "150"))
     AccountMerge(source=fun, target=food).run()
 
-    body = post(signed_in, note)
+    body = post(signed_in, quick_add)
 
     assert "Couldn't post: Split 2 To: This field is required." in body
     assert "Removed Account" in body
@@ -143,14 +143,14 @@ def test_a_party_on_a_draft_cannot_be_deleted(signed_in: Client) -> None:
 def test_rejecting_keeps_the_draft_and_creates_no_party(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "1200"), new_party_name="Brik Oven")
+    quick_add = make_draft((card, food, "1200"), new_party_name="Brik Oven")
 
-    response = signed_in.post(reverse("draft_reject", args=[note.pk]))
+    response = signed_in.post(reverse("draft_reject", args=[quick_add.pk]))
 
     assert response["Location"] == reverse("draft_list")
-    note.refresh_from_db()
-    assert note.status == QuickAdd.Status.REJECTED
-    assert note.draft.splits.count() == 1
+    quick_add.refresh_from_db()
+    assert quick_add.status == QuickAdd.Status.REJECTED
+    assert quick_add.draft.splits.count() == 1
     assert not Party.objects.exists()
     assert not Transaction.objects.exists()
 
@@ -158,12 +158,12 @@ def test_rejecting_keeps_the_draft_and_creates_no_party(signed_in: Client) -> No
 def test_a_draft_offers_post_and_reject(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "850"))
+    quick_add = make_draft((card, food, "850"))
 
     body = signed_in.get(reverse("draft_list")).content.decode()
 
-    assert reverse("draft_post", args=[note.pk]) in body
-    assert reverse("draft_reject", args=[note.pk]) in body
+    assert reverse("draft_post", args=[quick_add.pk]) in body
+    assert reverse("draft_reject", args=[quick_add.pk]) in body
 
 
 @pytest.mark.parametrize("action", ["draft_post", "draft_reject"])
@@ -172,9 +172,9 @@ def test_posted_and_rejected_drafts_leave_the_drafts_page_and_badge(
 ) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "850"), text="lunch at Toit 850")
+    quick_add = make_draft((card, food, "850"), text="lunch at Toit 850")
 
-    signed_in.post(reverse(action, args=[note.pk]))
+    signed_in.post(reverse(action, args=[quick_add.pk]))
 
     body = signed_in.get(reverse("draft_list")).content.decode()
     assert "lunch at Toit 850" not in body
@@ -187,10 +187,10 @@ def test_only_a_waiting_draft_can_be_posted_or_rejected(
 ) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "850"))
-    signed_in.post(reverse("draft_post", args=[note.pk]))
+    quick_add = make_draft((card, food, "850"))
+    signed_in.post(reverse("draft_post", args=[quick_add.pk]))
 
-    response = signed_in.post(reverse(action, args=[note.pk]))
+    response = signed_in.post(reverse(action, args=[quick_add.pk]))
 
     assert response.status_code == 404
     assert Transaction.objects.count() == 1
@@ -199,11 +199,11 @@ def test_only_a_waiting_draft_can_be_posted_or_rejected(
 def test_balances_change_only_once_a_draft_is_posted(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "850"))
+    quick_add = make_draft((card, food, "850"))
 
     def balance() -> Decimal:
         return Account.objects.with_balance().get(pk=card.pk).balance
 
     assert balance() == 0
-    post(signed_in, note)
+    post(signed_in, quick_add)
     assert balance() == Decimal(850)

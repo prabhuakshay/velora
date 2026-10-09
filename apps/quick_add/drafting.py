@@ -53,8 +53,9 @@ SCHEMA: dict[str, Any] = {
 }
 
 INSTRUCTIONS = """\
-You turn a short note about one money event into a proposed Transaction for a \
-personal finance app. All amounts are in Indian rupees.
+You turn a Quick Add, a short free-text line about one money event, into a \
+proposed Transaction for a personal finance app. All amounts are in Indian \
+rupees.
 
 A Transaction has a date, optionally a Party, optionally a description, and \
 1 to 10 Splits. Each Split moves a positive amount from one Account to a \
@@ -69,11 +70,11 @@ liabilities.
 
 Rules:
 - Use only the Account IDs listed below. Never invent Accounts.
-- date: the date the note refers to, as YYYY-MM-DD, worked out relative to \
-the date it was written ("yesterday", "on the 3rd"). Null if the note gives none.
-- party_id: the ID of a listed Party the note refers to, even if written \
+- date: the date the Quick Add refers to, as YYYY-MM-DD, worked out relative to \
+the date it was written ("yesterday", "on the 3rd"). Null if the Quick Add gives none.
+- party_id: the ID of a listed Party the Quick Add refers to, even if written \
 loosely. new_party_name: a name for a Party that isn't listed. Never both; \
-both null if the note names no one.
+both null if the Quick Add names no one.
 - description: at most 200 characters, only when the Party and Accounts \
 don't already say what happened; otherwise null.
 """
@@ -85,7 +86,7 @@ def written_on(quick_add: QuickAdd) -> date:
 
 
 def build_messages(quick_add: QuickAdd) -> list[dict[str, str]]:
-    """The prompt: instructions, active Accounts and Parties, and the note."""
+    """The prompt: instructions, active Accounts and Parties, and the Quick Add text."""
     context = {
         "written_on": written_on(quick_add).isoformat(),
         "accounts": list(

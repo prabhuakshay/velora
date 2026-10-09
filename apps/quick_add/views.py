@@ -90,10 +90,7 @@ def draft_list(request: HttpRequest) -> HttpResponseBase:
         "quick_add/draft_list.html",
         {
             "quick_adds": quick_adds,
-            "processing": any(
-                quick_add.status == QuickAdd.Status.PROCESSING
-                for quick_add in quick_adds
-            ),
+            "processing": any(quick_add.is_processing for quick_add in quick_adds),
             "stats": ai_stats(),
         },
     )
@@ -148,7 +145,12 @@ def draft_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     return render(
         request,
         "transactions/transaction_form.html",
-        {"form": forms.form, "formset": forms.formset, "new_party": new_party},
+        {
+            "form": forms.form,
+            "formset": forms.formset,
+            "new_party": new_party,
+            "editing_draft": True,
+        },
     )
 
 
@@ -160,8 +162,7 @@ def draft_reject(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: AR
     quick_add = get_object_or_404(
         QuickAdd.objects.select_for_update(), pk=pk, status=QuickAdd.Status.DRAFT
     )
-    quick_add.status = QuickAdd.Status.REJECTED
-    quick_add.save(update_fields=["status"])
+    quick_add.reject()
     return redirect("draft_list")
 
 
@@ -176,7 +177,7 @@ def queue_again(quick_add: QuickAdd) -> None:
     """Send the failed Quick Add back to the AI."""
     quick_add.status = QuickAdd.Status.PROCESSING
     quick_add.failure_reason = ""
-    quick_add.save(update_fields=["text", "status", "failure_reason"])
+    quick_add.save(update_fields=["status", "failure_reason"])
     process_quick_add.defer(quick_add_id=quick_add.pk)
 
 
@@ -194,9 +195,7 @@ def quick_add_retry(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa:
 @require_POST
 def quick_add_discard(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
     """Hide a Failed Quick Add from the Drafts page; it is kept, marked rejected."""
-    quick_add = failed_quick_add(pk)
-    quick_add.status = QuickAdd.Status.REJECTED
-    quick_add.save(update_fields=["status"])
+    failed_quick_add(pk).reject()
     return redirect("draft_list")
 
 
@@ -207,7 +206,7 @@ def quick_add_resubmit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Queue a Failed Quick Add again with its text edited."""
     form = QuickAddForm(request.POST, instance=failed_quick_add(pk))
     if form.is_valid():
-        queue_again(form.instance)
+        queue_again(form.save())
     else:
         show_errors(request, form)
     return redirect("draft_list")

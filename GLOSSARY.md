@@ -57,12 +57,36 @@ A file the user keeps with a Transaction as evidence or reference, such as a rec
 _Avoid_: Receipt, document, file
 
 **Quick Add**:
-A short free-text note the user writes about a money event, such as "lunch at Toit 850 on hdfc card", which an AI reads to propose a Draft.
+A short line of free text the user writes about a money event, such as "lunch at Toit 850 on hdfc card", which an AI reads to propose a Draft. Every Quick Add is Processing, Draft (its Draft awaits the user), Failed, Posted or Rejected.
 _Avoid_: Prompt, quick entry, note
 
 **Draft**:
 A Transaction the AI proposed from a Quick Add that the user has not yet posted. It touches no Balance until the user posts it; the user can also edit or reject it.
 _Avoid_: Pending transaction, suggestion, draft entry
+
+**Processing**:
+A Quick Add the AI is still working on, which has no Draft yet.
+_Avoid_: Pending, queued, in progress
+
+**Failed**:
+A Quick Add the AI could not turn into a valid Draft. The user can retry it, resubmit it with edited text, or discard it.
+_Avoid_: Errored, invalid, broken
+
+**Posted**:
+A Quick Add whose Draft the user recorded as a Transaction, with or without edits.
+_Avoid_: Accepted, approved, confirmed
+
+**Rejected**:
+A Quick Add the user dropped, by rejecting its Draft or discarding it after it failed. It is kept, but no longer waits for the user.
+_Avoid_: Deleted, cancelled, dismissed
+
+**Discard**:
+Dropping a Failed Quick Add, which marks it Rejected.
+_Avoid_: Delete, dismiss, reject
+
+**AI call**:
+One request Velora makes to the AI for a Quick Add, kept with what it cost whether or not it produced a Draft.
+_Avoid_: Completion, API call, request
 
 **Transfer**:
 A Transaction whose Splits only move money between Asset and Liability Accounts, such as withdrawing cash or paying a credit card bill.

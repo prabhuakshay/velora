@@ -11,6 +11,8 @@ from apps.classification.models import Party
 from apps.transactions.models import Transaction
 
 MAX_TEXT_LENGTH = 500
+# A new Party name must fit the Party it becomes.
+PARTY_NAME_MAX_LENGTH: int = Party._meta.get_field("name").max_length  # type: ignore[assignment]
 
 
 class QuickAddQuerySet(models.QuerySet["QuickAdd"]):
@@ -28,7 +30,7 @@ class QuickAddQuerySet(models.QuerySet["QuickAdd"]):
 
 
 class QuickAdd(models.Model):
-    """A short free-text note about one money event, for the AI to draft."""
+    """What the user wrote about one money event, for the AI to draft."""
 
     class Status(models.TextChoices):
         PROCESSING = "processing"
@@ -58,6 +60,21 @@ class QuickAdd(models.Model):
     def __str__(self) -> str:
         return self.text
 
+    @property
+    def is_processing(self) -> bool:
+        """Whether the AI is still working on it."""
+        return self.status == QuickAdd.Status.PROCESSING
+
+    @property
+    def is_failed(self) -> bool:
+        """Whether the AI couldn't turn it into a Draft."""
+        return self.status == QuickAdd.Status.FAILED
+
+    def reject(self) -> None:
+        """Mark it rejected: kept, but off the Drafts page."""
+        self.status = QuickAdd.Status.REJECTED
+        self.save(update_fields=["status"])
+
 
 class Draft(models.Model):
     """A Transaction the AI proposed; it touches no Balance (ADR 0006)."""
@@ -76,7 +93,7 @@ class Draft(models.Model):
         related_name="drafts",
     )
     # A Party the AI suggests; created only when the Draft is posted.
-    new_party_name = models.CharField(max_length=100, blank=True)
+    new_party_name = models.CharField(max_length=PARTY_NAME_MAX_LENGTH, blank=True)
     description = models.TextField(blank=True)
 
     class Meta:

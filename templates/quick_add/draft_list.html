@@ -14,9 +14,9 @@
       {% for quick_add in quick_adds %}
         <li class="py-3">
           <p class="text-sm text-slate-500">“{{ quick_add.text }}”</p>
-          {% if quick_add.status == "processing" %}
+          {% if quick_add.is_processing %}
             <p class="mt-1 text-sm text-slate-700">Processing…</p>
-          {% elif quick_add.status == "failed" %}
+          {% elif quick_add.is_failed %}
             <p class="mt-1 text-sm text-red-600">Failed{% if quick_add.failure_reason %}: {{ quick_add.failure_reason }}{% endif %}</p>
             {% comment %}hx-preserve keeps an edit in progress while the list polls.{% endcomment %}
             <form id="resubmit-{{ quick_add.pk }}" hx-preserve method="post" action="{% url 'quick_add_resubmit' quick_add.pk %}" class="mt-2 flex gap-2">

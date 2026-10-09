@@ -75,7 +75,7 @@ def split(source: Any, destination: Any, amount: str) -> dict[str, Any]:
     }
 
 
-def quick_add(text: str = "lunch at Toit 850 on hdfc card") -> QuickAdd:
+def make_quick_add(text: str = "lunch at Toit 850 on hdfc card") -> QuickAdd:
     return QuickAdd.objects.create(text=text)
 
 
@@ -84,16 +84,16 @@ def make_draft(
     text: str = "lunch at Toit 850",
     **fields: Any,
 ) -> QuickAdd:
-    note = QuickAdd.objects.create(text=text, status=QuickAdd.Status.DRAFT)
-    draft = Draft.objects.create(quick_add=note, date=date(2026, 10, 8), **fields)
+    quick_add = QuickAdd.objects.create(text=text, status=QuickAdd.Status.DRAFT)
+    draft = Draft.objects.create(quick_add=quick_add, date=date(2026, 10, 8), **fields)
     for source, destination, amount in splits:
         draft.splits.create(
             from_account=source, to_account=destination, amount=Decimal(amount)
         )
-    return note
+    return quick_add
 
 
-def process(note: QuickAdd, *, attempts: int = 0) -> None:
+def process(quick_add: QuickAdd, *, attempts: int = 0) -> None:
     """Run the job as the worker would on its `attempts`-th retry."""
     context = SimpleNamespace(job=SimpleNamespace(attempts=attempts))
-    process_quick_add(cast("JobContext", context), quick_add_id=note.pk)
+    process_quick_add(cast("JobContext", context), quick_add_id=quick_add.pk)

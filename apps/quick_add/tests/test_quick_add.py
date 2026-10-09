@@ -8,7 +8,7 @@ from procrastinate.contrib.django.models import ProcrastinateJob
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
 from apps.quick_add.models import Draft, QuickAdd
-from apps.quick_add.tests.conftest import quick_add
+from apps.quick_add.tests.conftest import make_quick_add
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -74,11 +74,11 @@ def test_drafts_page_shows_the_draft_beside_the_text(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
     toit = Party.objects.create(name="Toit Brewpub")
-    note = quick_add()
-    note.status = QuickAdd.Status.DRAFT
-    note.save()
+    quick_add = make_quick_add()
+    quick_add.status = QuickAdd.Status.DRAFT
+    quick_add.save()
     draft = Draft.objects.create(
-        quick_add=note, date="2026-10-08", party=toit, description="Team lunch"
+        quick_add=quick_add, date="2026-10-08", party=toit, description="Team lunch"
     )
     draft.splits.create(from_account=card, to_account=food, amount=Decimal(850))
 
@@ -97,10 +97,12 @@ def test_drafts_page_shows_the_draft_beside_the_text(signed_in: Client) -> None:
 
 
 def test_drafts_page_names_a_new_party(signed_in: Client) -> None:
-    note = quick_add("dinner at Brik Oven 1200")
-    note.status = QuickAdd.Status.DRAFT
-    note.save()
-    Draft.objects.create(quick_add=note, date="2026-10-08", new_party_name="Brik Oven")
+    quick_add = make_quick_add("dinner at Brik Oven 1200")
+    quick_add.status = QuickAdd.Status.DRAFT
+    quick_add.save()
+    Draft.objects.create(
+        quick_add=quick_add, date="2026-10-08", new_party_name="Brik Oven"
+    )
 
     body = page(signed_in, "draft_list")
 
@@ -112,32 +114,32 @@ def test_drafts_page_lists_only_quick_adds_that_need_the_user(
     signed_in: Client,
 ) -> None:
     for status in QuickAdd.Status:
-        QuickAdd.objects.create(text=f"note {status}", status=status)
+        QuickAdd.objects.create(text=f"text {status}", status=status)
 
     body = page(signed_in, "draft_list")
 
     for shown in ["processing", "draft", "failed"]:
-        assert f"note {shown}" in body
+        assert f"text {shown}" in body
     for hidden in ["posted", "rejected"]:
-        assert f"note {hidden}" not in body
+        assert f"text {hidden}" not in body
 
 
 def test_drafts_page_refreshes_itself_only_while_processing(
     signed_in: Client,
 ) -> None:
-    note = quick_add()
+    quick_add = make_quick_add()
 
     assert 'hx-trigger="every' in page(signed_in, "draft_list")
 
-    note.status = QuickAdd.Status.FAILED
-    note.save()
+    quick_add.status = QuickAdd.Status.FAILED
+    quick_add.save()
 
     assert 'hx-trigger="every' not in page(signed_in, "draft_list")
 
 
 def test_drafts_nav_item_counts_quick_adds_in_draft(signed_in: Client) -> None:
     for status in ["draft", "draft", "processing", "failed", "posted"]:
-        QuickAdd.objects.create(text="note", status=status)
+        QuickAdd.objects.create(text="text", status=status)
 
     body = page(signed_in, "transaction_list")
 
@@ -169,7 +171,7 @@ def test_without_an_api_key_the_feature_is_hidden(
 
 
 def test_the_api_key_never_reaches_the_browser(signed_in: Client) -> None:
-    quick_add()
+    make_quick_add()
 
     for name in ["transaction_list", "draft_list"]:
         assert "test-key" not in page(signed_in, name)

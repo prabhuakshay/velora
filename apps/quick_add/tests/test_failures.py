@@ -13,7 +13,7 @@ from apps.accounts.models import Account
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
 from apps.quick_add.models import AICall, Draft, QuickAdd
-from apps.quick_add.tests.conftest import process, quick_add, reply, split
+from apps.quick_add.tests.conftest import make_quick_add, process, reply, split
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -55,18 +55,18 @@ def opened(name: str, days: int) -> Account:
 def test_an_invalid_reply_is_retried_once_with_the_errors_fed_back(
     fake_openrouter: FakeOpenRouter, signed_in: Client, bank: Account, food: Account
 ) -> None:
-    note = quick_add()
+    quick_add = make_quick_add()
     fake_openrouter.replies += [
         reply(split(bank, food, "850"), mood="hungry"),
         reply(split(bank, food, "850")),
     ]
 
-    process(note)
+    process(quick_add)
 
     first, second = fake_openrouter.requests
     assert "mood" in second[-1]["content"]
     assert len(second) > len(first)
-    assert QuickAdd.objects.get(pk=note.pk).status == QuickAdd.Status.DRAFT
+    assert QuickAdd.objects.get(pk=quick_add.pk).status == QuickAdd.Status.DRAFT
     assert list(AICall.objects.values_list("succeeded", flat=True)) == [False, True]
     assert "Eating Out" in drafts_page(signed_in)
 
@@ -192,14 +192,14 @@ def test_a_reply_breaking_a_rule_twice_fails_the_quick_add(
     case: str,
 ) -> None:
     make_reply, reason = BROKEN_REPLIES[case]
-    note = quick_add()
+    quick_add = make_quick_add()
     broken = make_reply(bank, food)
     fake_openrouter.replies += [broken, broken]
 
-    process(note)
+    process(quick_add)
 
     assert len(fake_openrouter.requests) == 2
-    failed = QuickAdd.objects.get(pk=note.pk)
+    failed = QuickAdd.objects.get(pk=quick_add.pk)
     assert failed.status == QuickAdd.Status.FAILED
     assert reason in failed.failure_reason
     assert not Draft.objects.exists()
@@ -212,7 +212,7 @@ def test_a_reply_at_every_limit_becomes_a_draft(
     Account.objects.filter(pk=bank.pk).update(
         opening_balance_date=timezone.localdate() - timedelta(days=365)
     )
-    note = quick_add()
+    quick_add = make_quick_add()
     fake_openrouter.replies.append(
         reply(
             *[split(bank, food, "10000000.00")] * 10,
@@ -222,22 +222,22 @@ def test_a_reply_at_every_limit_becomes_a_draft(
         )
     )
 
-    process(note)
+    process(quick_add)
 
-    assert QuickAdd.objects.get(pk=note.pk).status == QuickAdd.Status.DRAFT
+    assert QuickAdd.objects.get(pk=quick_add.pk).status == QuickAdd.Status.DRAFT
 
 
 def test_a_draft_made_after_a_failure_drops_the_old_reason(
     fake_openrouter: FakeOpenRouter, signed_in: Client, bank: Account, food: Account
 ) -> None:
-    note = quick_add()
-    note.failure_reason = "The AI's reply was invalid: Unknown field."
-    note.save()
+    quick_add = make_quick_add()
+    quick_add.failure_reason = "The AI's reply was invalid: Unknown field."
+    quick_add.save()
     fake_openrouter.replies.append(reply(split(bank, food, "850")))
 
-    process(note)
+    process(quick_add)
 
-    assert QuickAdd.objects.get(pk=note.pk).failure_reason == ""
+    assert QuickAdd.objects.get(pk=quick_add.pk).failure_reason == ""
     assert "Unknown field" not in drafts_page(signed_in)
 
 
@@ -268,11 +268,11 @@ def test_a_response_without_reply_content_fails_the_quick_add(
     monkeypatch: pytest.MonkeyPatch, body: object
 ) -> None:
     openrouter_responds(monkeypatch, body)
-    quick_add_ = quick_add()
+    quick_add = make_quick_add()
 
-    process(quick_add_)
+    process(quick_add)
 
-    failed = QuickAdd.objects.get(pk=quick_add_.pk)
+    failed = QuickAdd.objects.get(pk=quick_add.pk)
     assert failed.status == QuickAdd.Status.FAILED
     assert failed.failure_reason.startswith("The AI's reply was invalid")
     assert AICall.objects.count() == 2
@@ -281,12 +281,12 @@ def test_a_response_without_reply_content_fails_the_quick_add(
 def test_an_unexpected_error_fails_the_quick_add_instead_of_leaving_it_processing(
     fake_openrouter: FakeOpenRouter, signed_in: Client
 ) -> None:
-    quick_add_ = quick_add()
+    quick_add = make_quick_add()
     fake_openrouter.replies.append(RuntimeError("boom"))
 
     with pytest.raises(RuntimeError):
-        process(quick_add_)
+        process(quick_add)
 
-    failed = QuickAdd.objects.get(pk=quick_add_.pk)
+    failed = QuickAdd.objects.get(pk=quick_add.pk)
     assert failed.status == QuickAdd.Status.FAILED
     assert "Something went wrong" in drafts_page(signed_in)

@@ -13,6 +13,7 @@ from django.utils.formats import date_format
 
 from apps.accounts.models import Account
 from apps.classification.models import Party
+from apps.quick_add.models import PARTY_NAME_MAX_LENGTH
 from apps.transactions.forms import direction_error
 
 FIELDS = {"date", "party_id", "new_party_name", "description", "splits"}
@@ -20,7 +21,6 @@ SPLIT_FIELDS = {"from_account_id", "to_account_id", "amount"}
 MAX_SPLITS = 10
 MAX_AMOUNT = Decimal(10_000_000)
 MAX_DECIMALS = 2
-MAX_PARTY_NAME = 100
 MAX_DESCRIPTION = 200
 
 
@@ -122,7 +122,7 @@ def _party_errors(content: dict[str, Any]) -> list[str]:
         _is_id(party_id) and Party.objects.filter(pk=party_id, hidden=False).exists()
     ):
         errors.append(f"Party {party_id} is unknown.")
-    errors += _text_errors(name, "The new Party name", MAX_PARTY_NAME)
+    errors += _text_errors(name, "The new Party name", PARTY_NAME_MAX_LENGTH)
     if party_id is not None and name:
         errors.append("Give a Party ID or a new Party name, not both.")
     errors += _text_errors(content["description"], "The description", MAX_DESCRIPTION)

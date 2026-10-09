@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.quick_add.models import AICall, QuickAdd
-from apps.quick_add.tests.conftest import quick_add
+from apps.quick_add.tests.conftest import make_quick_add
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -21,18 +21,20 @@ def stats(client: Client) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
 
 
-def call(note: QuickAdd, cost: str, *, months_ago: int = 0) -> None:
-    made = AICall.objects.create(quick_add=note, model="test/model", cost=Decimal(cost))
+def call(quick_add: QuickAdd, cost: str, *, months_ago: int = 0) -> None:
+    made = AICall.objects.create(
+        quick_add=quick_add, model="test/model", cost=Decimal(cost)
+    )
     if months_ago:
         past = timezone.now().replace(day=1) - timedelta(days=31 * months_ago - 1)
         AICall.objects.filter(pk=made.pk).update(created_at=past)
 
 
 def test_shows_all_time_and_this_months_cost_in_usd(signed_in: Client) -> None:
-    note = quick_add()
-    call(note, "0.0012")
-    call(note, "0.00042")
-    call(note, "0.25", months_ago=1)
+    quick_add = make_quick_add()
+    call(quick_add, "0.0012")
+    call(quick_add, "0.00042")
+    call(quick_add, "0.25", months_ago=1)
 
     text = stats(signed_in)
 
@@ -43,11 +45,11 @@ def test_shows_all_time_and_this_months_cost_in_usd(signed_in: Client) -> None:
 def test_shows_quick_adds_calls_and_average_cost_per_quick_add(
     signed_in: Client,
 ) -> None:
-    first = quick_add()
+    first = make_quick_add()
     call(first, "0.001")
     call(first, "0.002")
-    call(quick_add("taxi 300"), "0.003")
-    quick_add("coffee 150")
+    call(make_quick_add("taxi 300"), "0.003")
+    make_quick_add("coffee 150")
 
     text = stats(signed_in)
 
@@ -83,6 +85,6 @@ def test_shows_the_share_of_posted_drafts_posted_without_edits(
 
 
 def test_with_nothing_posted_the_share_is_a_dash(signed_in: Client) -> None:
-    quick_add()
+    make_quick_add()
 
     assert "Posted without edits —" in stats(signed_in)

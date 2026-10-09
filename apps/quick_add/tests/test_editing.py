@@ -26,14 +26,14 @@ def test_edit_opens_the_transaction_form_filled_from_the_draft(
     food = make_account("Eating Out", "expense")
     fun = make_account("Fun", "expense")
     toit = Party.objects.create(name="Toit Brewpub")
-    note = make_draft(
+    quick_add = make_draft(
         (card, food, "850"),
         (card, fun, "150.50"),
         party=toit,
         description="Team lunch",
     )
 
-    response = signed_in.get(reverse("draft_edit", args=[note.pk]))
+    response = signed_in.get(reverse("draft_edit", args=[quick_add.pk]))
 
     form = response.context["form"]
     assert form["date"].value() == date(2026, 10, 8).isoformat()
@@ -69,10 +69,10 @@ def test_saving_the_form_posts_the_draft_with_edits(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
     office = Tag.objects.create(name="Office")
-    note = make_draft((card, food, "850"))
+    quick_add = make_draft((card, food, "850"))
 
     response = signed_in.post(
-        reverse("draft_edit", args=[note.pk]),
+        reverse("draft_edit", args=[quick_add.pk]),
         edited(
             description="Team lunch",
             attachments=upload("bill.pdf", b"%PDF-1.4 bill"),
@@ -95,19 +95,19 @@ def test_saving_the_form_posts_the_draft_with_edits(signed_in: Client) -> None:
     split = transaction.splits.get()
     assert (split.amount, list(split.tags.all())) == (Decimal("900.00"), [office])
     assert [a.original_name for a in transaction.attachments.all()] == ["bill.pdf"]
-    note.refresh_from_db()
-    assert note.status == QuickAdd.Status.POSTED
-    assert note.transaction == transaction
-    assert not note.posted_without_edits
+    quick_add.refresh_from_db()
+    assert quick_add.status == QuickAdd.Status.POSTED
+    assert quick_add.transaction == transaction
+    assert not quick_add.posted_without_edits
 
 
 def test_invalid_form_is_shown_again_without_posting(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "850"))
+    quick_add = make_draft((card, food, "850"))
 
     response = signed_in.post(
-        reverse("draft_edit", args=[note.pk]),
+        reverse("draft_edit", args=[quick_add.pk]),
         edited(
             **{
                 "splits-0-from_account": card.pk,
@@ -120,22 +120,22 @@ def test_invalid_form_is_shown_again_without_posting(signed_in: Client) -> None:
     assert response.status_code == 200
     assert response.context["formset"].forms[0].errors
     assert not Transaction.objects.exists()
-    note.refresh_from_db()
-    assert note.status == QuickAdd.Status.DRAFT
+    quick_add.refresh_from_db()
+    assert quick_add.status == QuickAdd.Status.DRAFT
 
 
 def test_new_party_name_is_offered_and_created_on_save(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "1200"), new_party_name="Brik Oven")
+    quick_add = make_draft((card, food, "1200"), new_party_name="Brik Oven")
 
-    page = signed_in.get(reverse("draft_edit", args=[note.pk]))
+    page = signed_in.get(reverse("draft_edit", args=[quick_add.pk]))
     assert page.context["form"]["party"].value() == ""
     assert page.context["new_party"]["new_party_name"].value() == "Brik Oven"
     assert not Party.objects.exists()
 
     signed_in.post(
-        reverse("draft_edit", args=[note.pk]),
+        reverse("draft_edit", args=[quick_add.pk]),
         edited(
             new_party_name="Brik Oven",
             **{
@@ -184,9 +184,9 @@ def test_new_party_name_matching_a_party_picks_it(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
     toit = Party.objects.create(name="Toit Brewpub")
-    note = make_draft((card, food, "850"), new_party_name="toit brewpub")
+    quick_add = make_draft((card, food, "850"), new_party_name="toit brewpub")
 
-    page = signed_in.get(reverse("draft_edit", args=[note.pk]))
+    page = signed_in.get(reverse("draft_edit", args=[quick_add.pk]))
 
     assert str(page.context["form"]["party"].value()) == str(toit.pk)
     assert page.context["new_party"]["new_party_name"].value() == ""
@@ -195,11 +195,11 @@ def test_new_party_name_matching_a_party_picks_it(signed_in: Client) -> None:
 def test_draft_that_no_longer_passes_shows_why_on_edit(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "850"))
+    quick_add = make_draft((card, food, "850"))
     food.hidden = True
     food.save()
 
-    page = signed_in.get(reverse("draft_edit", args=[note.pk]))
+    page = signed_in.get(reverse("draft_edit", args=[quick_add.pk]))
 
     assert "That Account is inactive or no longer exists." in page.content.decode()
 
@@ -207,23 +207,23 @@ def test_draft_that_no_longer_passes_shows_why_on_edit(signed_in: Client) -> Non
 def test_edit_is_offered_for_every_draft(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "850"))
+    quick_add = make_draft((card, food, "850"))
     failed = make_draft((card, food, "900"))
     failed.failure_reason = "Split 1 From: gone"
     failed.save()
 
     body = signed_in.get(reverse("draft_list")).content.decode()
 
-    assert reverse("draft_edit", args=[note.pk]) in body
+    assert reverse("draft_edit", args=[quick_add.pk]) in body
     assert reverse("draft_edit", args=[failed.pk]) in body
 
 
 def test_edit_is_hidden_without_a_key(signed_in: Client, settings: Any) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
-    note = make_draft((card, food, "850"))
+    quick_add = make_draft((card, food, "850"))
     settings.OPENROUTER_API_KEY = ""
 
-    response = signed_in.get(reverse("draft_edit", args=[note.pk]))
+    response = signed_in.get(reverse("draft_edit", args=[quick_add.pk]))
 
     assert response.status_code == 404
