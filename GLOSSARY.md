@@ -41,7 +41,7 @@ What an Asset or Liability Account holds now: its Opening Balance moved by every
 _Avoid_: Total, net
 
 **Transaction**:
-One real-world money event, such as paying a bill or receiving salary, with a date and optionally a Party. It is made of one or more Splits.
+One real-world money event, such as paying a bill or receiving salary, with a date and optionally a Party. It is made of one or more Splits, which all come from the same Account or all go to the same Account.
 _Avoid_: Entry, journal, payment
 
 **Split**:
