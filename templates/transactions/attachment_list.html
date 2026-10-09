@@ -1,0 +1,18 @@
+<ul class="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200">
+  {% for attachment in attachments %}
+    {% url 'attachment_open' attachment.pk as open_url %}
+    <li class="flex items-center gap-3 px-3 py-2">
+      <a href="{{ open_url }}" target="_blank" rel="noopener" class="shrink-0">
+        {% if attachment.is_image %}
+          <img src="{{ open_url }}" alt="" class="size-10 rounded object-cover">
+        {% else %}
+          <svg viewBox="0 0 24 24" class="size-10 fill-none stroke-slate-400 stroke-[1.5]" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+        {% endif %}
+      </a>
+      <div class="min-w-0">
+        <a href="{{ open_url }}" target="_blank" rel="noopener" class="link block truncate text-sm">{{ attachment.original_name }}</a>
+        <p class="text-xs text-slate-500">{{ attachment.size|filesizeformat }}</p>
+      </div>
+    </li>
+  {% endfor %}
+</ul>

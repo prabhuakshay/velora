@@ -3,6 +3,7 @@ from typing import IO, TYPE_CHECKING, Any
 import pytest
 from django.core.files.storage import InMemoryStorage, default_storage
 from django.urls import reverse
+from django.utils.http import urlencode
 
 if TYPE_CHECKING:
     from pytest_django import Settings
@@ -137,4 +138,19 @@ def second_delete_fails(settings: Settings) -> None:
         "default": {
             "BACKEND": "apps.transactions.tests.conftest.SecondDeleteFailsStorage"
         },
+    }
+
+
+class PresigningStorage(InMemoryStorage):
+    """Puts url() parameters in the query string, as S3 presigned URLs do."""
+
+    def url(self, name: str | None, parameters: dict[str, str] | None = None) -> str:
+        return f"{super().url(name)}?{urlencode(parameters or {})}"
+
+
+@pytest.fixture
+def presigning_storage(settings: Settings) -> None:
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "apps.transactions.tests.conftest.PresigningStorage"},
     }
