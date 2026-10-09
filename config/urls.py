@@ -12,7 +12,7 @@ urlpatterns = [
         login_required(TemplateView.as_view(template_name="index.html")),
         name="index",
     ),
-    path("accounts/", include("apps.users.urls")),
+    path("auth/", include("apps.users.urls")),
     path("", include("apps.classification.urls")),
     path("", include("apps.accounts.urls")),
     path(settings.ADMIN_URL, admin.site.urls),
