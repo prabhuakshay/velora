@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from apps.core.views import paginate
+from apps.transactions.attachments import save_attachments
 from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
 from apps.transactions.models import Split, Transaction
 from apps.users.privacy_mode import blocked_in_privacy_mode
@@ -40,7 +41,9 @@ def _save_transaction_forms(
     request: HttpRequest, instance: Transaction
 ) -> HttpResponseBase:
     """Show the create or edit form, saving the Transaction and Splits once valid."""
-    form = TransactionForm(request.POST or None, instance=instance)
+    form = TransactionForm(
+        request.POST or None, request.FILES or None, instance=instance
+    )
     formset = cast(
         "BaseSplitFormSet", SplitFormSet(request.POST or None, instance=instance)
     )
@@ -50,7 +53,13 @@ def _save_transaction_forms(
         with db_transaction.atomic():
             formset.instance = form.save()
             formset.save()
+            save_attachments(formset.instance, form.cleaned_data["attachments"])
         return redirect("transaction_list")
+    if request.FILES:
+        form.add_error(
+            "attachments",
+            "Your files weren't saved because of the errors. Pick them again.",
+        )
     return render(
         request,
         "transactions/transaction_form.html",

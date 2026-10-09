@@ -1,5 +1,6 @@
 """Transactions: real-world money events made of Splits."""
 
+import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING, ClassVar
 
@@ -72,3 +73,28 @@ class Split(models.Model):
 
     def __str__(self) -> str:
         return f"{self.from_account} to {self.to_account}: {self.amount}"
+
+
+def attachment_key(_attachment: Attachment, _filename: str) -> str:
+    """A random storage key, so files can be moved later without renaming."""
+    return f"attachments/{uuid.uuid4().hex}"
+
+
+class Attachment(models.Model):
+    """A file kept with a Transaction, such as a receipt (ADR 0004)."""
+
+    transaction = models.ForeignKey(
+        Transaction, on_delete=models.CASCADE, related_name="attachments"
+    )
+    file = models.FileField(upload_to=attachment_key)
+    # Only used as the download name; the storage key never derives from it.
+    original_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=255)
+    size = models.PositiveBigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("created_at", "pk")
+
+    def __str__(self) -> str:
+        return self.original_name

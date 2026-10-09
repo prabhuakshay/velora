@@ -15,6 +15,8 @@ from apps.transactions.models import Split, Transaction
 if TYPE_CHECKING:
     from datetime import date
 
+    from django.core.files.uploadedfile import UploadedFile
+
 Kind = Account.Kind
 
 
@@ -46,8 +48,37 @@ def grouped_by_kind(accounts: QuerySet[Account]) -> list[Any]:
     return [("", "---------"), *[group for group in groups if group[1]]]
 
 
+class MultipleFileInput(forms.ClearableFileInput):
+    """A file picker that lets the user choose several files."""
+
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """A file input that accepts several files at once."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        kwargs.setdefault("widget", MultipleFileInput)
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data: Any, initial: Any = None) -> list[UploadedFile[bytes]]:  # noqa: ANN401
+        """Clean each file on its own, giving a list."""
+        files = data if isinstance(data, (list, tuple)) else [data]
+        return [
+            super(MultipleFileField, self).clean(file, initial)
+            for file in files
+            if file
+        ]
+
+
 class TransactionForm(forms.ModelForm[Transaction]):
-    """The Transaction's own fields: date, Party and description."""
+    """The Transaction's own fields: date, Party and description.
+
+    Also takes the files to add as Attachments, which the caller stores once
+    the Transaction is saved.
+    """
+
+    attachments = MultipleFileField(required=False)
 
     class Meta:
         model = Transaction

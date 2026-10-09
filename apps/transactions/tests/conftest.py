@@ -1,8 +1,12 @@
-from typing import TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any
 
+import pytest
+from django.core.files.storage import InMemoryStorage, default_storage
 from django.urls import reverse
 
 if TYPE_CHECKING:
+    from pytest_django import Settings
+
     from apps.accounts.models import Account
     from apps.transactions.models import Transaction
 
@@ -55,3 +59,37 @@ def split_rows(
 
 def transaction_url(name: str, transaction: Transaction) -> str:
     return reverse(name, kwargs={"pk": transaction.pk})
+
+
+def stored_names() -> list[str]:
+    """Every file name in the default storage's attachments directory."""
+    try:
+        _, files = default_storage.listdir("attachments")
+    except FileNotFoundError:
+        return []
+    return sorted(f"attachments/{name}" for name in files)
+
+
+class SecondSaveFailsStorage(InMemoryStorage):
+    """Stores the first file, then fails, like an outage mid-upload."""
+
+    saves = 0
+
+    def save(
+        self, name: str | None, content: IO[Any], max_length: int | None = None
+    ) -> str:
+        self.saves += 1
+        if self.saves > 1:
+            msg = "storage unavailable"
+            raise OSError(msg)
+        return super().save(name, content, max_length)
+
+
+@pytest.fixture
+def second_save_fails(settings: Settings) -> None:
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {
+            "BACKEND": "apps.transactions.tests.conftest.SecondSaveFailsStorage"
+        },
+    }
