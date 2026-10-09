@@ -56,6 +56,14 @@ _Avoid_: Line, leg, posting
 A file the user keeps with a Transaction as evidence or reference, such as a receipt, invoice or warranty card. It belongs to the whole Transaction, not to any one Split.
 _Avoid_: Receipt, document, file
 
+**Quick Add**:
+A short free-text note the user writes about a money event, such as "lunch at Toit 850 on hdfc card", which an AI reads to propose a Draft.
+_Avoid_: Prompt, quick entry, note
+
+**Draft**:
+A Transaction the AI proposed from a Quick Add that the user has not yet posted. It touches no Balance until the user posts it; the user can also edit or reject it.
+_Avoid_: Pending transaction, suggestion, draft entry
+
 **Transfer**:
 A Transaction whose Splits only move money between Asset and Liability Accounts, such as withdrawing cash or paying a credit card bill.
 _Avoid_: Move, internal transaction

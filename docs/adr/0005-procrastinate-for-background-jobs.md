@@ -1,0 +1,3 @@
+# Background jobs run on Procrastinate
+
+Background work, starting with turning Quick Adds into Drafts, runs on Procrastinate with a single worker at concurrency 1, because it queues jobs in the Postgres database Velora already has and brings retries with backoff, a Django admin view and a `manage.py` worker out of the box. We chose it over Django's built-in Tasks framework, whose database backend lives in a separate, younger package without built-in retries, and over Celery, which would add Redis and a second moving part to a single-user app. Moving off it later means rewriting every task and the worker service, so this is not a free swap.
