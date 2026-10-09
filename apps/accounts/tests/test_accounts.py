@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-KINDS = ["expense", "income"]
+KINDS = ["asset", "liability", "expense", "income"]
 
 
 @pytest.fixture
@@ -68,7 +68,15 @@ def test_create_account_stores_kind_from_page(signed_in: Client, kind: str) -> N
     url = reverse("account_create", kwargs={"kind": kind})
     assert signed_in.get(url).status_code == 200
 
-    response = signed_in.post(url, {"name": "Groceries", "notes": "Food"})
+    response = signed_in.post(
+        url,
+        {
+            "name": "Groceries",
+            "notes": "Food",
+            "opening_balance": "0",
+            "opening_balance_date": "2026-01-01",
+        },
+    )
 
     assert response["Location"] == reverse("account_list", kwargs={"kind": kind})
     account = Account.objects.get()

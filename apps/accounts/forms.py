@@ -1,19 +1,42 @@
 """Forms for Accounts."""
 
-from typing import ClassVar
+from decimal import Decimal
+from typing import Any, ClassVar
 
 from django import forms
+from django.utils import timezone
 
 from apps.accounts.models import Account
 
+OPENING_BALANCE_FIELDS = ("opening_balance", "opening_balance_date")
+
 
 class AccountForm(forms.ModelForm[Account]):
-    """Create or edit an Account; the kind comes from the instance, never the form."""
+    """Create or edit an Account; the kind comes from the instance, never the form.
+
+    Only Asset and Liability Accounts get the Opening Balance fields.
+    """
 
     class Meta:
         model = Account
-        fields = ("name", "notes")
-        widgets: ClassVar = {"notes": forms.Textarea(attrs={"rows": 3})}
+        fields = ("name", "notes", *OPENING_BALANCE_FIELDS)
+        widgets: ClassVar = {
+            "notes": forms.Textarea(attrs={"rows": 3}),
+            "opening_balance_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        super().__init__(*args, **kwargs)
+        if not self.instance.has_opening_balance:
+            for name in OPENING_BALANCE_FIELDS:
+                del self.fields[name]
+            return
+        for name in OPENING_BALANCE_FIELDS:
+            self.fields[name].required = True
+        self.fields["opening_balance_date"].label = "Opening Balance date"
+        if not self.instance.pk:
+            self.initial["opening_balance"] = Decimal(0)
+            self.initial["opening_balance_date"] = timezone.localdate()
 
     def clean_name(self) -> str:
         """Reject a name already in use within this kind, ignoring case."""

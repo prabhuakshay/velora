@@ -12,6 +12,7 @@
       <li class="flex items-center justify-between gap-3 py-3">
         <div class="min-w-0">
           <p class="truncate font-medium">{{ account.name }}</p>
+          {% if account.has_opening_balance %}<p class="text-xs text-slate-500">Opening Balance ₹{{ account.opening_balance }} on {{ account.opening_balance_date }}</p>{% endif %}
           {% if account.notes %}<p class="truncate text-xs text-slate-500">{{ account.notes }}</p>{% endif %}
         </div>
         <div class="flex shrink-0 gap-3 text-sm">

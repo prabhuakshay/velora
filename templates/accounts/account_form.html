@@ -8,6 +8,10 @@
     {% csrf_token %}
     {% include "partials/form_errors.html" %}
     {% include "partials/field.html" with field=form.name %}
+    {% if form.opening_balance %}
+      {% include "partials/field.html" with field=form.opening_balance %}
+      {% include "partials/field.html" with field=form.opening_balance_date %}
+    {% endif %}
     {% include "partials/field.html" with field=form.notes %}
     {% include "partials/submit.html" with label="Save" %}
   </form>

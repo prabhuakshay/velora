@@ -6,7 +6,7 @@ from apps.accounts import views
 class KindConverter:
     """Match only the Account kinds that have pages."""
 
-    regex = "expense|income"
+    regex = "asset|liability|expense|income"
 
     def to_python(self, value: str) -> str:
         return value
