@@ -67,7 +67,9 @@ def test_hidden_account_cannot_be_posted_on_new_transactions(signed_in: Client) 
         reverse("transaction_create"), form_data(old_bank, groceries, party=shop.pk)
     )
 
-    assert response.content.decode().count("Select a valid choice.") == 2
+    body = response.content.decode()
+    assert "That Account is inactive or no longer exists." in body
+    assert "That Party is inactive or no longer exists." in body
     assert not Transaction.objects.exists()
 
 

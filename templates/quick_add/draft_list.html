@@ -26,11 +26,24 @@
               {% if draft.description %}<p class="text-sm text-slate-700">{{ draft.description }}</p>{% endif %}
               {% for split in draft.splits.all %}
                 <p class="flex justify-between gap-3 text-xs text-slate-500">
-                  <span class="truncate">{{ split.from_account }} → {{ split.to_account }}</span>
+                  <span class="truncate">{{ split.from_account|default:"Removed Account" }} → {{ split.to_account|default:"Removed Account" }}</span>
                   <span class="tabular-nums">{% amount split.amount %}</span>
                 </p>
               {% endfor %}
             {% endwith %}
+            {% if quick_add.failure_reason %}
+              <p class="mt-1 text-sm text-red-600">Couldn't post: {{ quick_add.failure_reason }} <a href="{% url 'transaction_create' %}?quick_add={{ quick_add.pk }}" class="font-medium underline">Edit</a></p>
+            {% endif %}
+            <div class="mt-2 flex gap-2">
+              <form method="post" action="{% url 'draft_post' quick_add.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-primary py-1.5 text-sm">Post</button>
+              </form>
+              <form method="post" action="{% url 'draft_reject' quick_add.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-secondary py-1.5 text-sm">Reject</button>
+              </form>
+            </div>
           {% endif %}
         </li>
       {% empty %}

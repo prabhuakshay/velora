@@ -92,6 +92,9 @@ class TransactionForm(forms.ModelForm[Transaction]):
     class Meta:
         model = Transaction
         fields = ("date", "party", "description")
+        error_messages: ClassVar = {
+            "party": {"invalid_choice": "That Party is inactive or no longer exists."}
+        }
         widgets: ClassVar = {
             "date": forms.DateInput(attrs={"type": "date"}),
             "description": forms.Textarea(attrs={"rows": 2}),
@@ -159,6 +162,10 @@ class SplitForm(forms.ModelForm[Split]):
         model = Split
         fields = ("from_account", "to_account", "amount", "tags")
         labels: ClassVar = {"from_account": "From", "to_account": "To"}
+        error_messages: ClassVar = {
+            name: {"invalid_choice": "That Account is inactive or no longer exists."}
+            for name in ("from_account", "to_account")
+        }
         widgets: ClassVar = {"tags": forms.CheckboxSelectMultiple}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
