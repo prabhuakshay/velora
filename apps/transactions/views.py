@@ -2,14 +2,21 @@
 
 from typing import TYPE_CHECKING, cast
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
 from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from apps.core.views import paginate
-from apps.transactions.attachments import attachment_url, save_attachments
+from apps.transactions.attachments import (
+    AttachmentDeleteError,
+    attachment_url,
+    delete_attachment_files,
+    save_attachments,
+)
 from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
 from apps.transactions.models import Attachment, Split, Transaction
 from apps.users.privacy_mode import blocked_in_privacy_mode
@@ -115,11 +122,31 @@ def attachment_open(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa:
 
 
 @login_required
+@require_POST
+def attachment_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Delete an Attachment and its stored file, then return to its Transaction."""
+    attachment = get_object_or_404(Attachment, pk=pk)
+    try:
+        with db_transaction.atomic():
+            attachment.delete()
+            delete_attachment_files([attachment])
+    except AttachmentDeleteError as error:
+        messages.error(request, error.message)
+    return redirect("transaction_edit", pk=attachment.transaction_id)
+
+
+@login_required
 def transaction_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Confirm, then delete a Transaction and its Splits."""
+    """Confirm, then delete a Transaction, its Splits and its Attachments."""
     transaction = get_object_or_404(Transaction, pk=pk)
     if request.method == "POST":
-        transaction.delete()
+        try:
+            with db_transaction.atomic():
+                delete_attachment_files(transaction.attachments.all())
+                transaction.delete()
+        except AttachmentDeleteError as error:
+            messages.error(request, error.message)
+            return redirect("transaction_delete", pk=pk)
         return redirect("transaction_list")
     return render(
         request,

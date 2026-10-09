@@ -25,4 +25,9 @@ urlpatterns = [
         views.attachment_open,
         name="attachment_open",
     ),
+    path(
+        "attachments/<int:pk>/delete/",
+        views.attachment_delete,
+        name="attachment_delete",
+    ),
 ]

@@ -95,6 +95,51 @@ def second_save_fails(settings: Settings) -> None:
     }
 
 
+class DeleteFailsStorage(InMemoryStorage):
+    """Stores files but can't delete them, like an outage mid-delete."""
+
+    def delete(self, name: str) -> None:
+        msg = "storage unavailable"
+        raise OSError(msg)
+
+
+@pytest.fixture
+def delete_fails(settings: Settings) -> None:
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "apps.transactions.tests.conftest.DeleteFailsStorage"},
+    }
+
+
+class SecondDeleteFailsStorage(InMemoryStorage):
+    """Deletes one file, fails once, then recovers; missing files raise.
+
+    Raising on a missing file, as some backends do, checks that a retry
+    treats a file already gone as deleted.
+    """
+
+    deletes = 0
+
+    def delete(self, name: str) -> None:
+        self.deletes += 1
+        if self.deletes == 2:
+            msg = "storage unavailable"
+            raise OSError(msg)
+        if not self.exists(name):
+            raise FileNotFoundError(name)
+        super().delete(name)
+
+
+@pytest.fixture
+def second_delete_fails(settings: Settings) -> None:
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {
+            "BACKEND": "apps.transactions.tests.conftest.SecondDeleteFailsStorage"
+        },
+    }
+
+
 R2_ENDPOINT = "https://account.r2.cloudflarestorage.com"
 
 

@@ -30,6 +30,11 @@
             hx-swap="beforeend">Add split</button>
     {% include "partials/submit.html" with label="Save" %}
   </form>
+  {% for attachment in transaction.attachments.all %}
+    <form id="delete-attachment-{{ attachment.pk }}" method="post" action="{% url 'attachment_delete' attachment.pk %}">
+      {% csrf_token %}
+    </form>
+  {% endfor %}
   <p class="mt-4 text-center text-sm">
     <a href="{% url 'transaction_list' %}" class="link">Cancel</a>
   </p>
