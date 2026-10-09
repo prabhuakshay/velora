@@ -2,13 +2,15 @@
 
 from typing import TYPE_CHECKING
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.classification.forms import PartyForm, TagForm
+from apps.classification.forms import PartyForm, PartyMergeForm, TagForm
 from apps.classification.models import Party, Tag
 from apps.core.views import save_unique_name, set_hidden
 
@@ -74,6 +76,13 @@ def party_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
 def party_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Confirm, then delete a party."""
     party = get_object_or_404(Party, pk=pk)
+    if party.transactions.exists():
+        messages.info(
+            request,
+            f"{party} is used by Transactions, so it cannot be deleted. Merge it "
+            "into another party, or hide it to keep it out of new entries.",
+        )
+        return redirect("party_merge", pk=party.pk)
     if request.method == "POST":
         party.delete()
         return redirect("party_list")
@@ -81,6 +90,28 @@ def party_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
         request,
         "confirm_delete.html",
         {"object": party, "noun": "party", "list_url": reverse("party_list")},
+    )
+
+
+@login_required
+def party_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Choose a target, then Merge a party into it."""
+    party = get_object_or_404(Party, pk=pk)
+    form = PartyMergeForm(party, request.POST or None)
+    if form.is_valid():
+        party.merge_into(form.cleaned_data["target"])
+        return redirect("party_list")
+    count = party.transactions.count()
+    return render(
+        request,
+        "merge.html",
+        {
+            "object": party,
+            "noun": "party",
+            "form": form,
+            "impact": [f"{count} Transaction{pluralize(count)} will move."],
+            "list_url": reverse("party_list"),
+        },
     )
 
 

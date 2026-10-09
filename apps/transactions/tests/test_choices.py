@@ -97,18 +97,14 @@ def test_hidden_account_and_party_are_kept_when_editing(signed_in: Client) -> No
     assert transaction.splits.get().amount == Decimal(6)
 
 
-def test_accounts_and_parties_in_use_cannot_be_deleted(signed_in: Client) -> None:
+def test_accounts_in_use_cannot_be_deleted(signed_in: Client) -> None:
     bank = make_account("Bank", "asset")
     groceries = make_account("Groceries", "expense")
-    shop = Party.objects.create(name="Big Bazaar")
-    signed_in.post(
-        reverse("transaction_create"), form_data(bank, groceries, party=shop.pk)
-    )
+    signed_in.post(reverse("transaction_create"), form_data(bank, groceries))
 
     for url in [
         account_url("account_delete", bank),
         account_url("account_delete", groceries),
-        reverse("party_delete", args=[shop.pk]),
     ]:
         with pytest.raises(ProtectedError):
             signed_in.post(url)

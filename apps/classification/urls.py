@@ -9,6 +9,7 @@ urlpatterns = [
     path("parties/<int:pk>/hide/", views.party_hide, name="party_hide"),
     path("parties/<int:pk>/unhide/", views.party_unhide, name="party_unhide"),
     path("parties/<int:pk>/delete/", views.party_delete, name="party_delete"),
+    path("parties/<int:pk>/merge/", views.party_merge, name="party_merge"),
     path("tags/", views.tag_list, name="tag_list"),
     path("tags/new/", views.tag_create, name="tag_create"),
     path("tags/<int:pk>/edit/", views.tag_edit, name="tag_edit"),
