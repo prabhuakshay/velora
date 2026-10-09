@@ -22,6 +22,7 @@
           {% if account.has_opening_balance %}
             <p class="text-sm{% if account.balance < 0 %} text-red-600{% endif %}">Balance ₹{{ account.balance }}</p>
             <p class="text-xs text-slate-500">Opening Balance ₹{{ account.opening_balance }} on {{ account.opening_balance_date }}</p>
+            {% if not account.include_in_net_worth %}<p class="text-xs font-medium text-amber-700">Excluded from Net Worth</p>{% endif %}
           {% endif %}
           {% if account.notes %}<p class="truncate text-xs text-slate-500">{{ account.notes }}</p>{% endif %}
         </div>

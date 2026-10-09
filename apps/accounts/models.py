@@ -64,6 +64,7 @@ class Account(models.Model):
     kind = models.CharField(max_length=16, choices=Kind)
     notes = models.TextField(blank=True)
     hidden = models.BooleanField(default=False)
+    include_in_net_worth = models.BooleanField("Include in Net Worth", default=True)
     opening_balance = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True
     )

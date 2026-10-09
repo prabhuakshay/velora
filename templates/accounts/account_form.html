@@ -11,6 +11,7 @@
     {% if form.opening_balance %}
       {% include "partials/field.html" with field=form.opening_balance %}
       {% include "partials/field.html" with field=form.opening_balance_date %}
+      {% include "partials/field.html" with field=form.include_in_net_worth %}
     {% endif %}
     {% include "partials/field.html" with field=form.notes %}
     {% include "partials/submit.html" with label="Save" %}

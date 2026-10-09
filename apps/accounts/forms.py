@@ -9,17 +9,18 @@ from django.utils import timezone
 from apps.accounts.models import Account
 
 OPENING_BALANCE_FIELDS = ("opening_balance", "opening_balance_date")
+BALANCE_FIELDS = (*OPENING_BALANCE_FIELDS, "include_in_net_worth")
 
 
 class AccountForm(forms.ModelForm[Account]):
     """Create or edit an Account; the kind comes from the instance, never the form.
 
-    Only Asset and Liability Accounts get the Opening Balance fields.
+    Only Asset and Liability Accounts get the Opening Balance and Net Worth fields.
     """
 
     class Meta:
         model = Account
-        fields = ("name", "notes", *OPENING_BALANCE_FIELDS)
+        fields = ("name", "notes", *BALANCE_FIELDS)
         widgets: ClassVar = {
             "notes": forms.Textarea(attrs={"rows": 3}),
             "opening_balance_date": forms.DateInput(attrs={"type": "date"}),
@@ -28,7 +29,7 @@ class AccountForm(forms.ModelForm[Account]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
         if not self.instance.has_opening_balance:
-            for name in OPENING_BALANCE_FIELDS:
+            for name in BALANCE_FIELDS:
                 del self.fields[name]
             return
         for name in OPENING_BALANCE_FIELDS:
