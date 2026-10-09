@@ -98,3 +98,8 @@ class Attachment(models.Model):
 
     def __str__(self) -> str:
         return self.original_name
+
+    @property
+    def is_image(self) -> bool:
+        """Whether the edit page can show the Attachment as a preview."""
+        return self.content_type.startswith("image/")

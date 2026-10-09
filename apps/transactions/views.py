@@ -9,9 +9,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from apps.core.views import paginate
-from apps.transactions.attachments import save_attachments
+from apps.transactions.attachments import attachment_url, save_attachments
 from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
-from apps.transactions.models import Split, Transaction
+from apps.transactions.models import Attachment, Split, Transaction
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
@@ -96,6 +96,13 @@ def split_row(request: HttpRequest) -> HttpResponse:
         "transactions/split_row_added.html",
         {"split": split, "total": index + 1},
     )
+
+
+@login_required
+@blocked_in_privacy_mode
+def attachment_open(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
+    """Send the browser to a short-lived storage link for the Attachment."""
+    return redirect(attachment_url(get_object_or_404(Attachment, pk=pk)))
 
 
 @login_required

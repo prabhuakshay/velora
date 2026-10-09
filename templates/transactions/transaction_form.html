@@ -10,6 +10,9 @@
     {% include "partials/field.html" with field=form.date %}
     {% include "partials/field.html" with field=form.party %}
     {% include "partials/field.html" with field=form.description %}
+    {% with attachments=transaction.attachments.all %}
+      {% if attachments %}{% include "transactions/attachment_list.html" %}{% endif %}
+    {% endwith %}
     {% include "partials/field.html" with field=form.attachments %}
     {{ formset.management_form }}
     {% for error in formset.non_form_errors %}
