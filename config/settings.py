@@ -11,6 +11,7 @@ Sections:
     4. Templates            9. Security
     5. Database and cache  10. Email
                            11. Logging
+                           12. AI Quick Add
 
 Required variables: SECRET_KEY, DATABASE_URL, and the R2_* variables in
 section 8 before any Attachment is uploaded or opened.
@@ -80,6 +81,8 @@ INSTALLED_APPS = [
     # Third party
     "simple_history",
     "axes",
+    # Background jobs (ADR 0005); `manage.py procrastinate worker` runs them.
+    "procrastinate.contrib.django",
     # Local
     "apps.users",
     "apps.classification",
@@ -378,3 +381,15 @@ LOGGING = {
         },
     },
 }
+
+
+# =============================================================================
+# 12. AI Quick Add
+# =============================================================================
+
+# Quick Add is hidden entirely while the key is empty.
+OPENROUTER_API_KEY = env.str("OPENROUTER_API_KEY", default="")
+# Must support structured output (response_format JSON schema, strict: true).
+OPENROUTER_MODEL = env.str("OPENROUTER_MODEL", default="openai/gpt-6-luna")
+# Some models (gpt-5 family, gpt-oss) reject "none", hence "low".
+OPENROUTER_REASONING_EFFORT = env.str("OPENROUTER_REASONING_EFFORT", default="low")

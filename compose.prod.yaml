@@ -65,3 +65,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+  # Runs Procrastinate jobs (ADR 0005), one at a time.
+  worker:
+    <<: *app
+    pull_policy: never
+    command: ["python", "manage.py", "procrastinate", "worker", "--concurrency", "1"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    stop_grace_period: 30s

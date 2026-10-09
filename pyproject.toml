@@ -10,6 +10,7 @@ dependencies = [
     "django-storages[s3]>=1.14.6",
     "django-stubs-ext>=6.1.2",
     "gunicorn>=26.2.0",
+    "procrastinate>=3.10.0",
     "psycopg[binary]>=3.3.6",
     "whitenoise[brotli]>=6.12.0",
 ]

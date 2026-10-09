@@ -10,30 +10,34 @@ x-dev-user: &dev-user
   # not root's.
   user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
 
+# Shared by django and worker: same image, env and source.
+x-dev-app: &dev-app
+  <<: *dev-user
+  build:
+    context: .
+    target: dev
+    args:
+      DOCKER_UID: ${DOCKER_UID:-1000}
+      DOCKER_GID: ${DOCKER_GID:-1000}
+  # settings.py reads /app/.env from the bind mount; these only override it.
+  environment:
+    DEBUG: ${DEBUG:-true}
+    ALLOWED_HOSTS: localhost,127.0.0.1${ALLOWED_HOSTS:+,$ALLOWED_HOSTS}
+  volumes:
+    - .:/app
+    # Host-platform artifacts that must not leak into the container.
+    - /app/.venv
+    - /app/node_modules
+    - /app/staticfiles
+    - uv-cache:/cache/uv
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
 services:
   django:
-    <<: *dev-user
-    build:
-      context: .
-      target: dev
-      args:
-        DOCKER_UID: ${DOCKER_UID:-1000}
-        DOCKER_GID: ${DOCKER_GID:-1000}
-    # settings.py reads /app/.env from the bind mount; these only override it.
-    environment:
-      DEBUG: ${DEBUG:-true}
-      ALLOWED_HOSTS: localhost,127.0.0.1${ALLOWED_HOSTS:+,$ALLOWED_HOSTS}
-    volumes:
-      - .:/app
-      # Host-platform artifacts that must not leak into the container.
-      - /app/.venv
-      - /app/node_modules
-      - /app/staticfiles
-      - uv-cache:/cache/uv
+    <<: *dev-app
     ports:
       - "${DOCKER_HOST_PORT:-8000}:8000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     # `docker compose attach django` for breakpoint().
     stdin_open: true
     tty: true
@@ -48,6 +52,16 @@ services:
       # On a fresh clone the CSS and JS don't exist until the watcher's first
       # build; starting earlier serves unstyled pages with no error.
       tailwind:
+        condition: service_healthy
+
+  # Runs Procrastinate jobs (ADR 0005). No reloader: restart it after editing
+  # task code.
+  worker:
+    <<: *dev-app
+    command: ["python", "manage.py", "procrastinate", "worker", "--concurrency", "1"]
+    depends_on:
+      # Both entrypoints migrate; waiting keeps them from racing.
+      django:
         condition: service_healthy
 
   tailwind:
