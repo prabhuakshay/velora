@@ -140,3 +140,7 @@ disallow_subclassing_any = false
 
 [tool.django-stubs]
 django_settings_module = "config.settings"
+
+[tool.typos.default.extend-identifiers]
+# "NAMEs" (plural of NAME) in the wizard library of scripts/r2-setup.sh.
+NAMEs = "NAMEs"
