@@ -10,16 +10,16 @@
     <button type="submit" class="btn-secondary">Show</button>
   </form>
   <div class="mt-4 space-y-1">
-    <p class="text-sm text-slate-600">Assets ₹{{ net_worth.assets|floatformat:"2" }}</p>
-    <p class="text-sm text-slate-600">Liabilities ₹{{ net_worth.liabilities|floatformat:"2" }}</p>
-    <p class="text-lg font-semibold{% if net_worth.total < 0 %} text-red-600{% endif %}">Net Worth ₹{{ net_worth.total|floatformat:"2" }}</p>
+    <p class="text-sm text-slate-600">Assets ₹{{ net_worth.assets }}</p>
+    <p class="text-sm text-slate-600">Liabilities ₹{{ net_worth.liabilities }}</p>
+    <p class="text-lg font-semibold{% if net_worth.total < 0 %} text-red-600{% endif %}">Net Worth ₹{{ net_worth.total }}</p>
   </div>
   <section class="mt-8" aria-labelledby="history-heading">
     <h2 id="history-heading" class="text-lg font-semibold">Net Worth history</h2>
     {% if history %}
       {% with first=history|first last=history|last %}
-        <svg viewBox="0 0 600 200" preserveAspectRatio="none" role="img" aria-label="Net Worth history from {{ first.0|date:'j M Y' }} to {{ last.0|date:'j M Y' }}" class="mt-2 h-48 w-full overflow-visible text-slate-900">
-          <polyline points="{{ history_line }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+        <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" role="img" aria-label="Net Worth history from {{ first.0|date:'j M Y' }} to {{ last.0|date:'j M Y' }}" class="mt-2 h-48 w-full overflow-visible text-slate-900">
+          <polyline points="{{ chart.points }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
         </svg>
         <div class="mt-1 flex justify-between text-xs text-slate-600">
           <span>{{ first.0|date:"j M Y" }}</span>
@@ -31,7 +31,7 @@
         <thead><tr><th scope="col">Date</th><th scope="col">Net Worth</th></tr></thead>
         <tbody>
           {% for when, value in history %}
-            <tr><td>{{ when|date:"j M Y" }}</td><td>₹{{ value|floatformat:"2" }}</td></tr>
+            <tr><td>{{ when|date:"j M Y" }}</td><td>₹{{ value }}</td></tr>
           {% endfor %}
         </tbody>
       </table>

@@ -5,7 +5,6 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db.models import Min
-from django.utils import timezone
 
 from apps.accounts.models import BALANCE_KINDS, Account, AccountKind, AccountQuerySet
 
@@ -23,24 +22,13 @@ class NetWorth:
         return self.assets - self.liabilities
 
 
-def as_of_date(raw: str | None) -> date:
-    """The as-of date from a GET value; today when missing, invalid or future."""
-    today = timezone.localdate()
-    try:
-        when = date.fromisoformat(raw or "")
-    except ValueError:
-        return today
-    return min(when, today)
-
-
 def _included() -> AccountQuerySet:
     return Account.objects.filter(kind__in=BALANCE_KINDS, include_in_net_worth=True)
 
 
 def net_worth(as_of: date) -> NetWorth:
     """Net Worth as of a date: the sum of each Account's value, hidden ones included."""
-    # Value is the Balance; an investment Account could supply market value here.
-    totals: dict[str, Decimal] = dict.fromkeys(BALANCE_KINDS, Decimal(0))
+    totals: dict[str, Decimal] = dict.fromkeys(BALANCE_KINDS, Decimal("0.00"))
     for account in _included().with_balance(as_of):
         totals[account.kind] += account.balance
     return NetWorth(
@@ -68,16 +56,3 @@ def net_worth_history(today: date) -> list[tuple[date, Decimal]]:
         when = _month_end(when + timedelta(days=1))
     points.append(today)
     return [(when, net_worth(when).total) for when in points]
-
-
-def history_line(values: list[Decimal], width: int, height: int) -> str:
-    """SVG polyline points scaling the values to fill a width by height box."""
-    low, high = min(values), max(values)
-    span = high - low or 1
-    if len(values) == 1:
-        values = values * 2
-    step = Decimal(width) / (len(values) - 1)
-    return " ".join(
-        f"{step * i:.1f},{height - (value - low) / span * height:.1f}"
-        for i, value in enumerate(values)
-    )

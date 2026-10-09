@@ -1,5 +1,6 @@
 """Views for managing Accounts, one set shared by every kind."""
 
+from datetime import date
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
@@ -13,27 +14,53 @@ from django.views.decorators.http import require_POST
 from apps.accounts.forms import AccountForm
 from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
-from apps.accounts.net_worth import (
-    as_of_date,
-    history_line,
-    net_worth,
-    net_worth_history,
-)
+from apps.accounts.net_worth import net_worth, net_worth_history
 from apps.core.forms import MergeForm
 from apps.core.views import redirect_in_use_to_merge, save_unique_name, set_hidden
 
 if TYPE_CHECKING:
+    from decimal import Decimal
+
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
+
+CHART_WIDTH = 600
+CHART_HEIGHT = 200
+
+
+def _as_of_date(raw: str | None) -> date:
+    """The as-of date from a GET value; today when missing, invalid or future."""
+    today = timezone.localdate()
+    try:
+        when = date.fromisoformat(raw or "")
+    except ValueError:
+        return today
+    return min(when, today)
+
+
+def _chart_points(values: list[Decimal]) -> str:
+    """SVG polyline points scaling the values to fill the chart; flat mid-height."""
+    if not values:
+        return ""
+    low, high = min(values), max(values)
+    if len(values) == 1:
+        values = values * 2
+    step = CHART_WIDTH / (len(values) - 1)
+
+    def y(value: Decimal) -> float:
+        if high == low:
+            return CHART_HEIGHT / 2
+        return float(CHART_HEIGHT - (value - low) / (high - low) * CHART_HEIGHT)
+
+    return " ".join(f"{step * i:.1f},{y(value):.1f}" for i, value in enumerate(values))
 
 
 @login_required
 def home(request: HttpRequest) -> HttpResponse:
     """Show Net Worth with the Assets and Liabilities totals behind it."""
-    as_of = as_of_date(request.GET.get("as_of"))
+    as_of = _as_of_date(request.GET.get("as_of"))
     today = timezone.localdate()
     history = net_worth_history(today)
-    line = history_line([value for _, value in history], 600, 200) if history else ""
     return render(
         request,
         "index.html",
@@ -42,7 +69,11 @@ def home(request: HttpRequest) -> HttpResponse:
             "today": today,
             "net_worth": net_worth(as_of),
             "history": history,
-            "history_line": line,
+            "chart": {
+                "width": CHART_WIDTH,
+                "height": CHART_HEIGHT,
+                "points": _chart_points([value for _, value in history]),
+            },
         },
     )
 

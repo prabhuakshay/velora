@@ -61,7 +61,7 @@ class AccountQuerySet(models.QuerySet["Account"]):
             balance = models.Case(
                 models.When(opening_balance_date__gt=as_of, then=models.Value(0)),
                 default=balance,
-                output_field=models.DecimalField(max_digits=15, decimal_places=2),
+                output_field=self.model._meta.get_field("opening_balance"),
             )
         return self.annotate(balance=balance)
 
