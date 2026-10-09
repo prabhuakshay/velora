@@ -11,7 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.users.client_ip import get_client_ip
-from apps.users.forms import PreferencesForm
+from apps.users.forms import PreferencesForm, PrivacyModeOffForm
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -44,7 +44,7 @@ def preferences(request: HttpRequest) -> HttpResponseBase:
 
 
 def _safe_next(request: HttpRequest) -> str:
-    next_url = request.POST.get("next", "")
+    next_url = request.POST.get("next") or request.GET.get("next", "")
     if url_has_allowed_host_and_scheme(
         next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
     ):
@@ -60,3 +60,19 @@ def privacy_mode_on(request: HttpRequest) -> HttpResponseBase:
     user.privacy_mode = True
     user.save_without_historical_record(update_fields=["privacy_mode"])
     return redirect(_safe_next(request))
+
+
+@login_required
+def privacy_mode_off(request: HttpRequest) -> HttpResponseBase:
+    """Turn Privacy Mode off once the user re-enters their password."""
+    user = cast("User", request.user)
+    form = PrivacyModeOffForm(request, user, request.POST or None)
+    if form.is_valid():
+        user.privacy_mode = False
+        user.save_without_historical_record(update_fields=["privacy_mode"])
+        return redirect(_safe_next(request))
+    return render(
+        request,
+        "users/privacy_mode_off.html",
+        {"form": form, "next": _safe_next(request)},
+    )

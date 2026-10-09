@@ -1,8 +1,11 @@
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 import pytest
+from django.conf import settings
+from django.test import Client
 from django.urls import reverse
 
 from apps.accounts.tests.conftest import account_url, list_page, make_account
@@ -13,7 +16,7 @@ from apps.users.tests.test_number_format import use_format
 from conftest import PASSWORD
 
 if TYPE_CHECKING:
-    from django.test import Client
+    from django.test.client import _MonkeyPatchedWSGIResponse
 
     from apps.users.models import User
 
@@ -183,3 +186,99 @@ def test_number_format_and_stored_values_stay_unchanged(
     bank.refresh_from_db()
     assert user.number_format == "international"
     assert bank.opening_balance == Decimal(1234567)
+
+
+@pytest.mark.parametrize("page", PAGES)
+def test_eye_icon_leads_to_unhide_page_while_on(signed_in: Client, page: str) -> None:
+    url = reverse(page)
+    hide(signed_in)
+
+    body = signed_in.get(url).content.decode()
+
+    assert f'href="{reverse("privacy_mode_off")}?next={quote(url)}"' in body
+    assert 'aria-label="Privacy Mode is on. Turn it off"' in body
+
+
+def unhide(
+    client: Client, password: str = PASSWORD, next_url: str = "/"
+) -> _MonkeyPatchedWSGIResponse:
+    return client.post(
+        reverse("privacy_mode_off"),
+        {"password": password, "next": next_url},
+        REMOTE_ADDR="203.0.113.7",
+    )
+
+
+def test_correct_password_turns_off_and_redirects_to_next(
+    signed_in: Client, user: User
+) -> None:
+    next_url = reverse("transaction_list")
+    hide(signed_in)
+
+    response = unhide(signed_in, next_url=next_url)
+
+    assert response.status_code == 302
+    assert response["Location"] == next_url
+    user.refresh_from_db()
+    assert not user.privacy_mode
+
+
+def test_unhide_page_carries_next_into_the_form(signed_in: Client) -> None:
+    next_url = reverse("transaction_list")
+    hide(signed_in)
+
+    page = signed_in.get(
+        reverse("privacy_mode_off"), {"next": next_url}
+    ).content.decode()
+
+    assert 'type="password"' in page
+    assert f'name="next" value="{next_url}"' in page
+
+
+def test_unhide_with_unsafe_next_falls_back_to_home(signed_in: Client) -> None:
+    hide(signed_in)
+
+    response = unhide(signed_in, next_url="https://evil.example.com/")
+
+    assert response["Location"] == reverse("index")
+
+
+def test_wrong_password_keeps_privacy_mode_on(signed_in: Client, user: User) -> None:
+    hide(signed_in)
+
+    response = unhide(signed_in, "wrong")
+
+    assert response.status_code == 200
+    assert "Wrong password." in response.content.decode()
+    user.refresh_from_db()
+    assert user.privacy_mode
+
+
+def test_turning_off_adds_no_user_history(signed_in: Client, user: User) -> None:
+    hide(signed_in)
+    rows = user.history.count()
+
+    unhide(signed_in)
+
+    assert user.history.count() == rows
+
+
+def test_wrong_passwords_lock_out_unhide_and_login(
+    signed_in: Client, user: User
+) -> None:
+    hide(signed_in)
+    for _ in range(settings.AXES_FAILURE_LIMIT):
+        unhide(signed_in, "wrong")
+
+    unhide_response = unhide(signed_in)
+    login_response = Client().post(
+        reverse("login"),
+        {"username": user.email, "password": PASSWORD},
+        REMOTE_ADDR="203.0.113.7",
+    )
+
+    assert unhide_response.status_code == 429
+    assert b"Account locked" in unhide_response.content
+    user.refresh_from_db()
+    assert user.privacy_mode
+    assert login_response.status_code == 429

@@ -1,0 +1,18 @@
+{% extends "app_base.html" %}
+
+{% block title %}Turn off Privacy Mode · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">Turn off Privacy Mode</h1>
+  <p class="mt-2 text-sm text-slate-600">Enter your password to show amounts again.</p>
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% include "partials/form_errors.html" %}
+    {% include "partials/field.html" with field=form.password %}
+    {% include "partials/submit.html" with label="Turn off Privacy Mode" %}
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{{ next }}" class="link">Cancel</a>
+  </p>
+{% endblock %}
