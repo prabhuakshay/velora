@@ -40,6 +40,10 @@ _Avoid_: Initial balance, starting amount
 What an Asset or Liability Account holds now: its Opening Balance moved by every Split into or out of it. For a Liability Account it is what the user owes.
 _Avoid_: Total, net
 
+**Net Worth**:
+What the user owns minus what they owe on a given day: the Balances of Asset Accounts minus the Balances of Liability Accounts, leaving out any Account the user has excluded from it, such as a car.
+_Avoid_: Wealth, total balance, equity
+
 **Transaction**:
 One real-world money event, such as paying a bill or receiving salary, with a date and optionally a Party. It is made of one or more Splits, which all come from the same Account or all go to the same Account.
 _Avoid_: Entry, journal, payment
