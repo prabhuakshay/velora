@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING
 from django.contrib.auth.decorators import login_required
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from apps.accounts.forms import AccountForm
 from apps.accounts.models import Account
-from apps.core.views import save_unique_name
+from apps.core.views import save_unique_name, set_hidden
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -18,11 +20,14 @@ if TYPE_CHECKING:
 @login_required
 def account_list(request: HttpRequest, kind: str) -> HttpResponse:
     """List one kind's Accounts by name."""
+    show_hidden = request.GET.get("show_hidden") == "1"
     accounts = Account.objects.filter(kind=kind).order_by(Lower("name"))
+    if not show_hidden:
+        accounts = accounts.filter(hidden=False)
     return render(
         request,
         "accounts/account_list.html",
-        {"accounts": accounts, "kind": Account.Kind(kind)},
+        {"accounts": accounts, "kind": Account.Kind(kind), "show_hidden": show_hidden},
     )
 
 
@@ -50,4 +55,40 @@ def account_edit(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
         request,
         "accounts/account_form.html",
         {"form": form, "kind": Account.Kind(kind), "account": account},
+    )
+
+
+@login_required
+@require_POST
+def account_hide(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
+    """Hide an Account from its kind's default list."""
+    account = get_object_or_404(Account, pk=pk, kind=kind)
+    list_url = reverse("account_list", kwargs={"kind": kind})
+    return set_hidden(request, account, list_url, hidden=True)
+
+
+@login_required
+@require_POST
+def account_unhide(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
+    """Show a hidden Account in its kind's default list again."""
+    account = get_object_or_404(Account, pk=pk, kind=kind)
+    list_url = reverse("account_list", kwargs={"kind": kind})
+    return set_hidden(request, account, list_url, hidden=False)
+
+
+@login_required
+def account_delete(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
+    """Confirm, then delete an Account of the kind in the URL."""
+    account = get_object_or_404(Account, pk=pk, kind=kind)
+    if request.method == "POST":
+        account.delete()
+        return redirect("account_list", kind=kind)
+    return render(
+        request,
+        "confirm_delete.html",
+        {
+            "object": account,
+            "noun": f"{Account.Kind(kind).label} Account",
+            "list_url": reverse("account_list", kwargs={"kind": kind}),
+        },
     )

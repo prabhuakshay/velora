@@ -25,4 +25,19 @@ urlpatterns = [
         views.account_edit,
         name="account_edit",
     ),
+    path(
+        "accounts/<kind:kind>/<int:pk>/hide/",
+        views.account_hide,
+        name="account_hide",
+    ),
+    path(
+        "accounts/<kind:kind>/<int:pk>/unhide/",
+        views.account_unhide,
+        name="account_unhide",
+    ),
+    path(
+        "accounts/<kind:kind>/<int:pk>/delete/",
+        views.account_delete,
+        name="account_delete",
+    ),
 ]

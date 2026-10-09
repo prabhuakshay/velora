@@ -7,16 +7,28 @@
     <h1 class="text-2xl font-bold tracking-tight">{{ kind.label }} Accounts</h1>
     <a href="{% url 'account_create' kind %}" class="btn-primary py-2 text-sm">New {{ kind.label }} Account</a>
   </div>
+  <p class="mt-4 text-sm">
+    {% if show_hidden %}
+      <a href="{% url 'account_list' kind %}" class="link">Hide hidden</a>
+    {% else %}
+      <a href="?show_hidden=1" class="link">Show hidden</a>
+    {% endif %}
+  </p>
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
     {% for account in accounts %}
-      <li class="flex items-center justify-between gap-3 py-3">
+      <li class="{% if account.hidden %}opacity-50 {% endif %}flex items-center justify-between gap-3 py-3">
         <div class="min-w-0">
           <p class="truncate font-medium">{{ account.name }}</p>
           {% if account.has_opening_balance %}<p class="text-xs text-slate-500">Opening Balance ₹{{ account.opening_balance }} on {{ account.opening_balance_date }}</p>{% endif %}
           {% if account.notes %}<p class="truncate text-xs text-slate-500">{{ account.notes }}</p>{% endif %}
         </div>
         <div class="flex shrink-0 gap-3 text-sm">
+          <form method="post" action="{% url account.hidden|yesno:'account_unhide,account_hide' kind account.pk %}{% if show_hidden %}?show_hidden=1{% endif %}">
+            {% csrf_token %}
+            <button class="link">{% if account.hidden %}Unhide{% else %}Hide{% endif %}</button>
+          </form>
           <a href="{% url 'account_edit' kind account.pk %}" class="link">Edit</a>
+          <a href="{% url 'account_delete' kind account.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
         </div>
       </li>
     {% empty %}
