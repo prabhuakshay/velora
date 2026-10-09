@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, cast
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
-from django.db.models import Prefetch, Sum
+from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
@@ -30,7 +30,16 @@ def transaction_list(request: HttpRequest) -> HttpResponse:
                 queryset=Split.objects.select_related("from_account", "to_account"),
             )
         )
-        .annotate(total=Sum("splits__amount"))
+        .annotate(
+            total=Sum("splits__amount"),
+            # A subquery, as joining attachments would multiply the splits total.
+            attachment_count=Subquery(
+                Attachment.objects.filter(transaction=OuterRef("pk"))
+                .values("transaction")
+                .annotate(count=Count("pk"))
+                .values("count")
+            ),
+        )
         .order_by("-date", "-pk")
     )
     page = paginate(request, transactions)
