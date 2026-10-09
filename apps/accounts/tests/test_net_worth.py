@@ -152,5 +152,5 @@ def test_no_balance_accounts_shows_no_chart(signed_in: Client) -> None:
 
     page = home_page(signed_in)
 
-    assert "<svg" not in page
+    assert "<polyline" not in page
     assert "No Net Worth history yet" in page

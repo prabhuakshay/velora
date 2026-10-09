@@ -12,11 +12,13 @@
   <div class="mt-4 space-y-1">
     <p class="text-sm text-slate-600">Assets {% amount net_worth.assets %}</p>
     <p class="text-sm text-slate-600">Liabilities {% amount net_worth.liabilities %}</p>
-    <p class="text-lg font-semibold{% if net_worth.total < 0 %} text-red-600{% endif %}">Net Worth {% amount net_worth.total %}</p>
+    <p class="text-lg font-semibold{% if net_worth.total < 0 and not user.privacy_mode %} text-red-600{% endif %}">Net Worth {% amount net_worth.total %}</p>
   </div>
   <section class="mt-8" aria-labelledby="history-heading">
     <h2 id="history-heading" class="text-lg font-semibold">Net Worth history</h2>
-    {% if history %}
+    {% if user.privacy_mode %}
+      <p class="mt-2 flex h-48 items-center justify-center rounded-lg bg-slate-100 text-sm text-slate-600">Hidden in Privacy Mode</p>
+    {% elif history %}
       {% with first=history|first last=history|last %}
         <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" role="img" aria-label="Net Worth history from {{ first.0|date:'j M Y' }} to {{ last.0|date:'j M Y' }}" class="mt-2 h-48 w-full overflow-visible text-slate-900">
           <polyline points="{{ chart.points }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" />

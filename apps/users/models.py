@@ -59,9 +59,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     number_format = models.CharField(
         max_length=13, choices=NumberFormat, default=NumberFormat.INDIAN
     )
+    privacy_mode = models.BooleanField(default=False)
 
-    # Old password hashes in history would be a needless leak.
-    history = HistoricalRecords(excluded_fields=["last_login", "password"])
+    # Old password hashes in history would be a needless leak, and frequent
+    # Privacy Mode toggling would bury real changes.
+    history = HistoricalRecords(
+        excluded_fields=["last_login", "password", "privacy_mode"]
+    )
     save_without_historical_record: Callable[..., None]
 
     objects: ClassVar[UserManager] = UserManager()

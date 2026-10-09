@@ -44,7 +44,7 @@ def test_list_shows_only_its_kind_sorted_by_name_ignoring_case(
 
     body = list_page(signed_in, "expense")
 
-    positions = [body.index(n) for n in ["Books", "Fuel", "groceries", "rent"]]
+    positions = [body.index(f">{n}<") for n in ["Books", "Fuel", "groceries", "rent"]]
     assert positions == sorted(positions)
     assert "Salary" not in body
 

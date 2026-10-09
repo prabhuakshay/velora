@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from django import template
+from django.utils.safestring import SafeString, mark_safe
 
 from apps.users.models import NumberFormat
 
@@ -12,6 +13,8 @@ if TYPE_CHECKING:
     from django.template.context import Context
 
 register = template.Library()
+
+MASK: SafeString = mark_safe('<span role="img" aria-label="Amount hidden">₹••••</span>')
 
 
 def _group(digits: str, number_format: NumberFormat) -> str:
@@ -27,8 +30,14 @@ def _group(digits: str, number_format: NumberFormat) -> str:
 
 @register.simple_tag(takes_context=True)
 def amount(context: Context, value: Decimal) -> str:
-    """The value with ₹, its sign and two decimals, grouped by Number Format."""
-    number_format = getattr(context.get("user"), "number_format", NumberFormat.INDIAN)
+    """The value with ₹, its sign and two decimals, grouped by Number Format.
+
+    Under Privacy Mode, a fixed mask instead, so no real value reaches the HTML.
+    """
+    user = context.get("user")
+    if getattr(user, "privacy_mode", False):
+        return MASK
+    number_format = getattr(user, "number_format", NumberFormat.INDIAN)
     digits, cents = f"{abs(value):.2f}".split(".")
     sign = "-" if value < 0 else ""
     return f"{sign}₹{_group(digits, number_format)}.{cents}"

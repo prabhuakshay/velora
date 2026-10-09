@@ -6,6 +6,9 @@ from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 
 from apps.users.client_ip import get_client_ip
 from apps.users.forms import PreferencesForm
@@ -38,3 +41,22 @@ def preferences(request: HttpRequest) -> HttpResponseBase:
         messages.success(request, "Preferences saved.")
         return redirect("preferences")
     return render(request, "users/preferences.html", {"form": form})
+
+
+def _safe_next(request: HttpRequest) -> str:
+    next_url = request.POST.get("next", "")
+    if url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return next_url
+    return reverse("index")
+
+
+@require_POST
+@login_required
+def privacy_mode_on(request: HttpRequest) -> HttpResponseBase:
+    """Turn Privacy Mode on and go back to where the user was."""
+    user = cast("User", request.user)
+    user.privacy_mode = True
+    user.save_without_historical_record(update_fields=["privacy_mode"])
+    return redirect(_safe_next(request))
