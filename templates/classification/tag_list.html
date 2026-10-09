@@ -15,7 +15,7 @@
     {% endif %}
   </p>
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-    {% for tag in tags %}
+    {% for tag in page %}
       <li class="{% if tag.hidden %}opacity-50 {% endif %}flex items-center justify-between gap-3 py-3">
         <span class="flex min-w-0 items-center gap-2">
           <span class="size-3 shrink-0 rounded-full {{ tag.swatch_class }}" aria-hidden="true"></span>
@@ -35,4 +35,5 @@
       <li class="py-3 text-slate-500">No tags yet.</li>
     {% endfor %}
   </ul>
+  {% include "partials/pagination.html" with extra_query=show_hidden|yesno:"&show_hidden=1," %}
 {% endblock %}

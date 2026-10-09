@@ -1,0 +1,7 @@
+{% if page.paginator.num_pages > 1 %}
+  <nav class="mt-4 flex items-center justify-between text-sm">
+    {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{{ extra_query }}" class="link">{{ previous_label|default:"Previous" }}</a>{% else %}<span></span>{% endif %}
+    <span class="text-slate-500">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a href="?page={{ page.next_page_number }}{{ extra_query }}" class="link">{{ next_label|default:"Next" }}</a>{% else %}<span></span>{% endif %}
+  </nav>
+{% endif %}

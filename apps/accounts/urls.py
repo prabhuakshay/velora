@@ -22,6 +22,11 @@ urlpatterns = [
     path("accounts/<kind:kind>/", views.account_list, name="account_list"),
     path("accounts/<kind:kind>/new/", views.account_create, name="account_create"),
     path(
+        "accounts/<kind:kind>/<int:pk>/",
+        views.account_transactions,
+        name="account_transactions",
+    ),
+    path(
         "accounts/<kind:kind>/<int:pk>/edit/",
         views.account_edit,
         name="account_edit",

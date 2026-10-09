@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Prefetch, Q
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -16,7 +17,13 @@ from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
 from apps.accounts.net_worth import net_worth, net_worth_history
 from apps.core.forms import MergeForm
-from apps.core.views import redirect_in_use_to_merge, save_unique_name, set_hidden
+from apps.core.views import (
+    paginate,
+    redirect_in_use_to_merge,
+    save_unique_name,
+    set_hidden,
+)
+from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
     from decimal import Decimal
@@ -80,7 +87,7 @@ def home(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def account_list(request: HttpRequest, kind: str) -> HttpResponse:
-    """List one kind's Accounts by name."""
+    """List one kind's Accounts by name, a page at a time."""
     show_hidden = request.GET.get("show_hidden") == "1"
     accounts = Account.objects.filter(kind=kind).order_by(Lower("name"))
     if not show_hidden:
@@ -90,7 +97,41 @@ def account_list(request: HttpRequest, kind: str) -> HttpResponse:
     return render(
         request,
         "accounts/account_list.html",
-        {"accounts": accounts, "kind": Account.Kind(kind), "show_hidden": show_hidden},
+        {
+            "page": paginate(request, accounts),
+            "kind": Account.Kind(kind),
+            "show_hidden": show_hidden,
+        },
+    )
+
+
+@login_required
+def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpResponse:
+    """List the Transactions touching an Account, newest first, a page at a time."""
+    accounts = Account.objects.filter(kind=kind)
+    if kind in BALANCE_KINDS:
+        accounts = accounts.with_balance()
+    account = get_object_or_404(accounts, pk=pk)
+    touching = Split.objects.filter(Q(from_account=account) | Q(to_account=account))
+    transactions = (
+        Transaction.objects.filter(pk__in=touching.values("transaction"))
+        .select_related("party")
+        .prefetch_related(
+            Prefetch(
+                "splits",
+                queryset=touching.select_related("from_account", "to_account"),
+            )
+        )
+        .order_by("-date", "-pk")
+    )
+    return render(
+        request,
+        "accounts/account_transactions.html",
+        {
+            "account": account,
+            "kind": Account.Kind(kind),
+            "page": paginate(request, transactions),
+        },
     )
 
 

@@ -15,7 +15,7 @@
     {% endif %}
   </p>
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-    {% for account in accounts %}
+    {% for account in page %}
       <li class="{% if account.hidden %}opacity-50 {% endif %}flex items-center justify-between gap-3 py-3">
         <div class="min-w-0">
           <p class="truncate font-medium">{{ account.name }}</p>
@@ -31,6 +31,7 @@
             {% csrf_token %}
             <button class="link">{% if account.hidden %}Unhide{% else %}Hide{% endif %}</button>
           </form>
+          <a href="{% url 'account_transactions' kind account.pk %}" class="link">View</a>
           <a href="{% url 'account_edit' kind account.pk %}" class="link">Edit</a>
           <a href="{% url 'account_merge' kind account.pk %}" class="link">Merge</a>
           <a href="{% url 'account_delete' kind account.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
@@ -40,4 +41,5 @@
       <li class="py-3 text-slate-500">No {{ kind.label }} Accounts yet.</li>
     {% endfor %}
   </ul>
+  {% include "partials/pagination.html" with extra_query=show_hidden|yesno:"&show_hidden=1," %}
 {% endblock %}

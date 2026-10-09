@@ -17,6 +17,7 @@ pytestmark = pytest.mark.django_db
     [
         ("account_list", None),
         ("account_create", None),
+        ("account_transactions", 1),
         ("account_edit", 1),
         ("account_hide", 1),
         ("account_unhide", 1),

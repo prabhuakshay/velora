@@ -162,3 +162,16 @@ def test_admin_lists_accounts_with_kind_and_history(
     assert b"Income" in changelist.content
     history = reverse("admin:accounts_account_history", args=[account.pk])
     assert client.get(history).status_code == 200
+
+
+def test_list_is_paginated_keeping_show_hidden(signed_in: Client) -> None:
+    for number in range(26):
+        Account.objects.create(name=f"Account {number:02}", kind="expense")
+
+    first = signed_in.get(list_url("expense") + "?show_hidden=1").content.decode()
+    second = list_page(signed_in, "expense", "?page=2")
+
+    assert "Account 24" in first
+    assert "Account 25" not in first
+    assert "Account 25" in second
+    assert "?page=2&amp;show_hidden=1" in first

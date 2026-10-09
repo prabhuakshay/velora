@@ -144,3 +144,18 @@ def test_admin_shows_tags_with_history(client: Client, superuser: User) -> None:
     assert client.get(reverse("admin:classification_tag_changelist")).status_code == 200
     history = reverse("admin:classification_tag_history", args=[tag.pk])
     assert client.get(history).status_code == 200
+
+
+def test_list_is_paginated_keeping_show_hidden(signed_in: Client) -> None:
+    for number in range(26):
+        Tag.objects.create(name=f"Tag {number:02}")
+
+    first, second = (
+        list_page(signed_in, "?show_hidden=1"),
+        list_page(signed_in, "?page=2"),
+    )
+
+    assert "Tag 24" in first
+    assert "Tag 25" not in first
+    assert "Tag 25" in second
+    assert "?page=2&amp;show_hidden=1" in first

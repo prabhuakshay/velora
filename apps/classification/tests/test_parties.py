@@ -184,3 +184,18 @@ def test_concurrent_duplicate_name_shows_error(
 
     assert response.status_code == 200
     assert b"already exists" in response.content
+
+
+def test_list_is_paginated_keeping_show_hidden(signed_in: Client) -> None:
+    for number in range(26):
+        Party.objects.create(name=f"Party {number:02}")
+
+    first, second = (
+        list_page(signed_in, "?show_hidden=1"),
+        list_page(signed_in, "?page=2"),
+    )
+
+    assert "Party 24" in first
+    assert "Party 25" not in first
+    assert "Party 25" in second
+    assert "?page=2&amp;show_hidden=1" in first

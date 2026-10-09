@@ -1,12 +1,17 @@
 {% extends "app_base.html" %}
 
-{% block title %}Transactions · Velora{% endblock %}
+{% block title %}{{ account.name }} · {{ kind.label }} Accounts · Velora{% endblock %}
 
 {% block main %}
-  <div class="flex items-center justify-between gap-3">
-    <h1 class="text-2xl font-bold tracking-tight">Transactions</h1>
-    <a href="{% url 'transaction_create' %}" class="btn-primary py-2 text-sm">New Transaction</a>
+  <p class="text-sm"><a href="{% url 'account_list' kind %}" class="link">{{ kind.label }} Accounts</a></p>
+  <div class="mt-2 flex items-center justify-between gap-3">
+    <h1 class="truncate text-2xl font-bold tracking-tight">{{ account.name }}</h1>
+    <a href="{% url 'account_edit' kind account.pk %}" class="btn-primary py-2 text-sm">Edit</a>
   </div>
+  {% if account.has_opening_balance %}
+    <p class="mt-2 text-sm{% if account.balance < 0 %} text-red-600{% endif %}">Balance ₹{{ account.balance }}</p>
+    <p class="text-xs text-slate-500">Opening Balance ₹{{ account.opening_balance }} on {{ account.opening_balance_date }}</p>
+  {% endif %}
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
     {% for transaction in page %}
       <li class="flex items-center justify-between gap-3 py-3">
@@ -17,13 +22,11 @@
           </p>
           {% if transaction.description %}<p class="truncate text-sm text-slate-700">{{ transaction.description }}</p>{% endif %}
           {% for split in transaction.splits.all %}
-            <p class="truncate text-xs text-slate-500">{{ split.from_account }} → {{ split.to_account }}</p>
+            <p class="truncate text-xs text-slate-500">{{ split.from_account }} → {{ split.to_account }} <span class="tabular-nums">₹{{ split.amount }}</span></p>
           {% endfor %}
         </div>
         <div class="flex shrink-0 items-center gap-3 text-sm">
-          <span class="font-medium tabular-nums">₹{{ transaction.total }}</span>
           <a href="{% url 'transaction_edit' transaction.pk %}" class="link">Edit</a>
-          <a href="{% url 'transaction_delete' transaction.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
         </div>
       </li>
     {% empty %}

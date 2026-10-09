@@ -14,7 +14,12 @@ from apps.classification.forms import PartyForm, TagForm
 from apps.classification.merge import delete_tag, merge_party, merge_tag
 from apps.classification.models import Party, Tag
 from apps.core.forms import MergeForm
-from apps.core.views import redirect_in_use_to_merge, save_unique_name, set_hidden
+from apps.core.views import (
+    paginate,
+    redirect_in_use_to_merge,
+    save_unique_name,
+    set_hidden,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -25,7 +30,7 @@ if TYPE_CHECKING:
 
 @login_required
 def party_list(request: HttpRequest) -> HttpResponse:
-    """List parties by name."""
+    """List parties by name, a page at a time."""
     show_hidden = request.GET.get("show_hidden") == "1"
     parties = Party.objects.order_by(Lower("name"))
     if not show_hidden:
@@ -33,7 +38,7 @@ def party_list(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "classification/party_list.html",
-        {"parties": parties, "show_hidden": show_hidden},
+        {"page": paginate(request, parties), "show_hidden": show_hidden},
     )
 
 
@@ -104,7 +109,7 @@ def party_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 @login_required
 def tag_list(request: HttpRequest) -> HttpResponse:
-    """List tags by name."""
+    """List tags by name, a page at a time."""
     show_hidden = request.GET.get("show_hidden") == "1"
     tags = Tag.objects.order_by(Lower("name"))
     if not show_hidden:
@@ -112,7 +117,7 @@ def tag_list(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "classification/tag_list.html",
-        {"tags": tags, "show_hidden": show_hidden},
+        {"page": paginate(request, tags), "show_hidden": show_hidden},
     )
 
 

@@ -63,3 +63,7 @@ _Avoid_: Return, reversal, income
 **Merge**:
 Folding one Party into another, one Tag into another, or one Account into another of the same kind. The source disappears and everything that pointed at it points at the target.
 _Avoid_: Transfer, combine, consolidate
+
+**Number Format**:
+How the user chooses to see amounts grouped: Indian, in lakhs and crores (₹12,34,567.89), or International, in thousands and millions (₹1,234,567.89). It changes only how amounts look, never their value.
+_Avoid_: Locale, currency format

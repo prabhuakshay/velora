@@ -3,13 +3,17 @@
 from typing import TYPE_CHECKING, Protocol
 
 from django.contrib import messages
+from django.core.paginator import Page, Paginator
 from django.db import IntegrityError, transaction
 from django.shortcuts import redirect
 
 if TYPE_CHECKING:
     from django import forms
+    from django.db.models import QuerySet
     from django.http import HttpRequest
     from django.http.response import HttpResponseBase
+
+PAGE_SIZE = 25
 
 
 class Hideable(Protocol):
@@ -19,6 +23,11 @@ class Hideable(Protocol):
 
     def save(self) -> None:
         """Persist the record."""
+
+
+def paginate(request: HttpRequest, queryset: QuerySet) -> Page:  # type: ignore[type-arg]
+    """The page of the queryset named by the request's page parameter."""
+    return Paginator(queryset, PAGE_SIZE).get_page(request.GET.get("page"))
 
 
 def save_unique_name(

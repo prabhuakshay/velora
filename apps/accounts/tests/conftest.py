@@ -16,8 +16,8 @@ def list_url(kind: str) -> str:
     return reverse("account_list", kwargs={"kind": kind})
 
 
-def list_page(client: Client, kind: str) -> str:
-    return client.get(list_url(kind)).content.decode()
+def list_page(client: Client, kind: str, query: str = "") -> str:
+    return client.get(list_url(kind) + query).content.decode()
 
 
 def account_url(name: str, account: Account) -> str:
