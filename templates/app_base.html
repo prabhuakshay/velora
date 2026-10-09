@@ -8,11 +8,19 @@
       <a href="{{ home_url }}" class="text-lg font-bold tracking-tight">Velora</a>
       <nav class="mt-4 flex flex-wrap gap-1 md:flex-col">
         <a href="{{ home_url }}" class="nav-link{% if request.path == home_url %} nav-link-active{% endif %}">Home</a>
-        <a href="{{ password_change_url }}" class="nav-link{% if password_change_url in request.path %} nav-link-active{% endif %}">Change password</a>
-        <form method="post" action="{% url 'logout' %}">
-          {% csrf_token %}
-          <button type="submit" class="nav-link w-full text-left">Log out</button>
-        </form>
+        <details class="group w-full"{% if password_change_url in request.path %} open{% endif %}>
+          <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+            Account
+            <span class="text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+          </summary>
+          <div class="mt-1 ml-3 flex flex-col gap-1 border-l border-slate-200 pl-2">
+            <a href="{{ password_change_url }}" class="nav-link{% if password_change_url in request.path %} nav-link-active{% endif %}">Change password</a>
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button type="submit" class="nav-link w-full text-left">Log out</button>
+            </form>
+          </div>
+        </details>
       </nav>
       <p class="mt-4 truncate text-xs text-slate-500">{{ user.email }}</p>
     </aside>
