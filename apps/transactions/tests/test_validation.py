@@ -140,7 +140,7 @@ def test_opening_balance_errors_show_on_each_offending_split_row(
         account.opening_balance_date = date(2026, 3, 2)
         account.save()
     food = make_account("Food", "expense")
-    data = split_rows(row(loan, food), row(card, food), row(cash, card))
+    data = split_rows(row(loan, food), row(card, food), row(cash, food))
 
     body = post(signed_in, data)
 
@@ -153,7 +153,7 @@ def test_opening_balance_errors_show_on_each_offending_split_row(
     assert error("Card") in rows[1]
     assert error("Cash") not in rows[1]
     assert error("Cash") in rows[2]
-    assert error("Card") in rows[2]
+    assert error("Card") not in rows[2]
 
 
 def test_date_on_the_opening_balance_date_is_allowed(signed_in: Client) -> None:

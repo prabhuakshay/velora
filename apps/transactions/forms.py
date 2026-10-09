@@ -119,15 +119,35 @@ class BaseSplitFormSet(forms.BaseInlineFormSet[Split, Transaction, SplitForm]):
         "too_few_forms": "Add at least one Split.",
     }
 
+    def kept_forms(self) -> list[SplitForm]:
+        """The valid, filled-in Split rows that are not marked for removal."""
+        # deleted_forms is empty until the whole formset is valid, so it cannot
+        # be used while cleaning.
+        return [
+            form
+            for form in self.forms
+            if form.is_valid()
+            and form.cleaned_data
+            and not form.cleaned_data.get("DELETE")
+        ]
+
+    def clean(self) -> None:
+        """Require every kept Split to share its From or its To Account."""
+        super().clean()
+        kept = [form.cleaned_data for form in self.kept_forms()]
+        sources = {data.get("from_account") for data in kept}
+        destinations = {data.get("to_account") for data in kept}
+        if len(sources) > 1 and len(destinations) > 1:
+            msg = "Splits must share a From or a To Account."
+            raise forms.ValidationError(msg)
+
     def check_opening_balances(self, when: date) -> bool:
         """Reject a date before the Opening Balance date of any Account used.
 
         Each kept Split row gets an error per Account of it that opens later.
         """
         valid = True
-        for form in self.forms:
-            if not form.cleaned_data or form in self.deleted_forms:
-                continue
+        for form in self.kept_forms():
             split = form.instance
             for account in (split.from_account, split.to_account):
                 if account.opens_after(when):

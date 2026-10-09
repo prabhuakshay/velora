@@ -222,3 +222,138 @@ def test_list_shows_every_account_and_the_total(signed_in: Client) -> None:
 
     for text in ["Bank", "Groceries", "Household", "₹200.00"]:
         assert text in body
+
+
+SHARED_SIDE_ERROR = "Splits must share a From or a To Account."
+
+
+def test_splits_differing_on_both_sides_are_rejected(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    cash = make_account("Cash", "asset")
+    groceries = make_account("Groceries", "expense")
+    fuel = make_account("Fuel", "expense")
+
+    response = signed_in.post(
+        reverse("transaction_create"),
+        split_rows(row(bank, groceries), row(cash, fuel), description="Weekend run"),
+    )
+
+    body = response.content.decode()
+    assert body.count(SHARED_SIDE_ERROR) == 1
+    assert body.index(SHARED_SIDE_ERROR) < body.index('name="splits-0-id"')
+    assert "Weekend run" in body
+    assert not Transaction.objects.exists()
+
+
+@pytest.mark.parametrize("side", ["from", "to"])
+def test_splits_sharing_one_side_are_saved(signed_in: Client, side: str) -> None:
+    bank = make_account("Bank", "asset")
+    cash = make_account("Cash", "asset")
+    groceries = make_account("Groceries", "expense")
+    rows = (
+        [row(bank, groceries), row(bank, cash)]
+        if side == "from"
+        else [row(bank, groceries), row(cash, groceries)]
+    )
+
+    response = signed_in.post(reverse("transaction_create"), split_rows(*rows))
+
+    assert response["Location"] == reverse("transaction_list")
+    assert Transaction.objects.get().splits.count() == 2
+
+
+def test_splits_with_the_same_accounts_and_different_tags_are_saved(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    groceries = make_account("Groceries", "expense")
+    trip = Tag.objects.create(name="trip-goa")
+
+    response = signed_in.post(
+        reverse("transaction_create"),
+        split_rows(row(bank, groceries, "800", tags=[trip.pk]), row(bank, groceries)),
+    )
+
+    assert response["Location"] == reverse("transaction_list")
+    assert Transaction.objects.get().splits.count() == 2
+
+
+def test_edit_keeping_splits_on_both_sides_is_rejected(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    cash = make_account("Cash", "asset")
+    groceries = make_account("Groceries", "expense")
+    fuel = make_account("Fuel", "expense")
+    transaction = record(bank, groceries)
+    split = transaction.splits.get()
+
+    response = signed_in.post(
+        transaction_url("transaction_edit", transaction),
+        split_rows(row(bank, groceries, id=split.pk), row(cash, fuel), initial=1),
+    )
+
+    assert SHARED_SIDE_ERROR in response.content.decode()
+    assert transaction.splits.count() == 1
+
+
+def test_removed_split_is_ignored_by_the_shared_side_rule(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    cash = make_account("Cash", "asset")
+    groceries = make_account("Groceries", "expense")
+    fuel = make_account("Fuel", "expense")
+    transaction = record(bank, groceries)
+    split = transaction.splits.get()
+
+    response = signed_in.post(
+        transaction_url("transaction_edit", transaction),
+        split_rows(
+            row(bank, groceries, id=split.pk),
+            row(cash, fuel, DELETE="on"),
+            initial=1,
+        ),
+    )
+
+    assert response["Location"] == reverse("transaction_list")
+    assert transaction.splits.count() == 1
+
+
+def test_removed_split_is_ignored_when_another_split_has_an_error(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    cash = make_account("Cash", "asset")
+    groceries = make_account("Groceries", "expense")
+    fuel = make_account("Fuel", "expense")
+    salary = make_account("Salary", "income")
+    transaction = record(bank, groceries)
+    split = transaction.splits.get()
+
+    response = signed_in.post(
+        transaction_url("transaction_edit", transaction),
+        split_rows(
+            row(bank, groceries, id=split.pk),
+            row(cash, fuel, DELETE="on"),
+            row(bank, salary),
+            initial=1,
+        ),
+    )
+
+    body = response.content.decode()
+    assert "An Income Account can only be a source." in body
+    assert SHARED_SIDE_ERROR not in body
+
+
+def test_split_with_a_missing_account_is_not_checked_for_a_shared_side(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    groceries = make_account("Groceries", "expense")
+    fuel = make_account("Fuel", "expense")
+
+    response = signed_in.post(
+        reverse("transaction_create"),
+        split_rows(row(bank, groceries), row(bank, fuel, from_account="")),
+    )
+
+    body = response.content.decode()
+    assert "This field is required." in body
+    assert SHARED_SIDE_ERROR not in body
