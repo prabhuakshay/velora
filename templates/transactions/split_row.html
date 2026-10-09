@@ -1,0 +1,14 @@
+<fieldset class="space-y-4 rounded-lg border border-slate-200 p-4">
+  <legend class="px-1 text-sm font-medium text-slate-700">Split</legend>
+  {% for hidden in split.hidden_fields %}{{ hidden }}{% endfor %}
+  {% include "partials/form_errors.html" with form=split %}
+  {% include "partials/field.html" with field=split.from_account %}
+  {% include "partials/field.html" with field=split.to_account %}
+  {% include "partials/field.html" with field=split.amount %}
+  {% if split.tags.field.queryset.exists %}
+    {% include "partials/field.html" with field=split.tags %}
+  {% endif %}
+  <label class="flex items-center gap-2 text-sm text-slate-700">
+    {{ split.DELETE }} Remove this Split
+  </label>
+</fieldset>

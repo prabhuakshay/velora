@@ -9,7 +9,7 @@ from django.db.models import Prefetch, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from apps.transactions.forms import SplitFormSet, TransactionForm
+from apps.transactions.forms import SplitFormSet, TransactionForm, kept_splits
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -42,7 +42,7 @@ def _edit(request: HttpRequest, instance: Transaction) -> HttpResponseBase:
     formset = SplitFormSet(request.POST or None, instance=instance)
     # Validate both so errors show on the Transaction and its Split at once.
     valid = all([form.is_valid(), formset.is_valid()])
-    if valid and form.check_opening_balances(split.instance for split in formset):
+    if valid and form.check_opening_balances(kept_splits(formset)):
         with db_transaction.atomic():
             formset.instance = form.save()
             formset.save()
@@ -66,8 +66,22 @@ def transaction_create(request: HttpRequest) -> HttpResponseBase:
 
 @login_required
 def transaction_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Edit a Transaction and its Split."""
+    """Edit a Transaction and its Splits."""
     return _edit(request, get_object_or_404(Transaction, pk=pk))
+
+
+@login_required
+def split_row(request: HttpRequest) -> HttpResponse:
+    """A blank Split row for the form's "add split" control."""
+    total = request.GET.get("splits-TOTAL_FORMS", "")
+    index = int(total) if total.isdigit() else 0
+    split = SplitFormSet().empty_form
+    split.prefix = f"splits-{index}"
+    return render(
+        request,
+        "transactions/split_row_added.html",
+        {"split": split, "total": index + 1},
+    )
 
 
 @login_required
