@@ -115,6 +115,7 @@ def test_list_is_paginated(signed_in: Client) -> None:
     [
         ("transaction_list", []),
         ("transaction_create", []),
+        ("transaction_split_row", []),
         ("transaction_edit", [1]),
         ("transaction_delete", [1]),
     ],

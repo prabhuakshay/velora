@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.formats import date_format
 
 from apps.accounts.models import BALANCE_KINDS, Account
-from apps.classification.models import Party
+from apps.classification.models import Party, Tag
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -95,8 +95,9 @@ class SplitForm(forms.ModelForm[Split]):
 
     class Meta:
         model = Split
-        fields = ("from_account", "to_account", "amount")
+        fields = ("from_account", "to_account", "amount", "tags")
         labels: ClassVar = {"from_account": "From", "to_account": "To"}
+        widgets: ClassVar = {"tags": forms.CheckboxSelectMultiple}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
@@ -109,6 +110,11 @@ class SplitForm(forms.ModelForm[Split]):
             field = cast("forms.ModelChoiceField[Account]", self.fields[name])
             field.queryset = accounts
             field.choices = grouped_by_kind(accounts)
+        applied = self.instance.tags.all() if self.instance.pk else []
+        tags = cast("forms.ModelMultipleChoiceField[Tag]", self.fields["tags"])
+        tags.queryset = visible_or_current(
+            Tag.objects.order_by(Lower("name")), *(tag.pk for tag in applied)
+        )
 
     def clean(self) -> dict[str, Any]:
         """Enforce the direction rules between the two Accounts."""
@@ -120,14 +126,32 @@ class SplitForm(forms.ModelForm[Split]):
         return cleaned
 
 
+class BaseSplitFormSet(forms.BaseInlineFormSet[Split, Transaction, SplitForm]):
+    """The Split rows of one Transaction, at least one of them kept."""
+
+    default_error_messages: ClassVar = {
+        **forms.BaseInlineFormSet.default_error_messages,
+        "too_few_forms": "Add at least one Split.",
+    }
+
+
 SplitFormSet = forms.inlineformset_factory(
     Transaction,
     Split,
     form=SplitForm,
+    formset=BaseSplitFormSet,
     extra=0,
     min_num=1,
-    max_num=1,
     validate_min=True,
-    validate_max=True,
-    can_delete=False,
 )
+
+
+def kept_splits(
+    formset: forms.BaseInlineFormSet[Split, Transaction, SplitForm],
+) -> list[Split]:
+    """The Splits a valid formset will save: filled in and not removed."""
+    return [
+        form.instance
+        for form in formset.forms
+        if form.cleaned_data and form not in formset.deleted_forms
+    ]

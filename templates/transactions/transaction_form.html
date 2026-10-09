@@ -14,16 +14,16 @@
     {% for error in formset.non_form_errors %}
       <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
     {% endfor %}
-    {% for split in formset %}
-      <fieldset class="space-y-4 rounded-lg border border-slate-200 p-4">
-        <legend class="px-1 text-sm font-medium text-slate-700">Split</legend>
-        {% for hidden in split.hidden_fields %}{{ hidden }}{% endfor %}
-        {% include "partials/form_errors.html" with form=split %}
-        {% include "partials/field.html" with field=split.from_account %}
-        {% include "partials/field.html" with field=split.to_account %}
-        {% include "partials/field.html" with field=split.amount %}
-      </fieldset>
-    {% endfor %}
+    <div id="splits" class="space-y-4">
+      {% for split in formset %}
+        {% include "transactions/split_row.html" %}
+      {% endfor %}
+    </div>
+    <button type="button" class="link text-sm"
+            hx-get="{% url 'transaction_split_row' %}"
+            hx-include="#id_splits-TOTAL_FORMS"
+            hx-target="#splits"
+            hx-swap="beforeend">Add split</button>
     {% include "partials/submit.html" with label="Save" %}
   </form>
   <p class="mt-4 text-center text-sm">
