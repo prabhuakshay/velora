@@ -12,12 +12,19 @@ from django.views.decorators.http import require_POST
 from apps.accounts.forms import AccountForm
 from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
+from apps.accounts.net_worth import net_worth
 from apps.core.forms import MergeForm
 from apps.core.views import redirect_in_use_to_merge, save_unique_name, set_hidden
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
+
+
+@login_required
+def home(request: HttpRequest) -> HttpResponse:
+    """Show Net Worth with the Assets and Liabilities totals behind it."""
+    return render(request, "index.html", {"net_worth": net_worth()})
 
 
 @login_required

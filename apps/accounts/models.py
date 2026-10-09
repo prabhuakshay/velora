@@ -10,6 +10,7 @@ from simple_history.models import HistoricalRecords
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import date
+    from decimal import Decimal
 
 
 class AccountKind(models.TextChoices):
@@ -71,6 +72,8 @@ class Account(models.Model):
     objects = AccountQuerySet.as_manager()
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
+    # Set only on Accounts fetched through with_balance().
+    balance: Decimal
 
     class Meta:
         constraints: ClassVar = [

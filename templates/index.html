@@ -1,6 +1,10 @@
 {% extends "app_base.html" %}
 
 {% block main %}
-  <h1 class="text-2xl font-bold tracking-tight">Velora</h1>
-  <p class="mt-2 text-slate-600">Personal finance, kept simple.</p>
+  <h1 class="text-2xl font-bold tracking-tight">Net Worth</h1>
+  <div class="mt-4 space-y-1">
+    <p class="text-sm text-slate-600">Assets ₹{{ net_worth.assets|floatformat:"2" }}</p>
+    <p class="text-sm text-slate-600">Liabilities ₹{{ net_worth.liabilities|floatformat:"2" }}</p>
+    <p class="text-lg font-semibold{% if net_worth.total < 0 %} text-red-600{% endif %}">Net Worth ₹{{ net_worth.total|floatformat:"2" }}</p>
+  </div>
 {% endblock %}
