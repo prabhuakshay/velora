@@ -25,12 +25,14 @@ class AccountKind(models.TextChoices):
 BALANCE_KINDS = (AccountKind.ASSET, AccountKind.LIABILITY)
 
 
-def _split_total(account_field: str) -> Coalesce:
+def _split_total(account_field: str, as_of: date | None) -> Coalesce:
     # Looked up by name: the transactions app imports this module.
     split = apps.get_model("transactions", "Split")
+    splits = split.objects.filter(**{account_field: models.OuterRef("pk")})
+    if as_of is not None:
+        splits = splits.filter(transaction__date__lte=as_of)
     totals = (
-        split.objects.filter(**{account_field: models.OuterRef("pk")})
-        .values(account_field)
+        splits.values(account_field)
         .annotate(total=models.Sum("amount"))
         .values("total")
     )
@@ -41,14 +43,27 @@ def _split_total(account_field: str) -> Coalesce:
 class AccountQuerySet(models.QuerySet["Account"]):
     """Queries over Accounts."""
 
-    def with_balance(self) -> Self:
-        """Annotate each Account's Balance; a Liability's reads as what is owed."""
-        moved_in = _split_total("to_account") - _split_total("from_account")
+    def with_balance(self, as_of: date | None = None) -> Self:
+        """Annotate each Account's Balance; a Liability's reads as what is owed.
+
+        With as_of, only Splits dated on or before it count, and an Account
+        opening after it counts as 0.
+        """
+        moved_in = _split_total("to_account", as_of) - _split_total(
+            "from_account", as_of
+        )
         signed = models.Case(
             models.When(kind=AccountKind.LIABILITY, then=-moved_in),
             default=moved_in,
         )
-        return self.annotate(balance=models.F("opening_balance") + signed)
+        balance: models.Expression = models.F("opening_balance") + signed
+        if as_of is not None:
+            balance = models.Case(
+                models.When(opening_balance_date__gt=as_of, then=models.Value(0)),
+                default=balance,
+                output_field=models.DecimalField(max_digits=15, decimal_places=2),
+            )
+        return self.annotate(balance=balance)
 
 
 class Account(models.Model):

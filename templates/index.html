@@ -2,6 +2,13 @@
 
 {% block main %}
   <h1 class="text-2xl font-bold tracking-tight">Net Worth</h1>
+  <form method="get" class="mt-4 flex items-end gap-2">
+    <label class="field-control">
+      <span class="block text-sm font-medium">As of</span>
+      <input type="date" name="as_of" value="{{ as_of|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
+    </label>
+    <button type="submit" class="btn-secondary">Show</button>
+  </form>
   <div class="mt-4 space-y-1">
     <p class="text-sm text-slate-600">Assets ₹{{ net_worth.assets|floatformat:"2" }}</p>
     <p class="text-sm text-slate-600">Liabilities ₹{{ net_worth.liabilities|floatformat:"2" }}</p>

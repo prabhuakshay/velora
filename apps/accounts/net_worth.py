@@ -1,7 +1,10 @@
 """Net Worth: the Asset Balances minus the Liability Balances."""
 
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
+
+from django.utils import timezone
 
 from apps.accounts.models import BALANCE_KINDS, Account, AccountKind
 
@@ -19,11 +22,22 @@ class NetWorth:
         return self.assets - self.liabilities
 
 
-def net_worth() -> NetWorth:
-    """Net Worth today: the sum of each Account's value, hidden ones included."""
+def as_of_date(raw: str | None) -> date:
+    """The as-of date from a GET value; today when missing, invalid or future."""
+    today = timezone.localdate()
+    try:
+        when = date.fromisoformat(raw or "")
+    except ValueError:
+        return today
+    return min(when, today)
+
+
+def net_worth(as_of: date) -> NetWorth:
+    """Net Worth as of a date: the sum of each Account's value, hidden ones included."""
     # Value is the Balance; an investment Account could supply market value here.
     totals: dict[str, Decimal] = dict.fromkeys(BALANCE_KINDS, Decimal(0))
-    for account in Account.objects.filter(kind__in=BALANCE_KINDS).with_balance():
+    accounts = Account.objects.filter(kind__in=BALANCE_KINDS).with_balance(as_of)
+    for account in accounts:
         totals[account.kind] += account.balance
     return NetWorth(
         assets=totals[AccountKind.ASSET], liabilities=totals[AccountKind.LIABILITY]

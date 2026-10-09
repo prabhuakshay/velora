@@ -1,10 +1,13 @@
+from datetime import date
 from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.tests.conftest import account_url, make_account
 from apps.accounts.tests.test_balance import opening, record
+from apps.transactions.tests.conftest import form_data
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -12,8 +15,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def home_page(client: Client) -> str:
-    return client.get(reverse("index")).content.decode()
+def home_page(client: Client, **params: str) -> str:
+    return client.get(reverse("index"), params).content.decode()
 
 
 def test_no_balance_accounts_shows_zero(signed_in: Client) -> None:
@@ -83,3 +86,53 @@ def test_hidden_accounts_still_count(signed_in: Client) -> None:
     assert "Assets ₹800.00" in page
     assert "Liabilities ₹300.00" in page
     assert "Net Worth ₹500.00" in page
+
+
+def test_transactions_after_as_of_date_dont_count(signed_in: Client) -> None:
+    bank = opening("Bank", "asset", "1000.00")
+    salary = make_account("Salary", "income")
+    record(signed_in, salary, bank, "200.00")
+    response = signed_in.post(
+        reverse("transaction_create"),
+        form_data(salary, bank, "50.00", date="2026-04-01"),
+    )
+    assert response.status_code == 302
+
+    assert "Net Worth ₹1200.00" in home_page(signed_in, as_of="2026-03-31")
+    assert "Net Worth ₹1250.00" in home_page(signed_in, as_of="2026-04-01")
+
+
+def test_account_opening_after_as_of_date_counts_as_zero(signed_in: Client) -> None:
+    opening("Bank", "asset", "1000.00")
+    card = opening("Card", "liability", "300.00")
+    card.opening_balance_date = date(2026, 5, 1)
+    card.save()
+
+    before = home_page(signed_in, as_of="2026-04-30")
+    assert "Liabilities ₹0.00" in before
+    assert "Net Worth ₹1000.00" in before
+    assert "Net Worth ₹700.00" in home_page(signed_in, as_of="2026-05-01")
+
+
+def test_date_input_defaults_to_today(signed_in: Client) -> None:
+    today = timezone.localdate().isoformat()
+
+    page = home_page(signed_in)
+
+    assert 'type="date"' in page
+    assert f'name="as_of" value="{today}"' in page
+    assert f'max="{today}"' in page
+
+
+@pytest.mark.parametrize("as_of", ["not-a-date", "2026-02-30", "9999-12-31", ""])
+def test_invalid_or_future_as_of_date_falls_back_to_today(
+    signed_in: Client, as_of: str
+) -> None:
+    opening("Bank", "asset", "1000.00")
+
+    response = signed_in.get(reverse("index"), {"as_of": as_of})
+
+    assert response.status_code == 200
+    page = response.content.decode()
+    assert f'value="{timezone.localdate().isoformat()}"' in page
+    assert "Net Worth ₹1000.00" in page

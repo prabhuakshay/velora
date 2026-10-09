@@ -7,12 +7,13 @@ from django.contrib.auth.decorators import login_required
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.forms import AccountForm
 from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
-from apps.accounts.net_worth import net_worth
+from apps.accounts.net_worth import as_of_date, net_worth
 from apps.core.forms import MergeForm
 from apps.core.views import redirect_in_use_to_merge, save_unique_name, set_hidden
 
@@ -24,7 +25,16 @@ if TYPE_CHECKING:
 @login_required
 def home(request: HttpRequest) -> HttpResponse:
     """Show Net Worth with the Assets and Liabilities totals behind it."""
-    return render(request, "index.html", {"net_worth": net_worth()})
+    as_of = as_of_date(request.GET.get("as_of"))
+    return render(
+        request,
+        "index.html",
+        {
+            "as_of": as_of,
+            "today": timezone.localdate(),
+            "net_worth": net_worth(as_of),
+        },
+    )
 
 
 @login_required
