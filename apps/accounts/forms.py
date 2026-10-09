@@ -38,6 +38,12 @@ class AccountForm(forms.ModelForm[Account]):
             self.initial["opening_balance"] = Decimal(0)
             self.initial["opening_balance_date"] = timezone.localdate()
 
+    @property
+    def duplicate_name_error(self) -> str:
+        """The error shown when the name is taken within this kind."""
+        label = Account.Kind(self.instance.kind).label
+        return f"Another {label} Account already has this name."
+
     def clean_name(self) -> str:
         """Reject a name already in use within this kind, ignoring case."""
         name: str = self.cleaned_data["name"]
@@ -46,6 +52,5 @@ class AccountForm(forms.ModelForm[Account]):
         if self.instance.pk:
             clash = clash.exclude(pk=self.instance.pk)
         if clash.exists():
-            msg = f"Another {Account.Kind(kind).label} Account already has this name."
-            raise forms.ValidationError(msg)
+            raise forms.ValidationError(self.duplicate_name_error)
         return name

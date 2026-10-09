@@ -57,7 +57,7 @@ def party_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 def party_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Hide a party from the default list."""
     return set_hidden(
-        request, get_object_or_404(Party, pk=pk), "party_list", hidden=True
+        request, get_object_or_404(Party, pk=pk), reverse("party_list"), hidden=True
     )
 
 
@@ -66,7 +66,7 @@ def party_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
 def party_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Show a hidden party in the default list again."""
     return set_hidden(
-        request, get_object_or_404(Party, pk=pk), "party_list", hidden=False
+        request, get_object_or_404(Party, pk=pk), reverse("party_list"), hidden=False
     )
 
 
@@ -121,14 +121,18 @@ def tag_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @require_POST
 def tag_hide(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Hide a tag from the default list."""
-    return set_hidden(request, get_object_or_404(Tag, pk=pk), "tag_list", hidden=True)
+    return set_hidden(
+        request, get_object_or_404(Tag, pk=pk), reverse("tag_list"), hidden=True
+    )
 
 
 @login_required
 @require_POST
 def tag_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Show a hidden tag in the default list again."""
-    return set_hidden(request, get_object_or_404(Tag, pk=pk), "tag_list", hidden=False)
+    return set_hidden(
+        request, get_object_or_404(Tag, pk=pk), reverse("tag_list"), hidden=False
+    )
 
 
 @login_required

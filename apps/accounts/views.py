@@ -35,7 +35,7 @@ def account_list(request: HttpRequest, kind: str) -> HttpResponse:
 def account_create(request: HttpRequest, kind: str) -> HttpResponseBase:
     """Create an Account of the kind in the URL."""
     form = AccountForm(request.POST or None, instance=Account(kind=kind))
-    if form.is_valid() and save_unique_name(form):
+    if form.is_valid() and save_unique_name(form, form.duplicate_name_error):
         return redirect("account_list", kind=kind)
     return render(
         request,
@@ -49,7 +49,7 @@ def account_edit(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
     """Edit an Account, which must be of the kind in the URL."""
     account = get_object_or_404(Account, pk=pk, kind=kind)
     form = AccountForm(request.POST or None, instance=account)
-    if form.is_valid() and save_unique_name(form):
+    if form.is_valid() and save_unique_name(form, form.duplicate_name_error):
         return redirect("account_list", kind=kind)
     return render(
         request,

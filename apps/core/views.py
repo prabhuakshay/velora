@@ -20,13 +20,16 @@ class Hideable(Protocol):
         """Persist the record."""
 
 
-def save_unique_name(form: forms.ModelForm) -> bool:  # type: ignore[type-arg]
+def save_unique_name(
+    form: forms.ModelForm,  # type: ignore[type-arg]
+    error: str = "This name already exists.",
+) -> bool:
     """Save, turning a concurrent duplicate name into a form error."""
     try:
         with transaction.atomic():
             form.save()
     except IntegrityError:
-        form.add_error("name", "This name already exists.")
+        form.add_error("name", error)
         return False
     return True
 

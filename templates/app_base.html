@@ -24,7 +24,7 @@
             <a href="{{ tags_url }}" class="nav-link{% if tags_url in request.path %} nav-link-active{% endif %}">Tags</a>
           </div>
         </details>
-        <details class="group w-full"{% if asset_accounts_url in request.path or liability_accounts_url in request.path or expense_accounts_url in request.path or income_accounts_url in request.path %} open{% endif %}>
+        <details class="group w-full"{% if request.resolver_match.kwargs.kind %} open{% endif %}>
           <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
             Accounts
             <span class="text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true">›</span>

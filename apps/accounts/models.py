@@ -10,7 +10,16 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-BALANCE_KINDS = ("asset", "liability")
+class AccountKind(models.TextChoices):
+    """What an Account is: Asset, Liability, Expense or Income."""
+
+    ASSET = "asset"
+    LIABILITY = "liability"
+    EXPENSE = "expense"
+    INCOME = "income"
+
+
+BALANCE_KINDS = (AccountKind.ASSET, AccountKind.LIABILITY)
 
 
 class Account(models.Model):
@@ -19,11 +28,8 @@ class Account(models.Model):
     Only Asset and Liability Accounts carry an Opening Balance and its date.
     """
 
-    class Kind(models.TextChoices):
-        ASSET = "asset"
-        LIABILITY = "liability"
-        EXPENSE = "expense"
-        INCOME = "income"
+    # Module-level so Meta's constraints can use BALANCE_KINDS built from it.
+    Kind = AccountKind
 
     name = models.CharField(max_length=100)
     kind = models.CharField(max_length=16, choices=Kind)

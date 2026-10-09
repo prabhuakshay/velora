@@ -1,12 +1,13 @@
 from django.urls import path, register_converter
 
 from apps.accounts import views
+from apps.accounts.models import Account
 
 
 class KindConverter:
     """Match only the Account kinds that have pages."""
 
-    regex = "asset|liability|expense|income"
+    regex = "|".join(Account.Kind.values)
 
     def to_python(self, value: str) -> str:
         return value

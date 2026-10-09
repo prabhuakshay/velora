@@ -13,12 +13,6 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-@pytest.fixture
-def signed_in(client: Client, user: User) -> Client:
-    client.force_login(user)
-    return client
-
-
 def list_page(client: Client, query: str = "") -> str:
     return client.get(reverse("tag_list") + query).content.decode()
 

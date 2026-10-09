@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING
+
 import pytest
 from django.conf import settings
 from django.core.cache import cache
 
 from apps.users.models import User
+
+if TYPE_CHECKING:
+    from django.test import Client
 
 PASSWORD = "correct-horse-battery-staple"
 
@@ -36,3 +41,9 @@ def superuser(db: None) -> User:
     return User.objects.create_superuser(
         "admin@example.com", PASSWORD, full_name="Admin"
     )
+
+
+@pytest.fixture
+def signed_in(client: Client, user: User) -> Client:
+    client.force_login(user)
+    return client
