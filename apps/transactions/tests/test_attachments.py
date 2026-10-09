@@ -2,12 +2,17 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import OperationalError
 from django.urls import reverse
 
 from apps.accounts.tests.conftest import make_account
 from apps.transactions.models import Transaction
-from apps.transactions.tests.conftest import form_data, stored_names
+from apps.transactions.tests.conftest import (
+    fail_next_commit,
+    form_data,
+    stored_names,
+    upload,
+)
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -17,10 +22,6 @@ pytestmark = pytest.mark.django_db
 UUID_KEY = re.compile(r"attachments/[0-9a-f]{32}")
 
 
-def upload(name: str, content: bytes, content_type: str) -> SimpleUploadedFile:
-    return SimpleUploadedFile(name, content, content_type=content_type)
-
-
 def test_create_stores_a_file_as_an_attachment(signed_in: Client) -> None:
     bank = make_account("Bank", "asset")
     groceries = make_account("Groceries", "expense")
@@ -28,9 +29,7 @@ def test_create_stores_a_file_as_an_attachment(signed_in: Client) -> None:
     response = signed_in.post(
         reverse("transaction_create"),
         form_data(
-            bank,
-            groceries,
-            attachments=upload("receipt.pdf", b"%PDF-1.4 receipt", "application/pdf"),
+            bank, groceries, attachments=upload("receipt.pdf", b"%PDF-1.4 receipt")
         ),
     )
 
@@ -58,8 +57,8 @@ def test_create_stores_several_files_as_attachments_in_order(
             bank,
             groceries,
             attachments=[
-                upload("bill.png", b"\x89PNG page one", "image/png"),
-                upload("warranty.txt", b"two years", "text/plain"),
+                upload("bill.png", b"\x89PNG page one"),
+                upload("warranty.txt", b"two years"),
             ],
         ),
     )
@@ -78,12 +77,7 @@ def test_invalid_form_stores_no_files_and_asks_to_pick_them_again(
 
     response = signed_in.post(
         reverse("transaction_create"),
-        form_data(
-            bank,
-            groceries,
-            "-5",
-            attachments=upload("receipt.pdf", b"%PDF-1.4", "application/pdf"),
-        ),
+        form_data(bank, groceries, "-5", attachments=upload("receipt.pdf", b"%PDF")),
     )
 
     assert response.status_code == 200
@@ -117,10 +111,28 @@ def test_storage_failure_partway_leaves_no_transaction_or_files(
                 bank,
                 groceries,
                 attachments=[
-                    upload("one.pdf", b"%PDF one", "application/pdf"),
-                    upload("two.pdf", b"%PDF two", "application/pdf"),
+                    upload("one.pdf", b"%PDF one"),
+                    upload("two.pdf", b"%PDF two"),
                 ],
             ),
+        )
+
+    assert not Transaction.objects.exists()
+    assert stored_names() == []
+
+
+@pytest.mark.django_db(transaction=True)
+def test_failed_commit_leaves_no_transaction_or_files(
+    signed_in: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bank = make_account("Bank", "asset")
+    groceries = make_account("Groceries", "expense")
+    fail_next_commit(monkeypatch)
+
+    with pytest.raises(OperationalError, match="connection lost"):
+        signed_in.post(
+            reverse("transaction_create"),
+            form_data(bank, groceries, attachments=upload("one.pdf", b"%PDF one")),
         )
 
     assert not Transaction.objects.exists()

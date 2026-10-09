@@ -233,18 +233,17 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 # Attachments live in a private Cloudflare R2 bucket, in dev (a separate test
 # bucket) as in production (ADR 0004). Blank values only fail when storage is
 # first used, so CI, tests and collectstatic run without R2 credentials.
-R2_ENDPOINT_URL = env.str("R2_ENDPOINT_URL", default="")
+# Each storage option, by the env var it comes from.
+R2_ENV_VARS = {
+    "endpoint_url": "R2_ENDPOINT_URL",
+    "bucket_name": "R2_BUCKET_NAME",
+    "access_key": "R2_ACCESS_KEY_ID",
+    "secret_key": "R2_SECRET_ACCESS_KEY",
+}
+r2_options = {option: env.str(var, default="") for option, var in R2_ENV_VARS.items()}
 
 STORAGES = {
-    "default": {
-        "BACKEND": "config.storage.R2Storage",
-        "OPTIONS": {
-            "endpoint_url": R2_ENDPOINT_URL,
-            "bucket_name": env.str("R2_BUCKET_NAME", default=""),
-            "access_key": env.str("R2_ACCESS_KEY_ID", default=""),
-            "secret_key": env.str("R2_SECRET_ACCESS_KEY", default=""),
-        },
-    },
+    "default": {"BACKEND": "config.storage.R2Storage", "OPTIONS": r2_options},
     # Hashed filenames allow far-future caching, but a missing file referenced
     # by a template raises an error instead of a silent 404.
     "staticfiles": {
@@ -294,7 +293,7 @@ SECURE_CSP = {
     # The admin change list has a nonced <style> block.
     "style-src": [CSP.SELF, CSP.NONCE],
     # Attachment previews redirect to presigned R2 links.
-    "img-src": [CSP.SELF, "data:", *([R2_ENDPOINT_URL] if R2_ENDPOINT_URL else [])],
+    "img-src": [CSP.SELF, "data:", *filter(None, [r2_options["endpoint_url"]])],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],
     "frame-ancestors": [CSP.NONE],

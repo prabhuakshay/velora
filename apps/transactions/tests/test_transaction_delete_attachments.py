@@ -1,12 +1,15 @@
 from typing import TYPE_CHECKING
 
 import pytest
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from apps.accounts.tests.conftest import make_account
 from apps.transactions.models import Attachment, Transaction
-from apps.transactions.tests.conftest import form_data, stored_names, transaction_url
+from apps.transactions.tests.conftest import (
+    attach,
+    recorded,
+    stored_names,
+    transaction_url,
+)
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -14,25 +17,15 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def record_with_files(client: Client) -> Transaction:
-    bank = make_account("Bank", "asset")
-    groceries = make_account("Groceries", "expense")
-    client.post(
-        reverse("transaction_create"),
-        form_data(
-            bank,
-            groceries,
-            attachments=[
-                SimpleUploadedFile("one.pdf", b"%PDF one", "application/pdf"),
-                SimpleUploadedFile("two.pdf", b"%PDF two", "application/pdf"),
-            ],
-        ),
-    )
-    return Transaction.objects.get()
+def record_with_files() -> Transaction:
+    transaction = recorded()
+    attach(transaction, "one.pdf")
+    attach(transaction, "two.pdf")
+    return transaction
 
 
 def test_delete_removes_attachments_and_their_files(signed_in: Client) -> None:
-    transaction = record_with_files(signed_in)
+    transaction = record_with_files()
     assert len(stored_names()) == 2
 
     response = signed_in.post(transaction_url("transaction_delete", transaction))
@@ -45,7 +38,7 @@ def test_delete_removes_attachments_and_their_files(signed_in: Client) -> None:
 
 @pytest.mark.usefixtures("delete_fails")
 def test_storage_failure_keeps_everything_and_says_so(signed_in: Client) -> None:
-    transaction = record_with_files(signed_in)
+    transaction = record_with_files()
     files = stored_names()
     url = transaction_url("transaction_delete", transaction)
 
@@ -53,7 +46,7 @@ def test_storage_failure_keeps_everything_and_says_so(signed_in: Client) -> None
 
     assert response.redirect_chain == [(url, 302)]
     assert (
-        "Couldn&#x27;t remove attachments from storage; nothing was deleted. "
+        "Couldn&#x27;t remove Attachments from storage; nothing was deleted. "
         "Try again." in response.content.decode()
     )
     assert Transaction.objects.get() == transaction
@@ -65,7 +58,7 @@ def test_storage_failure_keeps_everything_and_says_so(signed_in: Client) -> None
 def test_retrying_after_a_partial_failure_deletes_everything(
     signed_in: Client,
 ) -> None:
-    transaction = record_with_files(signed_in)
+    transaction = record_with_files()
     url = transaction_url("transaction_delete", transaction)
     signed_in.post(url)
     assert transaction.attachments.count() == 2

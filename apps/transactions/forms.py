@@ -10,11 +10,7 @@ from django.utils.formats import date_format
 
 from apps.accounts.models import BALANCE_KINDS, Account
 from apps.classification.models import Party, Tag
-from apps.transactions.attachment_rules import (
-    MAX_ATTACHMENTS,
-    attachment_error,
-    content_type,
-)
+from apps.transactions.attachment_rules import MAX_ATTACHMENTS, checked_content_type
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -110,10 +106,15 @@ class TransactionForm(forms.ModelForm[Transaction]):
             raise forms.ValidationError(msg)
         return when
 
-    def clean_attachments(self) -> list[UploadedFile[bytes]]:
-        """Reject files that may not be kept as Attachments."""
+    def clean_attachments(self) -> list[tuple[UploadedFile[bytes], str]]:
+        """Each file with its checked content type, rejecting any not allowed."""
         files: list[UploadedFile[bytes]] = self.cleaned_data["attachments"]
-        errors = [error for file in files if (error := attachment_error(file))]
+        checked, errors = [], []
+        for file in files:
+            try:
+                checked.append((file, checked_content_type(file)))
+            except forms.ValidationError as error:
+                errors.extend(error.messages)
         existing = self.instance.attachments.count() if self.instance.pk else 0
         if existing + len(files) > MAX_ATTACHMENTS:
             errors.append(
@@ -121,9 +122,7 @@ class TransactionForm(forms.ModelForm[Transaction]):
             )
         if errors:
             raise forms.ValidationError(errors)
-        for file in files:
-            file.content_type = content_type(file)
-        return files
+        return checked
 
 
 class SplitForm(forms.ModelForm[Split]):

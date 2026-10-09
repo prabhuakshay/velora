@@ -1,13 +1,9 @@
-from datetime import date
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
-from django.core.files.base import ContentFile
 from django.urls import reverse
 
-from apps.accounts.tests.conftest import make_account
-from apps.transactions.models import Transaction
+from apps.transactions.tests.conftest import attach, recorded
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -16,23 +12,10 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def record_with_attachments(description: str, attachments: int) -> Transaction:
-    transaction = Transaction.objects.create(
-        date=date(2026, 3, 1), description=description
-    )
-    transaction.splits.create(
-        from_account=make_account(f"{description} bank", "asset"),
-        to_account=make_account(f"{description} shop", "expense"),
-        amount=Decimal("100.00"),
-    )
+def record_with_attachments(description: str, attachments: int) -> None:
+    transaction = recorded(description)
     for i in range(attachments):
-        transaction.attachments.create(
-            file=ContentFile(b"receipt", name="receipt.pdf"),
-            original_name=f"receipt-{i}.pdf",
-            content_type="application/pdf",
-            size=7,
-        )
-    return transaction
+        attach(transaction, f"receipt-{i}.pdf")
 
 
 def list_page(client: Client) -> str:

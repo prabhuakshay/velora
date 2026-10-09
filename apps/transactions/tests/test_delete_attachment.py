@@ -3,8 +3,12 @@ from typing import TYPE_CHECKING
 import pytest
 from django.urls import reverse
 
-from apps.transactions.tests.conftest import stored_names, transaction_url
-from apps.transactions.tests.test_edit_attachments import attach, recorded
+from apps.transactions.tests.conftest import (
+    attach,
+    recorded,
+    stored_names,
+    transaction_url,
+)
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -20,8 +24,8 @@ def delete_url(attachment: Attachment) -> str:
 
 def test_deleting_removes_the_attachment_and_its_file(signed_in: Client) -> None:
     transaction = recorded()
-    gone = attach(transaction, "wrong.pdf", b"%PDF wrong", "application/pdf")
-    kept = attach(transaction, "bill.pdf", b"%PDF bill", "application/pdf")
+    gone = attach(transaction, "wrong.pdf")
+    kept = attach(transaction)
 
     response = signed_in.post(delete_url(gone))
 
@@ -33,7 +37,7 @@ def test_deleting_removes_the_attachment_and_its_file(signed_in: Client) -> None
 @pytest.mark.usefixtures("delete_fails")
 def test_storage_failure_keeps_the_attachment_and_says_so(signed_in: Client) -> None:
     transaction = recorded()
-    attachment = attach(transaction, "bill.pdf", b"%PDF bill", "application/pdf")
+    attachment = attach(transaction)
 
     response = signed_in.post(delete_url(attachment), follow=True)
 
@@ -41,18 +45,19 @@ def test_storage_failure_keeps_the_attachment_and_says_so(signed_in: Client) -> 
         (transaction_url("transaction_edit", transaction), 302)
     ]
     assert (
-        "Couldn&#x27;t remove attachments from storage; nothing was deleted. "
+        "Couldn&#x27;t remove Attachments from storage; nothing was deleted. "
         "Try again." in response.content.decode()
     )
     assert list(transaction.attachments.all()) == [attachment]
     assert stored_names() == [attachment.file.name]
 
 
+@pytest.mark.usefixtures("missing_raises")
 def test_a_file_already_gone_from_storage_still_lets_it_be_deleted(
     signed_in: Client,
 ) -> None:
     transaction = recorded()
-    attachment = attach(transaction, "bill.pdf", b"%PDF bill", "application/pdf")
+    attachment = attach(transaction)
     attachment.file.delete(save=False)
 
     response = signed_in.post(delete_url(attachment))
@@ -62,7 +67,7 @@ def test_a_file_already_gone_from_storage_still_lets_it_be_deleted(
 
 
 def test_get_is_refused(signed_in: Client) -> None:
-    attachment = attach(recorded(), "bill.pdf", b"%PDF bill", "application/pdf")
+    attachment = attach(recorded())
 
     response = signed_in.get(delete_url(attachment))
 
@@ -71,7 +76,7 @@ def test_get_is_refused(signed_in: Client) -> None:
 
 
 def test_signed_out_users_are_refused(client: Client) -> None:
-    attachment = attach(recorded(), "bill.pdf", b"%PDF bill", "application/pdf")
+    attachment = attach(recorded())
     url = delete_url(attachment)
 
     response = client.post(url)
@@ -84,7 +89,7 @@ def test_edit_page_has_a_delete_button_for_each_attachment(
     signed_in: Client,
 ) -> None:
     transaction = recorded()
-    attachment = attach(transaction, "bill.pdf", b"%PDF bill", "application/pdf")
+    attachment = attach(transaction)
 
     body = signed_in.get(transaction_url("transaction_edit", transaction)).content
 

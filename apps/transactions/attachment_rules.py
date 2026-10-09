@@ -6,8 +6,11 @@ renamed file can't slip into storage.
 
 import io
 import zipfile
+import zlib
 from pathlib import PurePath
 from typing import TYPE_CHECKING, NamedTuple
+
+from django.core.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,12 +32,11 @@ def _is_webp(data: bytes) -> bool:
 
 
 def _is_text(data: bytes) -> bool:
-    # Text must not be markup, so a browser can never render it as HTML or SVG.
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:
         return False
-    return "\x00" not in text and not text.lstrip().startswith("<")
+    return "\x00" not in text
 
 
 def _zip_start(data: bytes, name: str) -> bytes | None:
@@ -46,7 +48,15 @@ def _zip_start(data: bytes, name: str) -> bytes | None:
             archive.open(name) as member,
         ):
             return member.read(100)
-    except zipfile.BadZipFile, KeyError:
+    except (
+        zipfile.BadZipFile,
+        KeyError,
+        # Encrypted members, unsupported compression and corrupt data.
+        RuntimeError,
+        NotImplementedError,
+        EOFError,
+        zlib.error,
+    ):
         return None
 
 
@@ -63,22 +73,34 @@ def _opendocument(content_type: str) -> FileType:
 
 
 class FileType(NamedTuple):
-    """An allowed type: its content type and how to recognise its content."""
+    """An allowed type: its content type and how to recognise its content.
+
+    Inline types open in the browser; the rest are downloaded.
+    """
 
     content_type: str
     matches: Callable[[bytes], bool]
+    inline: bool = False
 
 
-JPEG = FileType("image/jpeg", lambda data: data.startswith(b"\xff\xd8\xff"))
+JPEG = FileType(
+    "image/jpeg", lambda data: data.startswith(b"\xff\xd8\xff"), inline=True
+)
 
 FILE_TYPES = {
     ".jpg": JPEG,
     ".jpeg": JPEG,
-    ".png": FileType("image/png", lambda data: data.startswith(b"\x89PNG")),
-    ".webp": FileType("image/webp", _is_webp),
-    ".heic": FileType("image/heic", _is_heic),
-    ".gif": FileType("image/gif", lambda data: data[:6] in {b"GIF87a", b"GIF89a"}),
-    ".pdf": FileType("application/pdf", lambda data: data.startswith(b"%PDF")),
+    ".png": FileType(
+        "image/png", lambda data: data.startswith(b"\x89PNG"), inline=True
+    ),
+    ".webp": FileType("image/webp", _is_webp, inline=True),
+    ".heic": FileType("image/heic", _is_heic, inline=True),
+    ".gif": FileType(
+        "image/gif", lambda data: data[:6] in {b"GIF87a", b"GIF89a"}, inline=True
+    ),
+    ".pdf": FileType(
+        "application/pdf", lambda data: data.startswith(b"%PDF"), inline=True
+    ),
     ".txt": FileType("text/plain", _is_text),
     ".md": FileType("text/markdown", _is_text),
     ".csv": FileType("text/csv", _is_text),
@@ -95,27 +117,29 @@ FILE_TYPES = {
 }
 
 
-def _file_type(name: str) -> FileType | None:
-    return FILE_TYPES.get(PurePath(name).suffix.lower())
+INLINE_CONTENT_TYPES = {
+    file_type.content_type for file_type in FILE_TYPES.values() if file_type.inline
+}
 
 
-def content_type(upload: UploadedFile[bytes]) -> str:
-    """The content type of an allowed file, from its type rather than the browser."""
-    file_type = _file_type(upload.name or "")
-    return file_type.content_type if file_type else ""
+def checked_content_type(upload: UploadedFile[bytes]) -> str:
+    """The content type of a file that may be kept as an Attachment.
 
-
-def attachment_error(upload: UploadedFile[bytes]) -> str | None:
-    """Why this file may not be kept as an Attachment, if it may not."""
+    It comes from the file's allowed type, not the browser. Raises
+    ValidationError saying why a file may not be kept.
+    """
     name = upload.name or ""
-    file_type = _file_type(name)
+    file_type = FILE_TYPES.get(PurePath(name).suffix.lower())
     if file_type is None:
-        return f"{name} isn't a file type you can attach."
+        msg = f"{name} isn't a file type you can attach."
+        raise ValidationError(msg)
     if (upload.size or 0) > MAX_SIZE_MB * 1024 * 1024:
-        return f"{name} is over {MAX_SIZE_MB} MB, the most an Attachment can be."
+        msg = f"{name} is over {MAX_SIZE_MB} MB, the most an Attachment can be."
+        raise ValidationError(msg)
     upload.seek(0)
     data = upload.read()
     upload.seek(0)
     if not file_type.matches(data):
-        return f"{name} doesn't contain what its file type says."
-    return None
+        msg = f"{name} doesn't contain what its file type says."
+        raise ValidationError(msg)
+    return file_type.content_type

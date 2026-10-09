@@ -1,51 +1,26 @@
-from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from django.core.files.base import ContentFile
 from django.urls import reverse
 
-from apps.accounts.tests.conftest import make_account
 from apps.transactions.models import Attachment, Transaction
 from apps.transactions.tests.conftest import (
     R2_ENDPOINT,
+    attach,
     form_data,
+    recorded,
     stored_names,
     transaction_url,
+    upload,
 )
-from apps.transactions.tests.test_attachments import upload
 from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 
 if TYPE_CHECKING:
     from django.test import Client
 
 pytestmark = pytest.mark.django_db
-
-
-def recorded() -> Transaction:
-    transaction = Transaction.objects.create(date=date(2026, 3, 1))
-    transaction.splits.create(
-        from_account=make_account("Bank", "asset"),
-        to_account=make_account("Groceries", "expense"),
-        amount=Decimal(100),
-    )
-    return transaction
-
-
-def attach(
-    transaction: Transaction, name: str, content: bytes, content_type: str
-) -> Attachment:
-    attachment = Attachment(
-        transaction=transaction,
-        original_name=name,
-        content_type=content_type,
-        size=len(content),
-    )
-    attachment.file.save(name, ContentFile(content), save=False)
-    attachment.save()
-    return attachment
 
 
 def attach_row(transaction: Transaction, name: str, content_type: str) -> Attachment:
@@ -70,7 +45,7 @@ def test_edit_adds_new_files_to_existing_attachments(signed_in: Client) -> None:
             split.from_account,
             split.to_account,
             split_id=split.pk,
-            attachments=upload("warranty.png", b"\x89PNG card", "image/png"),
+            attachments=upload("warranty.png", b"\x89PNG card"),
         ),
     )
 
@@ -81,9 +56,8 @@ def test_edit_adds_new_files_to_existing_attachments(signed_in: Client) -> None:
     assert kept.file.name in stored_names()
 
 
-def test_failure_mid_save_on_edit_leaves_no_new_files(
-    signed_in: Client, second_save_fails: None
-) -> None:
+@pytest.mark.usefixtures("second_save_fails")
+def test_failure_mid_save_on_edit_leaves_no_new_files(signed_in: Client) -> None:
     transaction = recorded()
     split = transaction.splits.get()
 
@@ -96,8 +70,8 @@ def test_failure_mid_save_on_edit_leaves_no_new_files(
                 "999",
                 split_id=split.pk,
                 attachments=[
-                    upload("one.pdf", b"%PDF one", "application/pdf"),
-                    upload("two.pdf", b"%PDF two", "application/pdf"),
+                    upload("one.pdf", b"%PDF one"),
+                    upload("two.pdf", b"%PDF two"),
                 ],
             ),
         )

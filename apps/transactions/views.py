@@ -13,8 +13,8 @@ from django.views.decorators.http import require_POST
 from apps.core.views import paginate
 from apps.transactions.attachments import (
     AttachmentDeleteError,
-    attachment_url,
     delete_attachment_files,
+    remove_files,
     save_attachments,
 )
 from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
@@ -66,10 +66,18 @@ def _save_transaction_forms(
     # Validate both so errors show on the Transaction and its Split at once.
     valid = all([form.is_valid(), formset.is_valid()])
     if valid and formset.check_opening_balances(form.cleaned_data["date"]):
-        with db_transaction.atomic():
-            formset.instance = form.save()
-            formset.save()
-            save_attachments(formset.instance, form.cleaned_data["attachments"])
+        saved: list[Attachment] = []
+        try:
+            with db_transaction.atomic():
+                formset.instance = form.save()
+                formset.save()
+                saved = save_attachments(
+                    formset.instance, form.cleaned_data["attachments"]
+                )
+        except Exception:
+            # Rolling back the rows can't take the files back out of storage.
+            remove_files(saved)
+            raise
         return redirect("transaction_list")
     if request.FILES:
         form.add_error(
@@ -87,12 +95,16 @@ def _save_transaction_forms(
     )
 
 
+# The atomic block in _save_transaction_forms must be the real commit, so a
+# failed commit is seen there and the new files can be removed.
+@db_transaction.non_atomic_requests
 @login_required
 def transaction_create(request: HttpRequest) -> HttpResponseBase:
     """Record a new Transaction."""
     return _save_transaction_forms(request, Transaction())
 
 
+@db_transaction.non_atomic_requests
 @login_required
 @blocked_in_privacy_mode
 def transaction_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
@@ -118,7 +130,7 @@ def split_row(request: HttpRequest) -> HttpResponse:
 @blocked_in_privacy_mode
 def attachment_open(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
     """Send the browser to a short-lived storage link for the Attachment."""
-    return redirect(attachment_url(get_object_or_404(Attachment, pk=pk)))
+    return redirect(get_object_or_404(Attachment, pk=pk).presigned_url())
 
 
 @login_required
@@ -131,7 +143,7 @@ def attachment_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
             attachment.delete()
             delete_attachment_files([attachment])
     except AttachmentDeleteError as error:
-        messages.error(request, error.message)
+        messages.error(request, str(error))
     return redirect("transaction_edit", pk=attachment.transaction_id)
 
 
@@ -145,7 +157,7 @@ def transaction_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
                 delete_attachment_files(transaction.attachments.all())
                 transaction.delete()
         except AttachmentDeleteError as error:
-            messages.error(request, error.message)
+            messages.error(request, str(error))
             return redirect("transaction_delete", pk=pk)
         return redirect("transaction_list")
     return render(

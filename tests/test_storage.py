@@ -12,13 +12,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from types import ModuleType
 
-R2_VARS = (
-    "R2_ENDPOINT_URL",
-    "R2_BUCKET_NAME",
-    "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY",
-)
-
 
 @pytest.fixture
 def reloaded_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
@@ -30,7 +23,7 @@ def reloaded_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
 
 def load(monkeypatch: pytest.MonkeyPatch, **env: str) -> ModuleType:
     # Set even the blank ones: values in .env never override the process env.
-    for name in R2_VARS:
+    for name in config_settings.R2_ENV_VARS.values():
         monkeypatch.setenv(name, env.get(name, ""))
     return importlib.reload(config_settings)
 

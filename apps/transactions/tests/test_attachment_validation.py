@@ -3,7 +3,6 @@ import zipfile
 from typing import TYPE_CHECKING
 
 import pytest
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from apps.accounts.tests.conftest import make_account
@@ -12,17 +11,15 @@ from apps.transactions.tests.conftest import (
     form_data,
     stored_names,
     transaction_url,
+    upload,
 )
 
 if TYPE_CHECKING:
+    from django.core.files.uploadedfile import SimpleUploadedFile
     from django.test import Client
     from django.test.client import _MonkeyPatchedWSGIResponse as Response
 
 pytestmark = pytest.mark.django_db
-
-
-def upload(name: str, content: bytes) -> SimpleUploadedFile:
-    return SimpleUploadedFile(name, content, content_type="application/octet-stream")
 
 
 def create_with(client: Client, *files: SimpleUploadedFile) -> Response:
@@ -60,6 +57,7 @@ ODS = "application/vnd.oasis.opendocument.spreadsheet"
         ("invoice.pdf", b"%PDF-1.7\n", "application/pdf"),
         ("notes.txt", "Paid ₹500 in cash".encode(), "text/plain"),
         ("notes.md", b"# Warranty\n\nTwo years.", "text/markdown"),
+        ("folded.md", b"<details>Two years</details>", "text/markdown"),
         ("export.csv", b"date,amount\n2026-03-01,100\n", "text/csv"),
         ("quote.docx", zipped({"word/document.xml": b"<w/>"}), DOCX),
         ("budget.xlsx", zipped({"xl/workbook.xml": b"<x/>"}), XLSX),
@@ -110,8 +108,6 @@ def test_disallowed_type_is_rejected(
         ("photo.jpg", b"\x89PNG\r\n\x1a\n a png"),
         ("notes.txt", b"\x00\x01\x02 binary"),
         ("export.csv", b"\xff\xd8\xff\xe0 a jpeg"),
-        ("notes.md", b"<!DOCTYPE html><html><script></script></html>"),
-        ("data.csv", b'  <svg xmlns="http://www.w3.org/2000/svg"></svg>'),
         ("quote.docx", b"PK\x03\x04 not really a zip"),
     ],
 )
@@ -121,6 +117,39 @@ def test_file_whose_content_does_not_match_its_extension_is_rejected(
     response = create_with(signed_in, upload(name, content))
 
     assert_rejected(response, f"{name} doesn&#x27;t contain what its file type says.")
+
+
+def quote_with_header(content: bytes, offset: int, value: bytes) -> bytes:
+    """A .docx whose member has bytes changed in its central directory entry."""
+    data = zipped({"word/document.xml": content})
+    at = data.index(b"PK\x01\x02") + offset
+    return data[:at] + value + data[at + len(value) :]
+
+
+FLAGS, COMPRESSION = 8, 10
+DEFLATE = b"\x08\x00"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(quote_with_header(b"<w/>", FLAGS, b"\x01\x00"), id="encrypted"),
+        pytest.param(
+            quote_with_header(b"<w/>", COMPRESSION, b"\x63\x00"),
+            id="unsupported compression",
+        ),
+        # Stored bytes read as deflate data with an invalid block type.
+        pytest.param(
+            quote_with_header(b"\xff\xff", COMPRESSION, DEFLATE), id="corrupt data"
+        ),
+    ],
+)
+def test_zip_that_cannot_be_read_is_rejected(signed_in: Client, content: bytes) -> None:
+    response = create_with(signed_in, upload("quote.docx", content))
+
+    assert_rejected(
+        response, "quote.docx doesn&#x27;t contain what its file type says."
+    )
 
 
 MB = 1024 * 1024

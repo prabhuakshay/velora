@@ -1,14 +1,21 @@
+from datetime import date
+from decimal import Decimal
 from typing import IO, TYPE_CHECKING, Any
 
 import pytest
+from django.core.files.base import ContentFile
 from django.core.files.storage import InMemoryStorage, default_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import OperationalError, connection
 from django.urls import reverse
+
+from apps.accounts.tests.conftest import make_account
+from apps.transactions.models import Attachment, Transaction
 
 if TYPE_CHECKING:
     from pytest_django import Settings
 
     from apps.accounts.models import Account
-    from apps.transactions.models import Transaction
 
 
 def form_data(
@@ -61,6 +68,42 @@ def transaction_url(name: str, transaction: Transaction) -> str:
     return reverse(name, kwargs={"pk": transaction.pk})
 
 
+def recorded(description: str = "") -> Transaction:
+    """A Transaction with one Split between Accounts named after it."""
+    transaction = Transaction.objects.create(
+        date=date(2026, 3, 1), description=description
+    )
+    transaction.splits.create(
+        from_account=make_account(f"Bank {description}".strip(), "asset"),
+        to_account=make_account(f"Groceries {description}".strip(), "expense"),
+        amount=Decimal(100),
+    )
+    return transaction
+
+
+def attach(
+    transaction: Transaction,
+    name: str = "bill.pdf",
+    content: bytes = b"%PDF bill",
+    content_type: str = "application/pdf",
+) -> Attachment:
+    """An Attachment written straight to storage, skipping the form."""
+    attachment = Attachment(
+        transaction=transaction,
+        original_name=name,
+        content_type=content_type,
+        size=len(content),
+    )
+    attachment.file.save(name, ContentFile(content), save=False)
+    attachment.save()
+    return attachment
+
+
+def upload(name: str, content: bytes) -> SimpleUploadedFile:
+    # The browser's content type is ignored, so any will do.
+    return SimpleUploadedFile(name, content, "application/octet-stream")
+
+
 def stored_names() -> list[str]:
     """Every file name in the default storage's attachments directory."""
     try:
@@ -68,6 +111,13 @@ def stored_names() -> list[str]:
     except FileNotFoundError:
         return []
     return sorted(f"attachments/{name}" for name in files)
+
+
+def use_storage(settings: Settings, backend: str, **options: str) -> None:
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": backend, "OPTIONS": options},
+    }
 
 
 class SecondSaveFailsStorage(InMemoryStorage):
@@ -87,12 +137,7 @@ class SecondSaveFailsStorage(InMemoryStorage):
 
 @pytest.fixture
 def second_save_fails(settings: Settings) -> None:
-    settings.STORAGES = {
-        **settings.STORAGES,
-        "default": {
-            "BACKEND": "apps.transactions.tests.conftest.SecondSaveFailsStorage"
-        },
-    }
+    use_storage(settings, f"{__name__}.SecondSaveFailsStorage")
 
 
 class DeleteFailsStorage(InMemoryStorage):
@@ -105,18 +150,25 @@ class DeleteFailsStorage(InMemoryStorage):
 
 @pytest.fixture
 def delete_fails(settings: Settings) -> None:
-    settings.STORAGES = {
-        **settings.STORAGES,
-        "default": {"BACKEND": "apps.transactions.tests.conftest.DeleteFailsStorage"},
-    }
+    use_storage(settings, f"{__name__}.DeleteFailsStorage")
 
 
-class SecondDeleteFailsStorage(InMemoryStorage):
-    """Deletes one file, fails once, then recovers; missing files raise.
+class MissingRaisesStorage(InMemoryStorage):
+    """Raises on deleting a file that isn't there, as some backends do."""
 
-    Raising on a missing file, as some backends do, checks that a retry
-    treats a file already gone as deleted.
-    """
+    def delete(self, name: str) -> None:
+        if not self.exists(name):
+            raise FileNotFoundError(name)
+        super().delete(name)
+
+
+@pytest.fixture
+def missing_raises(settings: Settings) -> None:
+    use_storage(settings, f"{__name__}.MissingRaisesStorage")
+
+
+class SecondDeleteFailsStorage(MissingRaisesStorage):
+    """Deletes one file, fails once, then recovers."""
 
     deletes = 0
 
@@ -125,19 +177,27 @@ class SecondDeleteFailsStorage(InMemoryStorage):
         if self.deletes == 2:
             msg = "storage unavailable"
             raise OSError(msg)
-        if not self.exists(name):
-            raise FileNotFoundError(name)
         super().delete(name)
 
 
 @pytest.fixture
 def second_delete_fails(settings: Settings) -> None:
-    settings.STORAGES = {
-        **settings.STORAGES,
-        "default": {
-            "BACKEND": "apps.transactions.tests.conftest.SecondDeleteFailsStorage"
-        },
-    }
+    use_storage(settings, f"{__name__}.SecondDeleteFailsStorage")
+
+
+def fail_next_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the next database commit fail, like a connection lost at the end.
+
+    Only reaches a real commit in a django_db(transaction=True) test.
+    """
+    commit = connection.commit
+
+    def fail() -> None:
+        monkeypatch.setattr(connection, "commit", commit)
+        msg = "connection lost"
+        raise OperationalError(msg)
+
+    monkeypatch.setattr(connection, "commit", fail)
 
 
 R2_ENDPOINT = "https://account.r2.cloudflarestorage.com"
@@ -146,15 +206,11 @@ R2_ENDPOINT = "https://account.r2.cloudflarestorage.com"
 @pytest.fixture
 def r2_storage(settings: Settings) -> None:
     """The real R2 backend with dummy credentials: presigning needs no network."""
-    settings.STORAGES = {
-        **settings.STORAGES,
-        "default": {
-            "BACKEND": "config.storage.R2Storage",
-            "OPTIONS": {
-                "endpoint_url": R2_ENDPOINT,
-                "bucket_name": "velora-test",
-                "access_key": "test-key",
-                "secret_key": "test-secret",
-            },
-        },
-    }
+    use_storage(
+        settings,
+        "config.storage.R2Storage",
+        endpoint_url=R2_ENDPOINT,
+        bucket_name="velora-test",
+        access_key="test-key",
+        secret_key="test-secret",
+    )

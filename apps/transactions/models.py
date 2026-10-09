@@ -6,10 +6,12 @@ from typing import TYPE_CHECKING, ClassVar
 
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils.http import content_disposition_header
 from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Account
 from apps.classification.models import Party, Tag
+from apps.transactions.attachment_rules import INLINE_CONTENT_TYPES
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -103,3 +105,18 @@ class Attachment(models.Model):
     def is_image(self) -> bool:
         """Whether the edit page can show the Attachment as a preview."""
         return self.content_type.startswith("image/")
+
+    def presigned_url(self) -> str:
+        """A short-lived link that opens images and PDFs and downloads the rest."""
+        url: Callable[..., str] = self.file.storage.url
+        return url(
+            self.file.name,
+            parameters={
+                "ResponseContentDisposition": content_disposition_header(
+                    as_attachment=self.content_type not in INLINE_CONTENT_TYPES,
+                    filename=self.original_name,
+                ),
+                # Keys carry no extension, so the stored object's type can't be trusted.
+                "ResponseContentType": self.content_type,
+            },
+        )
