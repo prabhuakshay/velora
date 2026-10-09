@@ -1,13 +1,16 @@
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from apps.quick_add import openrouter
-from apps.quick_add.models import QuickAdd
+from apps.quick_add.models import Draft, QuickAdd
 
 if TYPE_CHECKING:
     from pytest_django import Settings
+
+    from apps.accounts.models import Account
 
 
 @pytest.fixture(autouse=True)
@@ -65,3 +68,17 @@ def split(source: Any, destination: Any, amount: str) -> dict[str, Any]:
 
 def quick_add(text: str = "lunch at Toit 850 on hdfc card") -> QuickAdd:
     return QuickAdd.objects.create(text=text)
+
+
+def make_draft(
+    *splits: tuple[Account, Account, str],
+    text: str = "lunch at Toit 850",
+    **fields: Any,
+) -> QuickAdd:
+    note = QuickAdd.objects.create(text=text, status=QuickAdd.Status.DRAFT)
+    draft = Draft.objects.create(quick_add=note, date=date(2026, 10, 8), **fields)
+    for source, destination, amount in splits:
+        draft.splits.create(
+            from_account=source, to_account=destination, amount=Decimal(amount)
+        )
+    return note

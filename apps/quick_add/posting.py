@@ -18,14 +18,24 @@ class DraftNotPostableError(Exception):
         self.reasons = reasons
 
 
+def party_named(name: str) -> Party:
+    """The Party with this name, ignoring case, created if there is none."""
+    party, _ = Party.objects.get_or_create(name__iexact=name, defaults={"name": name})
+    return party
+
+
 def party_for(draft: Draft) -> Party | None:
     """The Draft's Party, creating the new one it names unless one matches."""
     if not draft.new_party_name:
         return draft.party
-    party, _ = Party.objects.get_or_create(
-        name__iexact=draft.new_party_name, defaults={"name": draft.new_party_name}
-    )
-    return party
+    return party_named(draft.new_party_name)
+
+
+def matching_party(draft: Draft) -> Party | None:
+    """The Draft's Party, or the existing one its new name matches."""
+    if not draft.new_party_name:
+        return draft.party
+    return Party.objects.filter(name__iexact=draft.new_party_name).first()
 
 
 def form_data(draft: Draft, party: Party | None) -> dict[str, Any]:

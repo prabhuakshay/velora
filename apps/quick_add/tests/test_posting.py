@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
@@ -9,27 +9,14 @@ from apps.accounts.merge import AccountMerge
 from apps.accounts.models import Account
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
-from apps.quick_add.models import Draft, QuickAdd
+from apps.quick_add.models import QuickAdd
+from apps.quick_add.tests.conftest import make_draft
 from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
     from django.test import Client
 
 pytestmark = pytest.mark.django_db
-
-
-def make_draft(
-    *splits: tuple[Account, Account, str],
-    text: str = "lunch at Toit 850",
-    **fields: Any,
-) -> QuickAdd:
-    note = QuickAdd.objects.create(text=text, status=QuickAdd.Status.DRAFT)
-    draft = Draft.objects.create(quick_add=note, date=date(2026, 10, 8), **fields)
-    for source, destination, amount in splits:
-        draft.splits.create(
-            from_account=source, to_account=destination, amount=Decimal(amount)
-        )
-    return note
 
 
 def post(client: Client, note: QuickAdd) -> str:
@@ -105,7 +92,7 @@ def test_posting_fails_with_a_reason_once_an_account_is_deactivated(
 
     assert "Couldn't post" in body
     assert "That Account is inactive or no longer exists." in body
-    assert f"{reverse('transaction_create')}?quick_add={note.pk}" in body
+    assert reverse("draft_edit", args=[note.pk]) in body
     assert not Transaction.objects.exists()
     assert not Party.objects.exists()
     note.refresh_from_db()

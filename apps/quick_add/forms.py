@@ -17,3 +17,14 @@ class QuickAddForm(forms.ModelForm[QuickAdd]):
                 "required": "Write what happened, like “lunch at Toit 850 on hdfc”.",
             }
         }
+
+
+class NewPartyForm(forms.Form):
+    """The new Party a Draft names, created when it is posted."""
+
+    new_party_name = forms.CharField(
+        label="New Party",
+        max_length=100,
+        required=False,
+        help_text="Created on save when no Party is picked above.",
+    )
