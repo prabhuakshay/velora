@@ -18,6 +18,23 @@
             <p class="mt-1 text-sm text-slate-700">Processing…</p>
           {% elif quick_add.status == "failed" %}
             <p class="mt-1 text-sm text-red-600">Failed{% if quick_add.failure_reason %}: {{ quick_add.failure_reason }}{% endif %}</p>
+            {% comment %}hx-preserve keeps an edit in progress while the list polls.{% endcomment %}
+            <form id="resubmit-{{ quick_add.pk }}" hx-preserve method="post" action="{% url 'quick_add_resubmit' quick_add.pk %}" class="mt-2 flex gap-2">
+              {% csrf_token %}
+              <label for="resubmit-text-{{ quick_add.pk }}" class="sr-only">Quick Add</label>
+              <input id="resubmit-text-{{ quick_add.pk }}" type="text" name="text" value="{{ quick_add.text }}" required maxlength="{{ quick_add_max_length }}" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+              <button type="submit" class="btn-primary py-1.5 text-sm">Resubmit</button>
+            </form>
+            <div class="mt-2 flex gap-2">
+              <form method="post" action="{% url 'quick_add_retry' quick_add.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-secondary py-1.5 text-sm">Retry</button>
+              </form>
+              <form method="post" action="{% url 'quick_add_discard' quick_add.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-secondary py-1.5 text-sm">Discard</button>
+              </form>
+            </div>
           {% else %}
             {% with draft=quick_add.draft %}
               <p class="mt-1 font-medium">

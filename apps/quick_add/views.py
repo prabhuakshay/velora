@@ -48,6 +48,12 @@ def requires_quick_add[**P](
     return wrapper
 
 
+def show_errors(request: HttpRequest, form: QuickAddForm) -> None:
+    """Flash why the Quick Add text was refused."""
+    for error in form["text"].errors:
+        messages.error(request, str(error))
+
+
 @login_required
 @requires_quick_add
 @require_POST
@@ -55,8 +61,7 @@ def quick_add_create(request: HttpRequest) -> HttpResponseBase:
     """Save the Quick Add as processing and queue it for the AI."""
     form = QuickAddForm(request.POST)
     if not form.is_valid():
-        for error in form["text"].errors:
-            messages.error(request, str(error))
+        show_errors(request, form)
         return redirect("transaction_list")
     quick_add = form.save()
     # Same database transaction as the save, so the job never sees a missing row.
@@ -153,4 +158,52 @@ def draft_reject(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: AR
     )
     quick_add.status = QuickAdd.Status.REJECTED
     quick_add.save(update_fields=["status"])
+    return redirect("draft_list")
+
+
+def failed_quick_add(pk: int) -> QuickAdd:
+    """The Failed Quick Add, locked for the request's transaction, or a 404."""
+    return get_object_or_404(
+        QuickAdd.objects.select_for_update(), pk=pk, status=QuickAdd.Status.FAILED
+    )
+
+
+def queue_again(quick_add: QuickAdd) -> None:
+    """Send the failed Quick Add back to the AI."""
+    quick_add.status = QuickAdd.Status.PROCESSING
+    quick_add.failure_reason = ""
+    quick_add.save(update_fields=["text", "status", "failure_reason"])
+    process_quick_add.defer(quick_add_id=quick_add.pk)
+
+
+@login_required
+@requires_quick_add
+@require_POST
+def quick_add_retry(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
+    """Queue a Failed Quick Add again as it is."""
+    queue_again(failed_quick_add(pk))
+    return redirect("draft_list")
+
+
+@login_required
+@requires_quick_add
+@require_POST
+def quick_add_discard(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
+    """Hide a Failed Quick Add from the Drafts page; it is kept, marked rejected."""
+    quick_add = failed_quick_add(pk)
+    quick_add.status = QuickAdd.Status.REJECTED
+    quick_add.save(update_fields=["status"])
+    return redirect("draft_list")
+
+
+@login_required
+@requires_quick_add
+@require_POST
+def quick_add_resubmit(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Queue a Failed Quick Add again with its text edited."""
+    form = QuickAddForm(request.POST, instance=failed_quick_add(pk))
+    if form.is_valid():
+        queue_again(form.instance)
+    else:
+        show_errors(request, form)
     return redirect("draft_list")
