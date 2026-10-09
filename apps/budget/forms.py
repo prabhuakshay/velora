@@ -1,6 +1,6 @@
 """Forms for categories and expense accounts."""
 
-from typing import TYPE_CHECKING, Any, ClassVar, override
+from typing import Any, ClassVar, override
 
 from django import forms
 from django.conf import settings
@@ -9,20 +9,16 @@ from django.db.models.functions import Lower
 from apps.budget.icons import CURATED_ICONS, read_icon
 from apps.budget.models import SWATCH_CLASSES, Category, ExpenseAccount
 
-if TYPE_CHECKING:
-    from apps.users.models import User
-
 
 class CategoryForm(forms.ModelForm[Category]):
-    """Create or edit one of the owner's categories."""
+    """Create or edit a category."""
 
     class Meta:
         model = Category
         fields = ("kind", "name", "icon", "description", "color", "hidden")
 
-    def __init__(self, *args: object, owner: User, **kwargs: object) -> None:
+    def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
-        self.owner = owner
         self.fields["icon"].required = False
 
     @property
@@ -55,37 +51,26 @@ class CategoryForm(forms.ModelForm[Category]):
         cleaned: dict[str, Any] = super().clean() or {}
         kind, name = cleaned.get("kind"), cleaned.get("name")
         if kind and name:
-            clash = Category.objects.filter(
-                owner=self.owner, kind=kind, name__iexact=name
-            )
+            clash = Category.objects.filter(kind=kind, name__iexact=name)
             if self.instance.pk:
                 clash = clash.exclude(pk=self.instance.pk)
             if clash.exists():
                 self.add_error("name", "A category with this name already exists.")
         return cleaned
 
-    @override
-    def save(self, commit: bool = True) -> Category:
-        self.instance.owner = self.owner
-        return super().save(commit=commit)
-
 
 class ExpenseAccountForm(forms.ModelForm[ExpenseAccount]):
-    """Create or edit one of the owner's expense accounts."""
+    """Create or edit an expense account."""
 
     class Meta:
         model = ExpenseAccount
         fields = ("name", "notes", "hidden")
         widgets: ClassVar = {"notes": forms.Textarea(attrs={"rows": 3})}
 
-    def __init__(self, *args: object, owner: User, **kwargs: object) -> None:
-        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
-        self.owner = owner
-
     def clean_name(self) -> str:
-        """Reject a name the owner already uses, ignoring case."""
+        """Reject a name already in use, ignoring case."""
         name: str = self.cleaned_data["name"]
-        clash = ExpenseAccount.objects.filter(owner=self.owner, name__iexact=name)
+        clash = ExpenseAccount.objects.filter(name__iexact=name)
         if self.instance.pk:
             clash = clash.exclude(pk=self.instance.pk)
         if clash.exists():
@@ -93,14 +78,9 @@ class ExpenseAccountForm(forms.ModelForm[ExpenseAccount]):
             raise forms.ValidationError(msg)
         return name
 
-    @override
-    def save(self, commit: bool = True) -> ExpenseAccount:
-        self.instance.owner = self.owner
-        return super().save(commit=commit)
-
 
 class ExpenseAccountMergeForm(forms.Form):
-    """Pick another of the owner's expense accounts to merge into."""
+    """Pick another expense account to merge into."""
 
     target = forms.ModelChoiceField(
         queryset=ExpenseAccount.objects.none(), label="Merge into", empty_label=None
@@ -109,7 +89,5 @@ class ExpenseAccountMergeForm(forms.Form):
     def __init__(self, *args: object, source: ExpenseAccount, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
         self.fields["target"].queryset = (  # type: ignore[attr-defined]
-            ExpenseAccount.objects.filter(owner_id=source.owner_id)
-            .exclude(pk=source.pk)
-            .order_by(Lower("name"))
+            ExpenseAccount.objects.exclude(pk=source.pk).order_by(Lower("name"))
         )

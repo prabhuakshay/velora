@@ -68,15 +68,11 @@ def _describe(record: Any, ctx: _Context) -> str:  # noqa: ANN401
     return "; ".join(parts) or f"Updated {name}"
 
 
-def recent_entries(owner_id: int, offset: int) -> tuple[list[Entry], bool]:
-    """Return one page of the owner's history, newest first, and whether more follow."""
+def recent_entries(offset: int) -> tuple[list[Entry], bool]:
+    """Return one page of history, newest first, and whether more follow."""
     # Fetching one row past the page tells us whether another page exists.
     limit = offset + PAGE_SIZE + 1
-    records = [
-        *Category.history.filter(owner_id=owner_id).order_by(
-            "-history_date", "-history_id"
-        )[:limit]
-    ]
+    records = [*Category.history.order_by("-history_date", "-history_id")[:limit]]
     page = records[offset : offset + PAGE_SIZE]
     has_more = len(records) > offset + PAGE_SIZE
     ctx = _Context(page)

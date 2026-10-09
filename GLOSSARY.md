@@ -1,13 +1,13 @@
 # Velora
 
-A personal budgeting app where each user organises money into categories and tracks who it moves to and from.
+A personal budgeting app for one person, who organises money into categories and tracks where it goes.
 
 ## Language
 
 **Category**:
-A budget bucket that money is assigned to. Owned by one user and either income or expense.
+A budget bucket that money is assigned to. Either income or expense.
 _Avoid_: Tag, envelope
 
 **Expense Account**:
-Where money goes when the user spends it, such as a shop or a landlord. Owned by one user.
+Where money goes when it is spent, such as a shop or a landlord.
 _Avoid_: Party, payee, counterparty, merchant, vendor

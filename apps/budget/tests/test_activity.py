@@ -13,10 +13,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def make_category(owner: User, name: str) -> Category:
-    return Category.objects.create(
-        owner=owner, name=name, kind=Category.Kind.EXPENSE, color="cyan"
-    )
+def make_category(name: str) -> Category:
+    return Category.objects.create(name=name, kind=Category.Kind.EXPENSE, color="cyan")
 
 
 @pytest.fixture
@@ -29,9 +27,9 @@ def panel(client: Client) -> str:
     return client.get(reverse("category_list")).content.decode()
 
 
-def test_panel_shows_latest_five_newest_first(signed_in: Client, user: User) -> None:
+def test_panel_shows_latest_five_newest_first(signed_in: Client) -> None:
     for i in range(6):
-        make_category(user, f"Cat {i}")
+        make_category(f"Cat {i}")
 
     body = panel(signed_in)
 
@@ -40,8 +38,8 @@ def test_panel_shows_latest_five_newest_first(signed_in: Client, user: User) -> 
     assert "Show more" in body
 
 
-def test_wording_for_each_change_type(signed_in: Client, user: User) -> None:
-    category = make_category(user, "Groceries")
+def test_wording_for_each_change_type(signed_in: Client) -> None:
+    category = make_category("Groceries")
 
     def edit(**fields: str) -> str:
         for key, value in fields.items():
@@ -60,10 +58,10 @@ def test_wording_for_each_change_type(signed_in: Client, user: User) -> None:
 
 
 def test_show_more_returns_next_five_and_last_page_has_no_button(
-    signed_in: Client, user: User
+    signed_in: Client,
 ) -> None:
     for i in range(10):
-        make_category(user, f"Cat {i}")
+        make_category(f"Cat {i}")
 
     first = panel(signed_in)
     assert "Created Cat 5" in first
@@ -78,14 +76,6 @@ def test_show_more_returns_next_five_and_last_page_has_no_button(
     assert "Show more" not in second
 
 
-def test_only_own_activity_appears(
-    signed_in: Client, user: User, other_user: User
-) -> None:
-    make_category(other_user, "Private thing")
-
-    assert "Private thing" not in panel(signed_in)
-
-
 def test_activity_endpoint_requires_login(client: Client) -> None:
     response = client.get(reverse("category_activity"))
 
@@ -93,8 +83,8 @@ def test_activity_endpoint_requires_login(client: Client) -> None:
     assert "login" in response["Location"]
 
 
-def test_hidden_and_unhidden_wording(signed_in: Client, user: User) -> None:
-    category = make_category(user, "Food")
+def test_hidden_and_unhidden_wording(signed_in: Client) -> None:
+    category = make_category("Food")
     category.hidden = True
     category.save()
     assert "Hidden Food" in panel(signed_in)
@@ -104,10 +94,8 @@ def test_hidden_and_unhidden_wording(signed_in: Client, user: User) -> None:
     assert "Unhidden Food" in panel(signed_in)
 
 
-def test_non_numeric_offset_falls_back_to_first_page(
-    signed_in: Client, user: User
-) -> None:
-    make_category(user, "Food")
+def test_non_numeric_offset_falls_back_to_first_page(signed_in: Client) -> None:
+    make_category("Food")
 
     response = signed_in.get(reverse("category_activity"), {"offset": "abc"})
 
@@ -116,10 +104,10 @@ def test_non_numeric_offset_falls_back_to_first_page(
 
 
 def test_panel_query_count_does_not_grow_with_entries(
-    signed_in: Client, user: User, django_assert_max_num_queries: Any
+    signed_in: Client, django_assert_max_num_queries: Any
 ) -> None:
     for i in range(5):
-        category = make_category(user, f"Cat {i}")
+        category = make_category(f"Cat {i}")
         category.icon = "wallet"
         category.save()
 

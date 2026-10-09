@@ -37,11 +37,6 @@ def user(db: None) -> User:
 
 
 @pytest.fixture
-def other_user(db: None) -> User:
-    return User.objects.create_user("other@example.com", PASSWORD, full_name="Other")
-
-
-@pytest.fixture
 def superuser(db: None) -> User:
     return User.objects.create_superuser(
         "admin@example.com", PASSWORD, full_name="Admin"

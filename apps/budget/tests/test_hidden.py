@@ -22,10 +22,8 @@ def signed_in(client: Client, user: User) -> Client:
 
 
 @pytest.fixture
-def category(user: User) -> Category:
-    return Category.objects.create(
-        owner=user, name="Rent", kind=Category.Kind.EXPENSE, color="red"
-    )
+def category() -> Category:
+    return Category.objects.create(name="Rent", kind=Category.Kind.EXPENSE, color="red")
 
 
 def list_page(client: Client, query: str = "") -> str:
@@ -34,12 +32,8 @@ def list_page(client: Client, query: str = "") -> str:
     return body.split('id="activity"')[0]
 
 
-def test_hiding_category_removes_only_it(
-    signed_in: Client, user: User, category: Category
-) -> None:
-    Category.objects.create(
-        owner=user, name="Water", kind=Category.Kind.EXPENSE, color="cyan"
-    )
+def test_hiding_category_removes_only_it(signed_in: Client, category: Category) -> None:
+    Category.objects.create(name="Water", kind=Category.Kind.EXPENSE, color="cyan")
 
     response = signed_in.post(reverse("category_hide", args=[category.pk]))
 
@@ -73,15 +67,6 @@ def test_hide_actions_reject_get(
     signed_in: Client, category: Category, name: str
 ) -> None:
     assert signed_in.get(reverse(name, args=[category.pk])).status_code == 405
-
-
-@pytest.mark.parametrize("name", HIDE_ACTIONS)
-def test_hide_actions_404_for_other_users_objects(
-    client: Client, other_user: User, category: Category, name: str
-) -> None:
-    client.force_login(other_user)
-
-    assert client.post(reverse(name, args=[category.pk])).status_code == 404
 
 
 def test_edit_form_can_set_hidden(signed_in: Client, category: Category) -> None:

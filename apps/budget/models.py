@@ -2,7 +2,6 @@
 
 from typing import TYPE_CHECKING, ClassVar
 
-from django.conf import settings
 from django.db import models
 from django.db.models.functions import Lower
 from simple_history.models import HistoricalRecords
@@ -50,9 +49,6 @@ class Category(models.Model):
         INCOME = "INCOME", "Income"
         EXPENSE = "EXPENSE", "Expense"
 
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
-    )
     kind = models.CharField(max_length=7, choices=Kind)
     name = models.CharField(max_length=100)
     icon = models.CharField(max_length=64, default="tag")
@@ -70,9 +66,8 @@ class Category(models.Model):
         constraints: ClassVar = [
             models.UniqueConstraint(
                 Lower("name"),
-                "owner",
                 "kind",
-                name="budget_category_owner_kind_name_ci_unique",
+                name="budget_category_kind_name_ci_unique",
             ),
         ]
 
@@ -86,19 +81,15 @@ class Category(models.Model):
 
 
 class ExpenseAccount(models.Model):
-    """Where money goes when the user spends it.
+    """Where money goes when it is spent.
 
     Deferred until transactions land:
-    - Transactions reference expense accounts with PROTECT, except when the
-      owner is deleted.
+    - Transactions reference expense accounts with PROTECT.
     - Deleting an expense account is blocked while it has transactions; the
       user merges it instead.
     - Merging repoints the source's transactions to the target, atomically.
     """
 
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
-    )
     name = models.CharField(max_length=100)
     notes = models.TextField(blank=True)
     hidden = models.BooleanField(default=False)
@@ -111,8 +102,7 @@ class ExpenseAccount(models.Model):
         constraints: ClassVar = [
             models.UniqueConstraint(
                 Lower("name"),
-                "owner",
-                name="budget_expenseaccount_owner_name_ci_unique",
+                name="budget_expenseaccount_name_ci_unique",
             ),
         ]
 

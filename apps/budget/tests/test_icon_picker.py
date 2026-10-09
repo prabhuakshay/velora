@@ -69,12 +69,8 @@ def test_search_keeps_selected_icon_checked(signed_in: Client) -> None:
     assert 'value="zebra" checked' in body
 
 
-def test_form_shows_curated_grid_with_current_icon_selected(
-    signed_in: Client, user: User
-) -> None:
-    category = Category.objects.create(
-        owner=user, kind="EXPENSE", name="Rent", icon="house"
-    )
+def test_form_shows_curated_grid_with_current_icon_selected(signed_in: Client) -> None:
+    category = Category.objects.create(kind="EXPENSE", name="Rent", icon="house")
 
     body = signed_in.get(reverse("category_edit", args=[category.pk])).content.decode()
 
@@ -90,21 +86,19 @@ def test_new_form_selects_default_icon(signed_in: Client) -> None:
 
 
 def test_form_includes_current_icon_outside_curated_grid(
-    signed_in: Client, user: User, settings: Settings, tmp_path: Path
+    signed_in: Client, settings: Settings, tmp_path: Path
 ) -> None:
     (tmp_path / "zebra.svg").write_text(SVG)
     (tmp_path / "tag.svg").write_text(SVG)
     settings.LUCIDE_ICON_DIR = tmp_path
-    category = Category.objects.create(
-        owner=user, kind="EXPENSE", name="Pets", icon="zebra"
-    )
+    category = Category.objects.create(kind="EXPENSE", name="Pets", icon="zebra")
 
     body = signed_in.get(reverse("category_edit", args=[category.pk])).content.decode()
 
     assert 'value="zebra" checked' in body
 
 
-def test_saving_a_searched_icon_stores_it(signed_in: Client, user: User) -> None:
+def test_saving_a_searched_icon_stores_it(signed_in: Client) -> None:
 
     signed_in.post(
         reverse("category_create"),

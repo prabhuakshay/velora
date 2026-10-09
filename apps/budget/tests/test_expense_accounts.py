@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def make_expense_account(owner: User, name: str, **fields: object) -> ExpenseAccount:
-    return ExpenseAccount.objects.create(owner=owner, name=name, **fields)
+def make_expense_account(name: str, **fields: object) -> ExpenseAccount:
+    return ExpenseAccount.objects.create(name=name, **fields)
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def test_index_links_to_expense_accounts(signed_in: Client) -> None:
     assert reverse("expense_account_list").encode() in response.content
 
 
-def test_create_expense_account_with_notes(signed_in: Client, user: User) -> None:
+def test_create_expense_account_with_notes(signed_in: Client) -> None:
     assert signed_in.get(reverse("expense_account_create")).status_code == 200
 
     response = signed_in.post(
@@ -68,16 +68,10 @@ def test_create_expense_account_with_notes(signed_in: Client, user: User) -> Non
     assert response["Location"] == reverse("expense_account_list")
     expense_account = ExpenseAccount.objects.get()
     assert (
-        expense_account.owner,
         expense_account.name,
         expense_account.notes,
         expense_account.hidden,
-    ) == (
-        user,
-        "Walmart",
-        "Card ending 1234",
-        False,
-    )
+    ) == ("Walmart", "Card ending 1234", False)
 
 
 def test_notes_are_optional(signed_in: Client) -> None:
@@ -87,9 +81,9 @@ def test_notes_are_optional(signed_in: Client) -> None:
     assert ExpenseAccount.objects.get().notes == ""
 
 
-def test_list_sorted_by_name_ignoring_case(signed_in: Client, user: User) -> None:
+def test_list_sorted_by_name_ignoring_case(signed_in: Client) -> None:
     for name in ["walmart", "Acme", "employer", "Bakery"]:
-        make_expense_account(user, name)
+        make_expense_account(name)
 
     body = list_page(signed_in)
 
@@ -97,18 +91,8 @@ def test_list_sorted_by_name_ignoring_case(signed_in: Client, user: User) -> Non
     assert positions == sorted(positions)
 
 
-def test_list_shows_only_own_expense_accounts(
-    signed_in: Client, other_user: User
-) -> None:
-    make_expense_account(other_user, "Secret")
-
-    assert "Secret" not in list_page(signed_in)
-
-
-def test_create_duplicate_name_in_any_case_shows_error(
-    signed_in: Client, user: User
-) -> None:
-    make_expense_account(user, "Walmart")
+def test_create_duplicate_name_in_any_case_shows_error(signed_in: Client) -> None:
+    make_expense_account("Walmart")
 
     response = signed_in.post(reverse("expense_account_create"), {"name": "walmart"})
 
@@ -117,17 +101,8 @@ def test_create_duplicate_name_in_any_case_shows_error(
     assert ExpenseAccount.objects.count() == 1
 
 
-def test_different_users_may_share_a_name(signed_in: Client, other_user: User) -> None:
-    make_expense_account(other_user, "Walmart")
-
-    response = signed_in.post(reverse("expense_account_create"), {"name": "Walmart"})
-
-    assert response.status_code == 302
-    assert ExpenseAccount.objects.count() == 2
-
-
-def test_edit_renames_and_updates_notes(signed_in: Client, user: User) -> None:
-    expense_account = make_expense_account(user, "Walmrt", notes="old")
+def test_edit_renames_and_updates_notes(signed_in: Client) -> None:
+    expense_account = make_expense_account("Walmrt", notes="old")
 
     response = signed_in.post(
         reverse("expense_account_edit", args=[expense_account.pk]),
@@ -139,8 +114,8 @@ def test_edit_renames_and_updates_notes(signed_in: Client, user: User) -> None:
     assert (expense_account.name, expense_account.notes) == ("Walmart", "new")
 
 
-def test_edit_form_renders_current_values(signed_in: Client, user: User) -> None:
-    expense_account = make_expense_account(user, "Walmart", notes="Card ending 1234")
+def test_edit_form_renders_current_values(signed_in: Client) -> None:
+    expense_account = make_expense_account("Walmart", notes="Card ending 1234")
 
     response = signed_in.get(reverse("expense_account_edit", args=[expense_account.pk]))
 
@@ -148,10 +123,8 @@ def test_edit_form_renders_current_values(signed_in: Client, user: User) -> None
     assert b"Card ending 1234" in response.content
 
 
-def test_edit_keeping_own_name_in_other_case_is_allowed(
-    signed_in: Client, user: User
-) -> None:
-    expense_account = make_expense_account(user, "Walmart")
+def test_edit_keeping_own_name_in_other_case_is_allowed(signed_in: Client) -> None:
+    expense_account = make_expense_account("Walmart")
 
     response = signed_in.post(
         reverse("expense_account_edit", args=[expense_account.pk]), {"name": "WALMART"}
@@ -160,9 +133,9 @@ def test_edit_keeping_own_name_in_other_case_is_allowed(
     assert response.status_code == 302
 
 
-def test_edit_to_existing_name_shows_error(signed_in: Client, user: User) -> None:
-    make_expense_account(user, "Walmart")
-    expense_account = make_expense_account(user, "Acme")
+def test_edit_to_existing_name_shows_error(signed_in: Client) -> None:
+    make_expense_account("Walmart")
+    expense_account = make_expense_account("Acme")
 
     response = signed_in.post(
         reverse("expense_account_edit", args=[expense_account.pk]), {"name": "walmart"}
@@ -173,10 +146,8 @@ def test_edit_to_existing_name_shows_error(signed_in: Client, user: User) -> Non
     assert expense_account.name == "Acme"
 
 
-def test_hide_removes_expense_account_from_default_list(
-    signed_in: Client, user: User
-) -> None:
-    expense_account = make_expense_account(user, "Walmart")
+def test_hide_removes_expense_account_from_default_list(signed_in: Client) -> None:
+    expense_account = make_expense_account("Walmart")
 
     response = signed_in.post(
         reverse("expense_account_hide", args=[expense_account.pk])
@@ -187,9 +158,9 @@ def test_hide_removes_expense_account_from_default_list(
 
 
 def test_show_hidden_reveals_dimmed_expense_account_with_unhide(
-    signed_in: Client, user: User
+    signed_in: Client,
 ) -> None:
-    expense_account = make_expense_account(user, "Walmart", hidden=True)
+    expense_account = make_expense_account("Walmart", hidden=True)
 
     content = list_page(signed_in, "?show_hidden=1")
 
@@ -201,8 +172,8 @@ def test_show_hidden_reveals_dimmed_expense_account_with_unhide(
     )
 
 
-def test_unhide_restores_expense_account(signed_in: Client, user: User) -> None:
-    expense_account = make_expense_account(user, "Walmart", hidden=True)
+def test_unhide_restores_expense_account(signed_in: Client) -> None:
+    expense_account = make_expense_account("Walmart", hidden=True)
 
     response = signed_in.post(
         reverse("expense_account_unhide", args=[expense_account.pk]) + "?show_hidden=1"
@@ -212,8 +183,8 @@ def test_unhide_restores_expense_account(signed_in: Client, user: User) -> None:
     assert "Walmart" in list_page(signed_in)
 
 
-def test_edit_form_can_set_hidden(signed_in: Client, user: User) -> None:
-    expense_account = make_expense_account(user, "Walmart")
+def test_edit_form_can_set_hidden(signed_in: Client) -> None:
+    expense_account = make_expense_account("Walmart")
 
     signed_in.post(
         reverse("expense_account_edit", args=[expense_account.pk]),
@@ -224,16 +195,14 @@ def test_edit_form_can_set_hidden(signed_in: Client, user: User) -> None:
 
 
 @pytest.mark.parametrize("name", ["expense_account_hide", "expense_account_unhide"])
-def test_hide_actions_reject_get(signed_in: Client, user: User, name: str) -> None:
-    expense_account = make_expense_account(user, "Walmart")
+def test_hide_actions_reject_get(signed_in: Client, name: str) -> None:
+    expense_account = make_expense_account("Walmart")
 
     assert signed_in.get(reverse(name, args=[expense_account.pk])).status_code == 405
 
 
-def test_delete_requires_confirmation_then_deletes(
-    signed_in: Client, user: User
-) -> None:
-    expense_account = make_expense_account(user, "Walmart")
+def test_delete_requires_confirmation_then_deletes(signed_in: Client) -> None:
+    expense_account = make_expense_account("Walmart")
     url = reverse("expense_account_delete", args=[expense_account.pk])
 
     assert signed_in.get(url).status_code == 200
@@ -243,29 +212,6 @@ def test_delete_requires_confirmation_then_deletes(
 
     assert response["Location"] == reverse("expense_account_list")
     assert not ExpenseAccount.objects.exists()
-
-
-@pytest.mark.parametrize(
-    "url_name",
-    [
-        "expense_account_edit",
-        "expense_account_delete",
-        "expense_account_merge",
-        "expense_account_hide",
-    ],
-)
-def test_other_users_expense_account_is_not_found(
-    signed_in: Client, other_user: User, url_name: str
-) -> None:
-    expense_account = make_expense_account(other_user, "Walmart")
-
-    response = signed_in.post(
-        reverse(url_name, args=[expense_account.pk]), {"name": "Mine"}
-    )
-
-    assert response.status_code == 404
-    expense_account.refresh_from_db()
-    assert (expense_account.name, expense_account.hidden) == ("Walmart", False)
 
 
 def test_changes_are_recorded_against_the_acting_user(
@@ -289,7 +235,7 @@ def test_admin_shows_expense_accounts_with_history(
     client: Client, superuser: User
 ) -> None:
     client.force_login(superuser)
-    expense_account = make_expense_account(superuser, "Walmart")
+    expense_account = make_expense_account("Walmart")
 
     assert (
         client.get(reverse("admin:budget_expenseaccount_changelist")).status_code == 200
@@ -298,23 +244,13 @@ def test_admin_shows_expense_accounts_with_history(
     assert client.get(history).status_code == 200
 
 
-def test_deleting_a_user_removes_their_expense_accounts(
-    user: User, other_user: User
-) -> None:
-    make_expense_account(user, "Walmart")
-    make_expense_account(other_user, "Acme")
-
-    user.delete()
-
-    assert [p.name for p in ExpenseAccount.objects.all()] == ["Acme"]
-
-
 def test_concurrent_duplicate_expense_account_name_shows_error(
-    signed_in: Client, user: User, monkeypatch: pytest.MonkeyPatch
+    signed_in: Client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    make_expense_account(user, "Walmart")
+    make_expense_account("Walmart")
     # Simulates the race: validation passed before the other request committed.
     monkeypatch.setattr(ExpenseAccountForm, "clean_name", lambda self: "Walmart")
+    monkeypatch.setattr(ExpenseAccount, "validate_constraints", lambda *_, **__: None)
 
     response = signed_in.post(reverse("expense_account_create"), {"name": "walmart"})
 

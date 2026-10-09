@@ -15,10 +15,10 @@ pytestmark = pytest.mark.django_db
 
 
 def make_category(
-    owner: User, name: str, kind: str = Category.Kind.EXPENSE, **extra: str
+    name: str, kind: str = Category.Kind.EXPENSE, **extra: str
 ) -> Category:
     extra.setdefault("color", "cyan")
-    return Category.objects.create(owner=owner, name=name, kind=kind, **extra)
+    return Category.objects.create(name=name, kind=kind, **extra)
 
 
 def payload(
@@ -33,7 +33,7 @@ def signed_in(client: Client, user: User) -> Client:
     return client
 
 
-def test_create_category_defaults_icon_to_tag(signed_in: Client, user: User) -> None:
+def test_create_category_defaults_icon_to_tag(signed_in: Client) -> None:
     assert signed_in.get(reverse("category_create")).status_code == 200
 
     response = signed_in.post(
@@ -42,8 +42,7 @@ def test_create_category_defaults_icon_to_tag(signed_in: Client, user: User) -> 
 
     assert response["Location"] == reverse("category_list")
     category = Category.objects.get()
-    assert (category.owner, category.kind, category.name, category.icon) == (
-        user,
+    assert (category.kind, category.name, category.icon) == (
         Category.Kind.EXPENSE,
         "Groceries",
         "tag",
@@ -52,11 +51,11 @@ def test_create_category_defaults_icon_to_tag(signed_in: Client, user: User) -> 
 
 
 def test_list_groups_by_kind_expense_first_alphabetically_with_colour(
-    signed_in: Client, user: User
+    signed_in: Client,
 ) -> None:
-    make_category(user, "Snacks", icon="wallet", color="pink")
-    make_category(user, "Bread", icon="house", color="cyan")
-    make_category(user, "Salary", Category.Kind.INCOME)
+    make_category("Snacks", icon="wallet", color="pink")
+    make_category("Bread", icon="house", color="cyan")
+    make_category("Salary", Category.Kind.INCOME)
 
     body = signed_in.get(reverse("category_list")).content.decode()
 
@@ -66,10 +65,8 @@ def test_list_groups_by_kind_expense_first_alphabetically_with_colour(
     assert "text-cyan-600" in body
 
 
-def test_duplicate_name_of_same_kind_any_case_shows_error(
-    signed_in: Client, user: User
-) -> None:
-    make_category(user, "Groceries")
+def test_duplicate_name_of_same_kind_any_case_shows_error(signed_in: Client) -> None:
+    make_category("Groceries")
 
     response = signed_in.post(reverse("category_create"), payload("gROCERIES"))
 
@@ -78,8 +75,8 @@ def test_duplicate_name_of_same_kind_any_case_shows_error(
     assert Category.objects.count() == 1
 
 
-def test_same_name_of_the_other_kind_is_allowed(signed_in: Client, user: User) -> None:
-    make_category(user, "Refund")
+def test_same_name_of_the_other_kind_is_allowed(signed_in: Client) -> None:
+    make_category("Refund")
 
     response = signed_in.post(
         reverse("category_create"), payload("Refund", Category.Kind.INCOME)
@@ -87,14 +84,6 @@ def test_same_name_of_the_other_kind_is_allowed(signed_in: Client, user: User) -
 
     assert response.status_code == 302
     assert Category.objects.count() == 2
-
-
-def test_other_users_names_do_not_clash(signed_in: Client, other_user: User) -> None:
-    make_category(other_user, "Groceries")
-
-    response = signed_in.post(reverse("category_create"), payload("Groceries"))
-
-    assert response.status_code == 302
 
 
 def test_unknown_icon_is_rejected(signed_in: Client) -> None:
@@ -107,8 +96,8 @@ def test_unknown_icon_is_rejected(signed_in: Client) -> None:
     assert Category.objects.count() == 0
 
 
-def test_edit_changes_fields_and_kind(signed_in: Client, user: User) -> None:
-    category = make_category(user, "Bread")
+def test_edit_changes_fields_and_kind(signed_in: Client) -> None:
+    category = make_category("Bread")
     url = reverse("category_edit", args=[category.pk])
     assert signed_in.get(url).status_code == 200
 
@@ -133,8 +122,8 @@ def test_edit_changes_fields_and_kind(signed_in: Client, user: User) -> None:
     )
 
 
-def test_edit_keeping_own_name_is_allowed(signed_in: Client, user: User) -> None:
-    category = make_category(user, "Bread")
+def test_edit_keeping_own_name_is_allowed(signed_in: Client) -> None:
+    category = make_category("Bread")
 
     response = signed_in.post(
         reverse("category_edit", args=[category.pk]), payload("bread")
@@ -143,10 +132,8 @@ def test_edit_keeping_own_name_is_allowed(signed_in: Client, user: User) -> None
     assert response.status_code == 302
 
 
-def test_delete_requires_confirmation_then_deletes(
-    signed_in: Client, user: User
-) -> None:
-    category = make_category(user, "Bread")
+def test_delete_requires_confirmation_then_deletes(signed_in: Client) -> None:
+    category = make_category("Bread")
     url = reverse("category_delete", args=[category.pk])
 
     assert signed_in.get(url).status_code == 200
@@ -156,27 +143,6 @@ def test_delete_requires_confirmation_then_deletes(
 
     assert response["Location"] == reverse("category_list")
     assert Category.objects.count() == 0
-
-
-def test_deleting_the_owner_deletes_their_categories(user: User) -> None:
-    make_category(user, "Bread")
-
-    user.delete()
-
-    assert Category.objects.count() == 0
-
-
-@pytest.mark.parametrize("url_name", ["category_edit", "category_delete"])
-@pytest.mark.parametrize("method", ["get", "post"])
-def test_other_users_category_is_not_found(
-    signed_in: Client, other_user: User, url_name: str, method: str
-) -> None:
-    category = make_category(other_user, "Bread")
-
-    response = getattr(signed_in, method)(reverse(url_name, args=[category.pk]))
-
-    assert response.status_code == 404
-    assert Category.objects.count() == 1
 
 
 @pytest.mark.parametrize(
@@ -207,7 +173,7 @@ def test_every_change_is_recorded(signed_in: Client, user: User) -> None:
 
 def test_admin_shows_categories_with_history(client: Client, superuser: User) -> None:
     client.force_login(superuser)
-    category = make_category(superuser, "Bread")
+    category = make_category("Bread")
 
     assert client.get(reverse("admin:budget_category_changelist")).status_code == 200
     history = reverse("admin:budget_category_history", args=[category.pk])
@@ -215,10 +181,11 @@ def test_admin_shows_categories_with_history(client: Client, superuser: User) ->
 
 
 def test_concurrent_duplicate_category_name_shows_error(
-    signed_in: Client, user: User, monkeypatch: pytest.MonkeyPatch
+    signed_in: Client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    make_category(user, "Rent", color="red")
+    make_category("Rent", color="red")
     monkeypatch.setattr(CategoryForm, "clean", lambda self: self.cleaned_data)
+    monkeypatch.setattr(Category, "validate_constraints", lambda *_, **__: None)
 
     response = signed_in.post(reverse("category_create"), payload("rent", color="red"))
 

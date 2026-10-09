@@ -31,7 +31,6 @@ class Migration(migrations.Migration):
                 ('history_change_reason', models.CharField(max_length=100, null=True)),
                 ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
                 ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('owner', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'verbose_name': 'historical category',
@@ -53,7 +52,6 @@ class Migration(migrations.Migration):
                 ('history_change_reason', models.CharField(max_length=100, null=True)),
                 ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
                 ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('owner', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'verbose_name': 'historical expense account',
@@ -73,11 +71,10 @@ class Migration(migrations.Migration):
                 ('description', models.CharField(blank=True, max_length=500)),
                 ('color', models.CharField(choices=[('slate', 'Slate'), ('red', 'Red'), ('orange', 'Orange'), ('amber', 'Amber'), ('green', 'Green'), ('cyan', 'Cyan'), ('blue', 'Blue'), ('violet', 'Violet'), ('pink', 'Pink')], max_length=16)),
                 ('hidden', models.BooleanField(default=False)),
-                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='+', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'verbose_name_plural': 'categories',
-                'constraints': [models.UniqueConstraint(django.db.models.functions.text.Lower('name'), models.F('owner'), models.F('kind'), name='budget_category_owner_kind_name_ci_unique')],
+                'constraints': [models.UniqueConstraint(django.db.models.functions.text.Lower('name'), models.F('kind'), name='budget_category_kind_name_ci_unique')],
             },
         ),
         migrations.CreateModel(
@@ -87,11 +84,10 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=100)),
                 ('notes', models.TextField(blank=True)),
                 ('hidden', models.BooleanField(default=False)),
-                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='+', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'verbose_name_plural': 'expense accounts',
-                'constraints': [models.UniqueConstraint(django.db.models.functions.text.Lower('name'), models.F('owner'), name='budget_expenseaccount_owner_name_ci_unique')],
+                'constraints': [models.UniqueConstraint(django.db.models.functions.text.Lower('name'), name='budget_expenseaccount_name_ci_unique')],
             },
         ),
     ]
