@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.classification",
     "apps.accounts",
+    "apps.transactions",
 ]
 
 

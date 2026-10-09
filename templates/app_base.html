@@ -5,6 +5,7 @@
   {% url 'password_change' as password_change_url %}
   {% url 'party_list' as parties_url %}
   {% url 'tag_list' as tags_url %}
+  {% url 'transaction_list' as transactions_url %}
   {% url 'account_list' 'asset' as asset_accounts_url %}
   {% url 'account_list' 'liability' as liability_accounts_url %}
   {% url 'account_list' 'expense' as expense_accounts_url %}
@@ -14,6 +15,7 @@
       <a href="{{ home_url }}" class="text-lg font-bold tracking-tight">Velora</a>
       <nav class="mt-4 flex flex-wrap gap-1 md:flex-col">
         <a href="{{ home_url }}" class="nav-link{% if request.path == home_url %} nav-link-active{% endif %}">Home</a>
+        <a href="{{ transactions_url }}" class="nav-link{% if transactions_url in request.path %} nav-link-active{% endif %}">Transactions</a>
         <details class="group w-full"{% if parties_url in request.path or tags_url in request.path %} open{% endif %}>
           <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
             Classification

@@ -15,5 +15,6 @@ urlpatterns = [
     path("auth/", include("apps.users.urls")),
     path("", include("apps.classification.urls")),
     path("", include("apps.accounts.urls")),
+    path("", include("apps.transactions.urls")),
     path(settings.ADMIN_URL, admin.site.urls),
 ]

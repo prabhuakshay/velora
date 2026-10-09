@@ -4,7 +4,7 @@
 
 {% block card %}
   <h1 class="text-xl font-semibold">Delete {{ noun }}</h1>
-  <p class="mt-4 text-slate-700">Delete <strong>{{ object.name }}</strong>? This cannot be undone.</p>
+  <p class="mt-4 text-slate-700">Delete <strong>{{ object }}</strong>? This cannot be undone.</p>
   <form method="post" class="mt-6">
     {% csrf_token %}
     <button type="submit" class="w-full rounded-lg bg-red-600 px-4 py-2.5 font-medium text-white hover:bg-red-700">Delete</button>

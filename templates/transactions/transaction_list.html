@@ -1,0 +1,40 @@
+{% extends "app_base.html" %}
+
+{% block title %}Transactions · Velora{% endblock %}
+
+{% block main %}
+  <div class="flex items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold tracking-tight">Transactions</h1>
+    <a href="{% url 'transaction_create' %}" class="btn-primary py-2 text-sm">New Transaction</a>
+  </div>
+  <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+    {% for transaction in page %}
+      <li class="flex items-center justify-between gap-3 py-3">
+        <div class="min-w-0">
+          <p class="truncate font-medium">
+            <span class="text-slate-500">{{ transaction.date|date:"j M Y" }}</span>
+            {% if transaction.party %}· {{ transaction.party }}{% endif %}
+          </p>
+          {% if transaction.description %}<p class="truncate text-sm text-slate-700">{{ transaction.description }}</p>{% endif %}
+          {% for split in transaction.splits.all %}
+            <p class="truncate text-xs text-slate-500">{{ split.from_account }} → {{ split.to_account }}</p>
+          {% endfor %}
+        </div>
+        <div class="flex shrink-0 items-center gap-3 text-sm">
+          <span class="font-medium tabular-nums">₹{{ transaction.total }}</span>
+          <a href="{% url 'transaction_edit' transaction.pk %}" class="link">Edit</a>
+          <a href="{% url 'transaction_delete' transaction.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
+        </div>
+      </li>
+    {% empty %}
+      <li class="py-3 text-slate-500">No Transactions yet.</li>
+    {% endfor %}
+  </ul>
+  {% if page.paginator.num_pages > 1 %}
+    <nav class="mt-4 flex items-center justify-between text-sm">
+      {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}" class="link">Newer</a>{% else %}<span></span>{% endif %}
+      <span class="text-slate-500">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}<a href="?page={{ page.next_page_number }}" class="link">Older</a>{% else %}<span></span>{% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

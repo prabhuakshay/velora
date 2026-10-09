@@ -127,7 +127,12 @@ module = ["environ", "simple_history.*", "axes.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["apps.users.admin", "apps.classification.admin", "apps.accounts.admin"]
+module = [
+    "apps.users.admin",
+    "apps.classification.admin",
+    "apps.accounts.admin",
+    "apps.transactions.admin",
+]
 # SimpleHistoryAdmin is untyped.
 disallow_subclassing_any = false
 

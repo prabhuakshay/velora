@@ -1,0 +1,32 @@
+{% extends "app_base.html" %}
+
+{% block title %}{% if transaction %}Edit{% else %}New{% endif %} Transaction · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">{% if transaction %}Edit{% else %}New{% endif %} Transaction</h1>
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    {% include "partials/form_errors.html" %}
+    {% include "partials/field.html" with field=form.date %}
+    {% include "partials/field.html" with field=form.party %}
+    {% include "partials/field.html" with field=form.description %}
+    {{ formset.management_form }}
+    {% for error in formset.non_form_errors %}
+      <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
+    {% endfor %}
+    {% for split in formset %}
+      <fieldset class="space-y-4 rounded-lg border border-slate-200 p-4">
+        <legend class="px-1 text-sm font-medium text-slate-700">Split</legend>
+        {% for hidden in split.hidden_fields %}{{ hidden }}{% endfor %}
+        {% include "partials/form_errors.html" with form=split %}
+        {% include "partials/field.html" with field=split.from_account %}
+        {% include "partials/field.html" with field=split.to_account %}
+        {% include "partials/field.html" with field=split.amount %}
+      </fieldset>
+    {% endfor %}
+    {% include "partials/submit.html" with label="Save" %}
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'transaction_list' %}" class="link">Cancel</a>
+  </p>
+{% endblock %}
