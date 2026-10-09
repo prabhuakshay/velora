@@ -5,17 +5,27 @@ from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction as db_transaction
 from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.quick_add import openrouter
-from apps.quick_add.forms import QuickAddForm
+from apps.quick_add.forms import NewPartyForm, QuickAddForm
 from apps.quick_add.models import DraftSplit, QuickAdd
-from apps.quick_add.posting import DraftNotPostableError, post_draft
+from apps.quick_add.posting import (
+    DraftNotPostableError,
+    form_data,
+    mark_posted,
+    matching_party,
+    party_named,
+    post_draft,
+)
 from apps.quick_add.stats import ai_stats
 from apps.quick_add.tasks import process_quick_add
+from apps.transactions.models import Transaction
+from apps.transactions.recording import TransactionForms
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -98,6 +108,39 @@ def draft_post(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG0
         quick_add.failure_reason = str(error)
         quick_add.save(update_fields=["failure_reason"])
     return redirect("draft_list")
+
+
+# TransactionForms.save must be the real commit, so a failed commit is seen
+# there and the new files can be removed.
+@db_transaction.non_atomic_requests
+@login_required
+@requires_quick_add
+def draft_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """The Transaction form filled from the Draft; saving it posts the Draft."""
+    quick_add = get_object_or_404(QuickAdd, pk=pk, status=QuickAdd.Status.DRAFT)
+    draft = quick_add.draft
+    if request.method == "POST":
+        forms = TransactionForms(request.POST, request.FILES, instance=Transaction())
+        new_party = NewPartyForm(request.POST)
+        if forms.is_valid() and new_party.is_valid():
+            name = new_party.cleaned_data["new_party_name"]
+            if name and not forms.form.cleaned_data["party"]:
+                forms.form.instance.party = party_named(name)
+            mark_posted(quick_add, forms.save(), without_edits=False)
+            return redirect("draft_list")
+    else:
+        party = matching_party(draft)
+        # Bound, so a Draft that no longer passes shows why straight away.
+        forms = TransactionForms(form_data(draft, party), instance=Transaction())
+        forms.is_valid()
+        new_party = NewPartyForm(
+            initial={"new_party_name": "" if party else draft.new_party_name}
+        )
+    return render(
+        request,
+        "transactions/transaction_form.html",
+        {"form": forms.form, "formset": forms.formset, "new_party": new_party},
+    )
 
 
 @login_required

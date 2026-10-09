@@ -1,14 +1,15 @@
 {% extends "app_base.html" %}
 
-{% block title %}{% if transaction %}Edit{% else %}New{% endif %} Transaction · Velora{% endblock %}
+{% block title %}{% if new_party %}Edit Draft{% elif transaction %}Edit Transaction{% else %}New Transaction{% endif %} · Velora{% endblock %}
 
 {% block card %}
-  <h1 class="text-xl font-semibold">{% if transaction %}Edit{% else %}New{% endif %} Transaction</h1>
+  <h1 class="text-xl font-semibold">{% if new_party %}Edit Draft{% elif transaction %}Edit Transaction{% else %}New Transaction{% endif %}</h1>
   <form method="post" enctype="multipart/form-data" class="mt-6 space-y-4">
     {% csrf_token %}
     {% include "partials/form_errors.html" %}
     {% include "partials/field.html" with field=form.date %}
     {% include "partials/field.html" with field=form.party %}
+    {% if new_party %}{% include "partials/field.html" with field=new_party.new_party_name %}{% endif %}
     {% include "partials/field.html" with field=form.description %}
     {% with attachments=transaction.attachments.all %}
       {% if attachments %}{% include "transactions/attachment_list.html" %}{% endif %}
@@ -36,6 +37,6 @@
     </form>
   {% endfor %}
   <p class="mt-4 text-center text-sm">
-    <a href="{% url 'transaction_list' %}" class="link">Cancel</a>
+    <a href="{% if new_party %}{% url 'draft_list' %}{% else %}{% url 'transaction_list' %}{% endif %}" class="link">Cancel</a>
   </p>
 {% endblock %}
