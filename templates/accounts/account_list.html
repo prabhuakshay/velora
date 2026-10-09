@@ -28,6 +28,7 @@
             <button class="link">{% if account.hidden %}Unhide{% else %}Hide{% endif %}</button>
           </form>
           <a href="{% url 'account_edit' kind account.pk %}" class="link">Edit</a>
+          <a href="{% url 'account_merge' kind account.pk %}" class="link">Merge</a>
           <a href="{% url 'account_delete' kind account.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
         </div>
       </li>

@@ -37,6 +37,11 @@ urlpatterns = [
         name="account_unhide",
     ),
     path(
+        "accounts/<kind:kind>/<int:pk>/merge/",
+        views.account_merge,
+        name="account_merge",
+    ),
+    path(
         "accounts/<kind:kind>/<int:pk>/delete/",
         views.account_delete,
         name="account_delete",

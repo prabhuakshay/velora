@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Any, ClassVar
 
 from django import forms
+from django.db.models.functions import Lower
 from django.utils import timezone
 
 from apps.accounts.models import Account
@@ -54,3 +55,17 @@ class AccountForm(forms.ModelForm[Account]):
         if clash.exists():
             raise forms.ValidationError(self.duplicate_name_error)
         return name
+
+
+class AccountMergeForm(forms.Form):
+    """Choose another Account of the same kind to Merge the source into."""
+
+    target = forms.ModelChoiceField(queryset=Account.objects.none(), label="Merge into")
+
+    def __init__(self, source: Account, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        super().__init__(*args, **kwargs)
+        self.fields["target"].queryset = (  # type: ignore[attr-defined]
+            Account.objects.filter(kind=source.kind)
+            .exclude(pk=source.pk)
+            .order_by(Lower("name"))
+        )

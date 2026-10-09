@@ -97,7 +97,7 @@ def test_hidden_account_and_party_are_kept_when_editing(signed_in: Client) -> No
     assert transaction.splits.get().amount == Decimal(6)
 
 
-def test_accounts_and_parties_in_use_cannot_be_deleted(signed_in: Client) -> None:
+def test_parties_in_use_cannot_be_deleted(signed_in: Client) -> None:
     bank = make_account("Bank", "asset")
     groceries = make_account("Groceries", "expense")
     shop = Party.objects.create(name="Big Bazaar")
@@ -105,11 +105,26 @@ def test_accounts_and_parties_in_use_cannot_be_deleted(signed_in: Client) -> Non
         reverse("transaction_create"), form_data(bank, groceries, party=shop.pk)
     )
 
-    for url in [
-        account_url("account_delete", bank),
-        account_url("account_delete", groceries),
-        reverse("party_delete", args=[shop.pk]),
-    ]:
-        with pytest.raises(ProtectedError):
-            signed_in.post(url)
+    with pytest.raises(ProtectedError):
+        signed_in.post(reverse("party_delete", args=[shop.pk]))
+    assert Transaction.objects.get().splits.count() == 1
+
+
+@pytest.mark.parametrize("method", ["get", "post"])
+def test_deleting_an_account_in_use_sends_to_merge(
+    signed_in: Client, method: str
+) -> None:
+    bank = make_account("Bank", "asset")
+    groceries = make_account("Groceries", "expense")
+    signed_in.post(reverse("transaction_create"), form_data(bank, groceries))
+
+    for account in [bank, groceries]:
+        response = getattr(signed_in, method)(
+            account_url("account_delete", account), follow=True
+        )
+
+        assert response.redirect_chain == [(account_url("account_merge", account), 302)]
+        body = response.content.decode()
+        assert f"{account} is used by Transactions" in body
+        assert "hide it" in body
     assert Transaction.objects.get().splits.count() == 1
