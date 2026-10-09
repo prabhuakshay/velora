@@ -61,6 +61,24 @@ def test_index_shows_logout_when_signed_in(client: Client, user: User) -> None:
     assert reverse("logout").encode() in response.content
 
 
+def test_sidebar_shows_profile_menu(client: Client, user: User) -> None:
+    client.force_login(user)
+
+    content = client.get(reverse("index")).content.decode()
+
+    assert re.search(r"<summary[^>]*>\s*Profile\b", content)
+    assert not re.search(r"<summary[^>]*>\s*Account\b", content)
+    assert not re.search(r"<details[^>]*open>\s*<summary[^>]*>\s*Profile", content)
+
+
+def test_profile_menu_opens_on_password_change_page(client: Client, user: User) -> None:
+    client.force_login(user)
+
+    content = client.get(reverse("password_change")).content.decode()
+
+    assert re.search(r"<details[^>]*open>\s*<summary[^>]*>\s*Profile", content)
+
+
 def test_logout_signs_out(client: Client, user: User) -> None:
     client.force_login(user)
 
