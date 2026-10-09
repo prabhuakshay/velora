@@ -2,10 +2,12 @@
 
 from typing import TYPE_CHECKING, cast, override
 
+from axes.utils import reset
 from django import forms
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AdminUserCreationForm, UserChangeForm
 
+from apps.users.client_ip import get_client_ip
 from apps.users.models import User
 
 if TYPE_CHECKING:
@@ -60,4 +62,7 @@ class PrivacyModeOffForm(forms.Form):
         if not authenticate(self.request, username=email, password=cleaned["password"]):
             msg = "Wrong password."
             raise forms.ValidationError(msg)
+        # authenticate doesn't log in, so axes never sees the success that
+        # would clear this user's failures (AXES_RESET_ON_SUCCESS) at login.
+        reset(ip=get_client_ip(self.request), username=email)
         return cleaned

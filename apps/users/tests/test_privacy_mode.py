@@ -327,6 +327,20 @@ def test_edit_pages_open_while_off(signed_in: Client) -> None:
         assert signed_in.get(url).status_code == 200
 
 
+def test_correct_password_clears_failed_attempts(signed_in: Client) -> None:
+    turn_on(signed_in)
+    for _ in range(settings.AXES_FAILURE_LIMIT - 1):
+        turn_off(signed_in, "wrong")
+    turn_off(signed_in)
+    turn_on(signed_in)
+
+    for _ in range(settings.AXES_FAILURE_LIMIT - 1):
+        turn_off(signed_in, "wrong")
+    response = turn_off(signed_in)
+
+    assert response.status_code == 302
+
+
 def test_masked_amount_is_labelled_for_screen_readers(signed_in: Client) -> None:
     opening("Bank", "asset", "1000")
     turn_on(signed_in)
