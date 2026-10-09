@@ -10,6 +10,11 @@ from django.utils.formats import date_format
 
 from apps.accounts.models import BALANCE_KINDS, Account
 from apps.classification.models import Party, Tag
+from apps.transactions.attachment_rules import (
+    MAX_ATTACHMENTS,
+    attachment_error,
+    content_type,
+)
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -104,6 +109,21 @@ class TransactionForm(forms.ModelForm[Transaction]):
             msg = "The date cannot be after today."
             raise forms.ValidationError(msg)
         return when
+
+    def clean_attachments(self) -> list[UploadedFile[bytes]]:
+        """Reject files that may not be kept as Attachments."""
+        files: list[UploadedFile[bytes]] = self.cleaned_data["attachments"]
+        errors = [error for file in files if (error := attachment_error(file))]
+        existing = self.instance.attachments.count() if self.instance.pk else 0
+        if existing + len(files) > MAX_ATTACHMENTS:
+            errors.append(
+                f"A Transaction can have at most {MAX_ATTACHMENTS} Attachments."
+            )
+        if errors:
+            raise forms.ValidationError(errors)
+        for file in files:
+            file.content_type = content_type(file)
+        return files
 
 
 class SplitForm(forms.ModelForm[Split]):
