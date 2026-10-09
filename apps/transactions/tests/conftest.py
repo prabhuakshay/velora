@@ -96,6 +96,22 @@ def second_save_fails(settings: Settings) -> None:
     }
 
 
+class DeleteFailsStorage(InMemoryStorage):
+    """Stores files but can't delete them, like an outage mid-delete."""
+
+    def delete(self, name: str) -> None:
+        msg = "storage unavailable"
+        raise OSError(msg)
+
+
+@pytest.fixture
+def delete_fails(settings: Settings) -> None:
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "apps.transactions.tests.conftest.DeleteFailsStorage"},
+    }
+
+
 class PresigningStorage(InMemoryStorage):
     """Puts url() parameters in the query string, as S3 presigned URLs do."""
 

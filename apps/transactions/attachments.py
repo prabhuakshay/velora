@@ -3,6 +3,7 @@
 import inspect
 from typing import TYPE_CHECKING
 
+from django.db import transaction as db_transaction
 from django.utils.http import content_disposition_header
 
 from apps.transactions.models import Attachment
@@ -14,6 +15,10 @@ if TYPE_CHECKING:
     from django.db.models.fields.files import FieldFile
 
     from apps.transactions.models import Transaction
+
+STORAGE_DELETE_FAILED = (
+    "Couldn't remove attachments from storage; nothing was deleted. Try again."
+)
 
 
 def attachment_url(attachment: Attachment) -> str:
@@ -65,3 +70,15 @@ def save_attachments(
         for file in written:
             file.delete(save=False)
         raise
+
+
+def delete_attachment(attachment: Attachment) -> None:
+    """Delete the Attachment and its stored file, or neither.
+
+    The file goes last, inside the database transaction, so a storage
+    failure rolls the row back. Storages treat a missing file as deleted,
+    so a delete that failed partway can be retried.
+    """
+    with db_transaction.atomic():
+        attachment.delete()
+        attachment.file.delete(save=False)

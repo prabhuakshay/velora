@@ -2,14 +2,21 @@
 
 from typing import TYPE_CHECKING, cast
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
 from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from apps.core.views import paginate
-from apps.transactions.attachments import attachment_url, save_attachments
+from apps.transactions.attachments import (
+    STORAGE_DELETE_FAILED,
+    attachment_url,
+    delete_attachment,
+    save_attachments,
+)
 from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
 from apps.transactions.models import Attachment, Split, Transaction
 from apps.users.privacy_mode import blocked_in_privacy_mode
@@ -112,6 +119,19 @@ def split_row(request: HttpRequest) -> HttpResponse:
 def attachment_open(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
     """Send the browser to a short-lived storage link for the Attachment."""
     return redirect(attachment_url(get_object_or_404(Attachment, pk=pk)))
+
+
+@login_required
+@require_POST
+def attachment_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Delete an Attachment and its stored file, then return to its Transaction."""
+    attachment = get_object_or_404(Attachment, pk=pk)
+    try:
+        delete_attachment(attachment)
+    # Storage backends raise their own error types, such as botocore's on R2.
+    except Exception:  # noqa: BLE001
+        messages.error(request, STORAGE_DELETE_FAILED)
+    return redirect("transaction_edit", pk=attachment.transaction_id)
 
 
 @login_required

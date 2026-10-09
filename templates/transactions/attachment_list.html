@@ -13,6 +13,8 @@
         <a href="{{ open_url }}" target="_blank" rel="noopener" class="link block truncate text-sm">{{ attachment.original_name }}</a>
         <p class="text-xs text-slate-500">{{ attachment.size|filesizeformat }}</p>
       </div>
+      {# The edit page's form can't contain another, so the button submits a form placed after it. #}
+      <button type="submit" form="delete-attachment-{{ attachment.pk }}" class="ml-auto text-sm text-red-600 underline hover:text-red-800">Delete</button>
     </li>
   {% endfor %}
 </ul>
