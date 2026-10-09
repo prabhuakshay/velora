@@ -26,6 +26,7 @@
             {% csrf_token %}
             <button class="link">{% if party.hidden %}Unhide{% else %}Hide{% endif %}</button>
           </form>
+          <a href="{% url 'party_transactions' party.pk %}" class="link">View</a>
           <a href="{% url 'party_edit' party.pk %}" class="link">Edit</a>
           <a href="{% url 'party_merge' party.pk %}" class="link">Merge</a>
           <a href="{% url 'party_delete' party.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>

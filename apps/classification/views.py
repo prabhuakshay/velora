@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Prefetch
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import pluralize
@@ -20,6 +21,7 @@ from apps.core.views import (
     save_unique_name,
     set_hidden,
 )
+from apps.transactions.models import Split
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -39,6 +41,23 @@ def party_list(request: HttpRequest) -> HttpResponse:
         request,
         "classification/party_list.html",
         {"page": paginate(request, parties), "show_hidden": show_hidden},
+    )
+
+
+@login_required
+def party_transactions(request: HttpRequest, pk: int) -> HttpResponse:
+    """List a party's Transactions, newest first, a page at a time."""
+    party = get_object_or_404(Party, pk=pk)
+    transactions = party.transactions.prefetch_related(
+        Prefetch(
+            "splits",
+            queryset=Split.objects.select_related("from_account", "to_account"),
+        )
+    ).order_by("-date", "-pk")
+    return render(
+        request,
+        "classification/party_transactions.html",
+        {"party": party, "page": paginate(request, transactions)},
     )
 
 

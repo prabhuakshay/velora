@@ -22,6 +22,7 @@ def list_page(client: Client, query: str = "") -> str:
     ("url_name", "args"),
     [
         ("party_list", []),
+        ("party_transactions", [1]),
         ("party_create", []),
         ("party_edit", [1]),
         ("party_delete", [1]),

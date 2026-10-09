@@ -1,0 +1,31 @@
+{% extends "app_base.html" %}
+
+{% block title %}{{ party.name }} · Parties · Velora{% endblock %}
+
+{% block main %}
+  <p class="text-sm"><a href="{% url 'party_list' %}" class="link">Parties</a></p>
+  <div class="mt-2 flex items-center justify-between gap-3">
+    <h1 class="truncate text-2xl font-bold tracking-tight">{{ party.name }}</h1>
+    <a href="{% url 'party_edit' party.pk %}" class="btn-primary py-2 text-sm">Edit</a>
+  </div>
+  {% if party.notes %}<p class="mt-2 text-sm text-slate-500">{{ party.notes }}</p>{% endif %}
+  <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+    {% for transaction in page %}
+      <li class="flex items-center justify-between gap-3 py-3">
+        <div class="min-w-0">
+          <p class="truncate font-medium text-slate-500">{{ transaction.date|date:"j M Y" }}</p>
+          {% if transaction.description %}<p class="truncate text-sm text-slate-700">{{ transaction.description }}</p>{% endif %}
+          {% for split in transaction.splits.all %}
+            <p class="truncate text-xs text-slate-500">{{ split.from_account }} → {{ split.to_account }} <span class="tabular-nums">{% amount split.amount %}</span></p>
+          {% endfor %}
+        </div>
+        <div class="flex shrink-0 items-center gap-3 text-sm">
+          <a href="{% url 'transaction_edit' transaction.pk %}" class="link">Edit</a>
+        </div>
+      </li>
+    {% empty %}
+      <li class="py-3 text-slate-500">No Transactions yet.</li>
+    {% endfor %}
+  </ul>
+  {% include "partials/pagination.html" with previous_label="Newer" next_label="Older" %}
+{% endblock %}
