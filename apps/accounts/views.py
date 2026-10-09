@@ -24,6 +24,7 @@ from apps.core.views import (
     set_hidden,
 )
 from apps.transactions.models import Split, Transaction
+from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
     from decimal import Decimal
@@ -149,6 +150,7 @@ def account_create(request: HttpRequest, kind: str) -> HttpResponseBase:
 
 
 @login_required
+@blocked_in_privacy_mode
 def account_edit(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
     """Edit an Account, which must be of the kind in the URL."""
     account = get_object_or_404(Account, pk=pk, kind=kind)
