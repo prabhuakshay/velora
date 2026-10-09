@@ -36,8 +36,8 @@ def net_worth(as_of: date) -> NetWorth:
     """Net Worth as of a date: the sum of each Account's value, hidden ones included."""
     # Value is the Balance; an investment Account could supply market value here.
     totals: dict[str, Decimal] = dict.fromkeys(BALANCE_KINDS, Decimal(0))
-    accounts = Account.objects.filter(kind__in=BALANCE_KINDS).with_balance(as_of)
-    for account in accounts:
+    included = Account.objects.filter(kind__in=BALANCE_KINDS, include_in_net_worth=True)
+    for account in included.with_balance(as_of):
         totals[account.kind] += account.balance
     return NetWorth(
         assets=totals[AccountKind.ASSET], liabilities=totals[AccountKind.LIABILITY]
