@@ -24,6 +24,8 @@ def pytest_configure() -> None:
     # Defaults to on unless DEBUG, which made tests pass only with a local .env
     # setting DEBUG=True; the test client speaks plain HTTP and got 301s.
     settings.SECURE_SSL_REDIRECT = False
+    # A real key in a local .env turns Quick Add on and changes query counts.
+    settings.OPENROUTER_API_KEY = ""
 
 
 @pytest.fixture(autouse=True)
