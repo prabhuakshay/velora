@@ -7,3 +7,4 @@
 - [ ] Add recurring transactions
 - [ ] Add rules
 - [ ] Add asset module
+- [ ] Add stats for media storage size
