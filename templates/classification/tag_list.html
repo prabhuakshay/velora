@@ -27,6 +27,7 @@
             <button class="link">{% if tag.hidden %}Unhide{% else %}Hide{% endif %}</button>
           </form>
           <a href="{% url 'tag_edit' tag.pk %}" class="link">Edit</a>
+          <a href="{% url 'tag_merge' tag.pk %}" class="link">Merge</a>
           <a href="{% url 'tag_delete' tag.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
         </div>
       </li>

@@ -26,6 +26,7 @@ def list_page(client: Client, query: str = "") -> str:
         ("tag_delete", [1]),
         ("tag_hide", [1]),
         ("tag_unhide", [1]),
+        ("tag_merge", [1]),
     ],
 )
 def test_anonymous_is_redirected_to_login(

@@ -10,8 +10,8 @@ from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.classification.forms import PartyForm, PartyMergeForm, TagForm
-from apps.classification.merge import merge_party
+from apps.classification.forms import PartyForm, PartyMergeForm, TagForm, TagMergeForm
+from apps.classification.merge import merge_party, merge_tag
 from apps.classification.models import Party, Tag
 from apps.core.views import save_unique_name, set_hidden
 
@@ -171,13 +171,43 @@ def tag_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 @login_required
 def tag_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Confirm, then delete a tag."""
+    """Confirm, then delete a tag; one in use is removed from its Splits."""
     tag = get_object_or_404(Tag, pk=pk)
     if request.method == "POST":
         tag.delete()
         return redirect("tag_list")
+    if split_count := tag.splits.count():
+        return render(
+            request,
+            "classification/tag_in_use.html",
+            {"tag": tag, "split_count": split_count},
+        )
     return render(
         request,
         "confirm_delete.html",
         {"object": tag, "noun": "tag", "list_url": reverse("tag_list")},
+    )
+
+
+@login_required
+def tag_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Choose a target, then Merge a tag into it."""
+    tag = get_object_or_404(Tag, pk=pk)
+    form = TagMergeForm(tag, request.POST or None)
+    if form.is_valid():
+        target = form.cleaned_data["target"]
+        merge_tag(tag, target)
+        messages.success(request, f"Merged {tag} into {target}.")
+        return redirect("tag_list")
+    count = tag.splits.count()
+    return render(
+        request,
+        "merge.html",
+        {
+            "object": tag,
+            "noun": "tag",
+            "form": form,
+            "impact": [f"{count} Split{pluralize(count)} will move."],
+            "list_url": reverse("tag_list"),
+        },
     )

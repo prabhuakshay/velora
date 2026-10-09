@@ -64,3 +64,14 @@ class PartyMergeForm(forms.Form):
         super().__init__(data)
         target = cast("forms.ModelChoiceField[Party]", self.fields["target"])
         target.queryset = Party.objects.exclude(pk=source.pk).order_by(Lower("name"))
+
+
+class TagMergeForm(forms.Form):
+    """Choose the Tag to Merge a source Tag into."""
+
+    target = forms.ModelChoiceField(queryset=Tag.objects.none(), label="Merge into")
+
+    def __init__(self, source: Tag, data: dict[str, Any] | None = None) -> None:
+        super().__init__(data)
+        target = cast("forms.ModelChoiceField[Tag]", self.fields["target"])
+        target.queryset = Tag.objects.exclude(pk=source.pk).order_by(Lower("name"))

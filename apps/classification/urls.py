@@ -16,4 +16,5 @@ urlpatterns = [
     path("tags/<int:pk>/hide/", views.tag_hide, name="tag_hide"),
     path("tags/<int:pk>/unhide/", views.tag_unhide, name="tag_unhide"),
     path("tags/<int:pk>/delete/", views.tag_delete, name="tag_delete"),
+    path("tags/<int:pk>/merge/", views.tag_merge, name="tag_merge"),
 ]
