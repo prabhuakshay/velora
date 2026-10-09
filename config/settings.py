@@ -7,12 +7,13 @@ local development only needs `DEBUG=True` to relax the security settings.
 Sections:
     1. Core                 6. Authentication and brute-force protection
     2. Applications         7. Internationalization
-    3. Middleware           8. Static and media files
+    3. Middleware           8. Static files and Attachments
     4. Templates            9. Security
     5. Database and cache  10. Email
                            11. Logging
 
-Required variables: SECRET_KEY, DATABASE_URL.
+Required variables: SECRET_KEY, DATABASE_URL, and the R2_* variables in
+section 8 before any Attachment is uploaded or opened.
 """
 
 from pathlib import Path
@@ -220,7 +221,7 @@ USE_TZ = True
 
 
 # =============================================================================
-# 8. Static and media files
+# 8. Static files and Attachments
 # =============================================================================
 
 # Static files are served by WhiteNoise; run `collectstatic` before deploying.
@@ -229,13 +230,21 @@ STATIC_ROOT = env.path("STATIC_ROOT", default=BASE_DIR / "staticfiles")
 # Built by the tailwind container (npm run build/watch); not in git.
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# WARNING: WhiteNoise does not serve media. Uploads need a separate web
-# server or object storage in production.
-MEDIA_URL = env.str("MEDIA_URL", default="media/")
-MEDIA_ROOT = env.path("MEDIA_ROOT", default=BASE_DIR / "media")
+# Attachments live in a private Cloudflare R2 bucket, in dev (a separate test
+# bucket) as in production (ADR 0004). Blank values only fail when storage is
+# first used, so CI, tests and collectstatic run without R2 credentials.
+R2_ENDPOINT_URL = env.str("R2_ENDPOINT_URL", default="")
 
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "default": {
+        "BACKEND": "config.storage.R2Storage",
+        "OPTIONS": {
+            "endpoint_url": R2_ENDPOINT_URL,
+            "bucket_name": env.str("R2_BUCKET_NAME", default=""),
+            "access_key": env.str("R2_ACCESS_KEY_ID", default=""),
+            "secret_key": env.str("R2_SECRET_ACCESS_KEY", default=""),
+        },
+    },
     # Hashed filenames allow far-future caching, but a missing file referenced
     # by a template raises an error instead of a silent 404.
     "staticfiles": {
@@ -284,7 +293,8 @@ SECURE_CSP = {
     "script-src": [CSP.SELF, CSP.NONCE],
     # The admin change list has a nonced <style> block.
     "style-src": [CSP.SELF, CSP.NONCE],
-    "img-src": [CSP.SELF, "data:"],
+    # Attachment previews redirect to presigned R2 links.
+    "img-src": [CSP.SELF, "data:", *([R2_ENDPOINT_URL] if R2_ENDPOINT_URL else [])],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],
     "frame-ancestors": [CSP.NONE],

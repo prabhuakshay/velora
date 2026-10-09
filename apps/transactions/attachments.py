@@ -1,6 +1,5 @@
 """Writing a Transaction's Attachments to storage (ADR 0004)."""
 
-import inspect
 from typing import TYPE_CHECKING
 
 from django.utils.http import content_disposition_header
@@ -17,15 +16,11 @@ if TYPE_CHECKING:
 
 
 def attachment_url(attachment: Attachment) -> str:
-    """A storage link that shows images and PDFs inline and downloads the rest.
+    """A presigned link that shows images and PDFs inline and downloads the rest.
 
-    Backends that sign their links, like S3/R2 presigned URLs, take the
-    response headers as ``parameters``; others can't set headers and get the
-    bare link.
+    R2 sets the response headers named in ``parameters`` when serving the link.
     """
     url: Callable[..., str] = attachment.file.storage.url
-    if "parameters" not in inspect.signature(url).parameters:
-        return url(attachment.file.name)
     inline = attachment.is_image or attachment.content_type == "application/pdf"
     return url(
         attachment.file.name,

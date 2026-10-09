@@ -7,6 +7,7 @@ dependencies = [
     "django-axes[ipware]>=8.3.1",
     "django-environ>=0.14.0",
     "django-simple-history>=3.13.0",
+    "django-storages[s3]>=1.14.6",
     "django-stubs-ext>=6.1.2",
     "gunicorn>=26.2.0",
     "psycopg[binary]>=3.3.6",
@@ -52,9 +53,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["D1", "S101", "S105", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
-"**/test_*.py" = ["D1", "S101", "S105", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
-"conftest.py" = ["D1", "S101", "S105", "PLR2004", "ARG", "INP001"]
+"**/tests/**" = ["D1", "S101", "S105", "S106", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
+"**/test_*.py" = ["D1", "S101", "S105", "S106", "PLR2004", "ARG", "ANN", "PT009", "PT027"]
+"conftest.py" = ["D1", "S101", "S105", "S106", "PLR2004", "ARG", "INP001"]
 "manage.py" = ["D1", "INP001"]
 "apps/*/admin.py" = ["D1"]
 "apps/*/apps.py" = ["D1"]
@@ -123,7 +124,7 @@ files = ["."]
 exclude = ["/migrations/"]
 
 [[tool.mypy.overrides]]
-module = ["environ", "simple_history.*", "axes.*"]
+module = ["environ", "simple_history.*", "axes.*", "storages.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -132,8 +133,9 @@ module = [
     "apps.classification.admin",
     "apps.accounts.admin",
     "apps.transactions.admin",
+    "config.storage",
 ]
-# SimpleHistoryAdmin is untyped.
+# SimpleHistoryAdmin and S3Storage are untyped.
 disallow_subclassing_any = false
 
 [tool.django-stubs]

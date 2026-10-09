@@ -3,7 +3,6 @@ from typing import IO, TYPE_CHECKING, Any
 import pytest
 from django.core.files.storage import InMemoryStorage, default_storage
 from django.urls import reverse
-from django.utils.http import urlencode
 
 if TYPE_CHECKING:
     from pytest_django import Settings
@@ -96,16 +95,21 @@ def second_save_fails(settings: Settings) -> None:
     }
 
 
-class PresigningStorage(InMemoryStorage):
-    """Puts url() parameters in the query string, as S3 presigned URLs do."""
-
-    def url(self, name: str | None, parameters: dict[str, str] | None = None) -> str:
-        return f"{super().url(name)}?{urlencode(parameters or {})}"
+R2_ENDPOINT = "https://account.r2.cloudflarestorage.com"
 
 
 @pytest.fixture
-def presigning_storage(settings: Settings) -> None:
+def r2_storage(settings: Settings) -> None:
+    """The real R2 backend with dummy credentials: presigning needs no network."""
     settings.STORAGES = {
         **settings.STORAGES,
-        "default": {"BACKEND": "apps.transactions.tests.conftest.PresigningStorage"},
+        "default": {
+            "BACKEND": "config.storage.R2Storage",
+            "OPTIONS": {
+                "endpoint_url": R2_ENDPOINT,
+                "bucket_name": "velora-test",
+                "access_key": "test-key",
+                "secret_key": "test-secret",
+            },
+        },
     }

@@ -9,7 +9,12 @@ from django.urls import reverse
 
 from apps.accounts.tests.conftest import make_account
 from apps.transactions.models import Attachment, Transaction
-from apps.transactions.tests.conftest import form_data, stored_names, transaction_url
+from apps.transactions.tests.conftest import (
+    R2_ENDPOINT,
+    form_data,
+    stored_names,
+    transaction_url,
+)
 from apps.transactions.tests.test_attachments import upload
 from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 
@@ -41,6 +46,17 @@ def attach(
     attachment.file.save(name, ContentFile(content), save=False)
     attachment.save()
     return attachment
+
+
+def attach_row(transaction: Transaction, name: str, content_type: str) -> Attachment:
+    """An Attachment row only, for storages a test must not write to (R2)."""
+    return Attachment.objects.create(
+        transaction=transaction,
+        file="attachments/0123456789abcdef",
+        original_name=name,
+        content_type=content_type,
+        size=1,
+    )
 
 
 def test_edit_adds_new_files_to_existing_attachments(signed_in: Client) -> None:
@@ -118,11 +134,17 @@ def opened_with(client: Client, attachment: Attachment) -> dict[str, list[str]]:
     response = client.get(open_url(attachment))
     assert response.status_code == 302
     location = urlsplit(response["Location"])
-    assert location.path == f"/media/{attachment.file.name}"
-    return parse_qs(location.query)
+    assert f"{location.scheme}://{location.netloc}" == R2_ENDPOINT
+    assert location.path == f"/velora-test/{attachment.file.name}"
+    query = parse_qs(location.query)
+    assert query.pop("X-Amz-Expires") == ["300"]
+    assert "X-Amz-Signature" in query
+    return {
+        name: values for name, values in query.items() if name.startswith("response-")
+    }
 
 
-@pytest.mark.usefixtures("presigning_storage")
+@pytest.mark.usefixtures("r2_storage")
 @pytest.mark.parametrize(
     ("name", "content_type"),
     [("receipt.jpg", "image/jpeg"), ("invoice.pdf", "application/pdf")],
@@ -130,32 +152,24 @@ def opened_with(client: Client, attachment: Attachment) -> dict[str, list[str]]:
 def test_opening_an_image_or_pdf_shows_it_inline(
     signed_in: Client, name: str, content_type: str
 ) -> None:
-    attachment = attach(recorded(), name, b"content", content_type)
+    attachment = attach_row(recorded(), name, content_type)
 
     assert opened_with(signed_in, attachment) == {
-        "ResponseContentDisposition": [f'inline; filename="{name}"'],
-        "ResponseContentType": [content_type],
+        "response-content-disposition": [f'inline; filename="{name}"'],
+        "response-content-type": [content_type],
     }
 
 
-@pytest.mark.usefixtures("presigning_storage")
+@pytest.mark.usefixtures("r2_storage")
 def test_opening_another_type_downloads_it_under_its_original_name(
     signed_in: Client,
 ) -> None:
-    attachment = attach(recorded(), "Quote 2026.xlsx", b"PK", "application/zip")
+    attachment = attach_row(recorded(), "Quote 2026.xlsx", "application/zip")
 
     assert opened_with(signed_in, attachment) == {
-        "ResponseContentDisposition": ['attachment; filename="Quote 2026.xlsx"'],
-        "ResponseContentType": ["application/zip"],
+        "response-content-disposition": ['attachment; filename="Quote 2026.xlsx"'],
+        "response-content-type": ["application/zip"],
     }
-
-
-def test_opening_redirects_to_a_storage_without_url_parameters(
-    signed_in: Client,
-) -> None:
-    attachment = attach(recorded(), "notes.txt", b"notes", "text/plain")
-
-    assert opened_with(signed_in, attachment) == {}
 
 
 def test_opening_needs_sign_in(client: Client) -> None:

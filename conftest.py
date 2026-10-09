@@ -28,7 +28,7 @@ def pytest_configure() -> None:
 
 @pytest.fixture(autouse=True)
 def _in_memory_storage(settings: Settings) -> None:
-    # A fresh, empty storage per test, so files never touch disk or leak.
+    # A fresh, empty storage per test, so files never reach R2 or leak.
     settings.STORAGES = {
         **settings.STORAGES,
         "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},

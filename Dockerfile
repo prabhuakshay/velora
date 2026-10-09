@@ -120,10 +120,6 @@ RUN SECRET_KEY=collectstatic \
     python manage.py collectstatic --noinput \
     && python -m compileall -q config apps manage.py
 
-# A fresh named volume copies this directory's ownership, which is the only
-# way the app user can write uploads on a read-only root filesystem.
-RUN install -d -o app -g app -m 750 /app/media
-
 USER app
 
 EXPOSE 8000

@@ -58,8 +58,6 @@ services:
       # Loopback only: gunicorn trusts forwarded headers from any peer.
       - "127.0.0.1:${DOCKER_HOST_PORT:-8000}:8000"
     restart: unless-stopped
-    volumes:
-      - media:/app/media
     stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz/', timeout=5)"]
@@ -67,6 +65,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-
-volumes:
-  media:
