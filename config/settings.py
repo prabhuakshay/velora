@@ -82,6 +82,7 @@ INSTALLED_APPS = [
     # Local
     "apps.users",
     "apps.classification",
+    "apps.accounts",
 ]
 
 

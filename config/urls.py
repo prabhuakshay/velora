@@ -14,5 +14,6 @@ urlpatterns = [
     ),
     path("accounts/", include("apps.users.urls")),
     path("", include("apps.classification.urls")),
+    path("", include("apps.accounts.urls")),
     path(settings.ADMIN_URL, admin.site.urls),
 ]

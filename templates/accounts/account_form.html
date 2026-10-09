@@ -1,0 +1,17 @@
+{% extends "app_base.html" %}
+
+{% block title %}{% if account %}Edit{% else %}New{% endif %} {{ kind.label }} Account · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">{% if account %}Edit{% else %}New{% endif %} {{ kind.label }} Account</h1>
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    {% include "partials/form_errors.html" %}
+    {% include "partials/field.html" with field=form.name %}
+    {% include "partials/field.html" with field=form.notes %}
+    {% include "partials/submit.html" with label="Save" %}
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'account_list' kind %}" class="link">Cancel</a>
+  </p>
+{% endblock %}
