@@ -39,6 +39,8 @@
             {% if count %}<span class="rounded-full bg-slate-900 px-2 text-xs text-white tabular-nums" aria-label="{{ count }} Draft{{ count|pluralize }} waiting">{{ count }}</span>{% endif %}
           {% endwith %}
         </a>
+        {% url 'schedule_list' as schedules_url %}
+        <a href="{{ schedules_url }}" class="nav-link{% if schedules_url in request.path %} nav-link-active{% endif %}">Schedules</a>
         <details class="group w-full"{% if parties_url in request.path or tags_url in request.path %} open{% endif %}>
           <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
             Classification

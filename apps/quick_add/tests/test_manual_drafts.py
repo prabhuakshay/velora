@@ -10,6 +10,8 @@ from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
 from apps.quick_add.models import Draft
 from apps.quick_add.tests.conftest import make_draft, make_manual_draft
+from apps.schedules.daily_job import run_daily_job
+from apps.schedules.tests.conftest import make_schedule
 from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
@@ -63,9 +65,8 @@ def test_the_drafts_page_offers_a_new_draft(signed_in: Client) -> None:
 def test_the_drafts_page_separates_drafts_by_source(signed_in: Client) -> None:
     make_manual_draft(description="Dentist, pay later")
     make_draft(text="lunch at Toit 850", description="Team lunch")
-    Draft.objects.create(
-        source=Draft.Source.SCHEDULE, date=date(2026, 10, 1), description="Rent"
-    )
+    make_schedule(start_date=date(2026, 10, 1), description="Rent")
+    run_daily_job(date(2026, 10, 1))
 
     body = signed_in.get(reverse("draft_list")).content.decode()
 

@@ -1,0 +1,25 @@
+{% extends "app_base.html" %}
+
+{% block title %}Schedules · Velora{% endblock %}
+
+{% block main %}
+  <div class="flex items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold tracking-tight">Schedules</h1>
+    <a href="{% url 'schedule_create' %}" class="btn-primary py-2 text-sm">New Schedule</a>
+  </div>
+  <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+    {% for schedule in schedules %}
+      <li class="{% if not schedule.active or schedule.ends_on and schedule.ends_on < today %}opacity-50 {% endif %}flex items-center justify-between gap-3 py-3">
+        <div class="min-w-0">
+          <a href="{% url 'schedule_detail' schedule.pk %}" class="block truncate font-medium hover:underline">{{ schedule }}</a>
+          <p class="text-xs text-slate-500">
+            {% include "schedules/_state.html" with next_due=schedule.upcoming.0 %}
+          </p>
+        </div>
+        <span class="shrink-0 tabular-nums">{% with total=schedule.amount %}{% if total is None %}<span class="text-slate-500">Open amount</span>{% else %}{% amount total %}{% endif %}{% endwith %}</span>
+      </li>
+    {% empty %}
+      <li class="py-3 text-slate-500">No Schedules yet.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

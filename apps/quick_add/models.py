@@ -94,6 +94,13 @@ class Draft(models.Model):
         blank=True,
         related_name="draft",
     )
+    occurrence = models.OneToOneField(
+        "schedules.Occurrence",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="draft",
+    )
     status = models.CharField(max_length=16, choices=Status, default=Status.WAITING)
     created_at = models.DateTimeField(auto_now_add=True)
     # Why the last try to post it unchanged was refused.
@@ -133,6 +140,14 @@ class Draft(models.Model):
                 ),
             ),
             models.CheckConstraint(
+                condition=models.Q(source="schedule", occurrence__isnull=False)
+                | (~models.Q(source="schedule") & models.Q(occurrence__isnull=True)),
+                name="quick_add_draft_occurrence_iff_source",
+                violation_error_message=(
+                    "Only a Draft from a Schedule links to an Occurrence."
+                ),
+            ),
+            models.CheckConstraint(
                 condition=models.Q(party__isnull=True) | models.Q(new_party_name=""),
                 name="quick_add_draft_one_party",
                 violation_error_message=(
@@ -145,7 +160,7 @@ class Draft(models.Model):
         return f"{self.get_source_display()} Draft for {self.date}"
 
     def mark_posted(self, transaction: Transaction, *, without_edits: bool) -> None:
-        """Link the Draft, and its Quick Add if any, to the Transaction it became."""
+        """Link the Draft to the Transaction it became; its Occurrence is Paid."""
         self.status = Draft.Status.POSTED
         self.transaction = transaction
         self.posting_error = ""
@@ -154,13 +169,17 @@ class Draft(models.Model):
             self.quick_add.status = QuickAdd.Status.POSTED
             self.quick_add.posted_without_edits = without_edits
             self.quick_add.save(update_fields=["status", "posted_without_edits"])
+        if self.occurrence:
+            self.occurrence.settle(paid=True)
 
     def reject(self) -> None:
-        """Mark it rejected: kept, but no longer waiting for the user."""
+        """Mark it rejected, and its Occurrence Skipped, never Missed."""
         self.status = Draft.Status.REJECTED
         self.save(update_fields=["status"])
         if self.quick_add:
             self.quick_add.reject()
+        if self.occurrence:
+            self.occurrence.settle(paid=False)
 
 
 class DraftSplit(models.Model):

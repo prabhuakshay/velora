@@ -1,0 +1,1 @@
+{% if not schedule.active %}Paused{% elif schedule.ends_on and schedule.ends_on < today %}Ended {{ schedule.ends_on|date:"j M Y" }}{% elif next_due %}Next due {{ next_due.due_date|date:"j M Y" }}{% else %}Nothing upcoming{% endif %}

@@ -13,5 +13,6 @@ urlpatterns = [
     path("", include("apps.accounts.urls")),
     path("", include("apps.transactions.urls")),
     path("", include("apps.quick_add.urls")),
+    path("", include("apps.schedules.urls")),
     path(settings.ADMIN_URL, admin.site.urls),
 ]

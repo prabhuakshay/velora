@@ -1,0 +1,42 @@
+{% extends "app_base.html" %}
+
+{% block title %}{{ schedule }} · Velora{% endblock %}
+
+{% block main %}
+  <div class="flex items-center justify-between gap-3">
+    <h1 class="truncate text-2xl font-bold tracking-tight">{{ schedule }}</h1>
+    <a href="{% url 'schedule_edit' schedule.pk %}" class="btn-secondary py-2 text-sm">Edit</a>
+  </div>
+  <div class="mt-4 space-y-1 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200">
+    <p class="font-medium">Every {{ schedule.every }} {{ schedule.unit }}{{ schedule.every|pluralize }} from {{ schedule.start_date|date:"j M Y" }}{% if schedule.ends_on %} until {{ schedule.ends_on|date:"j M Y" }}{% endif %}</p>
+    <p class="text-slate-500">{% include "schedules/_state.html" %}</p>
+    {% if schedule.party %}<p>{{ schedule.party }}</p>{% endif %}
+    {% if schedule.description %}<p class="text-slate-700">{{ schedule.description }}</p>{% endif %}
+    {% for split in splits %}
+      <p class="flex justify-between gap-3 text-xs text-slate-500">
+        <span class="truncate">{{ split.from_account }} → {{ split.to_account }}</span>
+        <span class="tabular-nums">{% if split.amount is None %}Open amount{% else %}{% amount split.amount %}{% endif %}</span>
+      </p>
+    {% endfor %}
+    <div class="flex gap-2 pt-2">
+      <form method="post" action="{% url schedule.active|yesno:'schedule_pause,schedule_resume' schedule.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-secondary py-1.5 text-sm">{% if schedule.active %}Pause{% else %}Resume{% endif %}</button>
+      </form>
+      {% if not ended %}
+        <form method="post" action="{% url 'schedule_end' schedule.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-secondary py-1.5 text-sm">End</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+  <h2 class="mt-6 text-lg font-semibold">Occurrences</h2>
+  <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+    {% for occurrence in occurrences %}
+      <li class="py-2 text-sm">{{ occurrence.due_date|date:"j M Y" }} · {{ occurrence.get_status_display }}</li>
+    {% empty %}
+      <li class="py-3 text-slate-500">No Occurrences yet.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
