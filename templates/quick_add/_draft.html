@@ -8,7 +8,7 @@
   {% for split in draft.splits.all %}
     <p class="flex justify-between gap-3 text-xs text-slate-500">
       <span class="truncate">{{ split.from_account|default:"Removed Account" }} → {{ split.to_account|default:"Removed Account" }}</span>
-      <span class="tabular-nums">{% amount split.amount %}</span>
+      <span class="tabular-nums">{% if split.amount is None %}₹?{% else %}{% amount split.amount %}{% endif %}</span>
     </p>
   {% endfor %}
   {% if draft.posting_error %}

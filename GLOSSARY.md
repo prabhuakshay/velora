@@ -61,7 +61,7 @@ A short line of free text the user writes about a money event, such as "lunch at
 _Avoid_: Prompt, quick entry, note
 
 **Draft**:
-A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, or the user started by hand as a placeholder. Every Draft shows which of the three it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it; the user can also edit or reject it.
+A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, or the user started by hand as a placeholder. Every Draft shows which of the three it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it; the user can also edit or reject it. A Draft dated after today can be posted early, and is then recorded on today's date.
 _Avoid_: Pending transaction, suggestion, draft entry
 
 **Processing**:

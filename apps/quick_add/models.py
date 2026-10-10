@@ -167,8 +167,8 @@ class DraftSplit(models.Model):
     """One proposed Split of a Draft."""
 
     draft = models.ForeignKey(Draft, on_delete=models.CASCADE, related_name="splits")
-    # Kept as a gap when the Account is merged away, so posting fails instead
-    # of the Split silently vanishing from the Draft.
+    # Merging repoints it; any other removal leaves a gap, so posting fails
+    # instead of the Split silently vanishing from the Draft.
     from_account = models.ForeignKey(
         Account,
         on_delete=models.SET_NULL,
@@ -181,9 +181,12 @@ class DraftSplit(models.Model):
         null=True,
         related_name="draft_splits_in",
     )
+    # Left blank until the user knows it; posting refuses the gap.
     amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
+        null=True,
+        blank=True,
         validators=[MinValueValidator(Decimal("0.01"))],
     )
 

@@ -80,7 +80,7 @@ def make_quick_add(text: str = "lunch at Toit 850 on hdfc card") -> QuickAdd:
 
 
 def make_draft(
-    *splits: tuple[Account, Account, str],
+    *splits: tuple[Account | None, Account | None, str | None],
     text: str = "lunch at Toit 850",
     **fields: Any,
 ) -> QuickAdd:
@@ -89,16 +89,23 @@ def make_draft(
     return quick_add
 
 
-def make_manual_draft(*splits: tuple[Account, Account, str], **fields: Any) -> Draft:
+def make_manual_draft(
+    *splits: tuple[Account | None, Account | None, str | None], **fields: Any
+) -> Draft:
     return add_draft(splits, source=Draft.Source.MANUAL, **fields)
 
 
-def add_draft(splits: tuple[tuple[Account, Account, str], ...], **fields: Any) -> Draft:
-    """A waiting Draft dated 8 Oct 2026, with the given Splits."""
+def add_draft(
+    splits: tuple[tuple[Account | None, Account | None, str | None], ...],
+    **fields: Any,
+) -> Draft:
+    """A waiting Draft dated 8 Oct 2026, with the given Splits; None leaves a gap."""
     draft = Draft.objects.create(**{"date": date(2026, 10, 8), **fields})
     for source, destination, amount in splits:
         draft.splits.create(
-            from_account=source, to_account=destination, amount=Decimal(amount)
+            from_account=source,
+            to_account=destination,
+            amount=None if amount is None else Decimal(amount),
         )
     return draft
 

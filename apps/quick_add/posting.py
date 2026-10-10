@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction as db_transaction
+from django.utils import timezone
 
 from apps.classification.models import Party
 from apps.quick_add.models import Draft
@@ -42,11 +43,30 @@ def matching_party(draft: Draft) -> Party | None:
     return Party.objects.filter(name__iexact=draft.new_party_name).first()
 
 
+def missing_parts(draft: Draft) -> list[str]:
+    """What the Draft still lacks before it can be posted; empty when nothing."""
+    splits = list(draft.splits.all())
+    if not splits:
+        return ["Add at least one Split."]
+    missing = []
+    for number, split in enumerate(splits, start=1):
+        gaps = [
+            ("From Account", split.from_account_id),
+            ("To Account", split.to_account_id),
+            ("amount", split.amount),
+        ]
+        missing += [
+            f"Split {number}: missing {what}." for what, value in gaps if value is None
+        ]
+    return missing
+
+
 def form_data(draft: Draft, party: Party | None) -> dict[str, Any]:
     """The Draft as a submitted Transaction form, Split formset included."""
     splits = list(draft.splits.all())
     data: dict[str, Any] = {
-        "date": draft.date.isoformat(),
+        # A Draft may wait for a day yet to come; posted early, it happens today.
+        "date": min(draft.date, timezone.localdate()).isoformat(),
         "party": party.pk if party else "",
         "description": draft.description,
         "splits-TOTAL_FORMS": len(splits),
@@ -56,7 +76,7 @@ def form_data(draft: Draft, party: Party | None) -> dict[str, Any]:
         data |= {
             f"splits-{index}-from_account": split.from_account_id or "",
             f"splits-{index}-to_account": split.to_account_id or "",
-            f"splits-{index}-amount": split.amount,
+            f"splits-{index}-amount": "" if split.amount is None else split.amount,
         }
     return data
 
@@ -87,6 +107,8 @@ def posting_edited(
 @db_transaction.atomic
 def post_draft(draft: Draft) -> Transaction:
     """Record the Draft as it is, checked by the Transaction form's rules."""
+    if missing := missing_parts(draft):
+        raise DraftNotPostableError(missing)
     forms = TransactionForms(form_data(draft, party_for(draft)), instance=Transaction())
     if not forms.is_valid():
         raise DraftNotPostableError(forms.errors())

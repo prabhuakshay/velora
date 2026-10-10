@@ -7,6 +7,7 @@ from django.db import transaction as db_transaction
 from django.db.models import Q
 
 from apps.core.history import with_reason
+from apps.quick_add.models import DraftSplit
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -48,7 +49,7 @@ class AccountMerge:
         )
 
     def run(self) -> None:
-        """Repoint the source's Splits at the target, then remove the source.
+        """Repoint the source's Splits and Draft Splits, then remove the source.
 
         Saves and deletes row by row so change history records each one.
         """
@@ -66,6 +67,8 @@ class AccountMerge:
                 if split.to_account_id == source.pk:
                     split.to_account = target
                 with_reason(split, reason).save()
+            DraftSplit.objects.filter(from_account=source).update(from_account=target)
+            DraftSplit.objects.filter(to_account=source).update(to_account=target)
             if target.has_opening_balance:
                 # Both are set for these kinds, by a constraint mypy cannot see.
                 target.opening_balance += source.opening_balance  # type: ignore[operator]

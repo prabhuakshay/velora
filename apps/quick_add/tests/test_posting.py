@@ -101,18 +101,21 @@ def test_posting_fails_with_a_reason_once_an_account_is_deactivated(
     assert quick_add.status == QuickAdd.Status.DRAFT
 
 
-def test_posting_fails_once_an_account_is_merged_away(signed_in: Client) -> None:
+def test_merging_a_drafts_account_posts_it_with_the_target(
+    signed_in: Client,
+) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
     fun = make_account("Fun", "expense")
     quick_add = make_draft((card, food, "850"), (card, fun, "150"))
     AccountMerge(source=fun, target=food).run()
 
-    body = post(signed_in, quick_add)
+    post(signed_in, quick_add)
 
-    assert "Couldn't post: Split 2 To: This field is required." in body
-    assert "Removed Account" in body
-    assert not Transaction.objects.exists()
+    assert [
+        (split.from_account, split.to_account, split.amount)
+        for split in Transaction.objects.get().splits.order_by("pk")
+    ] == [(card, food, Decimal("850.00")), (card, food, Decimal("150.00"))]
 
 
 def test_merging_the_drafts_party_posts_it_with_the_target(signed_in: Client) -> None:
