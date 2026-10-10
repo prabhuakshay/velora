@@ -67,7 +67,7 @@ def reply(*splits: dict[str, Any], **fields: Any) -> dict[str, Any]:
     }
 
 
-def split(source: Any, destination: Any, amount: str) -> dict[str, Any]:
+def split(source: Any, destination: Any, amount: str | None) -> dict[str, Any]:
     return {
         "from_account_id": source.pk,
         "to_account_id": destination.pk,

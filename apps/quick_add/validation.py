@@ -101,6 +101,8 @@ def _parse_amount(value: object) -> Decimal | None:
 
 
 def _amount_errors(value: object, where: str) -> list[str]:
+    if value is None:
+        return []
     amount = _parse_amount(value)
     if amount is None:
         return [f"{where}: the amount '{value}' is not a number."]
