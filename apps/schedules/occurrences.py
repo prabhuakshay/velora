@@ -5,6 +5,8 @@ from datetime import date, timedelta
 from django.db import transaction as db_transaction
 
 from apps.quick_add.models import Draft, DraftSplit
+from apps.quick_add.posting import DraftNotPostableError, post_draft
+from apps.schedules.estimates import last_paid_amount
 from apps.schedules.models import Occurrence, Schedule
 from apps.schedules.repeat import due_dates
 
@@ -43,26 +45,43 @@ def materialise_occurrences(today: date) -> None:
 
 @db_transaction.atomic
 def propose_draft(occurrence: Occurrence) -> None:
-    """Copy the Schedule into a Draft for the Occurrence, which is now Drafted."""
+    """Copy the Schedule into a Draft for the Occurrence, which is now Drafted.
+
+    An auto-post Schedule posts the Draft too, making the Occurrence Paid; if
+    posting is refused, the Draft waits for the user with the reason.
+    """
     schedule = occurrence.schedule
+    splits = list(schedule.splits.all())
+    estimates = {
+        split.pk: last_paid_amount(split, occurrence.due_date)
+        for split in splits
+        if split.amount is None
+    }
     draft = Draft.objects.create(
         source=Draft.Source.SCHEDULE,
         occurrence=occurrence,
         date=occurrence.due_date,
         party=schedule.party,
         description=schedule.description,
+        estimated=any(amount is not None for amount in estimates.values()),
     )
     DraftSplit.objects.bulk_create(
         DraftSplit(
             draft=draft,
             from_account=split.from_account,
             to_account=split.to_account,
-            amount=split.amount,
+            amount=estimates.get(split.pk, split.amount),
         )
-        for split in schedule.splits.all()
+        for split in splits
     )
     occurrence.status = Occurrence.Status.DRAFTED
     occurrence.save(update_fields=["status"])
+    if schedule.auto_post and schedule.amount is not None:
+        try:
+            post_draft(draft)
+        except DraftNotPostableError as error:
+            draft.posting_error = str(error)
+            draft.save(update_fields=["posting_error"])
 
 
 def propose_due_drafts(today: date) -> None:

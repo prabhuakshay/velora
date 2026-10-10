@@ -125,6 +125,8 @@ class Draft(models.Model):
     # A Party the AI suggests; created only when the Draft is posted.
     new_party_name = models.CharField(max_length=PARTY_NAME_MAX_LENGTH, blank=True)
     description = models.TextField(blank=True)
+    # An open-amount Schedule's Draft guessed from the last amount paid.
+    estimated = models.BooleanField(default=False)
 
     objects = DraftQuerySet.as_manager()
 

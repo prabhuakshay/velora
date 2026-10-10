@@ -8,7 +8,7 @@
     <a href="{% url 'schedule_edit' schedule.pk %}" class="btn-secondary py-2 text-sm">Edit</a>
   </div>
   <div class="mt-4 space-y-1 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200">
-    <p class="font-medium">Every {{ schedule.every }} {{ schedule.unit }}{{ schedule.every|pluralize }} from {{ schedule.start_date|date:"j M Y" }}{% if schedule.ends_on %} until {{ schedule.ends_on|date:"j M Y" }}{% endif %}</p>
+    <p class="font-medium">{% if schedule.cron %}On cron {{ schedule.cron }}{% else %}Every {{ schedule.every }} {{ schedule.unit }}{{ schedule.every|pluralize }}{% endif %} from {{ schedule.start_date|date:"j M Y" }}{% if schedule.ends_after %}, {{ schedule.ends_after }} time{{ schedule.ends_after|pluralize }}{% endif %}{% if schedule.ends_on %} until {{ schedule.ends_on|date:"j M Y" }}{% endif %}{% if schedule.auto_post %} · Auto-post{% endif %}</p>
     <p class="text-slate-500">{% include "schedules/_state.html" %}</p>
     {% if schedule.party %}<p>{{ schedule.party }}</p>{% endif %}
     {% if schedule.description %}<p class="text-slate-700">{{ schedule.description }}</p>{% endif %}

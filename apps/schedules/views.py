@@ -1,7 +1,7 @@
 """Views for listing, editing, pausing and ending Schedules."""
 
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
@@ -10,22 +10,61 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.schedules.forms import ScheduleForm, ScheduleSplitFormSet
+from apps.schedules.forms import (
+    ScheduleForm,
+    ScheduleSplitFormSet,
+    has_open_amount,
+)
 from apps.schedules.models import Occurrence, Schedule
 from apps.schedules.occurrences import regenerate
+from apps.schedules.repeat import months_after
+from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
 
 
-def _save_schedule(request: HttpRequest, schedule: Schedule) -> HttpResponseBase:
+def _initial_from(transaction: Transaction | None) -> dict[str, Any]:
+    """The Schedule form's initial data copied from a Transaction, if any."""
+    if transaction is None:
+        return {}
+    splits = [
+        {
+            "from_account": split.from_account_id,
+            "to_account": split.to_account_id,
+            "amount": split.amount,
+        }
+        for split in transaction.splits.all()
+    ]
+    return {
+        "form": {
+            "party": transaction.party_id,
+            "description": transaction.description,
+            "start_date": months_after(transaction.date, 1),
+        },
+        "formset": splits,
+    }
+
+
+def _save_schedule(
+    request: HttpRequest, schedule: Schedule, transaction: Transaction | None = None
+) -> HttpResponseBase:
     """Show the Schedule form, or save it and lay out its Occurrences again."""
     data = request.POST if request.method == "POST" else None
-    form = ScheduleForm(data, instance=schedule)
-    formset = ScheduleSplitFormSet(data, instance=schedule)
+    initial = _initial_from(transaction)
+    form = ScheduleForm(data, instance=schedule, initial=initial.get("form"))
+    formset = ScheduleSplitFormSet(
+        data, instance=schedule, initial=initial.get("formset")
+    )
+    # The formset shows one blank row by default; make room for each copied one.
+    formset.extra = max(len(initial.get("formset", [])) - formset.min_num, 0)
     # Validate both so errors show on the Schedule and its Splits at once.
-    if data is not None and all([form.is_valid(), formset.is_valid()]):
+    valid = data is not None and all([form.is_valid(), formset.is_valid()])
+    if valid and form.cleaned_data["auto_post"] and has_open_amount(formset):
+        form.add_error("auto_post", "Auto-post needs an amount on every Split.")
+        valid = False
+    if valid:
         with db_transaction.atomic():
             formset.instance = form.save()
             formset.save()
@@ -58,8 +97,14 @@ def schedule_list(request: HttpRequest) -> HttpResponseBase:
 
 @login_required
 def schedule_create(request: HttpRequest) -> HttpResponseBase:
-    """Describe a new Schedule."""
-    return _save_schedule(request, Schedule())
+    """Describe a new Schedule, prefilled from a Transaction if one is given."""
+    transaction_pk = request.GET.get("transaction", "")
+    transaction = (
+        get_object_or_404(Transaction, pk=transaction_pk)
+        if transaction_pk.isdigit()
+        else None
+    )
+    return _save_schedule(request, Schedule(), transaction)
 
 
 @login_required

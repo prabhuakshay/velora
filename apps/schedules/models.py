@@ -33,12 +33,20 @@ class Schedule(models.Model):
     description = models.TextField(blank=True)
     # The first due date, which every later one is counted from.
     start_date = models.DateField()
+    # The repeat rule is an interval (every and unit) or a cron expression.
     every = models.PositiveSmallIntegerField(
-        default=1, validators=[MinValueValidator(1)]
+        default=1, null=True, blank=True, validators=[MinValueValidator(1)]
     )
-    unit = models.CharField(max_length=8, choices=Unit, default=Unit.MONTH)
+    unit = models.CharField(max_length=8, choices=Unit, default=Unit.MONTH, blank=True)
+    cron = models.CharField(max_length=100, blank=True)
     # The last day it can fall due; open-ended when blank.
     ends_on = models.DateField(null=True, blank=True)
+    # How many due dates it has at most, counted from the start date.
+    ends_after = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1)]
+    )
+    # Post the Transaction on the due date instead of proposing a Draft.
+    auto_post = models.BooleanField(default=False)
     grace_days = models.PositiveSmallIntegerField(default=3)
     reminder_days = models.PositiveSmallIntegerField(default=3)
     active = models.BooleanField(default=True)
@@ -50,6 +58,16 @@ class Schedule(models.Model):
 
     class Meta:
         ordering = ("pk",)
+        constraints: ClassVar = [
+            models.CheckConstraint(
+                condition=(models.Q(cron="", every__isnull=False) & ~models.Q(unit=""))
+                | (~models.Q(cron="") & models.Q(every__isnull=True, unit="")),
+                name="schedules_schedule_interval_or_cron",
+                violation_error_message=(
+                    "A Schedule repeats on an interval or a cron expression, not both."
+                ),
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.description or str(self.party or f"Schedule {self.pk}")
