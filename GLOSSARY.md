@@ -61,7 +61,7 @@ A short line of free text the user writes about a money event, such as "lunch at
 _Avoid_: Prompt, quick entry, note
 
 **Draft**:
-A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, a credit card's Statement proposed as its payment, or the user started by hand as a placeholder. Every Draft shows which of these it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it. The user can edit it and save it still waiting, gaps and all, or save and post it in one go, which is refused while anything is missing; the user can also reject it. A Draft dated after today can be posted early, and is then recorded on today's date.
+A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, a credit card's Statement proposed as its payment, a Card EMI proposed for the interest, GST and fees billed with an installment, or the user started by hand as a placeholder. Every Draft shows which of these it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it. The user can edit it and save it still waiting, gaps and all, or save and post it in one go, which is refused while anything is missing; the user can also reject it. A Draft dated after today can be posted early, and is then recorded on today's date.
 _Avoid_: Pending transaction, suggestion, draft entry
 
 **Processing**:
@@ -141,7 +141,7 @@ One billing period of a credit card, from the day after one Statement Day to the
 _Avoid_: Bill, invoice, cycle
 
 **Statement Amount**:
-What a credit card's latest statement asks the user to pay. Velora estimates it until the user enters the actual amount from the real statement, which then replaces the estimate.
+What a credit card's latest statement asks the user to pay. Velora estimates it from the card's spending, payments and refunds in the Statement's period until the user enters the actual amount from the real statement, which then replaces the estimate. A payment that settled an earlier Statement paid for that period, so the estimate leaves it out.
 _Avoid_: Bill, outstanding, total due
 
 **Refund**:
