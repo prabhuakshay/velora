@@ -117,6 +117,13 @@ class Account(models.Model):
         limit_choices_to={"kind": AccountKind.ASSET},
         verbose_name="Pays from",
     )
+    low_balance_threshold = models.DecimalField(
+        "Low-Balance Threshold",
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        help_text="Warn when the Forecast expects the Balance to fall below this.",
+    )
 
     objects = AccountQuerySet.as_manager()
     history = HistoricalRecords()
