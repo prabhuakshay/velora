@@ -1,0 +1,20 @@
+{% extends "app_base.html" %}
+
+{% block title %}Card EMI · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">Make Card EMI</h1>
+  <p class="mt-1 text-sm text-slate-500">{{ form.instance.card }} purchase on {{ purchase.date|date:"j M Y" }}{% if purchase.party %} · {{ purchase.party }}{% endif %}</p>
+  <p class="mt-2 text-sm text-slate-700">The purchase stays recorded at full price. Each Statement Amount gets that month's installment instead, and the interest and GST arrive as Drafts.</p>
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    {% include "partials/form_errors.html" %}
+    {% for field in form %}
+      {% include "partials/field.html" %}
+    {% endfor %}
+    {% include "partials/submit.html" with label="Save" %}
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'account_transactions' form.instance.card.kind form.instance.card.pk %}" class="link">Cancel</a>
+  </p>
+{% endblock %}

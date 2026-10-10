@@ -1,0 +1,20 @@
+{% extends "app_base.html" %}
+
+{% block title %}Foreclose Card EMI · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">Foreclose Card EMI</h1>
+  <p class="mt-1 text-sm text-slate-500">{{ emi.card }} · {% amount emi.principal %} over {{ emi.months }} months</p>
+  <p class="mt-2 text-sm text-slate-700">The remaining principal and the foreclosure fee are added to the next Statement Amount, and no further installments are billed.</p>
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    {% include "partials/form_errors.html" %}
+    {% for field in form %}
+      {% include "partials/field.html" %}
+    {% endfor %}
+    {% include "partials/submit.html" with label="Foreclose" %}
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'account_transactions' emi.card.kind emi.card.pk %}" class="link">Cancel</a>
+  </p>
+{% endblock %}

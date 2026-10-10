@@ -114,6 +114,7 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
     if kind in BALANCE_KINDS:
         accounts = accounts.with_balance()
     account = get_object_or_404(accounts, pk=pk)
+    today = timezone.localdate()
     touching = Split.objects.filter(Q(from_account=account) | Q(to_account=account))
     transactions = (
         Transaction.objects.filter(pk__in=touching.values("transaction"))
@@ -134,6 +135,18 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             "kind": Account.Kind(kind),
             "page": paginate(request, transactions),
             "statements": account.statements.order_by("-period_end")[:STATEMENTS_SHOWN],
+            "card_emis": [
+                (emi, emi.progress(today))
+                for emi in account.card_emis.select_related("card", "purchase")
+            ],
+            # Purchases off the card that can still become a Card EMI.
+            "emi_candidates": set(
+                touching.filter(
+                    from_account=account,
+                    from_account__statement_day__isnull=False,
+                    transaction__card_emi__isnull=True,
+                ).values_list("transaction", flat=True)
+            ),
         },
     )
 
