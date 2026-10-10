@@ -4,13 +4,18 @@
 # on loopback only; a reverse proxy on this host terminates TLS, sets
 # X-Forwarded-Proto and X-Forwarded-For, and must strip client-sent copies.
 # Set USE_X_FORWARDED_PROTO=True and TRUSTED_PROXY_COUNT=1 in .env for it.
+#
+# Between `migrate` and container recreation, old containers serve old code
+# against the new schema. Accepted: keep migrations additive per release and
+# drop columns only in a later one.
 
 name: velora-prod
 
 x-app: &app
   image: velora:${DOCKER_IMAGE_TAG:-latest}
   env_file:
-    # raw: compose would otherwise expand `$` and truncate secrets.
+    # raw: compose would otherwise expand `$` and truncate secrets. It also
+    # keeps quotes literally, so write .env values unquoted.
     - path: .env
       required: true
       format: raw
@@ -76,3 +81,10 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
     stop_grace_period: 90s
+    # A dead worker exits and restarts; this catches a lost DB or missing schema.
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "procrastinate", "healthchecks"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
