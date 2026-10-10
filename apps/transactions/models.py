@@ -104,7 +104,10 @@ class Attachment(models.Model):
     @property
     def is_image(self) -> bool:
         """Whether the edit page can show the Attachment as a preview."""
-        return self.content_type.startswith("image/")
+        return (
+            self.content_type.startswith("image/")
+            and self.content_type in INLINE_CONTENT_TYPES
+        )
 
     def presigned_url(self) -> str:
         """A short-lived link that opens images and PDFs and downloads the rest."""

@@ -164,6 +164,14 @@ def save_edits(
     return True
 
 
+def already_handled(request: HttpRequest) -> HttpResponseBase:
+    """Back to the Drafts, saying the Draft was posted or rejected meanwhile."""
+    messages.info(
+        request, "That Draft was already posted or rejected; nothing was saved."
+    )
+    return redirect("draft_list")
+
+
 def render_draft_edit(
     request: HttpRequest,
     form: DraftEditForm,
@@ -207,17 +215,24 @@ def unsaved_edit(
 @blocked_in_privacy_mode
 def draft_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Edit the Draft, then save it as it is or save it and post it."""
-    draft = get_object_or_404(Draft, pk=pk, status=Draft.Status.WAITING)
+    draft = get_object_or_404(Draft, pk=pk)
+    if draft.status != Draft.Status.WAITING:
+        return already_handled(request)
     if request.method != "POST":
         return render_draft_edit(request, *unsaved_edit(draft))
+    return save_draft_edit(request, draft)
+
+
+def save_draft_edit(request: HttpRequest, draft: Draft) -> HttpResponseBase:
+    """Save the posted edits, then post the Draft if asked."""
     form = DraftEditForm(request.POST, request.FILES, instance=draft)
     formset = DraftSplitFormSet(request.POST, instance=draft)
     if not (form.is_valid() and formset.is_valid()):
         return render_draft_edit(request, form, formset)
-    if (
-        save_edits(draft, form, formset)
-        and request.POST.get("action") == "post"
-        and (reasons := post_edited(draft, split_tags(formset), request.FILES))
+    if not save_edits(draft, form, formset):
+        return already_handled(request)
+    if request.POST.get("action") == "post" and (
+        reasons := post_edited(draft, split_tags(formset), request.FILES)
     ):
         draft.posting_error = " ".join(reasons)
         draft.save(update_fields=["posting_error"])

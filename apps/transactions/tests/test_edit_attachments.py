@@ -104,6 +104,16 @@ def test_edit_page_lists_attachments_with_preview_or_icon_and_size(
     assert "1.5\xa0MB" in body
 
 
+def test_edit_page_lists_a_heic_photo_as_a_file(signed_in: Client) -> None:
+    transaction = recorded()
+    photo = attach(transaction, "iphone.heic", b"content", "image/heic")
+
+    body = signed_in.get(transaction_url("transaction_edit", transaction)).content
+
+    assert f'<img src="{open_url(photo)}"' not in body.decode()
+    assert "iphone.heic" in body.decode()
+
+
 def opened_with(client: Client, attachment: Attachment) -> dict[str, list[str]]:
     response = client.get(open_url(attachment))
     assert response.status_code == 302
@@ -143,6 +153,16 @@ def test_opening_another_type_downloads_it_under_its_original_name(
     assert opened_with(signed_in, attachment) == {
         "response-content-disposition": ['attachment; filename="Quote 2026.xlsx"'],
         "response-content-type": ["application/zip"],
+    }
+
+
+@pytest.mark.usefixtures("r2_storage")
+def test_opening_a_heic_photo_downloads_it(signed_in: Client) -> None:
+    attachment = attach_row(recorded(), "iphone.heic", "image/heic")
+
+    assert opened_with(signed_in, attachment) == {
+        "response-content-disposition": ['attachment; filename="iphone.heic"'],
+        "response-content-type": ["image/heic"],
     }
 
 

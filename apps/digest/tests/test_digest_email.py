@@ -1,9 +1,10 @@
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from django.core import mail
+from django.core.mail import send_mail
 from django.urls import reverse
 from django.utils import timezone
 
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 SITE = "https://velora.example"
+MAIL_DOWN = "Mail server down"
 
 
 @pytest.fixture(autouse=True)
@@ -93,6 +95,41 @@ def test_running_twice_on_the_same_day_sends_one_digest() -> None:
     run_daily_job(date(2026, 10, 3))
 
     assert len(mail.outbox) == 2
+
+
+def test_a_failed_send_is_retried_only_for_users_not_yet_sent(
+    user: User, superuser: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rent()
+
+    def fail_for_admin(*args: Any, **kwargs: Any) -> int:
+        if args[3] == [superuser.email]:
+            raise OSError(MAIL_DOWN)
+        return send_mail(*args, **kwargs)
+
+    monkeypatch.setattr("apps.digest.email.send_mail", fail_for_admin)
+    with pytest.raises(OSError, match=MAIL_DOWN):
+        run_daily_job(date(2026, 10, 2))
+    monkeypatch.setattr("apps.digest.email.send_mail", send_mail)
+
+    run_daily_job(date(2026, 10, 2))
+
+    assert sorted(email.to[0] for email in mail.outbox) == sorted(
+        [user.email, superuser.email]
+    )
+
+
+@pytest.mark.usefixtures("user")
+def test_the_digest_shows_an_overdue_occurrence_within_its_grace_days() -> None:
+    rent()
+
+    run_daily_job(date(2026, 10, 7))
+
+    [email] = mail.outbox
+    assert "Coming up" in email.body
+    assert "5 Oct 2026: Flat rent" in email.body
+    draft = Draft.objects.get()
+    assert SITE + reverse("draft_edit", args=[draft.pk]) in email.body
 
 
 @pytest.mark.usefixtures("user")
@@ -170,6 +207,24 @@ def test_a_missed_occurrences_old_draft_is_listed_once() -> None:
 
 
 @pytest.mark.usefixtures("user")
+def test_an_old_draft_within_long_grace_days_is_listed_once() -> None:
+    bank = make_account("Bank", "asset")
+    bank.opening_balance = Decimal(100000)
+    bank.save()
+    make_schedule(
+        (bank, make_account("Rent", "expense"), "25000"),
+        description="Flat rent",
+        grace_days=10,
+    )
+    run_daily_job(date(2026, 10, 5))
+    made_on(date(2026, 10, 5), Draft.objects.get())
+
+    run_daily_job(date(2026, 10, 13))
+
+    assert mail.outbox[-1].body.count("Flat rent") == 1
+
+
+@pytest.mark.usefixtures("user")
 def test_each_occurrence_within_its_lead_days_is_reminded() -> None:
     make_schedule(
         (make_account("Bank", "asset"), make_account("Gym", "expense"), "500"),
@@ -180,7 +235,11 @@ def test_each_occurrence_within_its_lead_days_is_reminded() -> None:
 
     run_daily_job(date(2026, 10, 6))
 
-    assert mail.outbox[0].body.count("Gym") == 2
+    body = mail.outbox[0].body
+    assert "5 Oct 2026: Gym" in body
+    assert "12 Oct 2026: Gym" in body
+    assert "19 Oct 2026: Gym" in body
+    assert "26 Oct 2026: Gym" not in body
 
 
 def test_the_digest_masks_amounts_in_privacy_mode(user: User) -> None:

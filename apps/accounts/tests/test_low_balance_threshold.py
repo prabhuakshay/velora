@@ -65,3 +65,25 @@ def test_a_liability_threshold_warns_of_owing_too_much(signed_in: Client) -> Non
     text = page.content.decode()
     assert "Warn when owing over" in text
     assert "expects you to owe more than this; 0 for no warning" in text
+
+
+def test_a_negative_liability_threshold_is_refused(signed_in: Client) -> None:
+    card = make_account("HDFC card", "liability")
+
+    response = signed_in.post(
+        account_url("account_edit", card), edit_data(card, "-100")
+    )
+
+    assert response.status_code == 200
+    assert "Enter 0 or more." in response.content.decode()
+    card.refresh_from_db()
+    assert card.low_balance_threshold == Decimal(0)
+
+
+def test_an_asset_threshold_may_be_negative(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+
+    signed_in.post(account_url("account_edit", bank), edit_data(bank, "-100"))
+
+    bank.refresh_from_db()
+    assert bank.low_balance_threshold == Decimal(-100)

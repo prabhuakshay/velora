@@ -1,8 +1,12 @@
+from datetime import date
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from apps.accounts.tests.conftest import account_url, make_account
+from apps.cards.models import Statement
+from apps.cards.tests.conftest import make_card, make_card_emi
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -100,3 +104,42 @@ def test_only_liability_accounts_get_card_settings(signed_in: Client) -> None:
         "Statement Day"
         in signed_in.get(account_url("account_edit", card)).content.decode()
     )
+
+
+def test_card_settings_with_statements_cant_be_cleared(signed_in: Client) -> None:
+    card = make_card()
+    Statement.objects.create(
+        card=card,
+        period_start=date(2026, 8, 16),
+        period_end=date(2026, 9, 15),
+        due_date=date(2026, 10, 5),
+        estimated_amount=Decimal(0),
+    )
+
+    response = signed_in.post(account_url("account_edit", card), card_data(card))
+
+    assert response.status_code == 200
+    assert "so its card settings can" in response.content.decode()
+    card.refresh_from_db()
+    assert card.is_card
+
+
+def test_card_settings_with_card_emis_cant_be_cleared(signed_in: Client) -> None:
+    card = make_card()
+    make_card_emi(card)
+
+    response = signed_in.post(account_url("account_edit", card), card_data(card))
+
+    assert response.status_code == 200
+    card.refresh_from_db()
+    assert card.is_card
+
+
+def test_unused_card_settings_can_be_cleared(signed_in: Client) -> None:
+    card = make_card()
+
+    response = signed_in.post(account_url("account_edit", card), card_data(card))
+
+    assert response.status_code == 302
+    card.refresh_from_db()
+    assert not card.is_card

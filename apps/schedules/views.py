@@ -24,6 +24,8 @@ from apps.transactions.models import Transaction
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
 
@@ -155,7 +157,7 @@ def schedule_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 def schedule_split_row(request: HttpRequest) -> HttpResponse:
     """A blank Split row for the form's "add split" control."""
     total = request.GET.get("splits-TOTAL_FORMS", "")
-    index = int(total) if total.isdigit() else 0
+    index = int(total) if total.isdecimal() else 0
     split = ScheduleSplitFormSet().empty_form
     split.prefix = f"splits-{index}"
     return render(
@@ -179,16 +181,25 @@ def schedule_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
             "splits": schedule.splits.select_related("from_account", "to_account"),
             "occurrences": occurrences,
             "next_due": occurrences.filter(status=Occurrence.Status.UPCOMING).first(),
-            "ended": schedule.ends_on is not None and schedule.ends_on < today,
+            "ended": schedule.has_ended(today),
             "today": today,
         },
     )
 
 
-def _change_state(pk: int, **changes: object) -> HttpResponseBase:
-    """Save the changes and lay out the Schedule's Upcoming Occurrences again."""
+def _change_state(
+    pk: int,
+    unless: Callable[[Schedule], bool] = lambda _: False,
+    **changes: object,
+) -> HttpResponseBase:
+    """Save the changes and lay out the Schedule's Upcoming Occurrences again.
+
+    Changes nothing when unless holds for the Schedule.
+    """
     with db_transaction.atomic():
         schedule = get_object_or_404(Schedule.objects.select_for_update(), pk=pk)
+        if unless(schedule):
+            return redirect("schedule_detail", pk)
         for name, value in changes.items():
             setattr(schedule, name, value)
         schedule.save()
@@ -207,14 +218,22 @@ def schedule_pause(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: 
 @require_POST
 def schedule_resume(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
     """Propose Drafts again from today, never for dates while paused."""
-    return _change_state(pk, active=True, resumed_on=timezone.localdate())
+    today = timezone.localdate()
+    return _change_state(
+        pk, lambda schedule: schedule.active, active=True, resumed_on=today
+    )
 
 
 @login_required
 @require_POST
 def schedule_end(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
     """Stop the Schedule for good: nothing falls due from today on."""
-    return _change_state(pk, ends_on=timezone.localdate() - timedelta(days=1))
+    today = timezone.localdate()
+    return _change_state(
+        pk,
+        lambda schedule: schedule.has_ended(today),
+        ends_on=today - timedelta(days=1),
+    )
 
 
 @login_required

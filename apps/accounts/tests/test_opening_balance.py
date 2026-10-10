@@ -7,6 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import Account
+from apps.accounts.tests.conftest import account_url, make_account
+from apps.cards.tests.conftest import record
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -122,3 +124,24 @@ def test_list_shows_opening_balance(signed_in: Client) -> None:
     response = signed_in.get(reverse("account_list", kwargs={"kind": "liability"}))
 
     assert "Opening Balance -₹1,500.75" in response.content.decode()
+
+
+def test_opening_balance_date_after_the_first_split_is_refused(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    record(bank, make_account("Rent", "expense"), "500", date(2026, 3, 1))
+    data = {"name": "Bank", "opening_balance": "0", "include_in_net_worth": "on"}
+
+    refused = signed_in.post(
+        account_url("account_edit", bank),
+        {**data, "opening_balance_date": "2026-03-02"},
+    )
+    allowed = signed_in.post(
+        account_url("account_edit", bank),
+        {**data, "opening_balance_date": "2026-03-01"},
+    )
+
+    assert refused.status_code == 200
+    assert "Transactions from 1 Mar 2026" in refused.content.decode()
+    assert allowed.status_code == 302

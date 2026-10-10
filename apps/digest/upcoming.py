@@ -32,13 +32,12 @@ class Section:
 def reminders(today: date) -> list[Item]:
     """Occurrences within their Schedule's reminder lead days.
 
-    Includes those due today the daily job already drafted, while their Draft
-    waits, linking to the Draft.
+    Includes those the daily job already drafted, while their Draft waits,
+    linking to the Draft; those past their due date too, until they are Missed.
     """
     occurrences = Occurrence.objects.filter(
-        Q(status=Occurrence.Status.UPCOMING)
+        Q(status=Occurrence.Status.UPCOMING, due_date__gte=today)
         | Q(status=Occurrence.Status.DRAFTED, draft__status=Draft.Status.WAITING),
-        due_date__gte=today,
         schedule__active=True,
     ).select_related("schedule__party", "draft")
     return [
@@ -110,13 +109,18 @@ def card_due_days(today: date) -> list[Item]:
 def stale_drafts(today: date) -> list[Item]:
     """Drafts left waiting STALE_DRAFT_DAYS or more since they were made.
 
-    Leaves out those another section already shows or will show in time: a
-    Missed Occurrence's, and a card payment's before its Due Day.
+    Leaves out those another section already shows or will show in time: an
+    Occurrence's while Coming up or Missed, and a card payment's before its
+    Due Day.
     """
     drafts = (
         Draft.objects.waiting()
         .filter(created_at__date__lte=today - timedelta(days=STALE_DRAFT_DAYS))
         .exclude(occurrence__status=Occurrence.Status.MISSED)
+        .exclude(
+            occurrence__status=Occurrence.Status.DRAFTED,
+            occurrence__schedule__active=True,
+        )
         .exclude(statement__due_date__gte=today)
         .select_related("party")
         .prefetch_related("splits")

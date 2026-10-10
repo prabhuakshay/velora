@@ -98,7 +98,8 @@ FILE_TYPES = {
         "image/png", lambda data: data.startswith(b"\x89PNG"), inline=True
     ),
     ".webp": FileType("image/webp", _is_webp, inline=True),
-    ".heic": FileType("image/heic", _is_heic, inline=True),
+    # Most browsers can't show HEIC, so it is downloaded.
+    ".heic": FileType("image/heic", _is_heic),
     ".gif": FileType(
         "image/gif", lambda data: data[:6] in {b"GIF87a", b"GIF89a"}, inline=True
     ),

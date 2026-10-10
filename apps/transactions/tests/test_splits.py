@@ -206,6 +206,14 @@ def test_add_split_returns_a_blank_row_and_bumps_the_row_count(
     assert "Old bank" not in body
 
 
+def test_add_split_treats_a_non_decimal_count_as_zero(signed_in: Client) -> None:
+    body = signed_in.get(
+        reverse("transaction_split_row"), {"splits-TOTAL_FORMS": "²"}
+    ).content.decode()
+
+    assert 'name="splits-0-from_account"' in body
+
+
 def test_form_has_an_add_split_control(signed_in: Client) -> None:
     body = signed_in.get(reverse("transaction_create")).content.decode()
 

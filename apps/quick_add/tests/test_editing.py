@@ -190,6 +190,34 @@ def test_a_draft_posted_meanwhile_is_not_posted_again(
     assert not Party.objects.exists()
 
 
+def test_editing_a_draft_already_handled_says_so_and_saves_nothing(
+    signed_in: Client,
+) -> None:
+    card = make_account("HDFC Card", "liability")
+    food = make_account("Eating Out", "expense")
+    quick_add = make_draft((card, food, "1200"), description="Lunch")
+    Draft.objects.filter(pk=quick_add.draft.pk).update(status=Draft.Status.REJECTED)
+
+    response = signed_in.post(
+        reverse("draft_edit", args=[quick_add.draft.pk]),
+        edited(
+            description="Changed",
+            **first_split(quick_add.draft),
+            **{
+                "splits-0-from_account": card.pk,
+                "splits-0-to_account": food.pk,
+                "splits-0-amount": "1200",
+            },
+        ),
+        follow=True,
+    )
+
+    assert response.redirect_chain == [(reverse("draft_list"), 302)]
+    assert "That Draft was already posted or rejected" in response.content.decode()
+    quick_add.draft.refresh_from_db()
+    assert quick_add.draft.description == "Lunch"
+
+
 def test_new_party_name_matching_a_party_picks_it(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")

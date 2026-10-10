@@ -111,7 +111,7 @@ def transaction_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 def split_row(request: HttpRequest) -> HttpResponse:
     """A blank Split row for the form's "add split" control."""
     total = request.GET.get("splits-TOTAL_FORMS", "")
-    index = int(total) if total.isdigit() else 0
+    index = int(total) if total.isdecimal() else 0
     split = SplitFormSet().empty_form
     split.prefix = f"splits-{index}"
     return render(

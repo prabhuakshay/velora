@@ -72,3 +72,27 @@ def test_pausing_and_ending_need_a_post(signed_in: Client) -> None:
     for name in ("schedule_pause", "schedule_resume", "schedule_end"):
         response = signed_in.get(reverse(name, args=[schedule.pk]))
         assert response.status_code == 405
+
+
+def test_ending_an_ended_schedule_keeps_its_end(signed_in: Client) -> None:
+    ended_on = timezone.localdate() - timedelta(days=10)
+    schedule = make_schedule(start_date=ended_on - timedelta(days=30))
+    Schedule.objects.filter(pk=schedule.pk).update(ends_on=ended_on)
+
+    signed_in.post(reverse("schedule_end", args=[schedule.pk]))
+
+    schedule.refresh_from_db()
+    assert schedule.ends_on == ended_on
+
+
+def test_resuming_an_active_schedule_keeps_its_resume_date(
+    signed_in: Client,
+) -> None:
+    resumed_on = timezone.localdate() - timedelta(days=10)
+    schedule = make_schedule()
+    Schedule.objects.filter(pk=schedule.pk).update(resumed_on=resumed_on)
+
+    signed_in.post(reverse("schedule_resume", args=[schedule.pk]))
+
+    schedule.refresh_from_db()
+    assert schedule.resumed_on == resumed_on

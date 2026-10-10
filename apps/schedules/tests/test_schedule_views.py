@@ -298,3 +298,9 @@ def test_schedule_create_and_edit_send_to_privacy_mode_off_page(
             assert response.status_code == 302
             assert response["Location"] == privacy_mode_off_url(url)
     assert list(Schedule.objects.values_list("description", flat=True)) == ["Rent"]
+
+
+def test_add_split_treats_a_non_decimal_count_as_zero(signed_in: Client) -> None:
+    response = signed_in.get(reverse("schedule_split_row"), {"splits-TOTAL_FORMS": "²"})
+
+    assert 'name="splits-0-amount"' in response.content.decode()

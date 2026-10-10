@@ -14,6 +14,7 @@ from apps.transactions.split_rules import known_total
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from datetime import date
 
 
 class Schedule(models.Model):
@@ -78,6 +79,10 @@ class Schedule(models.Model):
     def amount(self) -> Decimal | None:
         """What it moves each time, or None while any Split's amount is open."""
         return known_total(split.amount for split in self.splits.all())
+
+    def has_ended(self, today: date) -> bool:
+        """Whether it was ended before today."""
+        return self.ends_on is not None and self.ends_on < today
 
 
 class ScheduleSplit(models.Model):
