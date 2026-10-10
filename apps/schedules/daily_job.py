@@ -1,9 +1,11 @@
 """The morning job that keeps every Schedule, Statement and Card EMI up to date."""
 
+import logging
 from typing import TYPE_CHECKING
 
 from apps.cards.emis import propose_card_emi_drafts
 from apps.cards.statements import create_statements, match_card_payments
+from apps.core.jobs import ItemsFailedError
 from apps.digest.email import send_digest
 from apps.schedules.matching import mark_missed, match_transactions
 from apps.schedules.occurrences import materialise_occurrences, propose_due_drafts
@@ -30,7 +32,27 @@ STEPS: tuple[Callable[[date], None], ...] = (
 )
 
 
+logger = logging.getLogger("daily_job")
+
+
+class DailyJobError(Exception):
+    """Some steps failed; each failure is already logged."""
+
+
 def run_daily_job(today: date) -> None:
-    """Run every step for `today`, catching up any days the job did not run."""
+    """Run every step for `today`, catching up any days the job did not run.
+
+    A failed step does not stop the later ones. The job raises afterwards, so
+    it shows as failed; the next run catches up.
+    """
+    failed = []
     for step in STEPS:
-        step(today)
+        try:
+            step(today)
+        except ItemsFailedError:
+            failed.append(step.__name__)
+        except Exception:
+            logger.exception("%s failed", step.__name__)
+            failed.append(step.__name__)
+    if failed:
+        raise DailyJobError(", ".join(failed))

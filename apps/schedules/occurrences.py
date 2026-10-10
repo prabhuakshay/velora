@@ -4,6 +4,7 @@ from datetime import date, timedelta
 
 from django.db import transaction as db_transaction
 
+from apps.core.jobs import run_each
 from apps.quick_add.models import Draft, DraftSplit
 from apps.quick_add.posting import DraftNotPostableError, post_draft
 from apps.schedules.estimates import last_paid_amount
@@ -50,8 +51,11 @@ def regenerate(schedule: Schedule, today: date) -> None:
 
 def materialise_occurrences(today: date) -> None:
     """Lay out every active Schedule's Occurrences up to DAYS_AHEAD."""
-    for schedule in Schedule.objects.filter(active=True):
-        materialise(schedule, today)
+    run_each(
+        "materialise_occurrences",
+        Schedule.objects.filter(active=True),
+        lambda schedule: materialise(schedule, today),
+    )
 
 
 @db_transaction.atomic
@@ -102,5 +106,4 @@ def propose_due_drafts(today: date) -> None:
         due_date__lte=today,
         schedule__active=True,
     ).select_related("schedule")
-    for occurrence in due:
-        propose_draft(occurrence)
+    run_each("propose_due_drafts", due, propose_draft)

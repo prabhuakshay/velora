@@ -389,6 +389,8 @@ LOGGING = {
             "level": "ERROR",
             "propagate": False,
         },
+        # Propagates to the console through root.
+        "daily_job": {"handlers": ["mail_admins"]},
     },
 }
 

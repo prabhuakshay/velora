@@ -28,6 +28,8 @@ def pytest_configure() -> None:
     settings.OPENROUTER_API_KEY = ""
     settings.CLOUDFLARE_ACCOUNT_ID = ""
     settings.CLOUDFLARE_API_TOKEN = ""
+    # Admins in a local .env get error emails that land in mail.outbox.
+    settings.ADMINS = []
 
 
 @pytest.fixture(autouse=True)

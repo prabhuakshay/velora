@@ -11,6 +11,7 @@ from django.db.models import Sum
 from apps.accounts.models import Account
 from apps.cards.models import Statement
 from apps.core.dates import day_of
+from apps.core.jobs import run_each
 from apps.quick_add.models import Draft, DraftSplit
 from apps.schedules.matching import find_cover
 from apps.transactions.models import Split, Transaction
@@ -129,9 +130,16 @@ def create_statement(card: Account, closing: date) -> None:
 
 def create_statements(today: date) -> None:
     """Create every card's Statements for the periods that ended before today."""
-    for card in Account.objects.filter(statement_day__isnull=False):
+
+    def create_due(card: Account) -> None:
         for closing in periods_to_create(card, today):
             create_statement(card, closing)
+
+    run_each(
+        "create_statements",
+        Account.objects.filter(statement_day__isnull=False),
+        create_due,
+    )
 
 
 @dataclass
@@ -171,9 +179,12 @@ def match_card_payments(today: date) -> None:
         period_end__lt=today,
         card__pays_from__isnull=False,
     ).select_related("card")
-    for statement in unpaid:
+
+    def settle_if_paid(statement: Statement) -> None:
         if payment := find_payment(statement):
             settle(statement, payment)
+
+    run_each("match_card_payments", unpaid, settle_if_paid)
 
 
 def sync_payment_draft(statement: Statement) -> None:

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from django.db import transaction as db_transaction
 
+from apps.core.jobs import run_each
 from apps.quick_add.models import Draft
 from apps.schedules.models import Occurrence, Schedule
 from apps.transactions.models import Transaction
@@ -82,8 +83,11 @@ def match_transactions(today: date) -> None:
         ],
         due_date__lte=today + DATE_TOLERANCE,
     ).select_related("schedule")
-    for occurrence in open_occurrences:
-        match_occurrence(occurrence)
+    run_each(
+        "match_transactions",
+        open_occurrences,
+        match_occurrence,
+    )
 
 
 def date_tolerance(schedule: Schedule) -> timedelta:

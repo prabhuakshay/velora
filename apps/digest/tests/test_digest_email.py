@@ -12,7 +12,7 @@ from apps.accounts.tests.conftest import make_account
 from apps.cards.tests.conftest import make_card, record
 from apps.quick_add.models import Draft
 from apps.quick_add.tests.conftest import make_manual_draft
-from apps.schedules.daily_job import run_daily_job
+from apps.schedules.daily_job import DailyJobError, run_daily_job
 from apps.schedules.tests.conftest import make_schedule
 
 if TYPE_CHECKING:
@@ -108,7 +108,7 @@ def test_a_failed_send_is_retried_only_for_users_not_yet_sent(
         return send_mail(*args, **kwargs)
 
     monkeypatch.setattr("apps.digest.email.send_mail", fail_for_admin)
-    with pytest.raises(OSError, match=MAIL_DOWN):
+    with pytest.raises(DailyJobError):
         run_daily_job(date(2026, 10, 2))
     monkeypatch.setattr("apps.digest.email.send_mail", send_mail)
 

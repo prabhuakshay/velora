@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from django.db import transaction as db_transaction
 
 from apps.cards.models import CardEMI
+from apps.core.jobs import run_each
 from apps.quick_add.models import Draft, DraftSplit
 
 if TYPE_CHECKING:
@@ -43,8 +44,15 @@ def propose_installment(emi: CardEMI, index: int) -> None:
 
 def propose_card_emi_drafts(today: date) -> None:
     """Propose every installment billed by today that has no Draft yet."""
-    for emi in CardEMI.objects.select_related("card", "interest_account"):
+
+    def propose_billed(emi: CardEMI) -> None:
         proposed = set(emi.drafts.values_list("installment", flat=True))
         for index in range(emi.billed_count):
             if emi.closing(index) <= today and index + 1 not in proposed:
                 propose_installment(emi, index)
+
+    run_each(
+        "propose_card_emi_drafts",
+        CardEMI.objects.select_related("card", "interest_account"),
+        propose_billed,
+    )
