@@ -11,10 +11,10 @@ if TYPE_CHECKING:
 
 
 def merge_party(source: Party, target: Party) -> None:
-    """Point every Transaction and Draft of the source at the target, then remove it.
+    """Point every Transaction, Draft and Schedule of the source at the target.
 
-    Saves Transactions row by row, not with update(), so change history
-    records each one; Drafts keep no history.
+    Then removes the source. Saves Transactions and Schedules row by row, not
+    with update(), so change history records each one; Drafts keep no history.
     """
     reason = f"Merged {source} into {target}"
     with db_transaction.atomic():
@@ -22,6 +22,9 @@ def merge_party(source: Party, target: Party) -> None:
             transaction.party = target
             with_reason(transaction, reason).save()
         source.drafts.update(party=target)
+        for schedule in source.schedules.all():
+            schedule.party = target
+            with_reason(schedule, reason).save()
         with_reason(source, reason).delete()
 
 

@@ -104,10 +104,14 @@ def party_unhide(request: HttpRequest, pk: int) -> HttpResponseBase:
 def party_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Confirm, then delete a party."""
     party = get_object_or_404(Party, pk=pk)
-    if party.transactions.exists() or party.drafts.exists():
+    if party.transactions.exists() or party.drafts.exists() or party.schedules.exists():
         merge_url = reverse("party_merge", args=[party.pk])
         return redirect_in_use_to_merge(
-            request, party, "party", merge_url, used_by="Transactions or Drafts"
+            request,
+            party,
+            "party",
+            merge_url,
+            used_by="Transactions, Drafts or Schedules",
         )
     if request.method == "POST":
         party.delete()
@@ -124,7 +128,11 @@ def party_merge(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Choose a target, then Merge a party into it."""
     party = get_object_or_404(Party, pk=pk)
     count = party.transactions.count()
-    impact = f"{count} Transaction{pluralize(count)} will move."
+    schedules = party.schedules.count()
+    impact = (
+        f"{count} Transaction{pluralize(count)} and "
+        f"{schedules} Schedule{pluralize(schedules)} will move."
+    )
     return _merge(request, party, merge_party, "party", impact)
 
 

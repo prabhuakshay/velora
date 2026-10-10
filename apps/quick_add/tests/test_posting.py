@@ -140,7 +140,7 @@ def test_a_party_on_a_draft_cannot_be_deleted(signed_in: Client) -> None:
     response = signed_in.post(reverse("party_delete", args=[toit.pk]), follow=True)
 
     assert response.redirect_chain == [(reverse("party_merge", args=[toit.pk]), 302)]
-    assert "used by Transactions or Drafts" in response.content.decode()
+    assert "used by Transactions, Drafts or Schedules" in response.content.decode()
     quick_add.draft.refresh_from_db()
     assert quick_add.draft.party == toit
 
