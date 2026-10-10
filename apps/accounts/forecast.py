@@ -72,6 +72,10 @@ class _Move:
     from_account_id: int | None
     to_account_id: int | None
     amount: Decimal
+    # Left out of a Statement Amount, like their recorded Transactions: a
+    # Statement's payment pays an earlier period and a Card EMI's charges are
+    # already billed with its installment.
+    off_statement: bool = False
 
 
 def _occurrence_moves(start: date, end: date, amountless: list[Item]) -> list[_Move]:
@@ -141,19 +145,42 @@ def _draft_moves(end: date, amountless: list[Item]) -> list[_Move]:
                     reverse("draft_edit", args=[draft.pk]),
                 )
             )
+        off_statement = draft.source in (Draft.Source.STATEMENT, Draft.Source.CARD_EMI)
         moves += [
-            _Move(draft.date, split.from_account_id, split.to_account_id, split.amount)
+            _Move(
+                draft.date,
+                split.from_account_id,
+                split.to_account_id,
+                split.amount,
+                off_statement,
+            )
             for split in splits
             if split.amount is not None
         ]
     return moves
 
 
-def _card_moves(start: date, end: date) -> list[_Move]:
+def _expected_on_card(
+    card: Account, start: date, end: date, moves: list[_Move]
+) -> Decimal:
+    """What the expected moves add to the card's Statement Amount for the period."""
+    total = Decimal(0)
+    for move in moves:
+        if move.off_statement or not start <= move.when <= end:
+            continue
+        if move.from_account_id == card.pk:
+            total += move.amount
+        elif move.to_account_id == card.pk:
+            total -= move.amount
+    return total
+
+
+def _card_moves(start: date, end: date, expected: list[_Move]) -> list[_Move]:
     """Payments of the Statements not stored yet whose Due Day falls by the end.
 
     A stored Statement's payment is counted by its Draft, or already recorded.
-    Each is estimated from the card's activity in its period so far.
+    Each is estimated from the card's activity in its period so far, plus the
+    expected Occurrences and Drafts dated in it.
     """
     moves = []
     for card in Account.objects.filter(statement_day__isnull=False):
@@ -166,7 +193,9 @@ def _card_moves(start: date, end: date) -> list[_Move]:
             period_start = (previous or previous_closing(card, closing)) + timedelta(
                 days=1
             )
-            amount = estimate_statement_amount(card, period_start, closing)
+            amount = estimate_statement_amount(
+                card, period_start, closing
+            ) + _expected_on_card(card, period_start, closing, expected)
             if amount > 0:
                 moves.append(_Move(due, card.pays_from_id, card.pk, amount))
             previous = closing
@@ -204,8 +233,8 @@ def forecast(start: date) -> Forecast:
     moves = [
         *_occurrence_moves(start, days[-1], amountless),
         *_draft_moves(days[-1], amountless),
-        *_card_moves(start, days[-1]),
     ]
+    moves += _card_moves(start, days[-1], moves)
     for move in moves:
         # Anything due before the start still to happen lands on the first day.
         when = max(move.when, start)
