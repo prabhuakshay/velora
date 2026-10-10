@@ -11,6 +11,14 @@ from apps.schedules.models import Schedule, ScheduleSplit
 from apps.transactions.forms import grouped_by_kind, visible_or_current
 from apps.transactions.split_rules import accounts_error, shared_account_error
 
+# Days ahead to remind when the user leaves it blank, by repeat unit.
+REMINDER_DAYS = {
+    Schedule.Unit.DAY: 0,
+    Schedule.Unit.WEEK: 1,
+    Schedule.Unit.MONTH: 3,
+    Schedule.Unit.YEAR: 14,
+}
+
 
 class ScheduleForm(forms.ModelForm[Schedule]):
     """The Schedule's template fields and its repeat rule."""
@@ -43,6 +51,7 @@ class ScheduleForm(forms.ModelForm[Schedule]):
         help_texts: ClassVar = {
             "ends_on": "Leave blank to repeat until you end it.",
             "grace_days": "Days after the due date before it counts as Missed.",
+            "reminder_days": "Leave blank for 3 if monthly, 14 if yearly.",
             "is_subscription": "It pays for an ongoing service.",
         }
         widgets: ClassVar = {
@@ -59,11 +68,16 @@ class ScheduleForm(forms.ModelForm[Schedule]):
         party.queryset = visible_or_current(
             Party.objects.order_by(Lower("name")), self.instance.party_id
         )
+        self.fields["reminder_days"].required = False
+        if not self.instance.pk:
+            self.initial["reminder_days"] = None
 
     def clean(self) -> dict[str, Any]:
-        """Refuse a last due date before the first."""
+        """Default blank reminder days by unit; refuse a last due date first."""
         super().clean()
         cleaned = self.cleaned_data
+        if cleaned.get("reminder_days") is None and (unit := cleaned.get("unit")):
+            cleaned["reminder_days"] = REMINDER_DAYS[unit]
         start, end = cleaned.get("start_date"), cleaned.get("ends_on")
         if start and end and end < start:
             self.add_error("ends_on", "The last due date cannot be before the first.")
