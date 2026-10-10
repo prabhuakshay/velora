@@ -4,9 +4,10 @@ Tests replace `complete` with a fake, so nothing else here needs faking.
 """
 
 import json
+import math
 import urllib.request
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.conf import settings
@@ -57,6 +58,27 @@ def parsed(content: object) -> Any:  # noqa: ANN401
         return content
 
 
+def count(value: object) -> int:
+    """A token count from the reply, or 0 when it isn't one."""
+    if (
+        isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value >= 0
+    ):
+        return int(value)
+    return 0
+
+
+def cost(value: object) -> Decimal:
+    """The cost from the reply, or 0 when it isn't a number."""
+    try:
+        amount = Decimal(str(value))
+    except InvalidOperation:
+        return Decimal(0)
+    return amount if amount.is_finite() else Decimal(0)
+
+
 def complete(messages: list[dict[str, str]], schema: dict[str, Any]) -> Reply:
     """Send the messages and get back a reply that follows the JSON schema.
 
@@ -92,13 +114,15 @@ def complete(messages: list[dict[str, str]], schema: dict[str, Any]) -> Reply:
     if not isinstance(data, dict):
         msg = "OpenRouter's response is not a JSON object."
         raise ValueError(msg)  # noqa: TRY004
-    usage = data.get("usage") or {}
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        usage = {}
     return Reply(
         content=parsed(reply_content(data)),
         model=data.get("model") or settings.OPENROUTER_MODEL,
         usage=Usage(
-            prompt_tokens=usage.get("prompt_tokens", 0),
-            completion_tokens=usage.get("completion_tokens", 0),
-            cost=Decimal(str(usage.get("cost", 0))),
+            prompt_tokens=count(usage.get("prompt_tokens")),
+            completion_tokens=count(usage.get("completion_tokens")),
+            cost=cost(usage.get("cost")),
         ),
     )

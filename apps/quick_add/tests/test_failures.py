@@ -1,6 +1,7 @@
 import json
 import urllib.request
 from datetime import timedelta
+from decimal import Decimal
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
@@ -290,3 +291,73 @@ def test_an_unexpected_error_fails_the_quick_add_instead_of_leaving_it_processin
     failed = QuickAdd.objects.get(pk=quick_add.pk)
     assert failed.status == QuickAdd.Status.FAILED
     assert "Something went wrong" in drafts_page(signed_in)
+
+
+@pytest.mark.parametrize(
+    ("usage", "expected"),
+    [
+        ({"prompt_tokens": 10, "completion_tokens": 5, "cost": None}, (10, 5, 0)),
+        ({"prompt_tokens": 10, "completion_tokens": 5, "cost": "free"}, (10, 5, 0)),
+        (
+            {"prompt_tokens": 10, "completion_tokens": 5, "cost": float("nan")},
+            (10, 5, 0),
+        ),
+        ({"prompt_tokens": None, "completion_tokens": None, "cost": 0.5}, (0, 0, 0.5)),
+        ({"prompt_tokens": -1, "completion_tokens": 5.0, "cost": 0}, (0, 5, 0)),
+        (
+            {"prompt_tokens": True, "completion_tokens": float("inf"), "cost": 0},
+            (0, 0, 0),
+        ),
+        ({"prompt_tokens": "x", "completion_tokens": [], "cost": {}}, (0, 0, 0)),
+        (None, (0, 0, 0)),
+        ("usage", (0, 0, 0)),
+        ({}, (0, 0, 0)),
+    ],
+    ids=[
+        "null cost",
+        "non-numeric cost",
+        "NaN cost",
+        "null tokens",
+        "negative and float tokens",
+        "bool and infinite tokens",
+        "non-numeric everything",
+        "null usage",
+        "non-object usage",
+        "empty usage",
+    ],
+)
+def test_a_reply_with_unusable_usage_still_becomes_a_draft(
+    monkeypatch: pytest.MonkeyPatch,
+    bank: Account,
+    food: Account,
+    usage: object,
+    expected: tuple[int, int, float],
+) -> None:
+    content = json.dumps(reply(split(bank, food, "850")))
+    openrouter_responds(
+        monkeypatch, {"choices": [{"message": {"content": content}}], "usage": usage}
+    )
+    quick_add = make_quick_add()
+
+    process(quick_add)
+
+    assert QuickAdd.objects.get(pk=quick_add.pk).status == QuickAdd.Status.DRAFT
+    [call] = AICall.objects.all()
+    assert (call.prompt_tokens, call.completion_tokens, call.cost) == pytest.approx(
+        expected
+    )
+    assert call.succeeded
+
+
+def test_a_reply_without_usage_still_becomes_a_draft(
+    monkeypatch: pytest.MonkeyPatch, bank: Account, food: Account
+) -> None:
+    content = json.dumps(reply(split(bank, food, "850")))
+    openrouter_responds(monkeypatch, {"choices": [{"message": {"content": content}}]})
+    quick_add = make_quick_add()
+
+    process(quick_add)
+
+    assert QuickAdd.objects.get(pk=quick_add.pk).status == QuickAdd.Status.DRAFT
+    [call] = AICall.objects.all()
+    assert (call.prompt_tokens, call.completion_tokens, call.cost) == (0, 0, Decimal(0))
