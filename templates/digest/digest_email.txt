@@ -1,0 +1,7 @@
+{% autoescape off %}Good morning. Here is what needs you on {{ today|date:"j M Y" }}.
+{% for section in sections %}
+{{ section.title }}
+{% for item in section.items %}
+- {{ item.when|date:"j M Y" }}: {{ item.label }}, {% if item.amount is None %}₹?{% else %}{% amount item.amount as shown %}{{ shown|striptags }}{% endif %}
+  {{ site_url }}{{ item.url }}
+{% endfor %}{% endfor %}{% endautoescape %}
