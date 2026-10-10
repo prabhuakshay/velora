@@ -8,11 +8,11 @@
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
     {% for row in rows %}
       {% with schedule=row.schedule %}
-        <li class="py-3">
+        <li class="{% if not schedule.active or row.ended %}opacity-50 {% endif %}py-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <a href="{% url 'schedule_detail' schedule.pk %}" class="block truncate font-medium hover:underline">{{ schedule }}</a>
-              <p class="text-xs text-slate-500">Every {% if schedule.every > 1 %}{{ schedule.every }} {% endif %}{{ schedule.unit }}{{ schedule.every|pluralize }}{% if schedule.plan %} · {{ schedule.plan }}{% endif %}{% if schedule.trial_ends_on %} · Trial ends {{ schedule.trial_ends_on|date:"j M Y" }}{% endif %}</p>
+              <p class="text-xs text-slate-500">Every {% if schedule.every > 1 %}{{ schedule.every }} {% endif %}{{ schedule.unit }}{{ schedule.every|pluralize }}{% if not schedule.active %} · Paused{% elif row.ended %} · Ended{% endif %}{% if schedule.plan %} · {{ schedule.plan }}{% endif %}{% if schedule.trial_ends_on %} · Trial ends {{ schedule.trial_ends_on|date:"j M Y" }}{% endif %}</p>
             </div>
             <div class="shrink-0 text-right">
               <p class="tabular-nums">{% with total=schedule.amount %}{% if total is None %}<span class="text-slate-500">Open amount</span>{% else %}{% amount total %}{% endif %}{% endwith %}</p>

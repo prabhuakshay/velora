@@ -1,7 +1,6 @@
 """Views for listing, editing, pausing and ending Schedules."""
 
 from datetime import timedelta
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.contrib.auth.decorators import login_required
@@ -14,7 +13,7 @@ from django.views.decorators.http import require_POST
 from apps.schedules.forms import ScheduleForm, ScheduleSplitFormSet
 from apps.schedules.models import Occurrence, Schedule
 from apps.schedules.occurrences import regenerate
-from apps.schedules.subscriptions import subscription_costs
+from apps.schedules.subscriptions import subscription_costs, yearly_total
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -139,16 +138,10 @@ def schedule_end(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: AR
 @login_required
 def subscription_list(request: HttpRequest) -> HttpResponseBase:
     """Every Subscription with its monthly and yearly cost, and the totals."""
-    rows = subscription_costs()
-    yearly_total = sum(
-        (row.yearly for row in rows if row.yearly is not None), Decimal(0)
-    )
+    rows = subscription_costs(timezone.localdate())
+    total = yearly_total(rows)
     return render(
         request,
         "schedules/subscription_list.html",
-        {
-            "rows": rows,
-            "yearly_total": yearly_total,
-            "monthly_total": yearly_total / 12,
-        },
+        {"rows": rows, "yearly_total": total, "monthly_total": total / 12},
     )
