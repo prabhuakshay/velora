@@ -3,6 +3,7 @@ name = "velora"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
+    "boto3>=1.43.110",
     "django>=6.1.2",
     "django-axes[ipware]>=8.3.1",
     "django-environ>=0.14.0",
@@ -127,7 +128,14 @@ files = ["."]
 exclude = ["/migrations/"]
 
 [[tool.mypy.overrides]]
-module = ["environ", "simple_history.*", "axes.*", "storages.*"]
+module = [
+    "environ",
+    "simple_history.*",
+    "axes.*",
+    "storages.*",
+    "boto3.*",
+    "botocore.*",
+]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

@@ -21,6 +21,7 @@ urlpatterns = [
         name="transaction_delete",
     ),
     path("storage/", views.storage, name="storage"),
+    path("storage/bucket/", views.storage_bucket, name="storage_bucket"),
     path(
         "storage/analytics/",
         views.storage_analytics,

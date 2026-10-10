@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.core.views import paginate
-from apps.transactions import cloudflare
+from apps.transactions import cloudflare, r2_bucket
 from apps.transactions.attachments import (
     AttachmentDeleteError,
     delete_attachment_files,
@@ -187,3 +187,28 @@ def storage_analytics(request: HttpRequest) -> HttpResponse:
         logger.exception("Couldn't fetch Cloudflare storage analytics.")
         return render(request, template, {"failed": True})
     return render(request, template, {"chart": StorageChart.of(days)})
+
+
+@login_required
+def storage_bucket(request: HttpRequest) -> HttpResponse:
+    """What the R2 bucket actually holds, loaded by the Storage page."""
+    try:
+        objects = dict(r2_bucket.list_objects())
+    # Any failure, from missing credentials to a network error, only means the
+    # figures can't be shown; the rest of the Storage page is unaffected.
+    except Exception:
+        logger.exception("Listing the R2 bucket failed")
+        return render(request, "transactions/_storage_bucket.html", {"failed": True})
+    stored = set(Attachment.objects.values_list("file", flat=True))
+    untracked = [size for key, size in objects.items() if key not in stored]
+    return render(
+        request,
+        "transactions/_storage_bucket.html",
+        {
+            "objects": len(objects),
+            "total_size": sum(objects.values()),
+            "untracked": len(untracked),
+            "untracked_size": sum(untracked),
+            "missing": len(stored - objects.keys()),
+        },
+    )
