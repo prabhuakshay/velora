@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
@@ -44,9 +45,12 @@ def test_the_digest_reminds_of_occurrences_within_their_lead_days(user: User) ->
 
 
 def rent() -> None:
+    """Rent from a Bank that can afford it, so no low-balance warning shows."""
+    bank = make_account("Bank", "asset")
+    bank.opening_balance = Decimal(100000)
+    bank.save()
     make_schedule(
-        (make_account("Bank", "asset"), make_account("Rent", "expense"), "25000"),
-        description="Flat rent",
+        (bank, make_account("Rent", "expense"), "25000"), description="Flat rent"
     )
 
 
@@ -85,7 +89,10 @@ def test_the_digest_lists_missed_occurrences_with_their_draft() -> None:
 
 @pytest.mark.usefixtures("user")
 def test_the_digest_shows_a_card_due_day_with_its_statement_amount() -> None:
-    card = make_card()
+    bank = make_account("Bank", "asset")
+    bank.opening_balance = Decimal(5000)
+    bank.save()
+    card = make_card(pays_from=bank)
     record(card, make_account("Groceries", "expense"), "1200", date(2026, 9, 20))
     run_daily_job(date(2026, 10, 15))
     assert mail.outbox == []
@@ -165,3 +172,18 @@ def test_the_digest_masks_amounts_in_privacy_mode(user: User) -> None:
     assert "Flat rent, ₹••••" in body
     assert "25,000" not in body
     assert "<span" not in body
+
+
+@pytest.mark.usefixtures("user")
+def test_the_digest_warns_of_a_low_balance_with_its_first_day() -> None:
+    bank = make_account("Salary bank", "asset")
+    bank.opening_balance = Decimal(10000)
+    bank.save()
+    make_schedule((bank, make_account("Rent", "expense"), "25000"))
+
+    run_daily_job(date(2026, 9, 20))
+
+    [email] = mail.outbox
+    assert "Low balance" in email.body
+    assert "5 Oct 2026: Salary bank, -₹15,000.00" in email.body
+    assert SITE + reverse("forecast") in email.body

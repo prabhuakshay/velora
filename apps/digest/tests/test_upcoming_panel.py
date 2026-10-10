@@ -57,3 +57,13 @@ def test_the_upcoming_panel_says_when_nothing_needs_the_user(
     page = signed_in.get(reverse("index")).content.decode()
 
     assert "Nothing needs you today." in page
+
+
+def test_the_upcoming_panel_warns_of_a_low_balance(signed_in: Client) -> None:
+    rent_due_in_two_days()
+
+    page = signed_in.get(reverse("index")).content.decode()
+
+    assert "Low balance" in page
+    assert f'href="{reverse("forecast")}"' in page
+    assert "-₹25,000.00" in page

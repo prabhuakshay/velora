@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from django.urls import reverse
 
+from apps.accounts.forecast import forecast
 from apps.cards.models import Statement
 from apps.quick_add.models import Draft
 from apps.schedules.models import Occurrence
@@ -141,11 +142,23 @@ def stale_drafts(today: date) -> list[Item]:
     ]
 
 
+def low_balances(today: date) -> list[Item]:
+    """Each Account the Forecast expects under its Low-Balance Threshold.
+
+    Dated the first day it is, with the Balance expected then.
+    """
+    return [
+        Item(breach.on, str(breach.account), breach.balance, reverse("forecast"))
+        for breach in forecast(today).breaches
+    ]
+
+
 # In the order they are shown; add a (title, finder) pair for a new section.
 SECTIONS: tuple[tuple[str, Callable[[date], list[Item]]], ...] = (
     ("Coming up", reminders),
     ("Missed", missed),
     ("Card Due Days", card_due_days),
+    ("Low balance", low_balances),
     ("Drafts waiting 7 days", stale_drafts),
 )
 
