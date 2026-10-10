@@ -7,6 +7,11 @@
     <h1 class="text-2xl font-bold tracking-tight">Schedules</h1>
     <a href="{% url 'schedule_create' %}" class="btn-primary py-2 text-sm">New Schedule</a>
   </div>
+  {% with count=suggested_schedule_count %}
+    {% if count %}
+      <a href="{% url 'suggested_schedule_list' %}" class="mt-4 block rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100">{{ count }} Suggested Schedule{{ count|pluralize }} waiting for review</a>
+    {% endif %}
+  {% endwith %}
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
     {% for schedule in schedules %}
       <li class="{% if not schedule.active or schedule.ends_on and schedule.ends_on < today %}opacity-50 {% endif %}flex items-center justify-between gap-3 py-3">

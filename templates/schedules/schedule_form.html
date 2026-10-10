@@ -1,9 +1,10 @@
 {% extends "app_base.html" %}
 
-{% block title %}{% if schedule %}Edit Schedule{% else %}New Schedule{% endif %} · Velora{% endblock %}
+{% block title %}{% if suggestion %}Confirm Suggested Schedule{% elif schedule %}Edit Schedule{% else %}New Schedule{% endif %} · Velora{% endblock %}
 
 {% block card %}
-  <h1 class="text-xl font-semibold">{% if schedule %}Edit Schedule{% else %}New Schedule{% endif %}</h1>
+  <h1 class="text-xl font-semibold">{% if suggestion %}Confirm Suggested Schedule{% elif schedule %}Edit Schedule{% else %}New Schedule{% endif %}</h1>
+  {% if suggestion %}<p class="mt-1 text-sm text-slate-500">Adjust anything before saving; it proposes Drafts once confirmed.</p>{% endif %}
   {% if schedule %}<p class="mt-1 text-sm text-slate-500">Changes apply to Upcoming Occurrences only; Drafts already proposed and past ones stay as they are.</p>{% endif %}
   <form method="post" class="mt-6 space-y-4">
     {% csrf_token %}
@@ -37,6 +38,6 @@
     {% include "partials/submit.html" with label="Save" %}
   </form>
   <p class="mt-4 text-center text-sm">
-    <a href="{% if schedule %}{% url 'schedule_detail' schedule.pk %}{% else %}{% url 'schedule_list' %}{% endif %}" class="link">Cancel</a>
+    <a href="{% if suggestion %}{% url 'suggested_schedule_list' %}{% elif schedule %}{% url 'schedule_detail' schedule.pk %}{% else %}{% url 'schedule_list' %}{% endif %}" class="link">Cancel</a>
   </p>
 {% endblock %}
