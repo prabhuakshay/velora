@@ -9,15 +9,19 @@ from django.utils import timezone
 from apps.accounts.models import CARD_SETTINGS_TOGETHER, Account
 
 OPENING_BALANCE_FIELDS = ("opening_balance", "opening_balance_date")
-BALANCE_KIND_FIELDS = (*OPENING_BALANCE_FIELDS, "include_in_net_worth")
+BALANCE_KIND_FIELDS = (
+    *OPENING_BALANCE_FIELDS,
+    "include_in_net_worth",
+    "low_balance_threshold",
+)
 CARD_FIELDS = ("statement_day", "due_day", "pays_from")
 
 
 class AccountForm(forms.ModelForm[Account]):
     """Create or edit an Account; the kind comes from the instance, never the form.
 
-    Only Asset and Liability Accounts get the Opening Balance and Net Worth
-    fields, and only Liability Accounts the credit card settings.
+    Only Asset and Liability Accounts get the Opening Balance, Net Worth and
+    Low-Balance Threshold fields, and only Liability Accounts the credit card settings.
     """
 
     class Meta:
@@ -39,6 +43,7 @@ class AccountForm(forms.ModelForm[Account]):
             return
         for name in OPENING_BALANCE_FIELDS:
             self.fields[name].required = True
+        self.fields["low_balance_threshold"].required = False
         self.fields["opening_balance_date"].label = "Opening Balance date"
         if not self.instance.pk:
             self.initial["opening_balance"] = Decimal(0)
@@ -59,6 +64,11 @@ class AccountForm(forms.ModelForm[Account]):
             if any(given) and not all(given):
                 raise forms.ValidationError(CARD_SETTINGS_TOGETHER)
         return cleaned
+
+    def clean_low_balance_threshold(self) -> Decimal:
+        """A blank threshold is the default, 0."""
+        threshold: Decimal | None = self.cleaned_data["low_balance_threshold"]
+        return Decimal(0) if threshold is None else threshold
 
     def clean_name(self) -> str:
         """Reject a name already in use within this kind, ignoring case."""
