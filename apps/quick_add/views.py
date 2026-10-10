@@ -9,7 +9,6 @@ from django.db import transaction as db_transaction
 from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.core.views import paginate
@@ -279,7 +278,7 @@ def queue_again(quick_add: QuickAdd) -> None:
     """Send the failed or stalled Quick Add back to the AI."""
     quick_add.status = QuickAdd.Status.PROCESSING
     quick_add.failure_reason = ""
-    quick_add.processing_since = timezone.now()
+    quick_add.processing_since = None
     quick_add.save(update_fields=["status", "failure_reason", "processing_since"])
     process_quick_add.defer(quick_add_id=quick_add.pk)
 

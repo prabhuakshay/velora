@@ -65,7 +65,7 @@ A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule
 _Avoid_: Pending transaction, suggestion, draft entry
 
 **Processing**:
-A Quick Add the AI is still working on, which has no Draft yet. One still Processing after five minutes is stalled: its job was likely killed, so the user can retry or discard it.
+A Quick Add the AI is still working on, which has no Draft yet. One still Processing five minutes after its job started is stalled, so the user can retry or discard it; time spent queued behind other jobs doesn't count.
 _Avoid_: Pending, queued, in progress
 
 **Failed**:

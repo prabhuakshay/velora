@@ -6,10 +6,14 @@ from django.urls import reverse
 from django.utils import timezone
 from procrastinate.contrib.django.models import ProcrastinateJob
 
-from apps.quick_add.models import STALL_AFTER, QuickAdd
+from apps.quick_add.drafting import TransientError
+from apps.quick_add.models import STALL_AFTER, AICall, QuickAdd
+from apps.quick_add.tests.conftest import make_quick_add, process
 
 if TYPE_CHECKING:
     from django.test import Client
+
+    from apps.quick_add.tests.conftest import FakeOpenRouter
 
 pytestmark = pytest.mark.django_db
 
@@ -181,3 +185,51 @@ def test_discard_rejects_a_stalled_quick_add(signed_in: Client) -> None:
     quick_add.refresh_from_db()
     assert quick_add.status == QuickAdd.Status.REJECTED
     assert not ProcrastinateJob.objects.exists()
+
+
+def test_a_quick_add_waiting_for_its_job_never_stalls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    quick_add = QuickAdd.objects.create(text="lunch 850")
+    later = timezone.now() + STALL_AFTER + timedelta(minutes=1)
+    monkeypatch.setattr(timezone, "now", lambda: later)
+
+    assert not quick_add.is_stalled
+
+
+def test_the_job_starts_the_stall_clock(fake_openrouter: FakeOpenRouter) -> None:
+    quick_add = make_quick_add()
+    fake_openrouter.replies.append(TransientError())
+    before = timezone.now()
+
+    with pytest.raises(TransientError):
+        process(quick_add)
+
+    quick_add.refresh_from_db()
+    assert quick_add.processing_since is not None
+    assert quick_add.processing_since >= before
+    assert not quick_add.is_stalled
+    quick_add.processing_since -= STALL_AFTER + timedelta(seconds=1)
+    assert quick_add.is_stalled
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        QuickAdd.Status.DRAFT,
+        QuickAdd.Status.FAILED,
+        QuickAdd.Status.REJECTED,
+        QuickAdd.Status.POSTED,
+    ],
+)
+def test_the_job_leaves_a_quick_add_no_longer_processing_alone(
+    fake_openrouter: FakeOpenRouter, status: QuickAdd.Status
+) -> None:
+    quick_add = QuickAdd.objects.create(text="lunch 850", status=status)
+
+    process(quick_add)
+
+    assert fake_openrouter.requests == []
+    unchanged = QuickAdd.objects.get(pk=quick_add.pk)
+    assert (unchanged.status, unchanged.processing_since) == (status, None)
+    assert not AICall.objects.exists()

@@ -43,8 +43,9 @@ class QuickAdd(models.Model):
 
     text = models.CharField(max_length=MAX_TEXT_LENGTH)
     created_at = models.DateTimeField(auto_now_add=True)
-    # Reset on a retry; created_at stays, as it dates the Draft.
-    processing_since = models.DateTimeField(default=timezone.now)
+    # When its job started, so time queued behind other jobs never counts as
+    # stalled; created_at stays, as it dates the Draft.
+    processing_since = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status, default=Status.PROCESSING)
     failure_reason = models.TextField(blank=True)
     posted_without_edits = models.BooleanField(default=False)
@@ -64,9 +65,11 @@ class QuickAdd(models.Model):
 
     @property
     def is_stalled(self) -> bool:
-        """Whether it has been processing too long to still be worked on."""
+        """Whether its job has been running too long to still be alive."""
         return (
-            self.is_processing and timezone.now() - self.processing_since > STALL_AFTER
+            self.is_processing
+            and self.processing_since is not None
+            and timezone.now() - self.processing_since > STALL_AFTER
         )
 
     @property

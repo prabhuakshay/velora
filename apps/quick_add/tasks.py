@@ -1,5 +1,6 @@
 """Background jobs that turn Quick Adds into Drafts (ADR 0005)."""
 
+from django.utils import timezone
 from procrastinate import JobContext, RetryStrategy
 from procrastinate.contrib.django import app
 
@@ -19,8 +20,14 @@ def process_quick_add(context: JobContext, quick_add_id: int) -> None:
 
     Any error other than TransientError ends the job, so the Quick Add is
     marked failed rather than left processing with nothing to finish it.
+    A Quick Add no longer processing, say one a retried job already
+    drafted, is left alone.
     """
     quick_add = QuickAdd.objects.get(pk=quick_add_id)
+    if not quick_add.is_processing:
+        return
+    quick_add.processing_since = timezone.now()
+    quick_add.save(update_fields=["processing_since"])
     try:
         drafting.draft_quick_add(
             quick_add,
