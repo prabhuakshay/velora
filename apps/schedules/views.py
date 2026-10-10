@@ -10,9 +10,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.schedules.forms import ScheduleForm, ScheduleSplitFormSet
+from apps.schedules.forms import (
+    ScheduleForm,
+    ScheduleSplitFormSet,
+    has_open_amount,
+)
 from apps.schedules.models import Occurrence, Schedule, SuggestedSchedule
 from apps.schedules.occurrences import regenerate
+from apps.schedules.repeat import months_after
 from apps.schedules.subscriptions import subscription_costs, yearly_total
 from apps.schedules.suggestions import next_expected
 from apps.transactions.models import Transaction
@@ -22,21 +27,50 @@ if TYPE_CHECKING:
     from django.http.response import HttpResponseBase
 
 
+type Initial = tuple[dict[str, object], list[dict[str, object]]]
+
+
+def _initial_from_transaction(transaction: Transaction) -> Initial:
+    """The Schedule and its Splits copied from a Transaction, due a month on."""
+    schedule: dict[str, object] = {
+        "party": transaction.party_id,
+        "description": transaction.description,
+        "start_date": months_after(transaction.date, 1),
+    }
+    splits = [
+        {
+            "from_account": split.from_account_id,
+            "to_account": split.to_account_id,
+            "amount": split.amount,
+        }
+        for split in transaction.splits.all()
+    ]
+    return schedule, splits
+
+
 def _save_schedule(
     request: HttpRequest,
     schedule: Schedule,
     suggestion: SuggestedSchedule | None = None,
+    initial: Initial = ({}, []),
 ) -> HttpResponseBase:
     """Show the Schedule form, or save it and lay out its Occurrences again.
 
     Given a suggestion, the form starts from it and saving confirms it.
     """
     data = request.POST if request.method == "POST" else None
-    initial, split_initial = _initial_from(suggestion) if suggestion else ({}, [])
-    form = ScheduleForm(data, instance=schedule, initial=initial)
-    formset = ScheduleSplitFormSet(data, instance=schedule, initial=split_initial)
+    if suggestion:
+        initial = _initial_from(suggestion)
+    form = ScheduleForm(data, instance=schedule, initial=initial[0])
+    formset = ScheduleSplitFormSet(data, instance=schedule, initial=initial[1])
+    # The formset shows one blank row by default; make room for each copied one.
+    formset.extra = max(len(initial[1]) - formset.min_num, 0)
     # Validate both so errors show on the Schedule and its Splits at once.
-    if data is not None and all([form.is_valid(), formset.is_valid()]):
+    valid = data is not None and all([form.is_valid(), formset.is_valid()])
+    if valid and form.cleaned_data["auto_post"] and has_open_amount(formset):
+        form.add_error("auto_post", "Auto-post needs an amount on every Split.")
+        valid = False
+    if valid:
         with db_transaction.atomic():
             formset.instance = form.save()
             formset.save()
@@ -57,9 +91,7 @@ def _save_schedule(
     )
 
 
-def _initial_from(
-    suggestion: SuggestedSchedule,
-) -> tuple[dict[str, object], list[dict[str, object]]]:
+def _initial_from(suggestion: SuggestedSchedule) -> Initial:
     """The Schedule and its one Split as the suggestion describes them."""
     last_paid = suggestion.evidence.order_by("date").last()
     schedule = {
@@ -96,8 +128,18 @@ def schedule_list(request: HttpRequest) -> HttpResponseBase:
 
 @login_required
 def schedule_create(request: HttpRequest) -> HttpResponseBase:
-    """Describe a new Schedule."""
-    return _save_schedule(request, Schedule())
+    """Describe a new Schedule, prefilled from a Transaction if one is given."""
+    transaction_pk = request.GET.get("transaction", "")
+    transaction = (
+        get_object_or_404(Transaction, pk=transaction_pk)
+        if transaction_pk.isdigit()
+        else None
+    )
+    return _save_schedule(
+        request,
+        Schedule(),
+        initial=_initial_from_transaction(transaction) if transaction else ({}, []),
+    )
 
 
 @login_required

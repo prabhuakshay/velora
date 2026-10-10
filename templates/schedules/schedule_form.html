@@ -16,7 +16,12 @@
       {% include "partials/field.html" with field=form.every %}
       {% include "partials/field.html" with field=form.unit %}
     </div>
-    {% include "partials/field.html" with field=form.ends_on %}
+    {% include "partials/field.html" with field=form.cron %}
+    <div class="grid grid-cols-2 gap-3">
+      {% include "partials/field.html" with field=form.ends_on %}
+      {% include "partials/field.html" with field=form.ends_after %}
+    </div>
+    {% include "partials/field.html" with field=form.auto_post %}
     <div class="grid grid-cols-2 gap-3">
       {% include "partials/field.html" with field=form.grace_days %}
       {% include "partials/field.html" with field=form.reminder_days %}

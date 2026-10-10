@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('cards', '0002_card_emi'),
         ('classification', '0002_initial'),
-        ('quick_add', '0007_draft_links_its_statement'),
+        ('quick_add', '0008_draft_estimated'),
         ('schedules', '0004_subscription'),
         ('transactions', '0003_attachment'),
     ]

@@ -7,7 +7,9 @@ from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
+from apps.schedules.models import Occurrence
 from apps.schedules.tests.conftest import make_schedule
+from apps.transactions.models import Transaction
 
 pytestmark = pytest.mark.django_db
 
@@ -153,3 +155,78 @@ def test_an_open_amount_schedule_proposes_a_draft_without_an_amount() -> None:
     run_daily_job(date(2026, 10, 5))
 
     assert [split.amount for split in Draft.objects.get().splits.all()] == [None]
+
+
+def test_a_cron_rule_falls_on_the_nth_weekday() -> None:
+    make_schedule(start_date=date(2026, 10, 1), every=None, unit="", cron="0 0 * * 5#2")
+
+    run_daily_job(date(2026, 12, 31))
+
+    assert draft_dates() == [date(2026, 10, 9), date(2026, 11, 13), date(2026, 12, 11)]
+
+
+def test_a_cron_rule_proposes_once_per_matching_day() -> None:
+    make_schedule(start_date=date(2026, 10, 1), every=None, unit="", cron="* * 3 * *")
+
+    run_daily_job(date(2026, 11, 2))
+
+    assert draft_dates() == [date(2026, 10, 3)]
+
+
+@pytest.mark.parametrize(
+    "rule", [{"unit": "month"}, {"every": None, "unit": "", "cron": "0 0 5 * *"}]
+)
+def test_a_schedule_stops_after_its_number_of_occurrences(
+    rule: dict[str, object],
+) -> None:
+    make_schedule(start_date=date(2026, 7, 5), ends_after=2, **rule)
+
+    run_daily_job(date(2026, 10, 10))
+
+    assert draft_dates() == [date(2026, 7, 5), date(2026, 8, 5)]
+
+
+def test_an_auto_post_schedule_records_the_transaction_itself() -> None:
+    bank = make_account("Bank", "asset")
+    rent = make_account("Rent", "expense")
+    landlord = Party.objects.create(name="Landlord")
+    schedule = make_schedule(
+        (bank, rent, "25000"),
+        party=landlord,
+        description="Flat rent",
+        start_date=date(2026, 9, 5),
+        auto_post=True,
+    )
+
+    run_daily_job(date(2026, 10, 5))
+    run_daily_job(date(2026, 10, 5))
+
+    transactions = Transaction.objects.order_by("date")
+    assert [(t.date, t.party, t.description) for t in transactions] == [
+        (date(2026, 9, 5), landlord, "Flat rent"),
+        (date(2026, 10, 5), landlord, "Flat rent"),
+    ]
+    assert [
+        (split.from_account, split.to_account, split.amount)
+        for split in transactions[0].splits.all()
+    ] == [(bank, rent, Decimal(25000))]
+    assert not Draft.objects.waiting().exists()
+    assert [
+        o.status for o in schedule.occurrences.filter(due_date__lte="2026-10-05")
+    ] == [
+        Occurrence.Status.PAID,
+        Occurrence.Status.PAID,
+    ]
+
+
+def test_an_auto_post_that_breaks_the_rules_waits_as_a_draft() -> None:
+    bank = make_account("Bank", "asset")
+    rent = make_account("Rent", "expense")
+    make_schedule((bank, rent, "25000"), auto_post=True)
+    rent.hidden = True
+    rent.save()
+
+    run_daily_job(date(2026, 10, 5))
+
+    assert not Transaction.objects.exists()
+    assert Draft.objects.waiting().get().date == date(2026, 10, 5)

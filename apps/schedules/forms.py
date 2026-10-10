@@ -2,12 +2,15 @@
 
 from typing import Any, ClassVar, cast
 
+from croniter import croniter
 from django import forms
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 from apps.accounts.models import Account
 from apps.classification.models import Party
 from apps.schedules.models import Schedule, ScheduleSplit
+from apps.schedules.repeat import cron_dates
 from apps.transactions.forms import grouped_by_kind, visible_or_current
 from apps.transactions.split_rules import accounts_error, shared_account_error
 
@@ -23,7 +26,10 @@ class ScheduleForm(forms.ModelForm[Schedule]):
             "start_date",
             "every",
             "unit",
+            "cron",
             "ends_on",
+            "ends_after",
+            "auto_post",
             "grace_days",
             "reminder_days",
             "is_subscription",
@@ -35,13 +41,24 @@ class ScheduleForm(forms.ModelForm[Schedule]):
             "start_date": "First due date",
             "every": "Repeat every",
             "unit": "",
+            "cron": "Or on a cron expression",
             "ends_on": "Last due date",
+            "ends_after": "Number of Occurrences",
             "reminder_days": "Remind days before",
             "is_subscription": "Subscription",
             "trial_ends_on": "Trial ends on",
         }
         help_texts: ClassVar = {
+            "cron": (
+                "Replaces the interval, such as 0 0 * * 5#2 for the 2nd Friday. "
+                "Only the day fields count."
+            ),
             "ends_on": "Leave blank to repeat until you end it.",
+            "ends_after": "Leave blank for no limit.",
+            "auto_post": (
+                "Record the Transaction on each due date instead of proposing a "
+                "Draft. Needs an amount on every Split."
+            ),
             "grace_days": "Days after the due date before it counts as Missed.",
             "is_subscription": "It pays for an ongoing service.",
         }
@@ -60,10 +77,25 @@ class ScheduleForm(forms.ModelForm[Schedule]):
             Party.objects.order_by(Lower("name")), self.instance.party_id
         )
 
+    def clean_cron(self) -> str:
+        """Refuse an expression croniter can't read or that never falls due."""
+        cron = " ".join(self.cleaned_data["cron"].split())
+        if cron and (
+            not croniter.is_valid(cron)
+            or next(cron_dates(cron, timezone.localdate()), None) is None
+        ):
+            msg = "Not a valid cron expression."
+            raise forms.ValidationError(msg)
+        return cron
+
     def clean(self) -> dict[str, Any]:
-        """Refuse a last due date before the first."""
+        """Keep one repeat rule and refuse a last due date before the first."""
         super().clean()
         cleaned = self.cleaned_data
+        if cleaned.get("cron"):
+            cleaned |= {"every": None, "unit": ""}
+        elif "cron" in cleaned and not (cleaned.get("every") and cleaned.get("unit")):
+            self.add_error(None, "Repeat every so often or on a cron expression.")
         start, end = cleaned.get("start_date"), cleaned.get("ends_on")
         if start and end and end < start:
             self.add_error("ends_on", "The last due date cannot be before the first.")
@@ -140,3 +172,14 @@ ScheduleSplitFormSet = forms.inlineformset_factory(
     min_num=1,
     validate_min=True,
 )
+
+
+def has_open_amount(
+    formset: forms.BaseInlineFormSet[ScheduleSplit, Schedule, ScheduleSplitForm],
+) -> bool:
+    """Whether any kept Split of a valid formset leaves its amount open."""
+    return any(
+        form.cleaned_data.get("amount") is None
+        for form in formset.forms
+        if form.cleaned_data and not form.cleaned_data.get("DELETE")
+    )

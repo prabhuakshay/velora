@@ -45,6 +45,11 @@
       {% csrf_token %}
     </form>
   {% endfor %}
+  {% if transaction and not editing_draft %}
+    <p class="mt-4 text-center text-sm">
+      <a href="{% url 'schedule_create' %}?transaction={{ transaction.pk }}" class="link">Make a Schedule</a> from this Transaction
+    </p>
+  {% endif %}
   <p class="mt-4 text-center text-sm">
     <a href="{% if editing_draft %}{% url 'draft_list' %}{% else %}{% url 'transaction_list' %}{% endif %}" class="link">Cancel</a>
   </p>
