@@ -1,6 +1,5 @@
 """Working out each credit card Statement and proposing its payment."""
 
-import calendar
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
@@ -10,7 +9,7 @@ from django.db import transaction as db_transaction
 from django.db.models import Sum
 
 from apps.accounts.models import Account
-from apps.cards.models import Statement
+from apps.cards.models import Statement, day_of
 from apps.quick_add.models import Draft, DraftSplit
 from apps.schedules.matching import find_cover
 from apps.transactions.models import Split, Transaction
@@ -24,21 +23,20 @@ def estimate_statement_amount(card: Account, start: date, end: date) -> Decimal:
 
     Spends minus payments and refunds to the card, all dated in the period. A
     payment that settled an earlier Statement paid for that period, not this
-    one, so it is left out.
+    one, so it is left out. Each Card EMI swaps its purchase for what the bank
+    bills in the period, which already holds the interest, GST and fees its
+    posted Drafts record, so those are left out too.
     """
     in_period = Split.objects.filter(transaction__date__range=(start, end))
     spent = in_period.filter(from_account=card).aggregate(total=Sum("amount"))
     paid = in_period.filter(
         to_account=card, transaction__statement__isnull=True
     ).aggregate(total=Sum("amount"))
-    return (spent["total"] or Decimal(0)) - (paid["total"] or Decimal(0))
-
-
-def day_of(year: int, month: int, day: int) -> date:
-    """That day of the month, or its last day if the month is shorter."""
-    month_index = month - 1
-    year, month = year + month_index // 12, month_index % 12 + 1
-    return date(year, month, min(day, calendar.monthrange(year, month)[1]))
+    emis = sum(
+        (emi.billed(start, end) for emi in card.card_emis.select_related("purchase")),
+        Decimal(0),
+    )
+    return (spent["total"] or Decimal(0)) - (paid["total"] or Decimal(0)) + emis
 
 
 def closing_dates(card: Account, after: date, until: date) -> Iterator[date]:

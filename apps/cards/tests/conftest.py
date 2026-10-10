@@ -1,14 +1,14 @@
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
 
 from apps.accounts.tests.conftest import make_account
+from apps.cards.models import CardEMI
 from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from apps.accounts.models import Account
 
 
@@ -44,3 +44,32 @@ def card() -> Account:
 @pytest.fixture
 def groceries() -> Account:
     return make_account("Groceries", "expense")
+
+
+def make_card_emi(  # noqa: PLR0913
+    card: Account,
+    *,
+    principal: str = "100000",
+    months: int = 12,
+    annual_rate: str = "15",
+    processing_fee: str = "0",
+    bought_on: date | None = None,
+    first_statement: date | None = None,
+    interest_account: Account | None = None,
+) -> CardEMI:
+    """A Card EMI on a purchase of the principal, bought 20 Aug 2026.
+
+    Its first installment is billed on the Statement closing 15 Sep 2026.
+    """
+    bought_on = bought_on or date(2026, 8, 20)
+    store = make_account("Store", "expense")
+    return CardEMI.objects.create(
+        purchase=record(card, store, principal, bought_on),
+        card=card,
+        principal=Decimal(principal),
+        months=months,
+        annual_rate=Decimal(annual_rate),
+        processing_fee=Decimal(processing_fee),
+        first_statement=first_statement or date(2026, 9, 15),
+        interest_account=interest_account or make_account("EMI interest", "expense"),
+    )
