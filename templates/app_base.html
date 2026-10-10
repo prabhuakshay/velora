@@ -48,6 +48,8 @@
         </a>
         {% url 'subscription_list' as subscriptions_url %}
         <a href="{{ subscriptions_url }}" class="nav-link{% if subscriptions_url in request.path %} nav-link-active{% endif %}">Subscriptions</a>
+        {% url 'forecast' as forecast_url %}
+        <a href="{{ forecast_url }}" class="nav-link{% if forecast_url in request.path %} nav-link-active{% endif %}">Forecast</a>
         <details class="group w-full"{% if parties_url in request.path or tags_url in request.path %} open{% endif %}>
           <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
             Classification

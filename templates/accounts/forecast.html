@@ -1,0 +1,50 @@
+{% extends "app_base.html" %}
+
+{% block title %}Forecast · Velora{% endblock %}
+
+{% block main %}
+  <h1 class="text-2xl font-bold tracking-tight">Forecast</h1>
+  <p class="mt-1 text-sm text-slate-500">Expected Balances from upcoming Occurrences, waiting Drafts and card payments on their Due Days.</p>
+  {% if forecast.breaches %}
+    <section class="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-red-200" aria-labelledby="low-balance-heading">
+      <h2 id="low-balance-heading" class="font-semibold text-red-700">Low balance</h2>
+      <ul class="mt-2 space-y-1 text-sm">
+        {% for breach in forecast.breaches %}
+          <li>{{ breach.account }} is expected under {% amount breach.account.low_balance_threshold %} from {{ breach.on|date:"j M Y" }}: <span class="tabular-nums">{% amount breach.balance %}</span></li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+  {% if forecast.accounts %}
+    <div class="mt-4 overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+      <table class="w-full text-sm">
+        <thead class="text-left text-slate-600">
+          <tr>
+            <th scope="col" class="px-3 py-2 font-medium">Date</th>
+            {% for row in forecast.accounts %}
+              <th scope="col" class="px-3 py-2 text-right font-medium whitespace-nowrap">{{ row.account }}</th>
+            {% endfor %}
+            <th scope="col" class="px-3 py-2 font-medium">Amount unknown</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for day in days %}
+            <tr>
+              <th scope="row" class="px-3 py-2 text-left font-normal whitespace-nowrap text-slate-600">{{ day.day|date:"j M Y" }}</th>
+              {% for balance in day.balances %}
+                <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap {% amount_color balance %}">{% amount balance %}</td>
+              {% endfor %}
+              <td class="px-3 py-2">
+                {% for item in day.amountless %}
+                  <a href="{{ item.url }}" class="block hover:underline">{{ item.label }} ₹?</a>
+                {% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="mt-4 text-slate-500">No Asset or Liability Accounts to forecast yet.</p>
+  {% endif %}
+{% endblock %}

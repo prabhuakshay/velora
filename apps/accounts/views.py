@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.accounts.forecast import forecast
 from apps.accounts.forms import AccountForm
 from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
@@ -84,6 +85,25 @@ def home(request: HttpRequest) -> HttpResponse:
                 "points": _chart_points([value for _, value in history]),
             },
         },
+    )
+
+
+@login_required
+def forecast_page(request: HttpRequest) -> HttpResponse:
+    """Each Account's expected Balance for the coming days, and its warnings."""
+    result = forecast(timezone.localdate())
+    days = [
+        {
+            "day": day,
+            "balances": [row.balances[index] for row in result.accounts],
+            "amountless": [item for item in result.amountless if item.when == day],
+        }
+        for index, day in enumerate(result.days)
+    ]
+    return render(
+        request,
+        "accounts/forecast.html",
+        {"forecast": result, "days": days},
     )
 
 
