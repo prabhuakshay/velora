@@ -130,7 +130,7 @@ def test_a_dismissed_suggestion_never_returns(signed_in: Client) -> None:
     response = signed_in.post(
         reverse("suggested_schedule_dismiss", args=[suggestion.pk])
     )
-    run_daily_job(date(2026, 10, 10))
+    run_daily_job(date(2026, 10, 6))
 
     assert response["Location"] == reverse("suggested_schedule_list")
     assert list(SuggestedSchedule.objects.values_list("status", flat=True)) == [

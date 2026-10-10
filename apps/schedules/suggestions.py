@@ -52,6 +52,12 @@ def steady_run(payments: list[Payment], unit: str) -> list[Payment]:
     return run
 
 
+def is_stale(latest: Payment, unit: str, today: date) -> bool:
+    """Whether the next payment after the latest is overdue beyond tolerance."""
+    deadline = next_expected(latest.date, unit) + timedelta(days=TOLERANCE_DAYS[unit])
+    return today > deadline
+
+
 def typical_amount(run: list[Payment]) -> Decimal | None:
     """The median amount, if every payment is within tolerance of it."""
     middle = median(payment.amount for payment in run)
@@ -108,7 +114,7 @@ def suggest_schedules(today: date) -> None:
     ).items():
         for unit in TOLERANCE_DAYS:
             run = steady_run(payments, unit)
-            if len(run) < MIN_PAYMENTS:
+            if len(run) < MIN_PAYMENTS or is_stale(run[-1], unit, today):
                 continue
             amount = typical_amount(run)
             if amount is None or already_known(party, source, destination, unit):
