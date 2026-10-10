@@ -1,4 +1,4 @@
-"""Quick Adds, the Drafts the AI proposes from them, and the AI calls made."""
+"""Drafts, the Quick Adds the AI drafts them from, and the AI calls made."""
 
 from decimal import Decimal
 from typing import ClassVar
@@ -18,14 +18,10 @@ PARTY_NAME_MAX_LENGTH: int = Party._meta.get_field("name").max_length  # type: i
 class QuickAddQuerySet(models.QuerySet["QuickAdd"]):
     """Queries over Quick Adds."""
 
-    def on_drafts_page(self) -> QuickAddQuerySet:
-        """The Quick Adds that still need the user: processing, draft or failed."""
+    def unfinished(self) -> QuickAddQuerySet:
+        """The Quick Adds with no Draft yet: processing or failed."""
         return self.filter(
-            status__in=[
-                QuickAdd.Status.PROCESSING,
-                QuickAdd.Status.DRAFT,
-                QuickAdd.Status.FAILED,
-            ]
+            status__in=[QuickAdd.Status.PROCESSING, QuickAdd.Status.FAILED]
         )
 
 
@@ -43,13 +39,6 @@ class QuickAdd(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=16, choices=Status, default=Status.PROCESSING)
     failure_reason = models.TextField(blank=True)
-    transaction = models.OneToOneField(
-        Transaction,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="quick_add",
-    )
     posted_without_edits = models.BooleanField(default=False)
 
     objects = QuickAddQuerySet.as_manager()
@@ -76,11 +65,45 @@ class QuickAdd(models.Model):
         self.save(update_fields=["status"])
 
 
-class Draft(models.Model):
-    """A Transaction the AI proposed; it touches no Balance (ADR 0006)."""
+class DraftQuerySet(models.QuerySet["Draft"]):
+    """Queries over Drafts."""
 
+    def waiting(self) -> DraftQuerySet:
+        """The Drafts neither posted nor rejected yet."""
+        return self.filter(status=Draft.Status.WAITING)
+
+
+class Draft(models.Model):
+    """A Transaction not yet posted; it touches no Balance (ADR 0006)."""
+
+    class Source(models.TextChoices):
+        QUICK_ADD = "quick_add", "Quick Add"
+        SCHEDULE = "schedule", "Schedule"
+        MANUAL = "manual", "Manual"
+
+    class Status(models.TextChoices):
+        WAITING = "waiting"
+        POSTED = "posted"
+        REJECTED = "rejected"
+
+    source = models.CharField(max_length=16, choices=Source)
     quick_add = models.OneToOneField(
-        QuickAdd, on_delete=models.CASCADE, related_name="draft"
+        QuickAdd,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="draft",
+    )
+    status = models.CharField(max_length=16, choices=Status, default=Status.WAITING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Why the last try to post it unchanged was refused.
+    posting_error = models.TextField(blank=True)
+    transaction = models.OneToOneField(
+        Transaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="draft",
     )
     date = models.DateField()
     # Merging the Party repoints the Draft and deleting it is refused, so
@@ -96,8 +119,19 @@ class Draft(models.Model):
     new_party_name = models.CharField(max_length=PARTY_NAME_MAX_LENGTH, blank=True)
     description = models.TextField(blank=True)
 
+    objects = DraftQuerySet.as_manager()
+
     class Meta:
+        ordering = ("created_at", "pk")
         constraints: ClassVar = [
+            models.CheckConstraint(
+                condition=models.Q(source="quick_add", quick_add__isnull=False)
+                | (~models.Q(source="quick_add") & models.Q(quick_add__isnull=True)),
+                name="quick_add_draft_quick_add_iff_source",
+                violation_error_message=(
+                    "Only a Draft from a Quick Add links to a Quick Add."
+                ),
+            ),
             models.CheckConstraint(
                 condition=models.Q(party__isnull=True) | models.Q(new_party_name=""),
                 name="quick_add_draft_one_party",
@@ -108,7 +142,25 @@ class Draft(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"Draft of {self.quick_add}"
+        return f"{self.get_source_display()} Draft for {self.date}"
+
+    def mark_posted(self, transaction: Transaction, *, without_edits: bool) -> None:
+        """Link the Draft, and its Quick Add if any, to the Transaction it became."""
+        self.status = Draft.Status.POSTED
+        self.transaction = transaction
+        self.posting_error = ""
+        self.save(update_fields=["status", "transaction", "posting_error"])
+        if self.quick_add:
+            self.quick_add.status = QuickAdd.Status.POSTED
+            self.quick_add.posted_without_edits = without_edits
+            self.quick_add.save(update_fields=["status", "posted_without_edits"])
+
+    def reject(self) -> None:
+        """Mark it rejected: kept, but no longer waiting for the user."""
+        self.status = Draft.Status.REJECTED
+        self.save(update_fields=["status"])
+        if self.quick_add:
+            self.quick_add.reject()
 
 
 class DraftSplit(models.Model):

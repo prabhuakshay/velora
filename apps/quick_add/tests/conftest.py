@@ -85,12 +85,22 @@ def make_draft(
     **fields: Any,
 ) -> QuickAdd:
     quick_add = QuickAdd.objects.create(text=text, status=QuickAdd.Status.DRAFT)
-    draft = Draft.objects.create(quick_add=quick_add, date=date(2026, 10, 8), **fields)
+    add_draft(splits, source=Draft.Source.QUICK_ADD, quick_add=quick_add, **fields)
+    return quick_add
+
+
+def make_manual_draft(*splits: tuple[Account, Account, str], **fields: Any) -> Draft:
+    return add_draft(splits, source=Draft.Source.MANUAL, **fields)
+
+
+def add_draft(splits: tuple[tuple[Account, Account, str], ...], **fields: Any) -> Draft:
+    """A waiting Draft dated 8 Oct 2026, with the given Splits."""
+    draft = Draft.objects.create(**{"date": date(2026, 10, 8), **fields})
     for source, destination, amount in splits:
         draft.splits.create(
             from_account=source, to_account=destination, amount=Decimal(amount)
         )
-    return quick_add
+    return draft
 
 
 def process(quick_add: QuickAdd, *, attempts: int = 0) -> None:

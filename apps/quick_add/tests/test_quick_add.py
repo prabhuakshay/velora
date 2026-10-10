@@ -8,7 +8,11 @@ from procrastinate.contrib.django.models import ProcrastinateJob
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
 from apps.quick_add.models import Draft, QuickAdd
-from apps.quick_add.tests.conftest import make_quick_add
+from apps.quick_add.tests.conftest import (
+    make_draft,
+    make_manual_draft,
+    make_quick_add,
+)
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -78,7 +82,11 @@ def test_drafts_page_shows_the_draft_beside_the_text(signed_in: Client) -> None:
     quick_add.status = QuickAdd.Status.DRAFT
     quick_add.save()
     draft = Draft.objects.create(
-        quick_add=quick_add, date="2026-10-08", party=toit, description="Team lunch"
+        source=Draft.Source.QUICK_ADD,
+        quick_add=quick_add,
+        date="2026-10-08",
+        party=toit,
+        description="Team lunch",
     )
     draft.splits.create(from_account=card, to_account=food, amount=Decimal(850))
 
@@ -101,7 +109,10 @@ def test_drafts_page_names_a_new_party(signed_in: Client) -> None:
     quick_add.status = QuickAdd.Status.DRAFT
     quick_add.save()
     Draft.objects.create(
-        quick_add=quick_add, date="2026-10-08", new_party_name="Brik Oven"
+        source=Draft.Source.QUICK_ADD,
+        quick_add=quick_add,
+        date="2026-10-08",
+        new_party_name="Brik Oven",
     )
 
     body = page(signed_in, "draft_list")
@@ -114,7 +125,10 @@ def test_drafts_page_lists_only_quick_adds_that_need_the_user(
     signed_in: Client,
 ) -> None:
     for status in QuickAdd.Status:
-        QuickAdd.objects.create(text=f"text {status}", status=status)
+        if status == QuickAdd.Status.DRAFT:
+            make_draft(text="text draft")
+        else:
+            QuickAdd.objects.create(text=f"text {status}", status=status)
 
     body = page(signed_in, "draft_list")
 
@@ -137,8 +151,11 @@ def test_drafts_page_refreshes_itself_only_while_processing(
     assert 'hx-trigger="every' not in page(signed_in, "draft_list")
 
 
-def test_drafts_nav_item_counts_quick_adds_in_draft(signed_in: Client) -> None:
-    for status in ["draft", "draft", "processing", "failed", "posted"]:
+def test_drafts_nav_item_counts_waiting_drafts(signed_in: Client) -> None:
+    make_draft()
+    make_manual_draft()
+    make_draft().draft.reject()
+    for status in ["processing", "failed", "posted"]:
         QuickAdd.objects.create(text="text", status=status)
 
     body = page(signed_in, "transaction_list")
@@ -155,7 +172,7 @@ def test_pages_need_sign_in(client: Client, name: str) -> None:
     assert response["Location"].startswith(reverse("login"))
 
 
-def test_without_an_api_key_the_feature_is_hidden(
+def test_without_an_api_key_quick_add_is_hidden_but_drafts_stay(
     signed_in: Client, settings: Settings
 ) -> None:
     settings.OPENROUTER_API_KEY = ""
@@ -163,8 +180,8 @@ def test_without_an_api_key_the_feature_is_hidden(
     body = page(signed_in, "transaction_list")
 
     assert reverse("quick_add_create") not in body
-    assert reverse("draft_list") not in body
-    assert signed_in.get(reverse("draft_list")).status_code == 404
+    assert reverse("draft_list") in body
+    assert "All-time cost" not in page(signed_in, "draft_list")
     response = signed_in.post(reverse("quick_add_create"), {"text": "lunch 850"})
     assert response.status_code == 404
     assert not QuickAdd.objects.exists()

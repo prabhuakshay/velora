@@ -133,6 +133,7 @@ def ask_ai(
 def save_draft(quick_add: QuickAdd, content: dict[str, Any]) -> Draft:
     """Store the reply as the Quick Add's Draft and mark it `draft`."""
     draft = Draft.objects.create(
+        source=Draft.Source.QUICK_ADD,
         quick_add=quick_add,
         date=date.fromisoformat(content["date"])
         if content["date"]

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from django.db import transaction as db_transaction
 
 from apps.classification.models import Party
-from apps.quick_add.models import Draft, QuickAdd
+from apps.quick_add.models import Draft
 from apps.transactions.models import Transaction
 from apps.transactions.recording import TransactionForms
 
@@ -61,54 +61,35 @@ def form_data(draft: Draft, party: Party | None) -> dict[str, Any]:
     return data
 
 
-def mark_posted(
-    quick_add: QuickAdd, transaction: Transaction, *, without_edits: bool
-) -> None:
-    """Link the Quick Add to the Transaction its Draft became."""
-    quick_add.status = QuickAdd.Status.POSTED
-    quick_add.transaction = transaction
-    quick_add.posted_without_edits = without_edits
-    quick_add.failure_reason = ""
-    quick_add.save(
-        update_fields=[
-            "status",
-            "transaction",
-            "posted_without_edits",
-            "failure_reason",
-        ]
-    )
-
-
 class DraftGoneError(Exception):
     """The Draft was posted or rejected by another request meanwhile."""
 
 
 @contextmanager
 def posting_edited(
-    quick_add: QuickAdd, transaction: Transaction, new_party_name: str
+    draft: Draft, transaction: Transaction, new_party_name: str
 ) -> Iterator[None]:
     """Wrap saving the edited Transaction so the Draft is posted with it.
 
-    Run inside the save's database transaction: the Quick Add is locked and
-    checked to still be a Draft, so it is posted once, and the new Party is
+    Run inside the save's database transaction: the Draft is locked and
+    checked to still be waiting, so it is posted once, and the new Party is
     created only if the Transaction is saved.
     """
-    locked = QuickAdd.objects.select_for_update().get(pk=quick_add.pk)
-    if locked.status != QuickAdd.Status.DRAFT:
+    locked = Draft.objects.select_for_update().get(pk=draft.pk)
+    if locked.status != Draft.Status.WAITING:
         raise DraftGoneError
     if new_party_name and transaction.party is None:
         transaction.party = party_named(new_party_name)
     yield
-    mark_posted(locked, transaction, without_edits=False)
+    locked.mark_posted(transaction, without_edits=False)
 
 
 @db_transaction.atomic
-def post_draft(quick_add: QuickAdd) -> Transaction:
+def post_draft(draft: Draft) -> Transaction:
     """Record the Draft as it is, checked by the Transaction form's rules."""
-    draft = quick_add.draft
     forms = TransactionForms(form_data(draft, party_for(draft)), instance=Transaction())
     if not forms.is_valid():
         raise DraftNotPostableError(forms.errors())
     transaction = forms.save()
-    mark_posted(quick_add, transaction, without_edits=True)
+    draft.mark_posted(transaction, without_edits=True)
     return transaction

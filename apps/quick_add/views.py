@@ -1,4 +1,4 @@
-"""Views for writing Quick Adds and reviewing their Drafts."""
+"""Views for writing Quick Adds and reviewing Drafts."""
 
 from contextlib import suppress
 from functools import wraps
@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 
 from apps.quick_add import openrouter
 from apps.quick_add.forms import NewPartyForm, QuickAddForm
-from apps.quick_add.models import DraftSplit, QuickAdd
+from apps.quick_add.models import Draft, DraftSplit, QuickAdd
 from apps.quick_add.posting import (
     DraftGoneError,
     DraftNotPostableError,
@@ -70,46 +70,53 @@ def quick_add_create(request: HttpRequest) -> HttpResponseBase:
     return redirect("draft_list")
 
 
+def waiting_draft(pk: int) -> Draft:
+    """The waiting Draft, locked for the request's transaction, or a 404."""
+    return get_object_or_404(
+        Draft.objects.select_for_update(), pk=pk, status=Draft.Status.WAITING
+    )
+
+
 @login_required
-@requires_quick_add
 def draft_list(request: HttpRequest) -> HttpResponseBase:
-    """The Quick Adds that still need the user, with their Drafts."""
-    quick_adds = list(
-        QuickAdd.objects.on_drafts_page().prefetch_related(
-            "draft__party",
+    """The waiting Drafts, and the Quick Adds still processing or failed."""
+    drafts = list(
+        Draft.objects.waiting()
+        .select_related("party", "quick_add")
+        .prefetch_related(
             Prefetch(
-                "draft__splits",
+                "splits",
                 queryset=DraftSplit.objects.select_related(
                     "from_account", "to_account"
                 ),
             ),
         )
     )
+    enabled = openrouter.is_configured()
+    quick_adds = list(QuickAdd.objects.unfinished()) if enabled else []
     return render(
         request,
         "quick_add/draft_list.html",
         {
+            "drafts": drafts,
             "quick_adds": quick_adds,
             "processing": any(quick_add.is_processing for quick_add in quick_adds),
-            "stats": ai_stats(),
+            "stats": ai_stats() if enabled else None,
         },
     )
 
 
 @login_required
-@requires_quick_add
 @require_POST
 def draft_post(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
     """Record the Draft as a Transaction, unchanged, or keep why it can't be."""
     # Locked for the request's transaction, so a double click posts once.
-    quick_add = get_object_or_404(
-        QuickAdd.objects.select_for_update(), pk=pk, status=QuickAdd.Status.DRAFT
-    )
+    draft = waiting_draft(pk)
     try:
-        post_draft(quick_add)
+        post_draft(draft)
     except DraftNotPostableError as error:
-        quick_add.failure_reason = str(error)
-        quick_add.save(update_fields=["failure_reason"])
+        draft.posting_error = str(error)
+        draft.save(update_fields=["posting_error"])
     return redirect("draft_list")
 
 
@@ -117,17 +124,15 @@ def draft_post(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG0
 # there and the new files can be removed.
 @db_transaction.non_atomic_requests
 @login_required
-@requires_quick_add
 def draft_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """The Transaction form filled from the Draft; saving it posts the Draft."""
-    quick_add = get_object_or_404(QuickAdd, pk=pk, status=QuickAdd.Status.DRAFT)
-    draft = quick_add.draft
+    draft = get_object_or_404(Draft, pk=pk, status=Draft.Status.WAITING)
     if request.method == "POST":
         forms = TransactionForms(request.POST, request.FILES, instance=Transaction())
         new_party = NewPartyForm(request.POST)
         if forms.is_valid() and new_party.is_valid():
             posting = posting_edited(
-                quick_add,
+                draft,
                 forms.form.instance,
                 new_party.cleaned_data["new_party_name"],
             )
@@ -155,14 +160,10 @@ def draft_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 
 @login_required
-@requires_quick_add
 @require_POST
 def draft_reject(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
-    """Drop the Draft; the Quick Add and Draft are kept, marked rejected."""
-    quick_add = get_object_or_404(
-        QuickAdd.objects.select_for_update(), pk=pk, status=QuickAdd.Status.DRAFT
-    )
-    quick_add.reject()
+    """Drop the Draft; it is kept, marked rejected, with its Quick Add if any."""
+    waiting_draft(pk).reject()
     return redirect("draft_list")
 
 

@@ -32,15 +32,13 @@
       <nav class="mt-4 flex flex-wrap gap-1 md:flex-col">
         <a href="{{ home_url }}" class="nav-link{% if request.path == home_url %} nav-link-active{% endif %}">Home</a>
         <a href="{{ transactions_url }}" class="nav-link{% if transactions_url in request.path %} nav-link-active{% endif %}">Transactions</a>
-        {% if quick_add_enabled %}
-          {% url 'draft_list' as drafts_url %}
-          <a href="{{ drafts_url }}" class="nav-link flex items-center justify-between{% if drafts_url in request.path %} nav-link-active{% endif %}">
-            Drafts
-            {% with count=draft_count %}
-              {% if count %}<span class="rounded-full bg-slate-900 px-2 text-xs text-white tabular-nums" aria-label="{{ count }} Draft{{ count|pluralize }} waiting">{{ count }}</span>{% endif %}
-            {% endwith %}
-          </a>
-        {% endif %}
+        {% url 'draft_list' as drafts_url %}
+        <a href="{{ drafts_url }}" class="nav-link flex items-center justify-between{% if drafts_url in request.path %} nav-link-active{% endif %}">
+          Drafts
+          {% with count=draft_count %}
+            {% if count %}<span class="rounded-full bg-slate-900 px-2 text-xs text-white tabular-nums" aria-label="{{ count }} Draft{{ count|pluralize }} waiting">{{ count }}</span>{% endif %}
+          {% endwith %}
+        </a>
         <details class="group w-full"{% if parties_url in request.path or tags_url in request.path %} open{% endif %}>
           <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
             Classification
