@@ -187,6 +187,7 @@ class SuggestedSchedule(models.Model):
 
     class Meta:
         ordering = ("pk",)
+        indexes: ClassVar = [models.Index(fields=["status"])]
 
     def __str__(self) -> str:
         return f"{self.party} every {self.unit}"

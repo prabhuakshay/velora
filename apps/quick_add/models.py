@@ -165,6 +165,7 @@ class Draft(models.Model):
 
     class Meta:
         ordering = ("created_at", "pk")
+        indexes: ClassVar = [models.Index(fields=["status"])]
         constraints: ClassVar = [
             models.CheckConstraint(
                 condition=models.Q(source="quick_add", quick_add__isnull=False)
