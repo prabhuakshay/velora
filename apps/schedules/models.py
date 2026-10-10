@@ -45,6 +45,11 @@ class Schedule(models.Model):
     active = models.BooleanField(default=True)
     # Due dates before this were paused, so they never fall due.
     resumed_on = models.DateField(null=True, blank=True, editable=False)
+    # A Subscription is a flagged Schedule, not a model of its own (ADR 0007).
+    is_subscription = models.BooleanField(default=False)
+    trial_ends_on = models.DateField(null=True, blank=True)
+    plan = models.CharField(max_length=100, blank=True)
+    how_to_cancel = models.TextField(blank=True)
 
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
@@ -138,3 +143,40 @@ class Occurrence(models.Model):
             Occurrence.Status.PAID if transaction else Occurrence.Status.SKIPPED
         )
         self.save(update_fields=["transaction", "status"])
+
+
+class SuggestedSchedule(models.Model):
+    """A steady repeated payment Velora noticed, offered as a Schedule.
+
+    It does nothing until confirmed. Dismissed ones are kept so detection
+    never offers the same Party, Accounts and interval again.
+    """
+
+    class Status(models.TextChoices):
+        WAITING = "waiting"
+        CONFIRMED = "confirmed"
+        DISMISSED = "dismissed"
+
+    # Cascades so a suggestion never blocks merging or deleting its Party.
+    party = models.ForeignKey(
+        Party, on_delete=models.CASCADE, related_name="suggested_schedules"
+    )
+    from_account = models.ForeignKey(
+        Account, on_delete=models.PROTECT, related_name="suggested_schedules_out"
+    )
+    to_account = models.ForeignKey(
+        Account, on_delete=models.PROTECT, related_name="suggested_schedules_in"
+    )
+    # The median of the evidence.
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    unit = models.CharField(max_length=8, choices=Schedule.Unit)
+    evidence = models.ManyToManyField(
+        "transactions.Transaction", related_name="suggested_schedules"
+    )
+    status = models.CharField(max_length=16, choices=Status, default=Status.WAITING)
+
+    class Meta:
+        ordering = ("pk",)
+
+    def __str__(self) -> str:
+        return f"{self.party} every {self.unit}"

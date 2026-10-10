@@ -9,7 +9,7 @@ from django.db.models import Q
 from apps.accounts.models import Account
 from apps.core.history import with_reason
 from apps.quick_add.models import DraftSplit
-from apps.schedules.models import ScheduleSplit
+from apps.schedules.models import ScheduleSplit, SuggestedSchedule
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -64,8 +64,9 @@ class AccountMerge:
         return account.is_card or account.statements.exists()
 
     def run(self) -> None:
-        """Repoint every Split, Draft, Schedule Split and card, then remove the source.
+        """Repoint everything on the source at the target, then remove the source.
 
+        That is every Split, Draft, Schedule Split, Suggested Schedule and card.
         Saves and deletes row by row so change history records each one.
         """
         if self.refusal:
@@ -88,6 +89,7 @@ class AccountMerge:
             DraftSplit.objects.filter(to_account=source).update(to_account=target)
             self._repoint_schedule_splits(reason)
             self._move_card(reason)
+            self._repoint_suggested_schedules()
             if target.has_opening_balance:
                 # Both are set for these kinds, by a constraint mypy cannot see.
                 target.opening_balance += source.opening_balance  # type: ignore[operator]
@@ -110,6 +112,17 @@ class AccountMerge:
             target.due_day = source.due_day
             target.pays_from = source.pays_from
             with_reason(target, reason).save()
+
+    def _repoint_suggested_schedules(self) -> None:
+        """Point Suggested Schedules at the target, dropping any it would loop to."""
+        source, target = self.source, self.target
+        suggestions = SuggestedSchedule.objects
+        suggestions.filter(
+            Q(from_account=source, to_account=target)
+            | Q(from_account=target, to_account=source)
+        ).delete()
+        suggestions.filter(from_account=source).update(from_account=target)
+        suggestions.filter(to_account=source).update(to_account=target)
 
     def _repoint_schedule_splits(self, reason: str) -> None:
         """Point Schedule Splits at the target, dropping any it would loop to."""

@@ -11,4 +11,20 @@ urlpatterns = [
     path("schedules/<int:pk>/pause/", views.schedule_pause, name="schedule_pause"),
     path("schedules/<int:pk>/resume/", views.schedule_resume, name="schedule_resume"),
     path("schedules/<int:pk>/end/", views.schedule_end, name="schedule_end"),
+    path(
+        "schedules/suggested/",
+        views.suggested_schedule_list,
+        name="suggested_schedule_list",
+    ),
+    path(
+        "schedules/suggested/<int:pk>/confirm/",
+        views.suggested_schedule_confirm,
+        name="suggested_schedule_confirm",
+    ),
+    path(
+        "schedules/suggested/<int:pk>/dismiss/",
+        views.suggested_schedule_dismiss,
+        name="suggested_schedule_dismiss",
+    ),
+    path("subscriptions/", views.subscription_list, name="subscription_list"),
 ]

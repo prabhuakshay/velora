@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from apps.cards.statements import create_statements, match_card_payments
 from apps.schedules.matching import mark_missed, match_transactions
 from apps.schedules.occurrences import materialise_occurrences, propose_due_drafts
+from apps.schedules.suggestions import suggest_schedules
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,6 +20,7 @@ STEPS: tuple[Callable[[date], None], ...] = (
     # Settle payments first, so a new Statement's estimate leaves them out.
     match_card_payments,
     create_statements,
+    suggest_schedules,
 )
 
 
