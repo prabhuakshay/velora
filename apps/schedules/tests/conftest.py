@@ -37,6 +37,8 @@ def schedule_form_data(
         "every": 1,
         "unit": "month",
         "ends_on": "",
+        "ends_after": "",
+        "cron": "",
         "grace_days": 3,
         "reminder_days": 3,
         "splits-TOTAL_FORMS": len(splits),

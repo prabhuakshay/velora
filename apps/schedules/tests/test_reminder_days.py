@@ -47,3 +47,21 @@ def test_the_new_schedule_form_leaves_reminder_days_blank(signed_in: Client) -> 
     response = signed_in.get(reverse("schedule_create"))
 
     assert response.context["form"]["reminder_days"].value() is None
+
+
+def test_a_cron_schedule_reminds_as_a_monthly_one(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    rent = make_account("Rent", "expense")
+
+    signed_in.post(
+        reverse("schedule_create"),
+        schedule_form_data(
+            (bank, rent, "25000"),
+            every="",
+            unit="",
+            cron="0 0 * * 5#2",
+            reminder_days="",
+        ),
+    )
+
+    assert Schedule.objects.get().reminder_days == 3

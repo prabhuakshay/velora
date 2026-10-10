@@ -3,11 +3,13 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
+from itertools import takewhile
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
 from apps.schedules.models import Schedule, ScheduleSplit
+from apps.schedules.repeat import cron_dates, months_after
 
 if TYPE_CHECKING:
     from datetime import date
@@ -72,6 +74,21 @@ def _price_histories(schedule_ids: list[int]) -> dict[int, PriceHistory]:
     return histories
 
 
+def _times_a_year(schedule: Schedule, today: date) -> Decimal:
+    """How often it falls due a year; a cron rule's count for the coming year."""
+    if not schedule.cron:
+        return TIMES_A_YEAR[schedule.unit] / (schedule.every or 1)
+    year_on = months_after(today, 12)
+    return Decimal(
+        sum(
+            1
+            for _ in takewhile(
+                lambda due: due < year_on, cron_dates(schedule.cron, today)
+            )
+        )
+    )
+
+
 def subscription_costs(today: date) -> list[SubscriptionCost]:
     """Every Subscription with its cost at its current amount."""
     schedules = list(
@@ -81,11 +98,7 @@ def subscription_costs(today: date) -> list[SubscriptionCost]:
     costs = []
     for schedule in schedules:
         amount = schedule.amount
-        yearly = (
-            None
-            if amount is None
-            else amount * TIMES_A_YEAR[schedule.unit] / schedule.every
-        )
+        yearly = None if amount is None else amount * _times_a_year(schedule, today)
         ended = schedule.ends_on is not None and schedule.ends_on < today
         history = histories.get(schedule.pk, [])
         costs.append(SubscriptionCost(schedule, yearly, ended, history))
