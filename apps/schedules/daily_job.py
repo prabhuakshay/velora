@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING
 
+from apps.schedules.matching import mark_missed, match_transactions
 from apps.schedules.occurrences import materialise_occurrences, propose_due_drafts
 from apps.schedules.suggestions import suggest_schedules
 
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
 STEPS: tuple[Callable[[date], None], ...] = (
     materialise_occurrences,
     propose_due_drafts,
+    match_transactions,
+    mark_missed,
     suggest_schedules,
 )
 
