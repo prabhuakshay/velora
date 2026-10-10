@@ -39,8 +39,8 @@ def draft_dates() -> list[date]:
     return [draft.date for draft in Draft.objects.order_by("date")]
 
 
-def test_the_job_catches_up_every_due_date_it_missed() -> None:
-    make_schedule(start_date=date(2026, 7, 5))
+def test_the_job_catches_up_due_dates_within_the_grace_period() -> None:
+    make_schedule(start_date=date(2026, 7, 5), grace_days=100)
 
     run_daily_job(date(2026, 10, 10))
 
@@ -53,7 +53,7 @@ def test_the_job_catches_up_every_due_date_it_missed() -> None:
 
 
 def test_a_second_run_on_the_same_day_proposes_nothing_new() -> None:
-    make_schedule(start_date=date(2026, 9, 5))
+    make_schedule(start_date=date(2026, 9, 5), grace_days=30)
     run_daily_job(date(2026, 10, 5))
 
     run_daily_job(date(2026, 10, 5))
@@ -124,7 +124,7 @@ def test_nothing_is_proposed_before_the_due_date() -> None:
 def test_drafts_fall_on_the_repeat_rules_due_dates(
     start: date, every: int, unit: str, today: date, expected: list[date]
 ) -> None:
-    make_schedule(start_date=start, every=every, unit=unit)
+    make_schedule(start_date=start, every=every, unit=unit, grace_days=1000)
 
     run_daily_job(today)
 
@@ -132,7 +132,9 @@ def test_drafts_fall_on_the_repeat_rules_due_dates(
 
 
 def test_a_schedule_stops_after_its_end_date() -> None:
-    make_schedule(start_date=date(2026, 8, 5), ends_on=date(2026, 9, 30))
+    make_schedule(
+        start_date=date(2026, 8, 5), ends_on=date(2026, 9, 30), grace_days=100
+    )
 
     run_daily_job(date(2026, 10, 10))
 
@@ -158,7 +160,13 @@ def test_an_open_amount_schedule_proposes_a_draft_without_an_amount() -> None:
 
 
 def test_a_cron_rule_falls_on_the_nth_weekday() -> None:
-    make_schedule(start_date=date(2026, 10, 1), every=None, unit="", cron="0 0 * * 5#2")
+    make_schedule(
+        start_date=date(2026, 10, 1),
+        every=None,
+        unit="",
+        cron="0 0 * * 5#2",
+        grace_days=100,
+    )
 
     run_daily_job(date(2026, 12, 31))
 
@@ -166,7 +174,13 @@ def test_a_cron_rule_falls_on_the_nth_weekday() -> None:
 
 
 def test_a_cron_rule_proposes_once_per_matching_day() -> None:
-    make_schedule(start_date=date(2026, 10, 1), every=None, unit="", cron="* * 3 * *")
+    make_schedule(
+        start_date=date(2026, 10, 1),
+        every=None,
+        unit="",
+        cron="* * 3 * *",
+        grace_days=100,
+    )
 
     run_daily_job(date(2026, 11, 2))
 
@@ -179,7 +193,7 @@ def test_a_cron_rule_proposes_once_per_matching_day() -> None:
 def test_a_schedule_stops_after_its_number_of_occurrences(
     rule: dict[str, object],
 ) -> None:
-    make_schedule(start_date=date(2026, 7, 5), ends_after=2, **rule)
+    make_schedule(start_date=date(2026, 7, 5), ends_after=2, grace_days=100, **rule)
 
     run_daily_job(date(2026, 10, 10))
 
@@ -196,6 +210,7 @@ def test_an_auto_post_schedule_records_the_transaction_itself() -> None:
         description="Flat rent",
         start_date=date(2026, 9, 5),
         auto_post=True,
+        grace_days=30,
     )
 
     run_daily_job(date(2026, 10, 5))

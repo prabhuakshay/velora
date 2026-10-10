@@ -199,7 +199,9 @@ def test_the_occurrence_history_links_to_each_draft_and_transaction(
 ) -> None:
     bank = make_account("Bank", "asset")
     rent = make_account("Rent", "expense")
-    schedule = make_schedule((bank, rent, "25000"), start_date=date(2026, 9, 5))
+    schedule = make_schedule(
+        (bank, rent, "25000"), start_date=date(2026, 9, 5), grace_days=30
+    )
     payment = Transaction.objects.create(date=date(2026, 9, 5))
     payment.splits.create(from_account=bank, to_account=rent, amount=Decimal(25000))
     run_daily_job(date(2026, 10, 5))

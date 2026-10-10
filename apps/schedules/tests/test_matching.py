@@ -275,7 +275,7 @@ def test_the_date_window_narrows_with_the_interval(
     *,
     matches: bool,
 ) -> None:
-    make_schedule((bank, rent, "25000"), **rule)
+    make_schedule((bank, rent, "25000"), grace_days=7, **rule)
     on = date(2026, 10, 5) - timedelta(days=days_off)
     record(bank, rent, "25000", on)
 

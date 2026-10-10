@@ -135,6 +135,8 @@ def test_the_digest_shows_an_overdue_occurrence_within_its_grace_days() -> None:
 @pytest.mark.usefixtures("user")
 def test_the_digest_lists_missed_occurrences_with_their_draft() -> None:
     rent()
+    run_daily_job(date(2026, 10, 5))
+    mail.outbox.clear()
 
     run_daily_job(date(2026, 10, 9))
 
@@ -198,6 +200,7 @@ def test_the_digest_lists_drafts_waiting_seven_days() -> None:
 @pytest.mark.usefixtures("user")
 def test_a_missed_occurrences_old_draft_is_listed_once() -> None:
     rent()
+    run_daily_job(date(2026, 10, 5))
     run_daily_job(date(2026, 10, 9))
     made_on(date(2026, 10, 1), Draft.objects.get())
 

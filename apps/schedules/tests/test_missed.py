@@ -32,6 +32,7 @@ def first_status() -> str:
 
 def test_an_uncovered_occurrence_is_missed_after_the_grace_period() -> None:
     rent_schedule()
+    run_daily_job(date(2026, 10, 5))
 
     run_daily_job(date(2026, 10, 9))
 
@@ -70,6 +71,7 @@ def test_missing_salary_is_missed() -> None:
     employer = make_account("Salary", "income")
     bank = make_account("Bank", "asset")
     make_schedule((employer, bank, "90000"), start_date=date(2026, 10, 1))
+    run_daily_job(date(2026, 10, 1))
 
     run_daily_job(date(2026, 10, 5))
 
@@ -78,6 +80,7 @@ def test_missing_salary_is_missed() -> None:
 
 def test_running_twice_on_the_same_day_keeps_the_occurrence_missed() -> None:
     rent_schedule()
+    run_daily_job(date(2026, 10, 5))
     run_daily_job(date(2026, 10, 9))
 
     run_daily_job(date(2026, 10, 9))
@@ -88,6 +91,7 @@ def test_running_twice_on_the_same_day_keeps_the_occurrence_missed() -> None:
 
 def test_a_missed_occurrence_is_paid_once_a_late_transaction_covers_it() -> None:
     schedule = rent_schedule()
+    run_daily_job(date(2026, 10, 5))
     run_daily_job(date(2026, 10, 9))
     split = schedule.splits.get()
     Transaction.objects.create(date=date(2026, 10, 9)).splits.create(
@@ -104,6 +108,7 @@ def test_a_missed_occurrence_is_paid_once_a_late_transaction_covers_it() -> None
 
 def test_missed_occurrences_show_in_the_schedules_history(signed_in: Client) -> None:
     schedule = rent_schedule()
+    run_daily_job(date(2026, 10, 5))
     run_daily_job(date(2026, 10, 9))
 
     response = signed_in.get(reverse("schedule_detail", args=[schedule.pk]))

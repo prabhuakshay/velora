@@ -20,9 +20,19 @@ def materialise(schedule: Schedule, today: date) -> None:
     """Store the Occurrences due after the last stored one, up to DAYS_AHEAD.
 
     Never fills in before the last stored Occurrence, so dates dropped by an
-    edit or a pause stay dropped.
+    edit or a pause stay dropped, nor before the grace period, so a Schedule
+    started long ago doesn't draft or auto-post every past due date.
     """
-    since = max(filter(None, [schedule.start_date, schedule.resumed_on]))
+    since = max(
+        filter(
+            None,
+            [
+                schedule.start_date,
+                schedule.resumed_on,
+                today - timedelta(days=schedule.grace_days),
+            ],
+        )
+    )
     last = schedule.occurrences.order_by("due_date").last()
     if last:
         since = max(since, last.due_date + timedelta(days=1))

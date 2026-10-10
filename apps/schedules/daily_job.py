@@ -40,7 +40,7 @@ class DailyJobError(Exception):
 
 
 def run_daily_job(today: date) -> None:
-    """Run every step for `today`, catching up any days the job did not run.
+    """Run every step for `today`, catching up due dates still within grace.
 
     A failed step does not stop the later ones. The job raises afterwards, so
     it shows as failed; the next run catches up.
