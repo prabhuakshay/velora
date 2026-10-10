@@ -1,23 +1,17 @@
 """When a Schedule falls due, from its repeat rule."""
 
-import calendar
 import itertools
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
 from croniter import CroniterBadDateError, croniter
 
+from apps.core.dates import months_after
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from apps.schedules.models import Schedule
-
-
-def months_after(start: date, months: int) -> date:
-    """The same day `months` later, or the month's last day if it is shorter."""
-    month_index = start.month - 1 + months
-    year, month = start.year + month_index // 12, month_index % 12 + 1
-    return date(year, month, min(start.day, calendar.monthrange(year, month)[1]))
 
 
 def nth_due_date(schedule: Schedule, n: int) -> date:

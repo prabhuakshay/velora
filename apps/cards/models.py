@@ -1,16 +1,18 @@
 """Credit card Statements, one per card per billing period, and Card EMIs."""
 
-import calendar
-import datetime
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from django.core.validators import MinValueValidator
 from django.db import models
 
 from apps.accounts.models import Account, AccountKind
+from apps.core.dates import day_of
 from apps.transactions.models import Transaction
+
+if TYPE_CHECKING:
+    import datetime
 
 GST_RATE = Decimal("0.18")
 CENT = Decimal("0.01")
@@ -62,13 +64,6 @@ class Statement(models.Model):
         if self.actual_amount is not None:
             return self.actual_amount
         return self.estimated_amount
-
-
-def day_of(year: int, month: int, day: int) -> datetime.date:
-    """That day of the month, or its last day if the month is shorter."""
-    month_index = month - 1
-    year, month = year + month_index // 12, month_index % 12 + 1
-    return datetime.date(year, month, min(day, calendar.monthrange(year, month)[1]))
 
 
 @dataclass(frozen=True)

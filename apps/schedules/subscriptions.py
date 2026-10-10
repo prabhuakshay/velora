@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
+from apps.core.dates import months_after
 from apps.schedules.models import Schedule, ScheduleSplit
-from apps.schedules.repeat import cron_dates, months_after
+from apps.schedules.repeat import cron_dates
 
 if TYPE_CHECKING:
     from datetime import date

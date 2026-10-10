@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.core.dates import months_after
 from apps.schedules.forms import (
     ScheduleForm,
     ScheduleSplitFormSet,
@@ -17,7 +18,6 @@ from apps.schedules.forms import (
 )
 from apps.schedules.models import Occurrence, Schedule, SuggestedSchedule
 from apps.schedules.occurrences import regenerate
-from apps.schedules.repeat import months_after
 from apps.schedules.subscriptions import subscription_costs, yearly_total
 from apps.schedules.suggestions import next_expected
 from apps.transactions.models import Transaction

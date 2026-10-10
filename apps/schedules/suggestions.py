@@ -9,8 +9,8 @@ from statistics import median
 from django.db import transaction as db_transaction
 from django.db.models import Sum
 
+from apps.core.dates import months_after
 from apps.schedules.models import Schedule, SuggestedSchedule
-from apps.schedules.repeat import months_after
 from apps.transactions.models import Split
 
 Unit = Schedule.Unit

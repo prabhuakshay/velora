@@ -9,7 +9,8 @@ from django.db import transaction as db_transaction
 from django.db.models import Sum
 
 from apps.accounts.models import Account
-from apps.cards.models import Statement, day_of
+from apps.cards.models import Statement
+from apps.core.dates import day_of
 from apps.quick_add.models import Draft, DraftSplit
 from apps.schedules.matching import find_cover
 from apps.transactions.models import Split, Transaction
