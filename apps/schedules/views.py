@@ -78,6 +78,7 @@ def _save_schedule(
         with db_transaction.atomic():
             formset.instance = form.save()
             formset.save()
+            Schedule.objects.select_for_update().get(pk=formset.instance.pk)
             regenerate(formset.instance, timezone.localdate())
             if suggestion:
                 suggestion.status = SuggestedSchedule.Status.CONFIRMED

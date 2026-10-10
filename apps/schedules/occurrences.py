@@ -75,6 +75,20 @@ def propose_draft(occurrence: Occurrence) -> None:
     An auto-post Schedule posts the Draft too, making the Occurrence Paid; if
     posting is refused, the Draft waits for the user with the reason.
     """
+    # The Occurrence may have been loaded before a Schedule edit replaced it.
+    current = (
+        Occurrence.objects.select_for_update()
+        .select_related("schedule")
+        .filter(
+            pk=occurrence.pk,
+            status=Occurrence.Status.UPCOMING,
+            schedule__active=True,
+        )
+        .first()
+    )
+    if current is None:
+        return
+    occurrence = current
     schedule = occurrence.schedule
     splits = list(schedule.splits.all())
     estimates = {
