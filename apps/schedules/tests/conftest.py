@@ -3,9 +3,11 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from apps.schedules.models import Schedule
+from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
     from apps.accounts.models import Account
+    from apps.classification.models import Party
 
 
 def make_schedule(
@@ -48,3 +50,18 @@ def schedule_form_data(
             f"splits-{index}-amount": amount,
         }
     return data
+
+
+def paid(
+    accounts: tuple[Account, Account], party: Party, *payments: tuple[str, date]
+) -> list[Transaction]:
+    """Transactions paying the Party between the two Accounts, as (amount, date)."""
+    source, destination = accounts
+    transactions = []
+    for amount, when in payments:
+        transaction = Transaction.objects.create(date=when, party=party)
+        transaction.splits.create(
+            from_account=source, to_account=destination, amount=Decimal(amount)
+        )
+        transactions.append(transaction)
+    return transactions

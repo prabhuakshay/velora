@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from apps.schedules.occurrences import materialise_occurrences, propose_due_drafts
+from apps.schedules.suggestions import suggest_schedules
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -12,6 +13,7 @@ if TYPE_CHECKING:
 STEPS: tuple[Callable[[date], None], ...] = (
     materialise_occurrences,
     propose_due_drafts,
+    suggest_schedules,
 )
 
 
