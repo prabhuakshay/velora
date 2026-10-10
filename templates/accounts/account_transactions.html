@@ -28,6 +28,24 @@
         </li>
       {% endfor %}
     </ul>
+  {% endif %}
+  {% if card_emis %}
+    <h2 class="mt-6 text-lg font-semibold">Card EMIs</h2>
+    <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+      {% for emi, progress in card_emis %}
+        <li class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <p class="font-medium"><span class="tabular-nums">{% amount emi.principal %}</span> over {{ emi.months }} months at {{ emi.annual_rate|floatformat:"-2" }}%</p>
+            <p class="text-xs text-slate-500">{{ progress.paid }} paid · {{ progress.left }} left · ends {{ progress.end_month|date:"M Y" }}{% if emi.foreclosed_on %} · Foreclosed {{ emi.foreclosed_on|date:"j M Y" }}{% endif %}</p>
+          </div>
+          {% if not emi.foreclosed_on %}
+            <a href="{% url 'card_emi_foreclose' emi.pk %}" class="link shrink-0 text-sm">Foreclose</a>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  {% if statements or card_emis %}
     <h2 class="mt-6 text-lg font-semibold">Transactions</h2>
   {% endif %}
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
@@ -44,6 +62,9 @@
           {% endfor %}
         </div>
         <div class="flex shrink-0 items-center gap-3 text-sm">
+          {% if transaction.pk in emi_candidates %}
+            <a href="{% url 'card_emi_create' transaction.pk %}" class="link">Make Card EMI</a>
+          {% endif %}
           <a href="{% url 'transaction_edit' transaction.pk %}" class="link">Edit</a>
         </div>
       </li>

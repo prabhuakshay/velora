@@ -81,6 +81,7 @@ class Draft(models.Model):
         SCHEDULE = "schedule", "Schedule"
         MANUAL = "manual", "Manual"
         STATEMENT = "statement", "Statement"
+        CARD_EMI = "card_emi", "Card EMI"
 
     class Status(models.TextChoices):
         WAITING = "waiting"
@@ -109,6 +110,15 @@ class Draft(models.Model):
         blank=True,
         related_name="draft",
     )
+    card_emi = models.ForeignKey(
+        "cards.CardEMI",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="drafts",
+    )
+    # Which of the Card EMI's installments it records the interest of.
+    installment = models.PositiveSmallIntegerField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status, default=Status.WAITING)
     created_at = models.DateTimeField(auto_now_add=True)
     # Why the last try to post it unchanged was refused.
@@ -164,6 +174,23 @@ class Draft(models.Model):
                 violation_error_message=(
                     "Only a card payment Draft links to a Statement."
                 ),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    source="card_emi", card_emi__isnull=False, installment__isnull=False
+                )
+                | (
+                    ~models.Q(source="card_emi")
+                    & models.Q(card_emi__isnull=True, installment__isnull=True)
+                ),
+                name="quick_add_draft_card_emi_iff_source",
+                violation_error_message=(
+                    "Only a Card EMI Draft links to a Card EMI installment."
+                ),
+            ),
+            models.UniqueConstraint(
+                fields=("card_emi", "installment"),
+                name="quick_add_draft_one_per_card_emi_installment",
             ),
             models.CheckConstraint(
                 condition=models.Q(party__isnull=True) | models.Q(new_party_name=""),

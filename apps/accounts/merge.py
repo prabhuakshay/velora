@@ -66,7 +66,8 @@ class AccountMerge:
     def run(self) -> None:
         """Repoint everything on the source at the target, then remove the source.
 
-        That is every Split, Draft, Schedule Split, Suggested Schedule and card.
+        That is every Split, Draft, Schedule Split, Suggested Schedule, card
+        and Card EMI.
         Saves and deletes row by row so change history records each one.
         """
         if self.refusal:
@@ -101,12 +102,14 @@ class AccountMerge:
             with_reason(source, reason).delete()
 
     def _move_card(self, reason: str) -> None:
-        """Hand the source's card settings, Statements and paid cards to the target."""
+        """Hand the source's card settings, Statements and Card EMIs to the target."""
         source, target = self.source, self.target
         for card in Account.objects.filter(pays_from=source):
             card.pays_from = target
             with_reason(card, reason).save()
         source.statements.update(card=target)
+        source.card_emis.update(card=target)
+        source.card_emi_interest.update(interest_account=target)
         if source.is_card:
             target.statement_day = source.statement_day
             target.due_day = source.due_day
