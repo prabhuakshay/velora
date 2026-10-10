@@ -225,7 +225,7 @@ PASSWORD_RESET_RATE_LIMIT = env.str("PASSWORD_RESET_RATE_LIMIT", default="5/h")
 # =============================================================================
 
 LANGUAGE_CODE = env.str("LANGUAGE_CODE", default="en-us")
-TIME_ZONE = env.str("TIME_ZONE", default="UTC")
+TIME_ZONE = env.str("TIME_ZONE", default="Asia/Kolkata")
 USE_I18N = True
 # Store datetimes as UTC and convert on display.
 USE_TZ = True
