@@ -130,6 +130,7 @@ def test_editing_a_hand_made_draft_posts_it_with_the_edits(signed_in: Client) ->
     response = signed_in.post(
         reverse("draft_edit", args=[draft.pk]),
         {
+            "action": "post",
             "date": "2026-10-08",
             "description": "Dentist, filling",
             "splits-TOTAL_FORMS": 1,
