@@ -5,6 +5,9 @@
 {% block main %}
   <h1 class="text-2xl font-bold tracking-tight">Storage</h1>
   {% include "transactions/_storage_records.html" %}
+  <div hx-get="{% url 'storage_bucket' %}" hx-trigger="load" hx-swap="outerHTML">
+    <p class="mt-6 text-sm text-slate-500">Loading R2 bucket figures…</p>
+  </div>
   {% if analytics %}
     <div hx-get="{% url 'storage_analytics' %}" hx-trigger="load" hx-swap="outerHTML">
       <p class="mt-6 text-sm text-slate-500">Loading Cloudflare analytics…</p>
