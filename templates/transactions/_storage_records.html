@@ -1,0 +1,10 @@
+<section class="mt-4">
+  <h2 class="text-lg font-semibold">Attachment storage</h2>
+  <dl class="mt-2 grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200 sm:grid-cols-3">
+    <div><dt class="text-slate-500">Total size</dt><dd class="font-medium tabular-nums">{{ stats.total_size|filesizeformat }}</dd></div>
+    <div><dt class="text-slate-500">Attachments</dt><dd class="font-medium tabular-nums">{{ stats.attachments }}</dd></div>
+    <div><dt class="text-slate-500">Transactions with Attachments</dt><dd class="font-medium tabular-nums">{{ stats.transactions }}</dd></div>
+    <div><dt class="text-slate-500">Average size</dt><dd class="font-medium tabular-nums">{% if stats.average_size is None %}—{% else %}{{ stats.average_size|filesizeformat }}{% endif %}</dd></div>
+    <div><dt class="text-slate-500">Oldest Attachment</dt><dd class="font-medium tabular-nums">{{ stats.oldest|date:"j M Y"|default:"—" }}</dd></div>
+  </dl>
+</section>
