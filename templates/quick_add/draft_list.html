@@ -12,7 +12,7 @@
     Polls only while something is processing; the swapped-in list drops the
     trigger once nothing is left to wait for.
   {% endcomment %}
-  <div id="drafts"{% if processing %} hx-get="{% url 'draft_list' %}" hx-trigger="every 3s" hx-select="#drafts" hx-target="this" hx-swap="outerHTML"{% endif %}>
+  <div id="drafts"{% if processing %} hx-get="{% url 'draft_list' %}?page={{ page.number }}" hx-trigger="every 3s" hx-select="#drafts" hx-target="this" hx-swap="outerHTML"{% endif %}>
     {% if quick_adds %}
       <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
         {% for quick_add in quick_adds %}
@@ -52,5 +52,6 @@
         <p class="mt-4 rounded-2xl bg-white px-4 py-3 text-slate-500 shadow-sm ring-1 ring-slate-200">No Drafts.</p>
       {% endif %}
     {% endfor %}
+    {% include "partials/pagination.html" %}
   </div>
 {% endblock %}

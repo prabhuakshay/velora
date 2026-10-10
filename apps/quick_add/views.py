@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.core.views import paginate
 from apps.quick_add import openrouter
 from apps.quick_add.forms import (
     DraftEditForm,
@@ -94,7 +95,7 @@ def waiting_draft(pk: int) -> Draft:
 @login_required
 def draft_list(request: HttpRequest) -> HttpResponseBase:
     """The waiting Drafts, and the Quick Adds still processing or failed."""
-    drafts = list(
+    drafts = (
         Draft.objects.waiting()
         .select_related("party", "quick_add")
         .prefetch_related(
@@ -106,8 +107,9 @@ def draft_list(request: HttpRequest) -> HttpResponseBase:
             ),
         )
     )
+    page = paginate(request, drafts)
     sections = [
-        (heading, [draft for draft in drafts if draft.source == source])
+        (heading, [draft for draft in page if draft.source == source])
         for source, heading in SECTION_HEADINGS.items()
     ]
     enabled = openrouter.is_configured()
@@ -117,6 +119,7 @@ def draft_list(request: HttpRequest) -> HttpResponseBase:
         "quick_add/draft_list.html",
         {
             "sections": [section for section in sections if section[1]],
+            "page": page,
             "quick_adds": quick_adds,
             "processing": any(quick_add.is_processing for quick_add in quick_adds),
             "stats": ai_stats() if enabled else None,

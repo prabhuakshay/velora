@@ -20,6 +20,9 @@ if TYPE_CHECKING:
 
 DATE_TOLERANCE = timedelta(days=5)
 COVER_AMOUNT_TOLERANCE = Decimal("0.10")
+# Past this, an open Occurrence is no longer matched, so the daily job stops
+# re-checking every old one forever.
+MATCH_WINDOW = timedelta(days=30)
 
 
 class Leg(Protocol):
@@ -75,14 +78,18 @@ def cover(occurrence: Occurrence, transaction: Transaction) -> None:
 
 def match_transactions(today: date) -> None:
     """Cover each open Occurrence a recorded Transaction could already cover."""
-    open_occurrences = Occurrence.objects.filter(
-        status__in=[
-            Occurrence.Status.UPCOMING,
-            Occurrence.Status.DRAFTED,
-            Occurrence.Status.MISSED,
-        ],
-        due_date__lte=today + DATE_TOLERANCE,
-    ).select_related("schedule")
+    open_occurrences = (
+        Occurrence.objects.filter(
+            status__in=[
+                Occurrence.Status.UPCOMING,
+                Occurrence.Status.DRAFTED,
+                Occurrence.Status.MISSED,
+            ],
+            due_date__range=(today - MATCH_WINDOW, today + DATE_TOLERANCE),
+        )
+        .select_related("schedule")
+        .prefetch_related("schedule__splits")
+    )
     run_each(
         "match_transactions",
         open_occurrences,

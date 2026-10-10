@@ -306,3 +306,18 @@ def test_add_split_treats_a_non_decimal_count_as_zero(signed_in: Client) -> None
     response = signed_in.get(reverse("schedule_split_row"), {"splits-TOTAL_FORMS": "²"})
 
     assert 'name="splits-0-amount"' in response.content.decode()
+
+
+def test_the_occurrence_history_is_paginated(signed_in: Client) -> None:
+    schedule = make_schedule()
+    for day in range(1, 27):
+        schedule.occurrences.create(due_date=date(2026, 1, day))
+    url = reverse("schedule_detail", args=[schedule.pk])
+
+    first = signed_in.get(url).content.decode()
+    second = signed_in.get(url + "?page=2").content.decode()
+
+    assert "1 Jan 2026" in first
+    assert "26 Jan 2026" not in first
+    assert "26 Jan 2026" in second
+    assert "?page=2" in first

@@ -141,6 +141,7 @@ class Occurrence(models.Model):
 
     class Meta:
         ordering = ("due_date", "pk")
+        indexes: ClassVar = [models.Index(fields=["status", "due_date"])]
         constraints: ClassVar = [
             models.UniqueConstraint(
                 fields=("schedule", "due_date"),

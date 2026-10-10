@@ -105,7 +105,7 @@ An Occurrence whose Draft the user posted, or that a Transaction the user record
 _Avoid_: Done, settled, fulfilled
 
 **Missed**:
-An Occurrence with no Transaction covering it by the end of its Schedule's grace period after the due date, such as salary that has not arrived.
+An Occurrence with no Transaction covering it by the end of its Schedule's grace period after the due date, such as salary that has not arrived. A recorded Transaction can still make it Paid until 30 days after the due date; after that it stays Missed.
 _Avoid_: Late, overdue, failed
 
 **Subscription**:

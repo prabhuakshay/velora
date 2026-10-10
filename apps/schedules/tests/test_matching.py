@@ -3,12 +3,15 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
+from apps.schedules.matching import MATCH_WINDOW, match_transactions
 from apps.schedules.models import Occurrence
 from apps.schedules.tests.conftest import make_schedule
 from apps.transactions.models import Transaction
@@ -283,3 +286,43 @@ def test_the_date_window_narrows_with_the_interval(
 
     status = Occurrence.objects.get(due_date=date(2026, 10, 5)).status
     assert (status == Occurrence.Status.PAID) is matches
+
+
+def split_queries(occurrences: int, bank: Account, rent: Account) -> int:
+    for _ in range(occurrences):
+        make_schedule((bank, rent, "25000")).occurrences.create(
+            due_date=date(2026, 10, 5)
+        )
+    with CaptureQueriesContext(connection) as queries:
+        match_transactions(date(2026, 10, 5))
+    return sum("schedules_schedulesplit" in query["sql"] for query in queries)
+
+
+def test_matching_reads_schedule_splits_once_however_many_occurrences(
+    bank: Account, rent: Account
+) -> None:
+    one = split_queries(1, bank, rent)
+    Occurrence.objects.all().delete()
+
+    assert split_queries(5, bank, rent) == one == 1
+
+
+@pytest.mark.parametrize(
+    ("days_overdue", "status"),
+    [
+        (MATCH_WINDOW.days, Occurrence.Status.PAID),
+        (MATCH_WINDOW.days + 1, Occurrence.Status.MISSED),
+    ],
+)
+def test_a_missed_occurrence_is_matched_only_within_the_window(
+    bank: Account, rent: Account, days_overdue: int, status: str
+) -> None:
+    due = date(2026, 10, 5)
+    make_schedule((bank, rent, "25000")).occurrences.create(
+        due_date=due, status=Occurrence.Status.MISSED
+    )
+    record(bank, rent, "25000", due)
+
+    match_transactions(due + timedelta(days=days_overdue))
+
+    assert first_status() == status

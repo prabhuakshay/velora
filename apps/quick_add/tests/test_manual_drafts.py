@@ -161,3 +161,17 @@ def test_rejecting_a_hand_made_draft_keeps_it_off_the_drafts_page(
     assert draft.status == Draft.Status.REJECTED
     assert "Dentist" not in signed_in.get(reverse("draft_list")).content.decode()
     assert not Transaction.objects.exists()
+
+
+def test_the_draft_list_is_paginated(signed_in: Client) -> None:
+    for number in range(1, 27):
+        make_manual_draft(description=f"Draft {number:02}")
+
+    first = signed_in.get(reverse("draft_list")).content.decode()
+    second = signed_in.get(reverse("draft_list") + "?page=2").content.decode()
+
+    assert "Draft 01" in first
+    assert "Draft 26" not in first
+    assert "Draft 26" in second
+    assert "Draft 01" not in second
+    assert "?page=2" in first

@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.core.dates import months_after
-from apps.core.views import blank_split_row
+from apps.core.views import blank_split_row, paginate
 from apps.schedules.forms import (
     ScheduleForm,
     ScheduleSplitFormSet,
@@ -173,7 +173,7 @@ def schedule_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
         {
             "schedule": schedule,
             "splits": schedule.splits.select_related("from_account", "to_account"),
-            "occurrences": occurrences,
+            "page": paginate(request, occurrences),
             "next_due": occurrences.filter(status=Occurrence.Status.UPCOMING).first(),
             "ended": schedule.has_ended(today),
             "today": today,
@@ -238,7 +238,11 @@ def subscription_list(request: HttpRequest) -> HttpResponseBase:
     return render(
         request,
         "schedules/subscription_list.html",
-        {"rows": rows, "yearly_total": total, "monthly_total": total / 12},
+        {
+            "page": paginate(request, rows),
+            "yearly_total": total,
+            "monthly_total": total / 12,
+        },
     )
 
 

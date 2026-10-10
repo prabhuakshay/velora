@@ -46,8 +46,8 @@ def test_a_schedule_is_marked_as_a_subscription_with_its_details(
     ) == (True, date(2026, 11, 1), "Premium", "Account > Membership > Cancel")
 
 
-def page_text(signed_in: Client) -> str:
-    response = signed_in.get(reverse("subscription_list"))
+def page_text(signed_in: Client, query: str = "") -> str:
+    response = signed_in.get(reverse("subscription_list") + query)
     return " ".join(strip_tags(response.content.decode()).split())
 
 
@@ -163,3 +163,26 @@ def test_a_subscription_shows_how_its_amount_changed(signed_in: Client) -> None:
         " · ₹649.00 from 1 Feb 2026"
     ) in text
     assert text.count("Price history") == 1
+
+
+def test_the_list_is_paginated_with_totals_over_every_subscription(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    services = make_account("Services", "expense")
+    for number in range(1, 27):
+        make_schedule(
+            (bank, services, "10"),
+            description=f"Service {number:02}",
+            is_subscription=True,
+        )
+
+    first = page_text(signed_in)
+    second = page_text(signed_in, "?page=2")
+
+    assert "Service 01" in first
+    assert "Service 26" not in first
+    assert "Service 26" in second
+    assert "Service 01" not in second
+    for text in (first, second):
+        assert "Total ₹260.00 a month · ₹3,120.00 a year" in text

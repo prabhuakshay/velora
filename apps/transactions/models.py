@@ -33,6 +33,9 @@ class Transaction(models.Model):
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
 
+    class Meta:
+        indexes: ClassVar = [models.Index(fields=["date"])]
+
     def __str__(self) -> str:
         return f"{self.date} {self.description or self.party or ''}".strip()
 
