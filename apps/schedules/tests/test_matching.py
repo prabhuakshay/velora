@@ -157,3 +157,36 @@ def test_a_posted_schedule_draft_does_not_cover_the_next_occurrence(
     run_daily_job(date(2026, 10, 6))
 
     assert statuses()[:2] == [Occurrence.Status.PAID, Occurrence.Status.DRAFTED]
+
+
+def test_deleting_a_posted_draft_transaction_reopens_its_occurrence(
+    signed_in: Client, bank: Account, rent: Account
+) -> None:
+    make_schedule((bank, rent, "25000"))
+    run_daily_job(date(2026, 10, 5))
+    signed_in.post(reverse("draft_post", args=[Draft.objects.get().pk]))
+
+    signed_in.post(reverse("transaction_delete", args=[Transaction.objects.get().pk]))
+
+    occurrence = Occurrence.objects.get()
+    assert (occurrence.status, occurrence.transaction) == (
+        Occurrence.Status.UPCOMING,
+        None,
+    )
+    run_daily_job(date(2026, 10, 6))
+    assert first_status() == Occurrence.Status.DRAFTED
+    assert Draft.objects.get().status == Draft.Status.WAITING
+
+
+def test_deleting_a_recorded_covering_transaction_reopens_its_occurrence(
+    signed_in: Client, bank: Account, rent: Account
+) -> None:
+    make_schedule((bank, rent, "25000"))
+    record(bank, rent, "25000", date(2026, 10, 5))
+    run_daily_job(date(2026, 10, 5))
+    assert first_status() == Occurrence.Status.PAID
+
+    signed_in.post(reverse("transaction_delete", args=[Transaction.objects.get().pk]))
+    run_daily_job(date(2026, 10, 20))
+
+    assert first_status() == Occurrence.Status.MISSED
