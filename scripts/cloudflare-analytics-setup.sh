@@ -233,9 +233,14 @@ step "Permissions: Account → Account Analytics → Read. Nothing else."
 step "Account Resources: Include → the account that owns the R2 bucket."
 step "Leave Client IP filtering and TTL empty. Continue to summary → Create Token."
 warn "The token is shown only once: keep this page open until it's pasted."
+note "Copy it with the page's Copy button: selecting text in this terminal"
+note "replaces the clipboard."
 CLOUDFLARE_API_TOKEN=""
-until [[ -n "$CLOUDFLARE_API_TOKEN" ]]; do
+until [[ "$CLOUDFLARE_API_TOKEN" =~ ^[A-Za-z0-9_-]{40,}$ ]]; do
   ask_secret CLOUDFLARE_API_TOKEN "Paste the API token (hidden):"
+  # A multi-line paste would otherwise spill its remaining lines into later
+  # prompts and then into the shell once the wizard exits.
+  while read -rs -t 0.1 _; do :; done
 done
 
 stage "Save and check"
