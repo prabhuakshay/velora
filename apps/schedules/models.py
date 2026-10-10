@@ -44,6 +44,11 @@ class Schedule(models.Model):
     active = models.BooleanField(default=True)
     # Due dates before this were paused, so they never fall due.
     resumed_on = models.DateField(null=True, blank=True, editable=False)
+    # A Subscription is a flagged Schedule, not a model of its own (ADR 0007).
+    is_subscription = models.BooleanField(default=False)
+    trial_ends_on = models.DateField(null=True, blank=True)
+    plan = models.CharField(max_length=100, blank=True)
+    how_to_cancel = models.TextField(blank=True)
 
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]

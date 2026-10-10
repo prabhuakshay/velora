@@ -20,6 +20,15 @@
       {% include "partials/field.html" with field=form.grace_days %}
       {% include "partials/field.html" with field=form.reminder_days %}
     </div>
+    <fieldset class="space-y-4 rounded-xl border border-slate-200 p-3">
+      <label class="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="{{ form.is_subscription.html_name }}" id="{{ form.is_subscription.id_for_label }}" class="mt-0.5"{% if form.is_subscription.value %} checked{% endif %}>
+        <span><span class="font-medium text-slate-700">{{ form.is_subscription.label }}</span> <span class="text-slate-500">{{ form.is_subscription.help_text }}</span></span>
+      </label>
+      {% include "partials/field.html" with field=form.trial_ends_on %}
+      {% include "partials/field.html" with field=form.plan %}
+      {% include "partials/field.html" with field=form.how_to_cancel %}
+    </fieldset>
     {{ formset.management_form }}
     {% for error in formset.non_form_errors %}
       <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>

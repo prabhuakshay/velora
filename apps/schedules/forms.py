@@ -26,6 +26,10 @@ class ScheduleForm(forms.ModelForm[Schedule]):
             "ends_on",
             "grace_days",
             "reminder_days",
+            "is_subscription",
+            "trial_ends_on",
+            "plan",
+            "how_to_cancel",
         )
         labels: ClassVar = {
             "start_date": "First due date",
@@ -33,15 +37,20 @@ class ScheduleForm(forms.ModelForm[Schedule]):
             "unit": "",
             "ends_on": "Last due date",
             "reminder_days": "Remind days before",
+            "is_subscription": "Subscription",
+            "trial_ends_on": "Trial ends on",
         }
         help_texts: ClassVar = {
             "ends_on": "Leave blank to repeat until you end it.",
             "grace_days": "Days after the due date before it counts as Missed.",
+            "is_subscription": "It pays for an ongoing service.",
         }
         widgets: ClassVar = {
             "start_date": forms.DateInput(attrs={"type": "date"}),
             "ends_on": forms.DateInput(attrs={"type": "date"}),
+            "trial_ends_on": forms.DateInput(attrs={"type": "date"}),
             "description": forms.Textarea(attrs={"rows": 2}),
+            "how_to_cancel": forms.Textarea(attrs={"rows": 2}),
         }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
