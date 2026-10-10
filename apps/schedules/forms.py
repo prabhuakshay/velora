@@ -65,7 +65,11 @@ class ScheduleForm(forms.ModelForm[Schedule]):
                 "Draft. Needs an amount on every Split."
             ),
             "grace_days": "Days after the due date before it counts as Missed.",
-            "reminder_days": "Leave blank for 3 if monthly or cron, 14 if yearly.",
+            "reminder_days": "Leave blank for "
+            + ", ".join(
+                f"{days} if every {unit}" for unit, days in REMINDER_DAYS.items()
+            )
+            + "; a cron expression is reminded as every month.",
             "is_subscription": "It pays for an ongoing service.",
         }
         widgets: ClassVar = {

@@ -56,7 +56,7 @@ class Statement(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.card} Statement to {self.period_end}"
+        return f"{self.card} Statement to {self.period_end:%d %b %Y}"
 
     @property
     def amount(self) -> Decimal:

@@ -156,7 +156,7 @@ SECTIONS: tuple[tuple[str, Callable[[date], list[Item]]], ...] = (
     ("Missed", missed),
     ("Card Due Days", card_due_days),
     ("Low balance", low_balances),
-    ("Drafts waiting 7 days", stale_drafts),
+    (f"Drafts waiting {STALE_DRAFT_DAYS} days", stale_drafts),
 )
 
 

@@ -90,7 +90,7 @@ def propose_payment(statement: Statement) -> None:
         source=Draft.Source.STATEMENT,
         statement=statement,
         date=statement.due_date,
-        description=f"{card} Statement to {statement.period_end:%d %b %Y}",
+        description=str(statement),
     )
     DraftSplit.objects.create(
         draft=draft,
