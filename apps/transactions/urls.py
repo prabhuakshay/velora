@@ -22,6 +22,11 @@ urlpatterns = [
     ),
     path("storage/", views.storage, name="storage"),
     path(
+        "storage/analytics/",
+        views.storage_analytics,
+        name="storage_analytics",
+    ),
+    path(
         "attachments/<int:pk>/",
         views.attachment_open,
         name="attachment_open",
