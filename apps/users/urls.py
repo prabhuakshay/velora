@@ -1,6 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
+from apps.users.forms import SiteURLPasswordResetForm
 from apps.users.throttle import throttle
 from apps.users.views import LoginView, preferences, privacy_mode_off, privacy_mode_on
 
@@ -29,7 +30,9 @@ urlpatterns = [
     ),
     path(
         "password-reset/",
-        limit_password_reset(auth_views.PasswordResetView.as_view()),
+        limit_password_reset(
+            auth_views.PasswordResetView.as_view(form_class=SiteURLPasswordResetForm)
+        ),
         name="password_reset",
     ),
     path(

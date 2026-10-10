@@ -109,6 +109,25 @@ def test_password_reset_flow(
     assert user.check_password(new_password)
 
 
+def test_password_reset_link_uses_site_url_not_request_host(
+    client: Client, user: User, mailoutbox: list[EmailMessage], settings: Settings
+) -> None:
+    settings.SITE_URL = "https://velora.example.com"
+    settings.ALLOWED_HOSTS = ["velora.example.com", "spoofed.example.net"]
+
+    client.post(
+        reverse("password_reset"),
+        {"email": user.email},
+        HTTP_HOST="spoofed.example.net",
+    )
+
+    body = str(mailoutbox[0].body)
+    match = re.search(r"https?://\S+/reset/\S+", body)
+    assert match
+    assert match.group(0).startswith("https://velora.example.com/")
+    assert "spoofed.example.net" not in body
+
+
 def test_password_change_requires_login(client: Client) -> None:
     response = client.get(reverse("password_change"))
 

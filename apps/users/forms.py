@@ -1,11 +1,17 @@
 """Forms for the email-based user model."""
 
-from typing import TYPE_CHECKING, cast, override
+from typing import TYPE_CHECKING, Any, cast, override
+from urllib.parse import urlsplit
 
 from axes.utils import reset
 from django import forms
+from django.conf import settings
 from django.contrib.auth import authenticate
-from django.contrib.auth.forms import AdminUserCreationForm, UserChangeForm
+from django.contrib.auth.forms import (
+    AdminUserCreationForm,
+    PasswordResetForm,
+    UserChangeForm,
+)
 
 from apps.users.client_ip import get_client_ip
 from apps.users.models import User
@@ -66,3 +72,14 @@ class PrivacyModeOffForm(forms.Form):
         # would clear this user's failures (AXES_RESET_ON_SUCCESS) at login.
         reset(ip=get_client_ip(self.request), username=email)
         return cleaned
+
+
+class SiteURLPasswordResetForm(PasswordResetForm):
+    """Build reset links from SITE_URL, so a spoofed Host can't redirect them."""
+
+    @override
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        site = urlsplit(settings.SITE_URL)
+        kwargs["domain_override"] = site.netloc
+        kwargs["use_https"] = site.scheme == "https"
+        super().save(*args, **kwargs)
