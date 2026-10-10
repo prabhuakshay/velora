@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
@@ -67,3 +68,21 @@ def test_the_upcoming_panel_warns_of_a_low_balance(signed_in: Client) -> None:
     assert "Low balance" in page
     assert f'href="{reverse("forecast")}"' in page
     assert "-₹25,000.00" in page
+
+
+def test_the_upcoming_panel_warns_of_a_card_expected_over_its_limit(
+    signed_in: Client,
+) -> None:
+    card = make_account("Card", "liability")
+    card.low_balance_threshold = Decimal(20000)
+    card.save()
+    make_schedule(
+        (card, make_account("Rent", "expense"), "25000"),
+        start_date=timezone.localdate() + timedelta(days=2),
+    )
+    run_daily_job(timezone.localdate())
+
+    page = signed_in.get(reverse("index")).content.decode()
+
+    assert "Card owing over its limit" in page
+    assert "₹25,000.00" in page

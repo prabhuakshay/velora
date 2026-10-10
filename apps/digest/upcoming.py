@@ -143,12 +143,19 @@ def stale_drafts(today: date) -> list[Item]:
 
 
 def low_balances(today: date) -> list[Item]:
-    """Each Account the Forecast expects under its Low-Balance Threshold.
+    """Each Account the Forecast expects past its Low-Balance Threshold.
 
     Dated the first day it is, with the Balance expected then.
     """
     return [
-        Item(breach.on, str(breach.account), breach.balance, reverse("forecast"))
+        Item(
+            breach.on,
+            f"{breach.account} owing over its limit"
+            if breach.owes
+            else str(breach.account),
+            breach.balance,
+            reverse("forecast"),
+        )
         for breach in forecast(today).breaches
     ]
 

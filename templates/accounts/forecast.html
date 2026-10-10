@@ -10,7 +10,7 @@
       <h2 id="low-balance-heading" class="font-semibold text-red-700">Low balance</h2>
       <ul class="mt-2 space-y-1 text-sm">
         {% for breach in forecast.breaches %}
-          <li>{{ breach.account }} is expected under {% amount breach.account.low_balance_threshold %} from {{ breach.on|date:"j M Y" }}: <span class="tabular-nums">{% amount breach.balance %}</span></li>
+          <li>{{ breach.account }} is expected {% if breach.owes %}to owe over{% else %}under{% endif %} {% amount breach.account.low_balance_threshold %} from {{ breach.on|date:"j M Y" }}: <span class="tabular-nums">{% amount breach.balance %}</span></li>
         {% endfor %}
       </ul>
     </section>

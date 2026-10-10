@@ -40,11 +40,16 @@ class Amountless:
 
 @dataclass(frozen=True)
 class Breach:
-    """The first day an Account is expected under its Low-Balance Threshold."""
+    """The first day an Account is expected past its Low-Balance Threshold."""
 
     account: Account
     on: date
     balance: Decimal
+
+    @property
+    def owes(self) -> bool:
+        """Whether it warns of owing too much rather than having too little."""
+        return self.account.kind == AccountKind.LIABILITY
 
 
 @dataclass(frozen=True)
@@ -165,6 +170,24 @@ def _card_moves(start: date, end: date) -> list[_Move]:
     return moves
 
 
+def _breach(
+    account: Account, days: list[date], balances: list[Decimal]
+) -> Breach | None:
+    """The first day under the threshold, or over it for a Liability.
+
+    A Liability's threshold caps what is owed, so 0 means no warning;
+    otherwise every card in debt would warn.
+    """
+    threshold = account.low_balance_threshold
+    owes = account.kind == AccountKind.LIABILITY
+    if owes and not threshold:
+        return None
+    for day, balance in zip(days, balances, strict=True):
+        if balance > threshold if owes else balance < threshold:
+            return Breach(account, day, balance)
+    return None
+
+
 def forecast(start: date) -> Forecast:
     """Each visible Asset and Liability Account's Balance from start for DAYS days."""
     days = [start + timedelta(days=offset) for offset in range(DAYS)]
@@ -198,13 +221,8 @@ def forecast(start: date) -> Forecast:
             balance += sign * changes[account.pk][day]
             balances.append(balance)
         rows.append(AccountForecast(account, balances))
-        threshold = account.low_balance_threshold
-        under = next(
-            (pair for pair in zip(days, balances, strict=True) if pair[1] < threshold),
-            None,
-        )
-        if under:
-            breaches.append(Breach(account, *under))
+        if breach := _breach(account, days, balances):
+            breaches.append(breach)
     amountless.sort(key=lambda item: item.when)
     breaches.sort(key=lambda breach: breach.on)
     return Forecast(days, rows, amountless, breaches)

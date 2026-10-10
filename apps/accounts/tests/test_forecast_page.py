@@ -84,3 +84,17 @@ def test_privacy_mode_hides_every_balance(signed_in: Client, user: User) -> None
     assert "Bank is expected under ₹•••• from" in text
     assert "50,000" not in text
     assert "00,000" not in text
+
+
+def test_a_card_warns_it_is_expected_to_owe_over_its_limit(
+    signed_in: Client,
+) -> None:
+    card = make_account("Card", "liability")
+    card.low_balance_threshold = Decimal(50000)
+    card.save()
+    dentist_in_three_days(card, "60000")
+    when = timezone.localdate() + timedelta(days=3)
+
+    text = page_text(signed_in)
+
+    assert f"Card is expected to owe over ₹50,000.00 from {when:%-d %b %Y}" in text

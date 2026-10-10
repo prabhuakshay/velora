@@ -43,7 +43,14 @@ class AccountForm(forms.ModelForm[Account]):
             return
         for name in OPENING_BALANCE_FIELDS:
             self.fields[name].required = True
-        self.fields["low_balance_threshold"].required = False
+        threshold = self.fields["low_balance_threshold"]
+        threshold.required = False
+        if self.instance.kind == Account.Kind.LIABILITY:
+            threshold.label = "Warn when owing over"
+            threshold.help_text = (
+                "Warn when the Forecast expects you to owe more than this; "
+                "0 for no warning."
+            )
         self.fields["opening_balance_date"].label = "Opening Balance date"
         if not self.instance.pk:
             self.initial["opening_balance"] = Decimal(0)

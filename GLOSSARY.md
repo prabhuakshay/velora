@@ -121,7 +121,7 @@ The Balances Velora expects each Asset and Liability Account to have on each of 
 _Avoid_: Projection, cash flow, prediction
 
 **Low-Balance Threshold**:
-The Balance below which the user wants a warning when the Forecast expects an Account to fall under it.
+The point past which the user wants a warning when the Forecast expects an Account to cross it. For an Asset Account it is a floor: the warning comes when the Balance is expected to fall below it. For a Liability Account it is a ceiling on what is owed, such as a card limit: the warning comes when the amount owed is expected to go above it, and 0 means no warning.
 _Avoid_: Minimum balance, alert level
 
 **Card EMI**:

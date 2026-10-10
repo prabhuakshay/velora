@@ -57,3 +57,11 @@ def test_expense_accounts_have_no_threshold(signed_in: Client) -> None:
     page = signed_in.get(reverse("account_create", kwargs={"kind": "expense"}))
 
     assert "low_balance_threshold" not in page.content.decode()
+
+
+def test_a_liability_threshold_warns_of_owing_too_much(signed_in: Client) -> None:
+    page = signed_in.get(reverse("account_create", kwargs={"kind": "liability"}))
+
+    text = page.content.decode()
+    assert "Warn when owing over" in text
+    assert "expects you to owe more than this; 0 for no warning" in text

@@ -178,3 +178,37 @@ def test_the_threshold_defaults_to_zero() -> None:
 
     [breach] = result.breaches
     assert (breach.account, breach.on) == (savings, date(2026, 10, 9))
+
+
+def card_owing(opening: str, limit: str) -> Account:
+    card = make_account("Card", "liability")
+    card.opening_balance = Decimal(opening)
+    card.low_balance_threshold = Decimal(limit)
+    card.save()
+    return card
+
+
+def test_an_overpaid_card_with_no_limit_never_warns() -> None:
+    card_owing("-51000", "0")
+
+    assert forecast(TODAY).breaches == []
+
+
+def test_a_card_with_no_limit_in_debt_never_warns() -> None:
+    card = card_owing("40000", "0")
+    make_manual_draft((card, make_account("Travel", "expense"), "15000"))
+
+    assert forecast(TODAY).breaches == []
+
+
+def test_a_card_warns_the_first_day_it_is_expected_to_owe_over_its_limit() -> None:
+    card = card_owing("40000", "50000")
+    make_manual_draft((card, make_account("Travel", "expense"), "15000"))
+
+    [breach] = forecast(TODAY).breaches
+
+    assert (breach.account, breach.on, breach.balance) == (
+        card,
+        date(2026, 10, 8),
+        Decimal(55000),
+    )
