@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from django.db.models import Q
 from django.urls import reverse
 
-from apps.accounts.forecast import forecast
+from apps.accounts.forecast import Item, forecast
 from apps.cards.models import Statement
 from apps.quick_add.models import Draft
 from apps.schedules.models import Occurrence
@@ -15,21 +15,10 @@ from apps.schedules.models import Occurrence
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import date
-    from decimal import Decimal
 
 # Days before a card's Due Day it starts showing.
 CARD_REMINDER_DAYS = 3
 STALE_DRAFT_DAYS = 7
-
-
-@dataclass(frozen=True)
-class Item:
-    """One thing to act on; a None amount is not known yet."""
-
-    when: date
-    label: str
-    amount: Decimal | None
-    url: str
 
 
 @dataclass(frozen=True)

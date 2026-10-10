@@ -30,11 +30,15 @@ class AccountForecast:
 
 
 @dataclass(frozen=True)
-class Amountless:
-    """Something expected on a date whose amount is not known, shown as ₹?."""
+class Item:
+    """Something expected on a date, linking to where to act on it.
+
+    A None amount is not known yet, shown as ₹?.
+    """
 
     when: date
     label: str
+    amount: Decimal | None
     url: str
 
 
@@ -58,7 +62,7 @@ class Forecast:
 
     days: list[date]
     accounts: list[AccountForecast]
-    amountless: list[Amountless]
+    amountless: list[Item]
     breaches: list[Breach]
 
 
@@ -70,9 +74,7 @@ class _Move:
     amount: Decimal
 
 
-def _occurrence_moves(
-    start: date, end: date, amountless: list[Amountless]
-) -> list[_Move]:
+def _occurrence_moves(start: date, end: date, amountless: list[Item]) -> list[_Move]:
     """Upcoming Occurrences; a Drafted one is counted by its Draft instead.
 
     An open amount is estimated from the last amount paid by the start.
@@ -110,16 +112,17 @@ def _occurrence_moves(
             )
         if unknown:
             amountless.append(
-                Amountless(
+                Item(
                     occurrence.due_date,
                     str(schedule),
+                    None,
                     reverse("schedule_detail", args=[schedule.pk]),
                 )
             )
     return moves
 
 
-def _draft_moves(end: date, amountless: list[Amountless]) -> list[_Move]:
+def _draft_moves(end: date, amountless: list[Item]) -> list[_Move]:
     drafts = (
         Draft.objects.waiting()
         .filter(date__lte=end)
@@ -131,9 +134,10 @@ def _draft_moves(end: date, amountless: list[Amountless]) -> list[_Move]:
         splits = list(draft.splits.all())
         if any(split.amount is None for split in splits):
             amountless.append(
-                Amountless(
+                Item(
                     draft.date,
                     draft.label,
+                    None,
                     reverse("draft_edit", args=[draft.pk]),
                 )
             )
@@ -196,7 +200,7 @@ def forecast(start: date) -> Forecast:
         .order_by("kind", "name")
     )
     changes: dict[int, dict[date, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
-    amountless: list[Amountless] = []
+    amountless: list[Item] = []
     moves = [
         *_occurrence_moves(start, days[-1], amountless),
         *_draft_moves(days[-1], amountless),
