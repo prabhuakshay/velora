@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING
 
+from apps.cards.emis import propose_card_emi_drafts
 from apps.cards.statements import create_statements, match_card_payments
 from apps.schedules.matching import mark_missed, match_transactions
 from apps.schedules.occurrences import materialise_occurrences, propose_due_drafts
@@ -20,6 +21,7 @@ STEPS: tuple[Callable[[date], None], ...] = (
     # Settle payments first, so a new Statement's estimate leaves them out.
     match_card_payments,
     create_statements,
+    propose_card_emi_drafts,
     suggest_schedules,
 )
 

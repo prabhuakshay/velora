@@ -28,7 +28,11 @@ def estimate_statement_amount(card: Account, start: date, end: date) -> Decimal:
     posted Drafts record, so those are left out too.
     """
     in_period = Split.objects.filter(transaction__date__range=(start, end))
-    spent = in_period.filter(from_account=card).aggregate(total=Sum("amount"))
+    spent = (
+        in_period.filter(from_account=card)
+        .exclude(transaction__draft__card_emi__isnull=False)
+        .aggregate(total=Sum("amount"))
+    )
     paid = in_period.filter(
         to_account=card, transaction__statement__isnull=True
     ).aggregate(total=Sum("amount"))

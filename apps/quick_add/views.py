@@ -78,6 +78,7 @@ SECTION_HEADINGS = {
     Draft.Source.SCHEDULE: "From Schedules",
     Draft.Source.MANUAL: "Started by hand",
     Draft.Source.STATEMENT: "Card payments",
+    Draft.Source.CARD_EMI: "Card EMI interest",
 }
 
 
