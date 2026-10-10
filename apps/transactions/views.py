@@ -1,16 +1,19 @@
 """Views for recording and reviewing Transactions."""
 
+import logging
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
 from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.core.views import paginate
+from apps.transactions import cloudflare
 from apps.transactions.attachments import (
     AttachmentDeleteError,
     delete_attachment_files,
@@ -18,12 +21,15 @@ from apps.transactions.attachments import (
 from apps.transactions.forms import SplitFormSet
 from apps.transactions.models import Attachment, Split, Transaction
 from apps.transactions.recording import TransactionForms
+from apps.transactions.storage_chart import StorageChart
 from apps.transactions.storage_stats import attachment_storage_stats
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -162,5 +168,22 @@ def storage(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "transactions/storage.html",
-        {"stats": attachment_storage_stats()},
+        {
+            "stats": attachment_storage_stats(),
+            "analytics": cloudflare.is_configured(),
+        },
     )
+
+
+@login_required
+def storage_analytics(request: HttpRequest) -> HttpResponse:
+    """The Storage page's Cloudflare analytics section, loaded by htmx."""
+    if not cloudflare.is_configured():
+        raise Http404
+    template = "transactions/_storage_analytics.html"
+    try:
+        days = cloudflare.daily_storage()
+    except OSError, ValueError:
+        logger.exception("Couldn't fetch Cloudflare storage analytics.")
+        return render(request, template, {"failed": True})
+    return render(request, template, {"chart": StorageChart.of(days)})

@@ -1,0 +1,24 @@
+<section class="mt-6">
+  <h2 class="text-lg font-semibold">From Cloudflare analytics</h2>
+  {% if failed %}
+    <p class="mt-2 text-sm text-slate-500">Couldn't reach Cloudflare analytics.</p>
+  {% elif not chart.bars %}
+    <p class="mt-2 text-sm text-slate-500">No storage data from Cloudflare yet.</p>
+  {% else %}
+    {% with latest=chart.bars|last %}
+      <div class="mt-2 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200">
+        <h3 class="text-slate-500">Stored size per day</h3>
+        <p class="font-medium tabular-nums">Latest {{ latest.size|filesizeformat }} · Peak {{ chart.peak|filesizeformat }}</p>
+        <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" class="mt-2 h-32 w-full text-slate-700" role="img" aria-label="Stored size per day">
+          {% for bar in chart.bars %}
+            <rect x="{{ bar.x }}" y="{{ bar.y }}" width="{{ chart.bar_width }}" height="{{ bar.height }}" fill="currentColor"><title>{{ bar.day|date:"j M Y" }}: {{ bar.size|filesizeformat }}</title></rect>
+          {% endfor %}
+        </svg>
+        <div class="mt-1 flex justify-between text-xs text-slate-500">
+          <span>{{ chart.bars.0.day|date:"j M" }}</span>
+          <span>{{ latest.day|date:"j M" }}</span>
+        </div>
+      </div>
+    {% endwith %}
+  {% endif %}
+</section>

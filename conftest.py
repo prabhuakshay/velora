@@ -26,6 +26,8 @@ def pytest_configure() -> None:
     settings.SECURE_SSL_REDIRECT = False
     # A real key in a local .env turns Quick Add on and changes query counts.
     settings.OPENROUTER_API_KEY = ""
+    settings.CLOUDFLARE_ACCOUNT_ID = ""
+    settings.CLOUDFLARE_API_TOKEN = ""
 
 
 @pytest.fixture(autouse=True)
