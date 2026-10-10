@@ -7,4 +7,38 @@
     <div><dt class="text-slate-500">Average size</dt><dd class="font-medium tabular-nums">{% if stats.average_size is None %}—{% else %}{{ stats.average_size|filesizeformat }}{% endif %}</dd></div>
     <div><dt class="text-slate-500">Oldest Attachment</dt><dd class="font-medium tabular-nums">{{ stats.oldest|date:"j M Y"|default:"—" }}</dd></div>
   </dl>
+  <h3 class="mt-4 font-semibold">By file type</h3>
+  {% include "transactions/_storage_shares.html" with shares=stats.file_types label="File type" empty="No Attachments yet." %}
+  <h3 class="mt-4 font-semibold">Largest Attachments</h3>
+  {% if stats.largest_attachments %}
+    <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white text-sm shadow-sm ring-1 ring-slate-200">
+      {% for attachment in stats.largest_attachments %}
+        <li class="flex gap-3 px-4 py-2">
+          <span class="min-w-0 truncate">{{ attachment.original_name }}</span>
+          <span class="tabular-nums">{{ attachment.size|filesizeformat }}</span>
+          <a href="{% url 'transaction_edit' attachment.transaction_id %}" class="link ml-auto truncate">{{ attachment.transaction }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-2 text-sm text-slate-500">No Attachments yet.</p>
+  {% endif %}
+  <h3 class="mt-4 font-semibold">Largest Transactions</h3>
+  {% if stats.largest_transactions %}
+    <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white text-sm shadow-sm ring-1 ring-slate-200">
+      {% for transaction in stats.largest_transactions %}
+        <li class="flex gap-3 px-4 py-2">
+          <a href="{% url 'transaction_edit' transaction.pk %}" class="link min-w-0 truncate">{{ transaction }}</a>
+          <span class="ml-auto tabular-nums text-slate-500" title="Attachments">{{ transaction.attachment_count }}</span>
+          <span class="tabular-nums">{{ transaction.attachment_size|filesizeformat }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-2 text-sm text-slate-500">No Attachments yet.</p>
+  {% endif %}
+  <h3 class="mt-4 font-semibold">By Transaction year</h3>
+  {% include "transactions/_storage_shares.html" with shares=stats.transaction_years label="Transaction year" empty="No Attachments yet." %}
+  <h3 class="mt-4 font-semibold">Added in the last 12 months</h3>
+  {% include "transactions/_storage_shares.html" with shares=stats.recent_months label="Month" empty="No Attachments added in the last 12 months." %}
 </section>
