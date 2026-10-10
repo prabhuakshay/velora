@@ -90,6 +90,7 @@ INSTALLED_APPS = [
     "apps.transactions",
     "apps.quick_add",
     "apps.schedules",
+    "apps.cards",
 ]
 
 

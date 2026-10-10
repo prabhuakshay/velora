@@ -61,7 +61,7 @@ A short line of free text the user writes about a money event, such as "lunch at
 _Avoid_: Prompt, quick entry, note
 
 **Draft**:
-A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, or the user started by hand as a placeholder. Every Draft shows which of the three it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it. The user can edit it and save it still waiting, gaps and all, or save and post it in one go, which is refused while anything is missing; the user can also reject it. A Draft dated after today can be posted early, and is then recorded on today's date.
+A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, a credit card's Statement proposed as its payment, or the user started by hand as a placeholder. Every Draft shows which of these it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it. The user can edit it and save it still waiting, gaps and all, or save and post it in one go, which is refused while anything is missing; the user can also reject it. A Draft dated after today can be posted early, and is then recorded on today's date.
 _Avoid_: Pending transaction, suggestion, draft entry
 
 **Processing**:
@@ -135,6 +135,10 @@ _Avoid_: Billing date, cycle date
 **Due Day**:
 The day of the month the amount on a credit card's latest statement must be paid by.
 _Avoid_: Payment date, deadline
+
+**Statement**:
+One billing period of a credit card, from the day after one Statement Day to the next, with its Due Day and Statement Amount. It is paid once a payment the user posts or records covers it.
+_Avoid_: Bill, invoice, cycle
 
 **Statement Amount**:
 What a credit card's latest statement asks the user to pay. Velora estimates it until the user enters the actual amount from the real statement, which then replaces the estimate.

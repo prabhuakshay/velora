@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, ClassVar, Self
 
 from django.apps import apps
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.functions import Coalesce, Lower
 from simple_history.models import HistoricalRecords
@@ -23,6 +24,8 @@ class AccountKind(models.TextChoices):
 
 
 BALANCE_KINDS = (AccountKind.ASSET, AccountKind.LIABILITY)
+# Clamped to the last day of shorter months.
+DAY_OF_MONTH = [MinValueValidator(1), MaxValueValidator(31)]
 
 
 def _split_total(account_field: str, as_of: date | None) -> Coalesce:
@@ -66,6 +69,12 @@ class AccountQuerySet(models.QuerySet["Account"]):
         return self.annotate(balance=balance)
 
 
+CARD_SETTINGS_TOGETHER = (
+    "Set the Statement Day, Due Day and Pays from Account together, "
+    "or leave all three blank."
+)
+
+
 class Account(models.Model):
     """An Asset, Liability, Expense or Income Account; its kind never changes.
 
@@ -84,6 +93,30 @@ class Account(models.Model):
         max_digits=15, decimal_places=2, null=True, blank=True
     )
     opening_balance_date = models.DateField(null=True, blank=True)
+    # Credit card settings, on Liability Accounts only: all three or none.
+    statement_day = models.PositiveSmallIntegerField(
+        "Statement Day",
+        null=True,
+        blank=True,
+        validators=DAY_OF_MONTH,
+        help_text="The day of the month the card's billing period closes.",
+    )
+    due_day = models.PositiveSmallIntegerField(
+        "Due Day",
+        null=True,
+        blank=True,
+        validators=DAY_OF_MONTH,
+        help_text="The day of the month the Statement Amount must be paid by.",
+    )
+    pays_from = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="cards_paid",
+        limit_choices_to={"kind": AccountKind.ASSET},
+        verbose_name="Pays from",
+    )
 
     objects = AccountQuerySet.as_manager()
     history = HistoricalRecords()
@@ -115,6 +148,21 @@ class Account(models.Model):
                     "and date, and they need both."
                 ),
             ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    kind=AccountKind.LIABILITY,
+                    statement_day__isnull=False,
+                    due_day__isnull=False,
+                    pays_from__isnull=False,
+                )
+                | models.Q(
+                    statement_day__isnull=True,
+                    due_day__isnull=True,
+                    pays_from__isnull=True,
+                ),
+                name="accounts_account_card_settings_together",
+                violation_error_message=CARD_SETTINGS_TOGETHER,
+            ),
         ]
 
     def __str__(self) -> str:
@@ -124,6 +172,11 @@ class Account(models.Model):
     def has_opening_balance(self) -> bool:
         """Whether this kind of Account carries an Opening Balance."""
         return self.kind in BALANCE_KINDS
+
+    @property
+    def is_card(self) -> bool:
+        """Whether it has credit card settings."""
+        return self.statement_day is not None
 
     def opens_after(self, when: date) -> bool:
         """Whether the date falls before this Account's Opening Balance date."""

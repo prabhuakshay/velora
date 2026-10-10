@@ -30,11 +30,21 @@ class Leg(Protocol):
 
 
 def find_cover(
-    legs: Iterable[Leg], due_date: date, candidates: QuerySet[Transaction]
+    legs: Iterable[Leg],
+    due_date: date,
+    candidates: QuerySet[Transaction],
+    earliest: date | None = None,
 ) -> Transaction | None:
-    """The candidate nearest the due date with a matching Split for every leg."""
+    """The candidate nearest the due date with a matching Split for every leg.
+
+    It must fall within DATE_TOLERANCE of the due date, or from `earliest`
+    when given.
+    """
     matches = candidates.filter(
-        date__range=(due_date - DATE_TOLERANCE, due_date + DATE_TOLERANCE)
+        date__range=(
+            earliest or due_date - DATE_TOLERANCE,
+            due_date + DATE_TOLERANCE,
+        )
     )
     for leg in legs:
         splits: dict[str, object] = {
@@ -75,7 +85,7 @@ def match_transactions(today: date) -> None:
         transaction = find_cover(
             occurrence.schedule.splits.all(),
             occurrence.due_date,
-            Transaction.objects.filter(occurrence__isnull=True),
+            Transaction.objects.filter(occurrence__isnull=True, statement__isnull=True),
         )
         if transaction:
             cover(occurrence, transaction)

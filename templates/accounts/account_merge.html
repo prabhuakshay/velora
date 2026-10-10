@@ -9,7 +9,9 @@
     {% include "partials/field.html" with field=form.target %}
     <button type="submit" class="btn-primary w-full">Show impact</button>
   </form>
-  {% if merge %}
+  {% if merge.refusal %}
+    <p class="mt-6 text-sm text-red-600">{{ merge.refusal }}</p>
+  {% elif merge %}
     {% with moved=merge.moved_splits.count removed=merge.self_splits.count emptied=merge.emptied_transactions.count %}
       <ul class="mt-6 list-disc space-y-1 pl-5 text-sm text-slate-700">
         <li>{{ moved }} Split{{ moved|pluralize }} move{{ moved|pluralize:"s," }} to {{ merge.target }}.</li>
@@ -17,6 +19,9 @@
         <li>{{ emptied }} Transaction{{ emptied|pluralize }} left with no Splits {{ emptied|pluralize:"is,are" }} removed.</li>
         {% if source.has_opening_balance %}
           <li>The Opening Balances add up on {{ merge.target }}, dated the earlier of the two.</li>
+        {% endif %}
+        {% if source.is_card %}
+          <li>Its credit card settings and Statements move to {{ merge.target }}.</li>
         {% endif %}
       </ul>
     {% endwith %}

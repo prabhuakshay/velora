@@ -80,6 +80,7 @@ class Draft(models.Model):
         QUICK_ADD = "quick_add", "Quick Add"
         SCHEDULE = "schedule", "Schedule"
         MANUAL = "manual", "Manual"
+        STATEMENT = "statement", "Statement"
 
     class Status(models.TextChoices):
         WAITING = "waiting"
@@ -97,6 +98,13 @@ class Draft(models.Model):
     occurrence = models.OneToOneField(
         "schedules.Occurrence",
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="draft",
+    )
+    statement = models.OneToOneField(
+        "cards.Statement",
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="draft",
@@ -148,6 +156,14 @@ class Draft(models.Model):
                 ),
             ),
             models.CheckConstraint(
+                condition=models.Q(source="statement", statement__isnull=False)
+                | (~models.Q(source="statement") & models.Q(statement__isnull=True)),
+                name="quick_add_draft_statement_iff_source",
+                violation_error_message=(
+                    "Only a card payment Draft links to a Statement."
+                ),
+            ),
+            models.CheckConstraint(
                 condition=models.Q(party__isnull=True) | models.Q(new_party_name=""),
                 name="quick_add_draft_one_party",
                 violation_error_message=(
@@ -160,7 +176,10 @@ class Draft(models.Model):
         return f"{self.get_source_display()} Draft for {self.date}"
 
     def mark_posted(self, transaction: Transaction, *, without_edits: bool) -> None:
-        """Link the Draft to the Transaction it became; its Occurrence is Paid."""
+        """Link the Draft to the Transaction it became.
+
+        Its Occurrence is Paid, or its Statement settled, by that Transaction.
+        """
         self.status = Draft.Status.POSTED
         self.transaction = transaction
         self.posting_error = ""
@@ -171,6 +190,9 @@ class Draft(models.Model):
             self.quick_add.save(update_fields=["status", "posted_without_edits"])
         if self.occurrence:
             self.occurrence.settle(transaction)
+        if self.statement:
+            self.statement.transaction = transaction
+            self.statement.save(update_fields=["transaction"])
 
     def reject(self) -> None:
         """Mark it rejected, and its Occurrence Skipped, never Missed."""
