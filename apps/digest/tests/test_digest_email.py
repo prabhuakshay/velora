@@ -44,6 +44,27 @@ def test_the_digest_reminds_of_occurrences_within_their_lead_days(user: User) ->
     assert SITE + reverse("schedule_detail", args=[schedule.pk]) in email.body
 
 
+@pytest.mark.usefixtures("user")
+def test_the_digest_shows_an_occurrence_drafted_today() -> None:
+    bank = make_account("Bank", "asset")
+    bank.opening_balance = Decimal(100000)
+    bank.save()
+    make_schedule(
+        (bank, make_account("Milk", "expense"), "60"),
+        description="Milk",
+        unit="day",
+        reminder_days=0,
+    )
+
+    run_daily_job(date(2026, 10, 5))
+
+    [email] = mail.outbox
+    assert "Coming up" in email.body
+    assert "5 Oct 2026: Milk, ₹60.00" in email.body
+    draft = Draft.objects.get()
+    assert SITE + reverse("draft_edit", args=[draft.pk]) in email.body
+
+
 def rent() -> None:
     """Rent from a Bank that can afford it, so no low-balance warning shows."""
     bank = make_account("Bank", "asset")

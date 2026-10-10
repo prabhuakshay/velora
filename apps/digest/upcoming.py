@@ -5,6 +5,7 @@ from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from django.db.models import Q
 from django.urls import reverse
 
 from apps.accounts.forecast import forecast
@@ -40,18 +41,26 @@ class Section:
 
 
 def reminders(today: date) -> list[Item]:
-    """Upcoming Occurrences within their Schedule's reminder lead days."""
+    """Occurrences within their Schedule's reminder lead days.
+
+    Includes those due today the daily job already drafted, while their Draft
+    waits, linking to the Draft.
+    """
     occurrences = Occurrence.objects.filter(
-        status=Occurrence.Status.UPCOMING,
+        Q(status=Occurrence.Status.UPCOMING)
+        | Q(status=Occurrence.Status.DRAFTED, draft__status=Draft.Status.WAITING),
         due_date__gte=today,
         schedule__active=True,
-    ).select_related("schedule__party")
+    ).select_related("schedule__party", "draft")
     return [
         Item(
             occurrence.due_date,
             str(occurrence.schedule),
             occurrence.schedule.amount,
-            reverse("schedule_detail", args=[occurrence.schedule_id]),
+            _waiting_or(
+                getattr(occurrence, "draft", None),
+                reverse("schedule_detail", args=[occurrence.schedule_id]),
+            ),
         )
         for occurrence in occurrences.prefetch_related("schedule__splits")
         if occurrence.due_date
