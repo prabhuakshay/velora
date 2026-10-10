@@ -10,6 +10,7 @@ from apps.classification.models import Party
 from apps.schedules.daily_job import run_daily_job
 from apps.schedules.models import Schedule, SuggestedSchedule
 from apps.schedules.tests.conftest import paid, schedule_form_data
+from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -170,3 +171,21 @@ def test_suggestions_need_sign_in(client: Client) -> None:
     response = client.get(reverse("suggested_schedule_list"))
 
     assert response.status_code == 302
+
+
+def test_confirming_sends_to_privacy_mode_off_page(signed_in: Client) -> None:
+    card = make_account("Card", "liability")
+    streaming = make_account("Streaming", "expense")
+    suggestion = suggest(card, streaming)
+    url = reverse("suggested_schedule_confirm", args=[suggestion.pk])
+    turn_on(signed_in)
+
+    get = signed_in.get(url)
+    post = signed_in.post(url, schedule_form_data((card, streaming, "649")))
+
+    for response in (get, post):
+        assert response.status_code == 302
+        assert response["Location"] == privacy_mode_off_url(url)
+    assert not Schedule.objects.exists()
+    suggestion.refresh_from_db()
+    assert suggestion.status == SuggestedSchedule.Status.WAITING

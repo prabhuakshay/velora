@@ -17,6 +17,7 @@ from apps.schedules.tests.conftest import (
     schedule_form_data,
 )
 from apps.transactions.models import Transaction
+from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -278,3 +279,22 @@ def test_add_split_gives_a_numbered_blank_row(signed_in: Client) -> None:
 
     assert 'name="splits-1-amount"' in body
     assert 'name="splits-TOTAL_FORMS" value="2"' in body
+
+
+def test_schedule_create_and_edit_send_to_privacy_mode_off_page(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    rent = make_account("Rent", "expense")
+    schedule = make_schedule((bank, rent, "25000"), description="Rent")
+    data = schedule_form_data((bank, rent, "30000"), description="Changed")
+    turn_on(signed_in)
+
+    for url in (
+        reverse("schedule_create"),
+        reverse("schedule_edit", args=[schedule.pk]),
+    ):
+        for response in (signed_in.get(url), signed_in.post(url, data)):
+            assert response.status_code == 302
+            assert response["Location"] == privacy_mode_off_url(url)
+    assert list(Schedule.objects.values_list("description", flat=True)) == ["Rent"]

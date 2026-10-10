@@ -21,6 +21,7 @@ from apps.schedules.occurrences import regenerate
 from apps.schedules.repeat import units_after
 from apps.schedules.subscriptions import subscription_costs, yearly_total
 from apps.transactions.models import Transaction
+from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -127,6 +128,7 @@ def schedule_list(request: HttpRequest) -> HttpResponseBase:
 
 
 @login_required
+@blocked_in_privacy_mode
 def schedule_create(request: HttpRequest) -> HttpResponseBase:
     """Describe a new Schedule, prefilled from a Transaction if one is given."""
     transaction_pk = request.GET.get("transaction", "")
@@ -143,6 +145,7 @@ def schedule_create(request: HttpRequest) -> HttpResponseBase:
 
 
 @login_required
+@blocked_in_privacy_mode
 def schedule_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Change a Schedule; only its Upcoming Occurrences follow the change."""
     return _save_schedule(request, get_object_or_404(Schedule, pk=pk))
@@ -252,6 +255,7 @@ def _waiting(pk: int) -> SuggestedSchedule:
 
 
 @login_required
+@blocked_in_privacy_mode
 @db_transaction.atomic
 def suggested_schedule_confirm(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Turn a Suggested Schedule, adjusted as the user likes, into a Schedule."""

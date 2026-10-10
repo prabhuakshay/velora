@@ -17,19 +17,19 @@
       <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
         {% for quick_add in quick_adds %}
           <li class="py-3">
-            <p class="text-sm text-slate-500">“{{ quick_add.text }}”</p>
+            <p class="text-sm text-slate-500">“{% if user.privacy_mode %}Hidden in Privacy Mode{% else %}{{ quick_add.text }}{% endif %}”</p>
             {% if quick_add.is_stalled %}
               <p class="mt-1 text-sm text-amber-700">Processing seems stuck. Retry it, or discard it.</p>
               {% include "quick_add/_retry_discard.html" %}
             {% elif quick_add.is_processing %}
               <p class="mt-1 text-sm text-slate-700">Processing…</p>
             {% else %}
-              <p class="mt-1 text-sm text-red-600">Failed{% if quick_add.failure_reason %}: {{ quick_add.failure_reason }}{% endif %}</p>
+              <p class="mt-1 text-sm text-red-600">Failed{% if quick_add.failure_reason %}: {% if user.privacy_mode %}Hidden in Privacy Mode{% else %}{{ quick_add.failure_reason }}{% endif %}{% endif %}</p>
               {% comment %}hx-preserve keeps an edit in progress while the list polls.{% endcomment %}
               <form id="resubmit-{{ quick_add.pk }}" hx-preserve method="post" action="{% url 'quick_add_resubmit' quick_add.pk %}" class="mt-2 flex gap-2">
                 {% csrf_token %}
                 <label for="resubmit-text-{{ quick_add.pk }}" class="sr-only">Quick Add</label>
-                <input id="resubmit-text-{{ quick_add.pk }}" type="text" name="text" value="{{ quick_add.text }}" required maxlength="{{ quick_add_max_length }}" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                <input id="resubmit-text-{{ quick_add.pk }}" type="text" name="text" {% if user.privacy_mode %}value="" placeholder="Hidden in Privacy Mode"{% else %}value="{{ quick_add.text }}"{% endif %} required maxlength="{{ quick_add_max_length }}" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
                 <button type="submit" class="btn-primary py-1.5 text-sm">Resubmit</button>
               </form>
               {% include "quick_add/_retry_discard.html" %}

@@ -13,6 +13,6 @@
     {% include "partials/submit.html" with label="Turn off Privacy Mode" %}
   </form>
   <p class="mt-4 text-center text-sm">
-    <a href="{{ next }}" class="link">Cancel</a>
+    <a href="{% url 'index' %}" class="link">Cancel</a>
   </p>
 {% endblock %}

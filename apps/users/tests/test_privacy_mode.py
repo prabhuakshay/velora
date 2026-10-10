@@ -348,3 +348,13 @@ def test_masked_amount_is_labelled_for_screen_readers(signed_in: Client) -> None
     page = home_page(signed_in)
 
     assert 'role="img" aria-label="Amount hidden"' in page
+
+
+def test_privacy_mode_off_page_cancels_to_home(signed_in: Client) -> None:
+    turn_on(signed_in)
+
+    page = signed_in.get(
+        reverse("privacy_mode_off"), {"next": reverse("transaction_list")}
+    ).content.decode()
+
+    assert f'<a href="{reverse("index")}" class="link">Cancel</a>' in page

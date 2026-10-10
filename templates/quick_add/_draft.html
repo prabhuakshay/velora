@@ -1,5 +1,5 @@
 <li class="py-3">
-  {% if draft.quick_add %}<p class="text-sm text-slate-500">“{{ draft.quick_add.text }}”</p>{% endif %}
+  {% if draft.quick_add %}<p class="text-sm text-slate-500">“{% if user.privacy_mode %}Hidden in Privacy Mode{% else %}{{ draft.quick_add.text }}{% endif %}”</p>{% endif %}
   <p class="mt-1 font-medium">
     <span class="text-slate-500">{{ draft.date|date:"j M Y" }}</span>
     {% if draft.party %}· {{ draft.party }}{% elif draft.new_party_name %}· {{ draft.new_party_name }} <span class="text-xs text-slate-500">(new Party)</span>{% endif %}

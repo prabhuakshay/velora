@@ -30,6 +30,7 @@ from apps.quick_add.posting import (
 )
 from apps.quick_add.stats import ai_stats
 from apps.quick_add.tasks import process_quick_add
+from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -203,6 +204,7 @@ def unsaved_edit(
 # there and the new files can be removed.
 @db_transaction.non_atomic_requests
 @login_required
+@blocked_in_privacy_mode
 def draft_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Edit the Draft, then save it as it is or save it and post it."""
     draft = get_object_or_404(Draft, pk=pk, status=Draft.Status.WAITING)
