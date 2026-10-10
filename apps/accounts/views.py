@@ -206,6 +206,8 @@ def account_delete(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase
         if account.splits_out.exists() or account.splits_in.exists()
         else "a credit card it pays"
         if account.cards_paid.exists()
+        else "a Card EMI's interest"
+        if account.card_emi_interest.exists()
         else ""
     )
     if used_by:

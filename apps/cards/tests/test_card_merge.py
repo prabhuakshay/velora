@@ -6,7 +6,7 @@ import pytest
 from apps.accounts.models import Account
 from apps.accounts.tests.conftest import account_url, make_account
 from apps.cards.models import Statement
-from apps.cards.tests.conftest import make_card, record
+from apps.cards.tests.conftest import make_card, make_card_emi, record
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
 
@@ -82,3 +82,38 @@ def test_deleting_a_pays_from_account_sends_the_user_to_merge(
 
     assert response["Location"] == account_url("account_merge", bank)
     assert Account.objects.filter(pk=bank.pk).exists()
+
+
+def test_merging_a_card_moves_its_card_emis(signed_in: Client) -> None:
+    old_card = make_card("Old card")
+    card = make_account("Card", "liability")
+    emi = make_card_emi(old_card)
+
+    merge(signed_in, old_card, card)
+
+    emi.refresh_from_db()
+    assert emi.card == card
+
+
+def test_merging_an_interest_account_repoints_its_card_emis(
+    signed_in: Client,
+) -> None:
+    old_charges = make_account("Old charges", "expense")
+    charges = make_account("Charges", "expense")
+    emi = make_card_emi(make_card(), interest_account=old_charges)
+
+    merge(signed_in, old_charges, charges)
+
+    emi.refresh_from_db()
+    assert emi.interest_account == charges
+
+
+def test_deleting_an_interest_account_sends_the_user_to_merge(
+    signed_in: Client,
+) -> None:
+    charges = make_account("Charges", "expense")
+    make_card_emi(make_card(), interest_account=charges)
+
+    response = signed_in.post(account_url("account_delete", charges))
+
+    assert response["Location"] == account_url("account_merge", charges)
