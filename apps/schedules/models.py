@@ -10,6 +10,7 @@ from simple_history.models import HistoricalRecords
 from apps.accounts.models import Account
 from apps.classification.models import Party
 from apps.transactions.models import Transaction
+from apps.transactions.split_rules import known_total
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -81,11 +82,7 @@ class Schedule(models.Model):
     @property
     def amount(self) -> Decimal | None:
         """What it moves each time, or None while any Split's amount is open."""
-        amounts = [split.amount for split in self.splits.all()]
-        known = [amount for amount in amounts if amount is not None]
-        if not amounts or len(known) < len(amounts):
-            return None
-        return sum(known, Decimal(0))
+        return known_total(split.amount for split in self.splits.all())
 
 
 class ScheduleSplit(models.Model):

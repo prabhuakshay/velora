@@ -133,8 +133,7 @@ def _draft_moves(end: date, amountless: list[Amountless]) -> list[_Move]:
             amountless.append(
                 Amountless(
                     draft.date,
-                    draft.description
-                    or str(draft.party or draft.new_party_name or draft),
+                    draft.label,
                     reverse("draft_edit", args=[draft.pk]),
                 )
             )

@@ -9,6 +9,7 @@ from django.db import models
 from apps.accounts.models import Account
 from apps.classification.models import Party
 from apps.transactions.models import Transaction
+from apps.transactions.split_rules import known_total
 
 MAX_TEXT_LENGTH = 500
 # A new Party name must fit the Party it becomes.
@@ -203,6 +204,16 @@ class Draft(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_source_display()} Draft for {self.date}"
+
+    @property
+    def amount(self) -> Decimal | None:
+        """What it moves, or None while any Split's amount is missing."""
+        return known_total(split.amount for split in self.splits.all())
+
+    @property
+    def label(self) -> str:
+        """How it is named in lists: its description, else its Party."""
+        return self.description or str(self.party or self.new_party_name or self)
 
     def mark_posted(self, transaction: Transaction, *, without_edits: bool) -> None:
         """Link the Draft to the Transaction it became.

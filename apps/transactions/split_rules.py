@@ -4,6 +4,7 @@ Transactions, Drafts from Quick Add, admin edits and Schedule templates all
 check their Splits here, so the rules and their wording stay the same.
 """
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.utils.formats import date_format
@@ -59,3 +60,12 @@ def opening_balance_error(account: Account, when: date) -> str | None:
     return (
         f"The date cannot be before the Opening Balance date of {account} ({started})."
     )
+
+
+def known_total(amounts: Iterable[Decimal | None]) -> Decimal | None:
+    """The amounts added up, or None while any is open or there are none."""
+    amounts = list(amounts)
+    known = [amount for amount in amounts if amount is not None]
+    if not known or len(known) < len(amounts):
+        return None
+    return sum(known, Decimal(0))

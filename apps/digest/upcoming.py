@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from datetime import timedelta
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.db.models import Q
@@ -16,6 +15,7 @@ from apps.schedules.models import Occurrence
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import date
+    from decimal import Decimal
 
 # Days before a card's Due Day it starts showing.
 CARD_REMINDER_DAYS = 3
@@ -118,14 +118,6 @@ def card_due_days(today: date) -> list[Item]:
     ]
 
 
-def _draft_amount(draft: Draft) -> Decimal | None:
-    amounts = [split.amount for split in draft.splits.all()]
-    known = [amount for amount in amounts if amount is not None]
-    if not amounts or len(known) < len(amounts):
-        return None
-    return sum(known, Decimal(0))
-
-
 def stale_drafts(today: date) -> list[Item]:
     """Drafts left waiting STALE_DRAFT_DAYS or more since they were made.
 
@@ -143,8 +135,8 @@ def stale_drafts(today: date) -> list[Item]:
     return [
         Item(
             draft.date,
-            draft.description or str(draft.party or draft.new_party_name or draft),
-            _draft_amount(draft),
+            draft.label,
+            draft.amount,
             reverse("draft_edit", args=[draft.pk]),
         )
         for draft in drafts
