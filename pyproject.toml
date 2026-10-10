@@ -3,6 +3,7 @@ name = "velora"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
+    "croniter>=6.2.4",
     "django>=6.1.2",
     "django-axes[ipware]>=8.3.1",
     "django-environ>=0.14.0",
@@ -24,6 +25,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-django>=4.14.0",
     "ruff>=0.16.10",
+    "types-croniter>=6.2.4.20260711",
 ]
 
 [tool.ruff]

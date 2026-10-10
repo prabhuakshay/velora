@@ -1,0 +1,19 @@
+{% extends "app_base.html" %}
+
+{% block title %}New Draft · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">New Draft</h1>
+  <p class="mt-1 text-sm text-slate-500">Only the date is needed now; add the rest when you post it.</p>
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    {% include "partials/form_errors.html" %}
+    {% include "partials/field.html" with field=form.date %}
+    {% include "partials/field.html" with field=form.party %}
+    {% include "partials/field.html" with field=form.description %}
+    {% include "partials/submit.html" with label="Save Draft" %}
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'draft_list' %}" class="link">Cancel</a>
+  </p>
+{% endblock %}

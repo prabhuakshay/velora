@@ -9,12 +9,15 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.utils import timezone
-from django.utils.formats import date_format
 
 from apps.accounts.models import Account
 from apps.classification.models import Party
 from apps.quick_add.models import PARTY_NAME_MAX_LENGTH
-from apps.transactions.forms import direction_error
+from apps.transactions.split_rules import (
+    accounts_error,
+    opening_balance_error,
+    shared_account_error,
+)
 
 FIELDS = {"date", "party_id", "new_party_name", "description", "splits"}
 SPLIT_FIELDS = {"from_account_id", "to_account_id", "amount"}
@@ -101,6 +104,8 @@ def _parse_amount(value: object) -> Decimal | None:
 
 
 def _amount_errors(value: object, where: str) -> list[str]:
+    if value is None:
+        return []
     amount = _parse_amount(value)
     if amount is None:
         return [f"{where}: the amount '{value}' is not a number."]
@@ -134,14 +139,8 @@ def _account_errors(
 ) -> list[str]:
     if account is None:
         return [f"{where}: Account {pk} is unknown or inactive."]
-    if when and account.opens_after(when):
-        started = date_format(account.opening_balance_date, "j M Y")  # type: ignore[arg-type]
-        return [
-            (
-                f"{where}: the date cannot be before the Opening Balance date of "
-                f"{account} ({started})."
-            )
-        ]
+    if when and (error := opening_balance_error(account, when)):
+        return [f"{where}: {error}"]
     return []
 
 
@@ -158,9 +157,7 @@ def _split_errors(
     ]
     if source is None or destination is None:
         return errors
-    if source == destination:
-        errors.append(f"{where}: a Split cannot go from an Account to itself.")
-    elif error := direction_error(source, destination):
+    if error := accounts_error(source, destination):
         errors.append(f"{where}: {error}")
     return errors
 
@@ -181,8 +178,8 @@ def _splits_errors(splits: object, when: date | None) -> list[str]:
     ).in_bulk()
     for number, split in enumerate(splits, start=1):
         errors += _split_errors(split, accounts, when, f"Split {number}")
-    sources = {str(split["from_account_id"]) for split in splits}
-    destinations = {str(split["to_account_id"]) for split in splits}
-    if len(sources) > 1 and len(destinations) > 1:
-        errors.append("Splits must share a From or a To Account.")
+    if error := shared_account_error(
+        (str(split["from_account_id"]), str(split["to_account_id"])) for split in splits
+    ):
+        errors.append(error)
     return errors

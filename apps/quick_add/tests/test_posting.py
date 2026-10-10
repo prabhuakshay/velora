@@ -20,7 +20,9 @@ pytestmark = pytest.mark.django_db
 
 
 def post(client: Client, quick_add: QuickAdd) -> str:
-    response = client.post(reverse("draft_post", args=[quick_add.pk]), follow=True)
+    response = client.post(
+        reverse("draft_post", args=[quick_add.draft.pk]), follow=True
+    )
     assert response.redirect_chain == [(reverse("draft_list"), 302)]
     return response.content.decode()
 
@@ -52,7 +54,7 @@ def test_posting_creates_the_transaction_and_links_it(signed_in: Client) -> None
     quick_add.refresh_from_db()
     assert quick_add.status == QuickAdd.Status.POSTED
     assert quick_add.posted_without_edits
-    assert quick_add.transaction == transaction
+    assert quick_add.draft.transaction == transaction
 
 
 def test_posting_creates_the_new_party(signed_in: Client) -> None:
@@ -92,25 +94,28 @@ def test_posting_fails_with_a_reason_once_an_account_is_deactivated(
 
     assert "Couldn't post" in body
     assert "That Account is inactive or no longer exists." in body
-    assert reverse("draft_edit", args=[quick_add.pk]) in body
+    assert reverse("draft_edit", args=[quick_add.draft.pk]) in body
     assert not Transaction.objects.exists()
     assert not Party.objects.exists()
     quick_add.refresh_from_db()
     assert quick_add.status == QuickAdd.Status.DRAFT
 
 
-def test_posting_fails_once_an_account_is_merged_away(signed_in: Client) -> None:
+def test_merging_a_drafts_account_posts_it_with_the_target(
+    signed_in: Client,
+) -> None:
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
     fun = make_account("Fun", "expense")
     quick_add = make_draft((card, food, "850"), (card, fun, "150"))
     AccountMerge(source=fun, target=food).run()
 
-    body = post(signed_in, quick_add)
+    post(signed_in, quick_add)
 
-    assert "Couldn't post: Split 2 To: This field is required." in body
-    assert "Removed Account" in body
-    assert not Transaction.objects.exists()
+    assert [
+        (split.from_account, split.to_account, split.amount)
+        for split in Transaction.objects.get().splits.order_by("pk")
+    ] == [(card, food, Decimal("850.00")), (card, food, Decimal("150.00"))]
 
 
 def test_merging_the_drafts_party_posts_it_with_the_target(signed_in: Client) -> None:
@@ -145,7 +150,7 @@ def test_rejecting_keeps_the_draft_and_creates_no_party(signed_in: Client) -> No
     food = make_account("Eating Out", "expense")
     quick_add = make_draft((card, food, "1200"), new_party_name="Brik Oven")
 
-    response = signed_in.post(reverse("draft_reject", args=[quick_add.pk]))
+    response = signed_in.post(reverse("draft_reject", args=[quick_add.draft.pk]))
 
     assert response["Location"] == reverse("draft_list")
     quick_add.refresh_from_db()
@@ -162,8 +167,8 @@ def test_a_draft_offers_post_and_reject(signed_in: Client) -> None:
 
     body = signed_in.get(reverse("draft_list")).content.decode()
 
-    assert reverse("draft_post", args=[quick_add.pk]) in body
-    assert reverse("draft_reject", args=[quick_add.pk]) in body
+    assert reverse("draft_post", args=[quick_add.draft.pk]) in body
+    assert reverse("draft_reject", args=[quick_add.draft.pk]) in body
 
 
 @pytest.mark.parametrize("action", ["draft_post", "draft_reject"])
@@ -174,7 +179,7 @@ def test_posted_and_rejected_drafts_leave_the_drafts_page_and_badge(
     food = make_account("Eating Out", "expense")
     quick_add = make_draft((card, food, "850"), text="lunch at Toit 850")
 
-    signed_in.post(reverse(action, args=[quick_add.pk]))
+    signed_in.post(reverse(action, args=[quick_add.draft.pk]))
 
     body = signed_in.get(reverse("draft_list")).content.decode()
     assert "lunch at Toit 850" not in body
@@ -188,9 +193,9 @@ def test_only_a_waiting_draft_can_be_posted_or_rejected(
     card = make_account("HDFC Card", "liability")
     food = make_account("Eating Out", "expense")
     quick_add = make_draft((card, food, "850"))
-    signed_in.post(reverse("draft_post", args=[quick_add.pk]))
+    signed_in.post(reverse("draft_post", args=[quick_add.draft.pk]))
 
-    response = signed_in.post(reverse(action, args=[quick_add.pk]))
+    response = signed_in.post(reverse(action, args=[quick_add.draft.pk]))
 
     assert response.status_code == 404
     assert Transaction.objects.count() == 1

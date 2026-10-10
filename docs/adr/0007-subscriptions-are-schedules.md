@@ -1,0 +1,3 @@
+# Subscriptions are Schedules, not a concept of their own
+
+A Subscription is a Schedule the user flags as one, with a few optional fields such as a trial end, a plan and a way to cancel, rather than a separate model. Rent, salary and a streaming plan all behave the same way: they propose Drafts, send reminders, feed the Forecast and can be Missed. Only what the user wants to know about them differs. A separate model would duplicate every one of those behaviours and force an unanswerable question for every new item, such as whether a yearly domain renewal is a Subscription. If Subscriptions ever grow behaviour of their own, the optional fields can move into a one-to-one extension of Schedule with one migration.

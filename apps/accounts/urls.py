@@ -19,6 +19,7 @@ class KindConverter:
 register_converter(KindConverter, "kind")
 
 urlpatterns = [
+    path("forecast/", views.forecast_page, name="forecast"),
     path("accounts/<kind:kind>/", views.account_list, name="account_list"),
     path("accounts/<kind:kind>/new/", views.account_create, name="account_create"),
     path(

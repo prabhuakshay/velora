@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.accounts.forecast import forecast
 from apps.accounts.forms import AccountForm
 from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
 
 CHART_WIDTH = 600
 CHART_HEIGHT = 200
+STATEMENTS_SHOWN = 6
 
 
 def _as_of_date(raw: str | None) -> date:
@@ -87,6 +89,25 @@ def home(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+def forecast_page(request: HttpRequest) -> HttpResponse:
+    """Each Account's expected Balance for the coming days, and its warnings."""
+    result = forecast(timezone.localdate())
+    days = [
+        {
+            "day": day,
+            "balances": [row.balances[index] for row in result.accounts],
+            "amountless": [item for item in result.amountless if item.when == day],
+        }
+        for index, day in enumerate(result.days)
+    ]
+    return render(
+        request,
+        "accounts/forecast.html",
+        {"forecast": result, "days": days},
+    )
+
+
+@login_required
 def account_list(request: HttpRequest, kind: str) -> HttpResponse:
     """List one kind's Accounts by name, a page at a time."""
     show_hidden = request.GET.get("show_hidden") == "1"
@@ -113,6 +134,7 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
     if kind in BALANCE_KINDS:
         accounts = accounts.with_balance()
     account = get_object_or_404(accounts, pk=pk)
+    today = timezone.localdate()
     touching = Split.objects.filter(Q(from_account=account) | Q(to_account=account))
     transactions = (
         Transaction.objects.filter(pk__in=touching.values("transaction"))
@@ -132,6 +154,19 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             "account": account,
             "kind": Account.Kind(kind),
             "page": paginate(request, transactions),
+            "statements": account.statements.order_by("-period_end")[:STATEMENTS_SHOWN],
+            "card_emis": [
+                (emi, emi.progress(today))
+                for emi in account.card_emis.select_related("card", "purchase")
+            ],
+            # Purchases off the card that can still become a Card EMI.
+            "emi_candidates": set(
+                touching.filter(
+                    from_account=account,
+                    from_account__statement_day__isnull=False,
+                    transaction__card_emi__isnull=True,
+                ).values_list("transaction", flat=True)
+            ),
         },
     )
 
@@ -186,10 +221,21 @@ def account_unhide(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase
 def account_delete(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
     """Confirm, then delete an Account of the kind in the URL."""
     account = get_object_or_404(Account, pk=pk, kind=kind)
-    if account.splits_out.exists() or account.splits_in.exists():
+    used_by = (
+        "Transactions"
+        if account.splits_out.exists() or account.splits_in.exists()
+        else "a credit card it pays"
+        if account.cards_paid.exists()
+        else "a Card EMI's interest"
+        if account.card_emi_interest.exists()
+        else ""
+    )
+    if used_by:
         noun = f"{Account.Kind(kind).label} Account"
         merge_url = reverse("account_merge", kwargs={"kind": kind, "pk": pk})
-        return redirect_in_use_to_merge(request, account, noun, merge_url)
+        return redirect_in_use_to_merge(
+            request, account, noun, merge_url, used_by=used_by
+        )
     if request.method == "POST":
         account.delete()
         return redirect("account_list", kind=kind)
@@ -213,7 +259,7 @@ def account_merge(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
     merge = None
     if form.is_valid():
         merge = AccountMerge(source, form.cleaned_data["target"])
-        if request.method == "POST":
+        if request.method == "POST" and not merge.refusal:
             merge.run()
             messages.success(request, f"Merged {source} into {merge.target}.")
             return redirect("account_list", kind=kind)

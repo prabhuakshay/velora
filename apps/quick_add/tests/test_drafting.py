@@ -65,6 +65,26 @@ def test_several_splits_become_draft_splits(fake_openrouter: FakeOpenRouter) -> 
     ]
 
 
+def test_a_reply_without_an_amount_becomes_an_amountless_draft(
+    fake_openrouter: FakeOpenRouter,
+) -> None:
+    card = make_account("HDFC Card", "liability")
+    health = make_account("Health", "expense")
+    dentist = make_quick_add("dentist visit, pay later on hdfc card")
+    fake_openrouter.replies.append(
+        reply(split(card, health, None), new_party_name="Dentist")
+    )
+
+    process(dentist)
+
+    dentist.refresh_from_db()
+    assert dentist.status == QuickAdd.Status.DRAFT
+    splits = dentist.draft.splits.all()
+    assert [(s.from_account, s.to_account, s.amount) for s in splits] == [
+        (card, health, None)
+    ]
+
+
 def test_date_defaults_to_the_day_it_was_written(
     fake_openrouter: FakeOpenRouter,
 ) -> None:

@@ -6,9 +6,8 @@ from django import forms
 from django.db.models import Count, Q, QuerySet, Sum
 from django.db.models.functions import Lower
 from django.utils import timezone
-from django.utils.formats import date_format
 
-from apps.accounts.models import BALANCE_KINDS, Account
+from apps.accounts.models import Account
 from apps.classification.models import Party, Tag
 from apps.transactions.attachment_rules import (
     MAX_ATTACHMENTS,
@@ -17,6 +16,11 @@ from apps.transactions.attachment_rules import (
     checked_content_type,
 )
 from apps.transactions.models import Split, Transaction
+from apps.transactions.split_rules import (
+    direction_error,
+    opening_balance_error,
+    shared_account_error,
+)
 
 if TYPE_CHECKING:
     from datetime import date
@@ -24,20 +28,6 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
 
 Kind = Account.Kind
-
-
-def direction_error(source: Account, destination: Account) -> str | None:
-    """Why a Split may not move money between these Accounts, if it may not."""
-    if destination.kind == Kind.INCOME:
-        return "An Income Account can only be a source."
-    if source.kind == Kind.INCOME and destination.kind == Kind.EXPENSE:
-        return "A Split cannot go from an Income Account to an Expense Account."
-    if source.kind == Kind.EXPENSE and destination.kind not in BALANCE_KINDS:
-        return (
-            "An Expense Account can only be a source in a Refund to an Asset "
-            "or Liability Account."
-        )
-    return None
 
 
 def visible_or_current(queryset: QuerySet[Any], *current: int | None) -> QuerySet[Any]:
@@ -52,6 +42,27 @@ def grouped_by_kind(accounts: QuerySet[Account]) -> list[Any]:
         by_kind[account.kind].append((account.pk, account.name))
     groups = [(Kind(kind).label, choices) for kind, choices in by_kind.items()]
     return [("", "---------"), *[group for group in groups if group[1]]]
+
+
+def offer_parties(form: forms.ModelForm[Any]) -> None:
+    """Offer the visible Parties by name, and the one the record already has."""
+    party = cast("forms.ModelChoiceField[Party]", form.fields["party"])
+    party.queryset = visible_or_current(
+        Party.objects.order_by(Lower("name")), form.instance.party_id
+    )
+
+
+def offer_accounts(form: forms.ModelForm[Any]) -> None:
+    """Offer the visible Accounts by kind, and those the Split already uses."""
+    accounts = visible_or_current(
+        Account.objects.all(),
+        form.instance.from_account_id,
+        form.instance.to_account_id,
+    )
+    for name in ("from_account", "to_account"):
+        field = cast("forms.ModelChoiceField[Account]", form.fields[name])
+        field.queryset = accounts
+        field.choices = grouped_by_kind(accounts)
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -118,10 +129,7 @@ class TransactionForm(forms.ModelForm[Transaction]):
                 "data-too-large": TOO_LARGE,
             }
         )
-        party = cast("forms.ModelChoiceField[Party]", self.fields["party"])
-        party.queryset = visible_or_current(
-            Party.objects.order_by(Lower("name")), self.instance.party_id
-        )
+        offer_parties(self)
 
     def clean_date(self) -> Any:  # noqa: ANN401
         """Reject a date after today."""
@@ -170,15 +178,7 @@ class SplitForm(forms.ModelForm[Split]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
-        accounts = visible_or_current(
-            Account.objects.all(),
-            self.instance.from_account_id,
-            self.instance.to_account_id,
-        )
-        for name in ("from_account", "to_account"):
-            field = cast("forms.ModelChoiceField[Account]", self.fields[name])
-            field.queryset = accounts
-            field.choices = grouped_by_kind(accounts)
+        offer_accounts(self)
         applied = self.instance.tags.all() if self.instance.pk else []
         tags = cast("forms.ModelMultipleChoiceField[Tag]", self.fields["tags"])
         tags.queryset = visible_or_current(
@@ -219,11 +219,10 @@ class BaseSplitFormSet(forms.BaseInlineFormSet[Split, Transaction, SplitForm]):
         """Require every kept Split to share its From or its To Account."""
         super().clean()
         kept = [form.cleaned_data for form in self.kept_forms()]
-        sources = {data.get("from_account") for data in kept}
-        destinations = {data.get("to_account") for data in kept}
-        if len(sources) > 1 and len(destinations) > 1:
-            msg = "Splits must share a From or a To Account."
-            raise forms.ValidationError(msg)
+        if error := shared_account_error(
+            (data.get("from_account"), data.get("to_account")) for data in kept
+        ):
+            raise forms.ValidationError(error)
 
     def check_opening_balances(self, when: date) -> bool:
         """Reject a date before the Opening Balance date of any Account used.
@@ -234,13 +233,8 @@ class BaseSplitFormSet(forms.BaseInlineFormSet[Split, Transaction, SplitForm]):
         for form in self.kept_forms():
             split = form.instance
             for account in (split.from_account, split.to_account):
-                if account.opens_after(when):
-                    started = date_format(account.opening_balance_date, "j M Y")  # type: ignore[arg-type]
-                    form.add_error(
-                        None,
-                        "The date cannot be before the Opening Balance date of "
-                        f"{account} ({started}).",
-                    )
+                if error := opening_balance_error(account, when):
+                    form.add_error(None, error)
                     valid = False
         return valid
 

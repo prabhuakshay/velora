@@ -64,5 +64,5 @@ def test_list_query_count_does_not_grow_with_attachments(
     for i in range(transactions):
         record_with_attachments(f"Item {i}", 2)
 
-    with django_assert_num_queries(7):
+    with django_assert_num_queries(9):
         signed_in.get(reverse("transaction_list"))

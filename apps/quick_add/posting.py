@@ -1,17 +1,21 @@
 """Turn a Draft into a Transaction, or drop it (ADR 0006)."""
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction as db_transaction
+from django.utils import timezone
 
 from apps.classification.models import Party
-from apps.quick_add.models import Draft, QuickAdd
+from apps.quick_add.models import Draft
 from apps.transactions.models import Transaction
 from apps.transactions.recording import TransactionForms
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from django.forms import BaseInlineFormSet
+    from django.utils.datastructures import MultiValueDict
 
 
 class DraftNotPostableError(Exception):
@@ -42,11 +46,30 @@ def matching_party(draft: Draft) -> Party | None:
     return Party.objects.filter(name__iexact=draft.new_party_name).first()
 
 
+def missing_parts(draft: Draft) -> list[str]:
+    """What the Draft still lacks before it can be posted; empty when nothing."""
+    splits = list(draft.splits.all())
+    if not splits:
+        return ["Add at least one Split."]
+    missing = []
+    for number, split in enumerate(splits, start=1):
+        gaps = [
+            ("From Account", split.from_account_id),
+            ("To Account", split.to_account_id),
+            ("amount", split.amount),
+        ]
+        missing += [
+            f"Split {number}: missing {what}." for what, value in gaps if value is None
+        ]
+    return missing
+
+
 def form_data(draft: Draft, party: Party | None) -> dict[str, Any]:
     """The Draft as a submitted Transaction form, Split formset included."""
     splits = list(draft.splits.all())
     data: dict[str, Any] = {
-        "date": draft.date.isoformat(),
+        # A Draft may wait for a day yet to come; posted early, it happens today.
+        "date": min(draft.date, timezone.localdate()).isoformat(),
         "party": party.pk if party else "",
         "description": draft.description,
         "splits-TOTAL_FORMS": len(splits),
@@ -56,27 +79,9 @@ def form_data(draft: Draft, party: Party | None) -> dict[str, Any]:
         data |= {
             f"splits-{index}-from_account": split.from_account_id or "",
             f"splits-{index}-to_account": split.to_account_id or "",
-            f"splits-{index}-amount": split.amount,
+            f"splits-{index}-amount": "" if split.amount is None else split.amount,
         }
     return data
-
-
-def mark_posted(
-    quick_add: QuickAdd, transaction: Transaction, *, without_edits: bool
-) -> None:
-    """Link the Quick Add to the Transaction its Draft became."""
-    quick_add.status = QuickAdd.Status.POSTED
-    quick_add.transaction = transaction
-    quick_add.posted_without_edits = without_edits
-    quick_add.failure_reason = ""
-    quick_add.save(
-        update_fields=[
-            "status",
-            "transaction",
-            "posted_without_edits",
-            "failure_reason",
-        ]
-    )
 
 
 class DraftGoneError(Exception):
@@ -85,30 +90,68 @@ class DraftGoneError(Exception):
 
 @contextmanager
 def posting_edited(
-    quick_add: QuickAdd, transaction: Transaction, new_party_name: str
+    draft: Draft, transaction: Transaction, new_party_name: str
 ) -> Iterator[None]:
     """Wrap saving the edited Transaction so the Draft is posted with it.
 
-    Run inside the save's database transaction: the Quick Add is locked and
-    checked to still be a Draft, so it is posted once, and the new Party is
+    Run inside the save's database transaction: the Draft is locked and
+    checked to still be waiting, so it is posted once, and the new Party is
     created only if the Transaction is saved.
     """
-    locked = QuickAdd.objects.select_for_update().get(pk=quick_add.pk)
-    if locked.status != QuickAdd.Status.DRAFT:
+    locked = Draft.objects.select_for_update().get(pk=draft.pk)
+    if locked.status != Draft.Status.WAITING:
         raise DraftGoneError
     if new_party_name and transaction.party is None:
         transaction.party = party_named(new_party_name)
     yield
-    mark_posted(locked, transaction, without_edits=False)
+    locked.mark_posted(transaction, without_edits=False)
 
 
 @db_transaction.atomic
-def post_draft(quick_add: QuickAdd) -> Transaction:
+def post_draft(draft: Draft) -> Transaction:
     """Record the Draft as it is, checked by the Transaction form's rules."""
-    draft = quick_add.draft
+    if missing := missing_parts(draft):
+        raise DraftNotPostableError(missing)
     forms = TransactionForms(form_data(draft, party_for(draft)), instance=Transaction())
     if not forms.is_valid():
         raise DraftNotPostableError(forms.errors())
     transaction = forms.save()
-    mark_posted(quick_add, transaction, without_edits=True)
+    draft.mark_posted(transaction, without_edits=True)
     return transaction
+
+
+def posting_problems(draft: Draft) -> list[str]:
+    """Why the Draft can't be posted as it stands; empty when it can."""
+    if missing := missing_parts(draft):
+        return missing
+    forms = TransactionForms(
+        form_data(draft, matching_party(draft)), instance=Transaction()
+    )
+    return [] if forms.is_valid() else forms.errors()
+
+
+def split_tags(formset: BaseInlineFormSet[Any, Any, Any]) -> dict[int, list[int]]:
+    """The Tags picked for each kept Draft Split, which the Draft can't hold."""
+    return {
+        split.instance.pk: [tag.pk for tag in split.cleaned_data.get("tags", [])]
+        for split in formset.forms
+        if split.instance.pk and not split.cleaned_data.get("DELETE")
+    }
+
+
+def post_edited(
+    draft: Draft, tags: dict[int, list[int]], files: MultiValueDict[str, Any]
+) -> list[str]:
+    """Post the saved Draft with the Tags and files given; why not, if not."""
+    if missing := missing_parts(draft):
+        return missing
+    data = form_data(draft, matching_party(draft))
+    for index, split in enumerate(draft.splits.all()):
+        data[f"splits-{index}-tags"] = tags.get(split.pk, [])
+    forms = TransactionForms(data, files, instance=Transaction())
+    if not forms.is_valid():
+        return forms.errors()
+    posting = posting_edited(draft, forms.form.instance, draft.new_party_name)
+    with suppress(DraftGoneError):
+        forms.save(within=posting)
+    return []

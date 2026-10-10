@@ -6,6 +6,7 @@
   <h1 class="text-xl font-semibold">{% if editing_draft %}Edit Draft{% elif transaction %}Edit Transaction{% else %}New Transaction{% endif %}</h1>
   <form method="post" enctype="multipart/form-data" class="mt-6 space-y-4">
     {% csrf_token %}
+    {% if posting_error %}<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ posting_error }}</p>{% endif %}
     {% include "partials/form_errors.html" %}
     {% include "partials/field.html" with field=form.date %}
     {% include "partials/field.html" with field=form.party %}
@@ -29,13 +30,26 @@
             hx-include="#id_splits-TOTAL_FORMS"
             hx-target="#splits"
             hx-swap="beforeend">Add split</button>
-    {% include "partials/submit.html" with label="Save" %}
+    {% if editing_draft %}
+      <p class="text-xs text-slate-500">Save Draft keeps it waiting, gaps and all; Tags and Attachments are added only when it is posted.</p>
+      <div class="flex gap-2">
+        <button type="submit" name="action" value="save" class="btn-secondary flex-1">Save Draft</button>
+        <button type="submit" name="action" value="post" class="btn-primary flex-1">Save and post</button>
+      </div>
+    {% else %}
+      {% include "partials/submit.html" with label="Save" %}
+    {% endif %}
   </form>
   {% for attachment in transaction.attachments.all %}
     <form id="delete-attachment-{{ attachment.pk }}" method="post" action="{% url 'attachment_delete' attachment.pk %}">
       {% csrf_token %}
     </form>
   {% endfor %}
+  {% if transaction and not editing_draft %}
+    <p class="mt-4 text-center text-sm">
+      <a href="{% url 'schedule_create' %}?transaction={{ transaction.pk }}" class="link">Make a Schedule</a> from this Transaction
+    </p>
+  {% endif %}
   <p class="mt-4 text-center text-sm">
     <a href="{% if editing_draft %}{% url 'draft_list' %}{% else %}{% url 'transaction_list' %}{% endif %}" class="link">Cancel</a>
   </p>

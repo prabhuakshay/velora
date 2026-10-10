@@ -12,6 +12,16 @@
       {% include "partials/field.html" with field=form.opening_balance %}
       {% include "partials/field.html" with field=form.opening_balance_date %}
       {% include "partials/field.html" with field=form.include_in_net_worth %}
+      {% include "partials/field.html" with field=form.low_balance_threshold %}
+    {% endif %}
+    {% if form.statement_day %}
+      <fieldset class="space-y-4">
+        <legend class="text-sm font-semibold text-slate-900">Credit card</legend>
+        <p class="text-xs text-slate-500">For a credit card, set all three; otherwise leave them blank.</p>
+        {% include "partials/field.html" with field=form.statement_day %}
+        {% include "partials/field.html" with field=form.due_day %}
+        {% include "partials/field.html" with field=form.pays_from %}
+      </fieldset>
     {% endif %}
     {% include "partials/field.html" with field=form.notes %}
     {% include "partials/submit.html" with label="Save" %}

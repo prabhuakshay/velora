@@ -1,0 +1,18 @@
+{% extends "app_base.html" %}
+
+{% block title %}Statement · {{ statement.card }} · Velora{% endblock %}
+
+{% block card %}
+  <h1 class="text-xl font-semibold">{{ statement.card }} Statement</h1>
+  <p class="mt-1 text-sm text-slate-500">{{ statement.period_start|date:"j M Y" }} to {{ statement.period_end|date:"j M Y" }}, due {{ statement.due_date|date:"j M Y" }}</p>
+  <p class="mt-4 text-sm text-slate-700">Estimated Statement Amount <span class="tabular-nums">{% amount statement.estimated_amount %}</span></p>
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    {% include "partials/form_errors.html" %}
+    {% include "partials/field.html" with field=form.actual_amount %}
+    {% include "partials/submit.html" with label="Save" %}
+  </form>
+  <p class="mt-4 text-center text-sm">
+    <a href="{% url 'account_transactions' statement.card.kind statement.card.pk %}" class="link">Cancel</a>
+  </p>
+{% endblock %}

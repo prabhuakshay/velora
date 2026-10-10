@@ -3,71 +3,60 @@
 {% block title %}Drafts · Velora{% endblock %}
 
 {% block main %}
-  <h1 class="text-2xl font-bold tracking-tight">Drafts</h1>
-  {% include "quick_add/_stats.html" %}
+  <div class="flex items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold tracking-tight">Drafts</h1>
+    <a href="{% url 'draft_create' %}" class="btn-primary py-2 text-sm">New Draft</a>
+  </div>
+  {% if stats %}{% include "quick_add/_stats.html" %}{% endif %}
   {% comment %}
     Polls only while something is processing; the swapped-in list drops the
     trigger once nothing is left to wait for.
   {% endcomment %}
   <div id="drafts"{% if processing %} hx-get="{% url 'draft_list' %}" hx-trigger="every 3s" hx-select="#drafts" hx-target="this" hx-swap="outerHTML"{% endif %}>
-    <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-      {% for quick_add in quick_adds %}
-        <li class="py-3">
-          <p class="text-sm text-slate-500">“{{ quick_add.text }}”</p>
-          {% if quick_add.is_processing %}
-            <p class="mt-1 text-sm text-slate-700">Processing…</p>
-          {% elif quick_add.is_failed %}
-            <p class="mt-1 text-sm text-red-600">Failed{% if quick_add.failure_reason %}: {{ quick_add.failure_reason }}{% endif %}</p>
-            {% comment %}hx-preserve keeps an edit in progress while the list polls.{% endcomment %}
-            <form id="resubmit-{{ quick_add.pk }}" hx-preserve method="post" action="{% url 'quick_add_resubmit' quick_add.pk %}" class="mt-2 flex gap-2">
-              {% csrf_token %}
-              <label for="resubmit-text-{{ quick_add.pk }}" class="sr-only">Quick Add</label>
-              <input id="resubmit-text-{{ quick_add.pk }}" type="text" name="text" value="{{ quick_add.text }}" required maxlength="{{ quick_add_max_length }}" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-              <button type="submit" class="btn-primary py-1.5 text-sm">Resubmit</button>
-            </form>
-            <div class="mt-2 flex gap-2">
-              <form method="post" action="{% url 'quick_add_retry' quick_add.pk %}">
+    {% if quick_adds %}
+      <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+        {% for quick_add in quick_adds %}
+          <li class="py-3">
+            <p class="text-sm text-slate-500">“{{ quick_add.text }}”</p>
+            {% if quick_add.is_processing %}
+              <p class="mt-1 text-sm text-slate-700">Processing…</p>
+            {% else %}
+              <p class="mt-1 text-sm text-red-600">Failed{% if quick_add.failure_reason %}: {{ quick_add.failure_reason }}{% endif %}</p>
+              {% comment %}hx-preserve keeps an edit in progress while the list polls.{% endcomment %}
+              <form id="resubmit-{{ quick_add.pk }}" hx-preserve method="post" action="{% url 'quick_add_resubmit' quick_add.pk %}" class="mt-2 flex gap-2">
                 {% csrf_token %}
-                <button type="submit" class="btn-secondary py-1.5 text-sm">Retry</button>
+                <label for="resubmit-text-{{ quick_add.pk }}" class="sr-only">Quick Add</label>
+                <input id="resubmit-text-{{ quick_add.pk }}" type="text" name="text" value="{{ quick_add.text }}" required maxlength="{{ quick_add_max_length }}" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                <button type="submit" class="btn-primary py-1.5 text-sm">Resubmit</button>
               </form>
-              <form method="post" action="{% url 'quick_add_discard' quick_add.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-secondary py-1.5 text-sm">Discard</button>
-              </form>
-            </div>
-          {% else %}
-            {% with draft=quick_add.draft %}
-              <p class="mt-1 font-medium">
-                <span class="text-slate-500">{{ draft.date|date:"j M Y" }}</span>
-                {% if draft.party %}· {{ draft.party }}{% elif draft.new_party_name %}· {{ draft.new_party_name }} <span class="text-xs text-slate-500">(new Party)</span>{% endif %}
-              </p>
-              {% if draft.description %}<p class="text-sm text-slate-700">{{ draft.description }}</p>{% endif %}
-              {% for split in draft.splits.all %}
-                <p class="flex justify-between gap-3 text-xs text-slate-500">
-                  <span class="truncate">{{ split.from_account|default:"Removed Account" }} → {{ split.to_account|default:"Removed Account" }}</span>
-                  <span class="tabular-nums">{% amount split.amount %}</span>
-                </p>
-              {% endfor %}
-            {% endwith %}
-            {% if quick_add.failure_reason %}
-              <p class="mt-1 text-sm text-red-600">Couldn't post: {{ quick_add.failure_reason }} <a href="{% url 'draft_edit' quick_add.pk %}" class="font-medium underline">Edit</a></p>
+              <div class="mt-2 flex gap-2">
+                <form method="post" action="{% url 'quick_add_retry' quick_add.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-secondary py-1.5 text-sm">Retry</button>
+                </form>
+                <form method="post" action="{% url 'quick_add_discard' quick_add.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-secondary py-1.5 text-sm">Discard</button>
+                </form>
+              </div>
             {% endif %}
-            <div class="mt-2 flex gap-2">
-              <form method="post" action="{% url 'draft_post' quick_add.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-primary py-1.5 text-sm">Post</button>
-              </form>
-              <a href="{% url 'draft_edit' quick_add.pk %}" class="btn-secondary py-1.5 text-sm">Edit</a>
-              <form method="post" action="{% url 'draft_reject' quick_add.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-secondary py-1.5 text-sm">Reject</button>
-              </form>
-            </div>
-          {% endif %}
-        </li>
-      {% empty %}
-        <li class="py-3 text-slate-500">No Drafts. Write a Quick Add on the Transactions page.</li>
-      {% endfor %}
-    </ul>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% for heading, drafts in sections %}
+      <section class="mt-6">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">{{ heading }}</h2>
+        <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+          {% for draft in drafts %}
+            {% include "quick_add/_draft.html" %}
+          {% endfor %}
+        </ul>
+      </section>
+    {% empty %}
+      {% if not quick_adds %}
+        <p class="mt-4 rounded-2xl bg-white px-4 py-3 text-slate-500 shadow-sm ring-1 ring-slate-200">No Drafts.</p>
+      {% endif %}
+    {% endfor %}
   </div>
 {% endblock %}

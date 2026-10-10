@@ -42,10 +42,8 @@ SCHEMA: dict[str, Any] = {
                 "properties": {
                     "from_account_id": {"type": "integer"},
                     "to_account_id": {"type": "integer"},
-                    "amount": {
-                        "type": "string",
-                        "description": "Rupees with up to 2 decimals, e.g. 850.00",
-                    },
+                    "amount": NULLABLE_STRING
+                    | {"description": "Rupees with up to 2 decimals, e.g. 850.00"},
                 },
             },
         },
@@ -75,6 +73,8 @@ the date it was written ("yesterday", "on the 3rd"). Null if the Quick Add gives
 - party_id: the ID of a listed Party the Quick Add refers to, even if written \
 loosely. new_party_name: a name for a Party that isn't listed. Never both; \
 both null if the Quick Add names no one.
+- amount: null when the Quick Add gives no amount, such as "pay later"; \
+never guess one.
 - description: at most 200 characters, only when the Party and Accounts \
 don't already say what happened; otherwise null.
 """
@@ -133,6 +133,7 @@ def ask_ai(
 def save_draft(quick_add: QuickAdd, content: dict[str, Any]) -> Draft:
     """Store the reply as the Quick Add's Draft and mark it `draft`."""
     draft = Draft.objects.create(
+        source=Draft.Source.QUICK_ADD,
         quick_add=quick_add,
         date=date.fromisoformat(content["date"])
         if content["date"]
@@ -146,7 +147,7 @@ def save_draft(quick_add: QuickAdd, content: dict[str, Any]) -> Draft:
             draft=draft,
             from_account_id=split["from_account_id"],
             to_account_id=split["to_account_id"],
-            amount=Decimal(str(split["amount"])),
+            amount=None if split["amount"] is None else Decimal(str(split["amount"])),
         )
         for split in content["splits"]
     )

@@ -1,9 +1,9 @@
 # TODO
 
 - [ ] Archive old Attachments (export as zip, then remove from storage)
-- [ ] Add homescreen state
+- [ ] Add homescreen stats
 - [ ] Add budgets
-- [ ] Add recurring transactions
 - [ ] Add rules
 - [ ] Add asset module
 - [ ] reconciliation and confirmation
+- [ ] Bank statement imports

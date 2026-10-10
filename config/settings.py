@@ -89,6 +89,9 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.transactions",
     "apps.quick_add",
+    "apps.schedules",
+    "apps.cards",
+    "apps.digest",
 ]
 
 
@@ -137,6 +140,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.quick_add.context_processors.quick_add",
+                "apps.schedules.context_processors.suggested_schedules",
             ],
             # Available in every template without {% load %}.
             "builtins": [
@@ -342,6 +346,8 @@ MAILERS = {"default": {"BACKEND": email_backend, "OPTIONS": email_options}}
 DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
 SERVER_EMAIL = env.str("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 EMAIL_SUBJECT_PREFIX = env.str("EMAIL_SUBJECT_PREFIX", default="[Velora] ")
+# Where Velora is reached, for links in emails sent outside any request.
+SITE_URL = env.str("SITE_URL", default="http://localhost:8000").rstrip("/")
 
 # Receive 500-error emails (see mail_admins in section 11).
 ADMINS = env.list("ADMINS", default=[])

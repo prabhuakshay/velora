@@ -159,10 +159,11 @@ class Command(BaseCommand):
         for _ in range(months):
             days = ((first + timedelta(days=32)).replace(day=1) - first).days
             spent = on_card = Decimal(0)
-            for _ in range(per_month - 3):
+            for i in range(per_month - 3):
                 amount = Decimal(str(round(random.lognormvariate(5.5, 1.0), 2)))
                 amount = max(amount, Decimal("0.01"))
-                source = card if random.random() < 0.4 else bank
+                # At least one card spend a month, so the card payment is never 0.
+                source = card if i == 0 or random.random() < 0.4 else bank
                 day = first + timedelta(days=random.randrange(days))
                 rows.append((day, source, random.choice(expenses), amount))
                 spent += amount

@@ -61,7 +61,7 @@ A short line of free text the user writes about a money event, such as "lunch at
 _Avoid_: Prompt, quick entry, note
 
 **Draft**:
-A Transaction the AI proposed from a Quick Add that the user has not yet posted. It touches no Balance until the user posts it; the user can also edit or reject it.
+A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, a credit card's Statement proposed as its payment, a Card EMI proposed for the interest, GST and fees billed with an installment, or the user started by hand as a placeholder. Every Draft shows which of these it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it. The user can edit it and save it still waiting, gaps and all, or save and post it in one go, which is refused while anything is missing; the user can also reject it. A Draft dated after today can be posted early, and is then recorded on today's date.
 _Avoid_: Pending transaction, suggestion, draft entry
 
 **Processing**:
@@ -91,6 +91,58 @@ _Avoid_: Completion, API call, request
 **Transfer**:
 A Transaction whose Splits only move money between Asset and Liability Accounts, such as withdrawing cash or paying a credit card bill.
 _Avoid_: Move, internal transaction
+
+**Schedule**:
+A Transaction the user expects to repeat, such as rent, salary or a phone bill, with how often it repeats and optionally when it stops. On each due date it proposes a Draft, or posts the Transaction itself if the user trusts it to. Its amount can be left open when it changes every time.
+_Avoid_: Recurring transaction, standing order, bill
+
+**Occurrence**:
+One dated instance of a Schedule. Every Occurrence is Upcoming, Drafted, Paid, Skipped or Missed.
+_Avoid_: Instance, installment, due
+
+**Paid**:
+An Occurrence whose Draft the user posted, or that a Transaction the user recorded themselves already covers.
+_Avoid_: Done, settled, fulfilled
+
+**Missed**:
+An Occurrence with no Transaction covering it by the end of its Schedule's grace period after the due date, such as salary that has not arrived.
+_Avoid_: Late, overdue, failed
+
+**Subscription**:
+A Schedule the user marks as paying for an ongoing service, such as a streaming plan or a domain, which can carry a trial end, a plan and a way to cancel.
+_Avoid_: Membership, plan, recurring payment
+
+**Suggested Schedule**:
+A Schedule Velora proposes after noticing the user pays the same Party a similar amount at a steady interval. It does nothing until the user confirms it; a dismissed one is never suggested again.
+_Avoid_: Detected subscription, candidate
+
+**Forecast**:
+The Balances Velora expects each Asset and Liability Account to have on each of the next 30 days, from upcoming Occurrences, unposted Drafts and credit card payments.
+_Avoid_: Projection, cash flow, prediction
+
+**Low-Balance Threshold**:
+The point past which the user wants a warning when the Forecast expects an Account to cross it. For an Asset Account it is a floor: the warning comes when the Balance is expected to fall below it. For a Liability Account it is a ceiling on what is owed, such as a card limit: the warning comes when the amount owed is expected to go above it, and 0 means no warning.
+_Avoid_: Minimum balance, alert level
+
+**Card EMI**:
+A purchase on a credit card that the bank bills in equal monthly installments, with interest, instead of all at once. The whole purchase counts as spent the day it was made; only the installments reach each Statement Amount. It can be foreclosed by paying off the rest early.
+_Avoid_: Installment plan, loan, EMI conversion
+
+**Statement Day**:
+The day of the month a credit card's Liability Account closes its billing period.
+_Avoid_: Billing date, cycle date
+
+**Due Day**:
+The day of the month the amount on a credit card's latest statement must be paid by.
+_Avoid_: Payment date, deadline
+
+**Statement**:
+One billing period of a credit card, from the day after one Statement Day to the next, with its Due Day and Statement Amount. It is paid once a payment the user posts or records covers it.
+_Avoid_: Bill, invoice, cycle
+
+**Statement Amount**:
+What a credit card's latest statement asks the user to pay. Velora estimates it from the card's spending, payments and refunds in the Statement's period until the user enters the actual amount from the real statement, which then replaces the estimate. A payment that settled an earlier Statement paid for that period, so the estimate leaves it out.
+_Avoid_: Bill, outstanding, total due
 
 **Refund**:
 A Split from an Expense Account back to an Asset or Liability Account, which reduces what was spent under that Expense Account.

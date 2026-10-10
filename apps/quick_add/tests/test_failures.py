@@ -132,7 +132,7 @@ BROKEN_REPLIES: dict[str, tuple[Callable[[Account, Account], Any], str]] = {
     ),
     "same account": (
         lambda bank, _food: reply(split(bank, bank, "850")),
-        "a Split cannot go from an Account to itself",
+        "A Split cannot go from an Account to itself",
     ),
     "direction rule": (
         lambda bank, _food: reply(split(bank, make_account("Salary", "income"), "850")),
