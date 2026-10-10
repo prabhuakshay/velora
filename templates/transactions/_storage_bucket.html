@@ -1,14 +1,14 @@
 <section class="mt-6">
-  <h2 class="text-lg font-semibold">R2 bucket</h2>
-  {% if failed %}
+  <h2 class="text-lg font-semibold">From the bucket itself</h2>
+  {% if bucket is None %}
     <p class="mt-2 rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">Couldn't reach R2, so the bucket figures aren't available right now.</p>
   {% else %}
     <dl class="mt-2 grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200 sm:grid-cols-3">
-      <div><dt class="text-slate-500">Objects</dt><dd class="font-medium tabular-nums">{{ objects }}</dd></div>
-      <div><dt class="text-slate-500">Total size</dt><dd class="font-medium tabular-nums">{{ total_size|filesizeformat }}</dd></div>
-      <div><dt class="text-slate-500">Untracked objects</dt><dd class="font-medium tabular-nums">{{ untracked }}</dd></div>
-      <div><dt class="text-slate-500">Untracked size</dt><dd class="font-medium tabular-nums">{{ untracked_size|filesizeformat }}</dd></div>
-      <div><dt class="text-slate-500">Missing objects</dt><dd class="font-medium tabular-nums">{{ missing }}</dd></div>
+      <div><dt class="text-slate-500">Objects</dt><dd class="font-medium tabular-nums">{{ bucket.objects }}</dd></div>
+      <div><dt class="text-slate-500">Total size</dt><dd class="font-medium tabular-nums">{{ bucket.total_size|filesizeformat }}</dd></div>
+      <div><dt class="text-slate-500">Untracked objects</dt><dd class="font-medium tabular-nums">{{ bucket.untracked }}</dd></div>
+      <div><dt class="text-slate-500">Untracked size</dt><dd class="font-medium tabular-nums">{{ bucket.untracked_size|filesizeformat }}</dd></div>
+      <div><dt class="text-slate-500">Missing objects</dt><dd class="font-medium tabular-nums">{{ bucket.missing }}</dd></div>
     </dl>
   {% endif %}
 </section>

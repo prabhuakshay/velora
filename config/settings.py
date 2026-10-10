@@ -14,8 +14,7 @@ Sections:
                            12. AI Quick Add
 
 Required variables: SECRET_KEY, DATABASE_URL, and the R2_* variables in
-section 8 before any Attachment is uploaded or opened. The optional
-CLOUDFLARE_* variables beside them turn on the Storage page's analytics.
+section 8 before any Attachment is uploaded or opened. CLOUDFLARE_* is optional.
 """
 
 from pathlib import Path
@@ -249,9 +248,6 @@ R2_ENV_VARS = {
     "secret_key": "R2_SECRET_ACCESS_KEY",
 }
 r2_options = {option: env.str(var, default="") for option, var in R2_ENV_VARS.items()}
-
-# Optional Cloudflare analytics for that bucket on the Storage page, hidden
-# unless both are set. The token needs Account Analytics: Read.
 CLOUDFLARE_ACCOUNT_ID = env.str("CLOUDFLARE_ACCOUNT_ID", default="")
 CLOUDFLARE_API_TOKEN = env.str("CLOUDFLARE_API_TOKEN", default="")
 

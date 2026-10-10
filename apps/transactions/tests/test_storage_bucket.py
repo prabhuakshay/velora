@@ -18,9 +18,7 @@ def bucket_section(client: Client) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
 
 
-def listing_returns(
-    monkeypatch: pytest.MonkeyPatch, objects: list[tuple[str, int]]
-) -> None:
+def listing_returns(monkeypatch: pytest.MonkeyPatch, objects: dict[str, int]) -> None:
     monkeypatch.setattr(r2_bucket, "list_objects", lambda: objects)
 
 
@@ -29,16 +27,16 @@ def test_shows_object_count_and_total_size_of_the_whole_bucket(
 ) -> None:
     listing_returns(
         monkeypatch,
-        [
-            ("attachments/a", 1024 * 1024),
-            ("attachments/b", 512 * 1024),
-            ("backups/db.sql", 512 * 1024),
-        ],
+        {
+            "attachments/a": 1024 * 1024,
+            "attachments/b": 512 * 1024,
+            "backups/db.sql": 512 * 1024,
+        },
     )
 
     text = bucket_section(signed_in)
 
-    assert "Objects 3" in text
+    assert "From the bucket itself Objects 3" in text
     assert "Total size 2.0 MB" in text
 
 
@@ -48,11 +46,11 @@ def test_shows_untracked_objects_including_keys_outside_the_attachment_prefix(
     tracked = attach(recorded("rent"))
     listing_returns(
         monkeypatch,
-        [
-            (str(tracked.file.name), 4096),
-            ("attachments/stray", 1024),
-            ("backups/db.sql", 2048),
-        ],
+        {
+            str(tracked.file.name): 4096,
+            "attachments/stray": 1024,
+            "backups/db.sql": 2048,
+        },
     )
 
     text = bucket_section(signed_in)
@@ -69,7 +67,7 @@ def test_shows_attachments_whose_object_is_missing(
     kept = attach(rent)
     attach(rent)
     attach(recorded("lunch"))
-    listing_returns(monkeypatch, [(str(kept.file.name), 1024)])
+    listing_returns(monkeypatch, {str(kept.file.name): 1024})
 
     text = bucket_section(signed_in)
 
@@ -80,7 +78,7 @@ def test_shows_attachments_whose_object_is_missing(
 def test_a_listing_error_shows_a_note_instead_of_the_figures(
     signed_in: Client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def unreachable() -> list[tuple[str, int]]:
+    def unreachable() -> dict[str, int]:
         raise ConnectionError
 
     monkeypatch.setattr(r2_bucket, "list_objects", unreachable)

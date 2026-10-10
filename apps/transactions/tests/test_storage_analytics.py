@@ -1,11 +1,15 @@
+import json
 import re
-from datetime import date
+import urllib.request
+from datetime import UTC, date, datetime
+from io import BytesIO
 from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
-from apps.transactions import cloudflare
+from apps.transactions import cloudflare, r2_bucket
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -119,6 +123,7 @@ def test_chart_shows_one_bar_per_day_with_readable_sizes(
 
     html = analytics(signed_in)
 
+    assert text(html).startswith(" From Cloudflare analytics ")
     assert html.count("<rect") == 3
     shown = text(html).replace("\xa0", " ")
     assert "8 Oct 2026: 1.0 MB" in shown
@@ -185,3 +190,74 @@ def test_operations_query_error_shows_a_note_and_keeps_the_chart(
     assert "Couldn't reach Cloudflare for operations analytics." in shown
     assert "Class A" not in shown
     assert html.count("<rect") == 1
+
+
+def cloudflare_responds(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch, account: object
+) -> list[dict[str, str]]:
+    """Answer every Cloudflare query with this account node; return the variables."""
+    settings.CLOUDFLARE_ACCOUNT_ID = "test-account"
+    settings.CLOUDFLARE_API_TOKEN = "test-token"
+    monkeypatch.setattr(r2_bucket, "bucket_name", lambda: "attachments")
+    sent: list[dict[str, str]] = []
+
+    def urlopen(request: urllib.request.Request, **_kwargs: object) -> BytesIO:
+        sent.append(json.loads(request.data)["variables"])  # type: ignore[arg-type]
+        body = {"data": {"viewer": {"accounts": [account]}}}
+        return BytesIO(json.dumps(body).encode())
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    return sent
+
+
+@pytest.mark.parametrize(
+    "account",
+    [
+        {},
+        {"r2StorageAdaptiveGroups": None, "r2OperationsAdaptiveGroups": None},
+        {
+            "r2StorageAdaptiveGroups": [
+                {"max": None, "dimensions": {"datetime": "2026-10-10T00:00:00Z"}}
+            ],
+            "r2OperationsAdaptiveGroups": [
+                {"sum": {"requests": None}, "dimensions": {"actionType": "GetObject"}}
+            ],
+        },
+    ],
+    ids=["no datasets", "null datasets", "null values"],
+)
+def test_a_response_of_the_wrong_shape_shows_a_note_per_part(
+    signed_in: Client,
+    settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    account: object,
+) -> None:
+    cloudflare_responds(settings, monkeypatch, account)
+
+    response = signed_in.get(reverse("storage_analytics"))
+
+    assert response.status_code == 200
+    shown = text(response.content.decode())
+    assert "Couldn't reach Cloudflare for storage analytics." in shown
+    assert "Couldn't reach Cloudflare for operations analytics." in shown
+
+
+def test_operations_count_from_the_start_of_the_local_calendar_month(
+    signed_in: Client, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings.TIME_ZONE = "Asia/Kolkata"
+    # 1 Oct 01:30 in Kolkata, still September in UTC; in the past, so the
+    # session stays valid.
+    now = datetime(2026, 9, 30, 20, 0, tzinfo=UTC)
+    monkeypatch.setattr(timezone, "now", lambda: now)
+    sent = cloudflare_responds(
+        settings,
+        monkeypatch,
+        {"r2StorageAdaptiveGroups": [], "r2OperationsAdaptiveGroups": []},
+    )
+
+    analytics(signed_in)
+
+    # The chart's query covers the last weeks, so it starts in an earlier month.
+    starts = sorted(variables["start"] for variables in sent)
+    assert starts[-1] == "2026-09-30T18:30:00+00:00"

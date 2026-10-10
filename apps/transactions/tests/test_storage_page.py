@@ -41,7 +41,7 @@ def test_shows_total_size_attachment_count_and_transactions_with_attachments(
 
     text = storage_page(signed_in)
 
-    assert "Total size 2.0 MB" in text
+    assert "From Velora's records Total size 2.0 MB" in text
     assert "Attachments 3" in text
     assert "Transactions with Attachments 2" in text
 

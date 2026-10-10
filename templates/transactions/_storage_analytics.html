@@ -1,6 +1,6 @@
 <section class="mt-6">
   <h2 class="text-lg font-semibold">From Cloudflare analytics</h2>
-  {% if chart_failed %}
+  {% if chart is None %}
     <p class="mt-2 text-sm text-slate-500">Couldn't reach Cloudflare for storage analytics.</p>
   {% elif not chart.bars %}
     <p class="mt-2 text-sm text-slate-500">No storage data from Cloudflare yet.</p>
@@ -9,9 +9,9 @@
       <div class="mt-2 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200">
         <h3 class="text-slate-500">Stored size per day</h3>
         <p class="font-medium tabular-nums">Latest {{ latest.size|filesizeformat }} · Peak {{ chart.peak|filesizeformat }}</p>
-        <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" class="mt-2 h-32 w-full text-slate-700" role="img" aria-label="Stored size per day">
+        <svg viewBox="0 0 {{ chart.width }} 100" preserveAspectRatio="none" class="mt-2 h-32 w-full text-slate-700" role="img" aria-label="Stored size per day">
           {% for bar in chart.bars %}
-            <rect x="{{ bar.x }}" y="{{ bar.y }}" width="{{ chart.bar_width }}" height="{{ bar.height }}" fill="currentColor"><title>{{ bar.day|date:"j M Y" }}: {{ bar.size|filesizeformat }}</title></rect>
+            <rect x="{{ bar.x }}" y="{{ bar.y }}" width="8" height="{{ bar.height }}" fill="currentColor"><title>{{ bar.day|date:"j M Y" }}: {{ bar.size|filesizeformat }}</title></rect>
           {% endfor %}
         </svg>
         <div class="mt-1 flex justify-between text-xs text-slate-500">
@@ -22,7 +22,7 @@
     {% endwith %}
   {% endif %}
   <h3 class="mt-4 font-semibold">Operations this month</h3>
-  {% if operations_failed %}
+  {% if operations is None %}
     <p class="mt-2 text-sm text-slate-500">Couldn't reach Cloudflare for operations analytics.</p>
   {% else %}
     <dl class="mt-2 grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200">

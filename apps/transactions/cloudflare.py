@@ -8,16 +8,19 @@ fakes, so nothing else here needs faking.
 import json
 import urllib.request
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
-from typing import Any, cast
+from datetime import UTC, date, datetime, time, timedelta
+from typing import Any
 
 from django.conf import settings
+from django.utils import timezone
+
+from apps.transactions import r2_bucket
 
 URL = "https://api.cloudflare.com/client/v4/graphql"
 TIMEOUT_SECONDS = 10
 # R2 analytics are kept for at least 31 days, and 31 days is also the longest
-# range one query may cover.
-RETENTION = timedelta(days=31)
+# range one query may cover; a day's margin keeps the inclusive bounds inside.
+RETENTION = timedelta(days=30)
 
 DAILY_STORAGE_QUERY = """
 query ($accountTag: string!, $bucketName: string, $start: Time, $end: Time) {
@@ -66,12 +69,6 @@ def is_configured() -> bool:
     return bool(settings.CLOUDFLARE_ACCOUNT_ID and settings.CLOUDFLARE_API_TOKEN)
 
 
-def bucket_name() -> str:
-    """The Attachment bucket, as the storage settings name it."""
-    storage = cast("dict[str, dict[str, str]]", settings.STORAGES["default"])
-    return storage["OPTIONS"]["bucket_name"]
-
-
 def query(text: str, variables: dict[str, Any]) -> dict[str, Any]:
     """Run a GraphQL query and return the configured account's node.
 
@@ -109,17 +106,22 @@ def query(text: str, variables: dict[str, Any]) -> dict[str, Any]:
     return account
 
 
-def daily_storage() -> list[DailyStorage]:
-    """The bucket's stored size per day, oldest first, over the retained days."""
-    end = datetime.now(UTC)
-    account = query(
-        DAILY_STORAGE_QUERY,
+def bucket_query(text: str, start: datetime, end: datetime) -> dict[str, Any]:
+    """Run a query over the Attachment bucket between two instants."""
+    return query(
+        text,
         {
-            "bucketName": bucket_name(),
-            "start": (end - RETENTION).isoformat(timespec="seconds"),
-            "end": end.isoformat(timespec="seconds"),
+            "bucketName": r2_bucket.bucket_name(),
+            "start": start.astimezone(UTC).isoformat(timespec="seconds"),
+            "end": end.astimezone(UTC).isoformat(timespec="seconds"),
         },
     )
+
+
+def daily_storage() -> list[DailyStorage]:
+    """The bucket's stored size per day, oldest first, over the retained days."""
+    end = timezone.now()
+    account = bucket_query(DAILY_STORAGE_QUERY, end - RETENTION, end)
     # The dataset is grouped by timestamp, not by day, so keep each day's peak.
     sizes: dict[date, int] = {}
     for group in account["r2StorageAdaptiveGroups"]:
@@ -130,17 +132,10 @@ def daily_storage() -> list[DailyStorage]:
 
 
 def monthly_operations() -> dict[str, int]:
-    """This calendar month's (UTC) request count per action, by action name."""
-    end = datetime.now(UTC)
-    start = end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    account = query(
-        MONTHLY_OPERATIONS_QUERY,
-        {
-            "bucketName": bucket_name(),
-            "start": start.isoformat(timespec="seconds"),
-            "end": end.isoformat(timespec="seconds"),
-        },
-    )
+    """This local calendar month's request count per action, by action name."""
+    month = timezone.localdate().replace(day=1)
+    start = timezone.make_aware(datetime.combine(month, time.min))
+    account = bucket_query(MONTHLY_OPERATIONS_QUERY, start, timezone.now())
     counts: dict[str, int] = {}
     for group in account["r2OperationsAdaptiveGroups"]:
         action = group["dimensions"]["actionType"]

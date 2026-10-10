@@ -45,11 +45,11 @@ class Operations:
     class_b: int
     actions: list[tuple[str, int]]
 
-    @classmethod
-    def of(cls, counts: dict[str, int]) -> Operations:
-        """Total the per-action counts into their classes."""
-        return cls(
-            class_a=sum(n for action, n in counts.items() if action in CLASS_A),
-            class_b=sum(n for action, n in counts.items() if action in CLASS_B),
-            actions=sorted(counts.items(), key=lambda item: (-item[1], item[0])),
-        )
+
+def count_operations(counts: dict[str, int]) -> Operations:
+    """Total the per-action counts into their classes."""
+    return Operations(
+        class_a=sum(n for action, n in counts.items() if action in CLASS_A),
+        class_b=sum(n for action, n in counts.items() if action in CLASS_B),
+        actions=sorted(counts.items(), key=lambda item: (-item[1], item[0])),
+    )

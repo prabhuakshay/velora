@@ -1,6 +1,7 @@
 """The daily storage chart's bars, laid out for an inline SVG.
 
-The CSP blocks inline styles, so bar sizes go into SVG attributes.
+The CSP blocks inline styles, so bar sizes go into SVG attributes. Bar heights
+are percentages of the peak, so the chart's viewBox is 100 units tall.
 """
 
 from dataclasses import dataclass
@@ -13,7 +14,6 @@ if TYPE_CHECKING:
 
 HEIGHT = 100
 BAR_PITCH = 10
-BAR_WIDTH = 8
 
 
 @dataclass(frozen=True)
@@ -34,23 +34,21 @@ class StorageChart:
     bars: list[Bar]
     peak: int
     width: int
-    height: int = HEIGHT
-    bar_width: int = BAR_WIDTH
 
-    @classmethod
-    def of(cls, days: list[DailyStorage]) -> StorageChart:
-        """Lay out one bar per day, in the order given."""
-        peak = max((day.size for day in days), default=0)
-        bars = []
-        for index, day in enumerate(days):
-            height = round(day.size * HEIGHT / peak) if peak else 0
-            bars.append(
-                Bar(
-                    day=day.day,
-                    size=day.size,
-                    x=index * BAR_PITCH,
-                    y=HEIGHT - height,
-                    height=height,
-                )
+
+def storage_chart(days: list[DailyStorage]) -> StorageChart:
+    """Lay out one bar per day, in the order given."""
+    peak = max((day.size for day in days), default=0)
+    bars = []
+    for index, day in enumerate(days):
+        height = round(day.size * HEIGHT / peak) if peak else 0
+        bars.append(
+            Bar(
+                day=day.day,
+                size=day.size,
+                x=index * BAR_PITCH,
+                y=HEIGHT - height,
+                height=height,
             )
-        return cls(bars=bars, peak=peak, width=len(bars) * BAR_PITCH)
+        )
+    return StorageChart(bars=bars, peak=peak, width=len(bars) * BAR_PITCH)

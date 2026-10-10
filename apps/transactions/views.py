@@ -13,20 +13,23 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.core.views import paginate
-from apps.transactions import cloudflare, r2_bucket
+from apps.transactions import cloudflare
 from apps.transactions.attachments import (
     AttachmentDeleteError,
     delete_attachment_files,
 )
+from apps.transactions.bucket_stats import bucket_stats
 from apps.transactions.forms import SplitFormSet
 from apps.transactions.models import Attachment, Split, Transaction
 from apps.transactions.recording import TransactionForms
-from apps.transactions.storage_chart import StorageChart
-from apps.transactions.storage_operations import Operations
+from apps.transactions.storage_chart import storage_chart
+from apps.transactions.storage_operations import count_operations
 from apps.transactions.storage_stats import attachment_storage_stats
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
 
@@ -176,45 +179,44 @@ def storage(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _from_outside[T](fetch: Callable[[], T], what: str) -> T | None:
+    """Fetch figures from R2 or Cloudflare, or None when that fails."""
+    try:
+        return fetch()
+    # Any failure, from missing credentials to a network error or a reply of
+    # the wrong shape, only means these figures can't be shown; the rest of the
+    # Storage page is unaffected.
+    except Exception:
+        logger.exception("Couldn't fetch %s.", what)
+        return None
+
+
 @login_required
 def storage_analytics(request: HttpRequest) -> HttpResponse:
     """The Storage page's Cloudflare analytics section, loaded by htmx."""
     if not cloudflare.is_configured():
         raise Http404
-    context: dict[str, object] = {}
-    try:
-        context["chart"] = StorageChart.of(cloudflare.daily_storage())
-    except OSError, ValueError:
-        logger.exception("Couldn't fetch Cloudflare storage analytics.")
-        context["chart_failed"] = True
-    try:
-        context["operations"] = Operations.of(cloudflare.monthly_operations())
-    except OSError, ValueError:
-        logger.exception("Couldn't fetch Cloudflare operations analytics.")
-        context["operations_failed"] = True
-    return render(request, "transactions/_storage_analytics.html", context)
+    return render(
+        request,
+        "transactions/_storage_analytics.html",
+        {
+            "chart": _from_outside(
+                lambda: storage_chart(cloudflare.daily_storage()),
+                "Cloudflare storage analytics",
+            ),
+            "operations": _from_outside(
+                lambda: count_operations(cloudflare.monthly_operations()),
+                "Cloudflare operations analytics",
+            ),
+        },
+    )
 
 
 @login_required
 def storage_bucket(request: HttpRequest) -> HttpResponse:
     """What the R2 bucket actually holds, loaded by the Storage page."""
-    try:
-        objects = dict(r2_bucket.list_objects())
-    # Any failure, from missing credentials to a network error, only means the
-    # figures can't be shown; the rest of the Storage page is unaffected.
-    except Exception:
-        logger.exception("Listing the R2 bucket failed")
-        return render(request, "transactions/_storage_bucket.html", {"failed": True})
-    stored = set(Attachment.objects.values_list("file", flat=True))
-    untracked = [size for key, size in objects.items() if key not in stored]
     return render(
         request,
         "transactions/_storage_bucket.html",
-        {
-            "objects": len(objects),
-            "total_size": sum(objects.values()),
-            "untracked": len(untracked),
-            "untracked_size": sum(untracked),
-            "missing": len(stored - objects.keys()),
-        },
+        {"bucket": _from_outside(bucket_stats, "the R2 bucket listing")},
     )
