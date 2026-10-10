@@ -12,6 +12,24 @@
     <p class="mt-2 text-sm {% amount_color account.balance %}">Balance {% amount account.balance %}</p>
     <p class="text-xs text-slate-500">Opening Balance {% amount account.opening_balance %} on {{ account.opening_balance_date }}</p>
   {% endif %}
+  {% if statements %}
+    <h2 class="mt-6 text-lg font-semibold">Statements</h2>
+    <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+      {% for statement in statements %}
+        <li class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <p class="font-medium">Due {{ statement.due_date|date:"j M Y" }}</p>
+            <p class="text-xs text-slate-500">{{ statement.period_start|date:"j M Y" }} to {{ statement.period_end|date:"j M Y" }}{% if statement.transaction %} · Paid{% endif %}</p>
+          </div>
+          <div class="flex shrink-0 items-center gap-3 text-sm">
+            <span class="tabular-nums">{% amount statement.amount %}{% if statement.actual_amount is None %} <span class="text-xs text-slate-500">(estimate)</span>{% endif %}</span>
+            <a href="{% url 'statement_edit' statement.pk %}" class="link">Enter actual</a>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <h2 class="mt-6 text-lg font-semibold">Transactions</h2>
+  {% endif %}
   <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
     {% for transaction in page %}
       <li class="flex items-center justify-between gap-3 py-3">

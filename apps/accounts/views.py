@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
 CHART_WIDTH = 600
 CHART_HEIGHT = 200
+STATEMENTS_SHOWN = 6
 
 
 def _as_of_date(raw: str | None) -> date:
@@ -132,6 +133,7 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             "account": account,
             "kind": Account.Kind(kind),
             "page": paginate(request, transactions),
+            "statements": account.statements.order_by("-period_end")[:STATEMENTS_SHOWN],
         },
     )
 
@@ -186,10 +188,19 @@ def account_unhide(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase
 def account_delete(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
     """Confirm, then delete an Account of the kind in the URL."""
     account = get_object_or_404(Account, pk=pk, kind=kind)
-    if account.splits_out.exists() or account.splits_in.exists():
+    used_by = (
+        "Transactions"
+        if account.splits_out.exists() or account.splits_in.exists()
+        else "a credit card it pays"
+        if account.cards_paid.exists()
+        else ""
+    )
+    if used_by:
         noun = f"{Account.Kind(kind).label} Account"
         merge_url = reverse("account_merge", kwargs={"kind": kind, "pk": pk})
-        return redirect_in_use_to_merge(request, account, noun, merge_url)
+        return redirect_in_use_to_merge(
+            request, account, noun, merge_url, used_by=used_by
+        )
     if request.method == "POST":
         account.delete()
         return redirect("account_list", kind=kind)
@@ -213,7 +224,7 @@ def account_merge(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
     merge = None
     if form.is_valid():
         merge = AccountMerge(source, form.cleaned_data["target"])
-        if request.method == "POST":
+        if request.method == "POST" and not merge.refusal:
             merge.run()
             messages.success(request, f"Merged {source} into {merge.target}.")
             return redirect("account_list", kind=kind)

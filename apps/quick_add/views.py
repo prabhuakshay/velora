@@ -77,6 +77,7 @@ SECTION_HEADINGS = {
     Draft.Source.QUICK_ADD: "From Quick Add",
     Draft.Source.SCHEDULE: "From Schedules",
     Draft.Source.MANUAL: "Started by hand",
+    Draft.Source.STATEMENT: "Card payments",
 }
 
 

@@ -9,6 +9,7 @@ from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Account
 from apps.classification.models import Party
+from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -52,6 +53,11 @@ class Schedule(models.Model):
     active = models.BooleanField(default=True)
     # Due dates before this were paused, so they never fall due.
     resumed_on = models.DateField(null=True, blank=True, editable=False)
+    # A Subscription is a flagged Schedule, not a model of its own (ADR 0007).
+    is_subscription = models.BooleanField(default=False)
+    trial_ends_on = models.DateField(null=True, blank=True)
+    plan = models.CharField(max_length=100, blank=True)
+    how_to_cancel = models.TextField(blank=True)
 
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
@@ -127,6 +133,14 @@ class Occurrence(models.Model):
     )
     due_date = models.DateField()
     status = models.CharField(max_length=16, choices=Status, default=Status.UPCOMING)
+    # One-to-one so a Transaction covers at most one Occurrence.
+    transaction = models.OneToOneField(
+        Transaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="occurrence",
+    )
 
     class Meta:
         ordering = ("due_date", "pk")
@@ -140,7 +154,47 @@ class Occurrence(models.Model):
     def __str__(self) -> str:
         return f"{self.schedule} due {self.due_date}"
 
-    def settle(self, *, paid: bool) -> None:
-        """Mark it Paid, or Skipped when the user dropped its Draft."""
-        self.status = Occurrence.Status.PAID if paid else Occurrence.Status.SKIPPED
-        self.save(update_fields=["status"])
+    def settle(self, transaction: Transaction | None) -> None:
+        """Mark it Paid by the Transaction, or Skipped when there is none."""
+        self.transaction = transaction
+        self.status = (
+            Occurrence.Status.PAID if transaction else Occurrence.Status.SKIPPED
+        )
+        self.save(update_fields=["transaction", "status"])
+
+
+class SuggestedSchedule(models.Model):
+    """A steady repeated payment Velora noticed, offered as a Schedule.
+
+    It does nothing until confirmed. Dismissed ones are kept so detection
+    never offers the same Party, Accounts and interval again.
+    """
+
+    class Status(models.TextChoices):
+        WAITING = "waiting"
+        CONFIRMED = "confirmed"
+        DISMISSED = "dismissed"
+
+    # Cascades so a suggestion never blocks merging or deleting its Party.
+    party = models.ForeignKey(
+        Party, on_delete=models.CASCADE, related_name="suggested_schedules"
+    )
+    from_account = models.ForeignKey(
+        Account, on_delete=models.PROTECT, related_name="suggested_schedules_out"
+    )
+    to_account = models.ForeignKey(
+        Account, on_delete=models.PROTECT, related_name="suggested_schedules_in"
+    )
+    # The median of the evidence.
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    unit = models.CharField(max_length=8, choices=Schedule.Unit)
+    evidence = models.ManyToManyField(
+        "transactions.Transaction", related_name="suggested_schedules"
+    )
+    status = models.CharField(max_length=16, choices=Status, default=Status.WAITING)
+
+    class Meta:
+        ordering = ("pk",)
+
+    def __str__(self) -> str:
+        return f"{self.party} every {self.unit}"

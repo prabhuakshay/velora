@@ -66,7 +66,7 @@ def test_a_split_with_a_fixed_amount_keeps_it() -> None:
 def test_with_nothing_paid_before_the_draft_waits_without_an_amount() -> None:
     bank = make_account("Bank", "asset")
     power = make_account("Electricity", "expense")
-    pay(date(2026, 10, 9), bank, power, "1800", None)
+    pay(date(2026, 10, 20), bank, power, "1800", None)
     make_schedule((bank, power, None))
 
     run_daily_job(date(2026, 10, 5))

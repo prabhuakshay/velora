@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.accounts.tests.conftest import make_account
 from apps.schedules.models import Schedule
@@ -114,3 +115,23 @@ def test_the_detail_page_describes_cron_end_and_auto_post_rules(
 
     assert "On cron 0 0 * * 5#2 from 1 Oct 2026, 6 times" in body
     assert "Auto-post" in body
+
+
+def test_a_cron_subscription_costs_what_falls_due_in_a_year(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    services = make_account("Services", "expense")
+    make_schedule(
+        (bank, services, "500"),
+        description="Gym",
+        every=None,
+        unit="",
+        cron="0 0 1 * *",
+        is_subscription=True,
+    )
+
+    response = signed_in.get(reverse("subscription_list"))
+
+    text = " ".join(strip_tags(response.content.decode()).split())
+    assert "Gym On cron 0 0 1 * * ₹500.00 ₹500.00 a month · ₹6,000.00 a year" in text
