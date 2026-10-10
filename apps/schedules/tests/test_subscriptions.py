@@ -1,4 +1,5 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
@@ -7,7 +8,7 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 
 from apps.accounts.tests.conftest import make_account
-from apps.schedules.models import Schedule
+from apps.schedules.models import Schedule, ScheduleSplit
 from apps.schedules.tests.conftest import make_schedule, schedule_form_data
 
 if TYPE_CHECKING:
@@ -134,3 +135,31 @@ def test_privacy_mode_hides_every_cost(signed_in: Client, user: User) -> None:
     assert "Total ₹•••• a month · ₹•••• a year" in text
     assert "649" not in text
     assert "7,788" not in text
+
+
+def priced(split: ScheduleSplit, amount: str, on: date) -> None:
+    split.amount = Decimal(amount)
+    # Backdates the history record, as if the price changed on that day.
+    split._history_date = datetime.combine(on, time(12), tzinfo=UTC)  # type: ignore[attr-defined]  # noqa: SLF001
+    split.save()
+
+
+def test_a_subscription_shows_how_its_amount_changed(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    services = make_account("Services", "expense")
+    streaming = make_schedule(description="Streaming", is_subscription=True)
+    split = ScheduleSplit(schedule=streaming, from_account=bank, to_account=services)
+    priced(split, "499", date(2025, 1, 10))
+    priced(split, "499", date(2025, 3, 10))
+    priced(split, "599", date(2025, 6, 1))
+    priced(split, "649", date(2026, 2, 1))
+    make_schedule((bank, services, "99"), description="Music", is_subscription=True)
+
+    text = page_text(signed_in)
+
+    assert (
+        "Streaming Every month ₹649.00 ₹649.00 a month · ₹7,788.00 a year"
+        " Price history: ₹499.00 from 10 Jan 2025 · ₹599.00 from 1 Jun 2025"
+        " · ₹649.00 from 1 Feb 2026"
+    ) in text
+    assert text.count("Price history") == 1

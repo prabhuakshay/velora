@@ -21,6 +21,11 @@
               {% endif %}
             </div>
           </div>
+          {% if row.price_history|length > 1 %}
+            <p class="mt-1 text-xs text-slate-500 tabular-nums">Price history:
+              {% for day, price in row.price_history %}{% if not forloop.first %} · {% endif %}{% if price is None %}Open amount{% else %}{% amount price %}{% endif %} from {{ day|date:"j M Y" }}{% endfor %}
+            </p>
+          {% endif %}
           {% if schedule.how_to_cancel %}<p class="mt-1 text-xs text-slate-500">To cancel: {{ schedule.how_to_cancel }}</p>{% endif %}
         </li>
       {% endwith %}
