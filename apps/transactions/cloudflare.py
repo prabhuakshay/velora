@@ -1,8 +1,8 @@
 """The Cloudflare analytics client: the only code that talks HTTP to Cloudflare.
 
 Queries go to the GraphQL Analytics API for the Attachment R2 bucket. Tests
-replace the query functions (`daily_storage`) with fakes, so nothing else here
-needs faking.
+replace the query functions (`daily_storage`, `monthly_operations`) with
+fakes, so nothing else here needs faking.
 """
 
 import json
@@ -30,6 +30,22 @@ query ($accountTag: string!, $bucketName: string, $start: Time, $end: Time) {
       ) {
         max { payloadSize metadataSize }
         dimensions { datetime }
+      }
+    }
+  }
+}
+"""
+
+MONTHLY_OPERATIONS_QUERY = """
+query ($accountTag: string!, $bucketName: string, $start: Time, $end: Time) {
+  viewer {
+    accounts(filter: { accountTag: $accountTag }) {
+      r2OperationsAdaptiveGroups(
+        limit: 10000
+        filter: { bucketName: $bucketName, datetime_geq: $start, datetime_leq: $end }
+      ) {
+        sum { requests }
+        dimensions { actionType }
       }
     }
   }
@@ -111,3 +127,22 @@ def daily_storage() -> list[DailyStorage]:
         size = group["max"]["payloadSize"] + group["max"]["metadataSize"]
         sizes[day] = max(sizes.get(day, 0), size)
     return [DailyStorage(day=day, size=size) for day, size in sorted(sizes.items())]
+
+
+def monthly_operations() -> dict[str, int]:
+    """This calendar month's (UTC) request count per action, by action name."""
+    end = datetime.now(UTC)
+    start = end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    account = query(
+        MONTHLY_OPERATIONS_QUERY,
+        {
+            "bucketName": bucket_name(),
+            "start": start.isoformat(timespec="seconds"),
+            "end": end.isoformat(timespec="seconds"),
+        },
+    )
+    counts: dict[str, int] = {}
+    for group in account["r2OperationsAdaptiveGroups"]:
+        action = group["dimensions"]["actionType"]
+        counts[action] = counts.get(action, 0) + group["sum"]["requests"]
+    return counts

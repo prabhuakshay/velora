@@ -1,7 +1,7 @@
 <section class="mt-6">
   <h2 class="text-lg font-semibold">From Cloudflare analytics</h2>
-  {% if failed %}
-    <p class="mt-2 text-sm text-slate-500">Couldn't reach Cloudflare analytics.</p>
+  {% if chart_failed %}
+    <p class="mt-2 text-sm text-slate-500">Couldn't reach Cloudflare for storage analytics.</p>
   {% elif not chart.bars %}
     <p class="mt-2 text-sm text-slate-500">No storage data from Cloudflare yet.</p>
   {% else %}
@@ -20,5 +20,28 @@
         </div>
       </div>
     {% endwith %}
+  {% endif %}
+  <h3 class="mt-4 font-semibold">Operations this month</h3>
+  {% if operations_failed %}
+    <p class="mt-2 text-sm text-slate-500">Couldn't reach Cloudflare for operations analytics.</p>
+  {% else %}
+    <dl class="mt-2 grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200">
+      <div><dt class="text-slate-500">Class A</dt><dd class="font-medium tabular-nums">{{ operations.class_a }}</dd></div>
+      <div><dt class="text-slate-500">Class B</dt><dd class="font-medium tabular-nums">{{ operations.class_b }}</dd></div>
+    </dl>
+    {% if operations.actions %}
+      <table class="mt-3 w-full rounded-2xl bg-white text-sm shadow-sm ring-1 ring-slate-200">
+        <thead class="text-left text-slate-500">
+          <tr><th class="px-4 py-2 font-normal">Action</th><th class="px-4 py-2 text-right font-normal">Count</th></tr>
+        </thead>
+        <tbody>
+          {% for action, count in operations.actions %}
+            <tr class="border-t border-slate-100"><td class="px-4 py-2">{{ action }}</td><td class="px-4 py-2 text-right tabular-nums">{{ count }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="mt-2 text-sm text-slate-500">No operations this month yet.</p>
+    {% endif %}
   {% endif %}
 </section>
