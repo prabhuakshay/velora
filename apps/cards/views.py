@@ -10,7 +10,7 @@ from django.utils.timezone import localdate
 
 from apps.cards.forms import CardEMIForm, ForecloseForm, StatementForm
 from apps.cards.models import CardEMI, Statement
-from apps.cards.statements import enter_actual_amount
+from apps.cards.statements import enter_actual_amount, refresh_estimates
 from apps.transactions.models import Transaction
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
@@ -52,6 +52,7 @@ def card_emi_create(request: HttpRequest, pk: int) -> HttpResponseBase:
     )
     if form.is_valid():
         form.save()
+        refresh_estimates(card)
         return redirect("account_transactions", kind=card.kind, pk=card.pk)
     return render(
         request, "cards/card_emi_form.html", {"form": form, "purchase": purchase}
@@ -68,5 +69,6 @@ def card_emi_foreclose(request: HttpRequest, pk: int) -> HttpResponseBase:
     )
     if form.is_valid():
         form.save()
+        refresh_estimates(emi.card)
         return redirect("account_transactions", kind=emi.card.kind, pk=emi.card.pk)
     return render(request, "cards/card_emi_foreclose.html", {"form": form, "emi": emi})

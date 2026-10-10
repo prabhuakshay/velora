@@ -38,7 +38,7 @@ def test_merging_a_card_moves_its_settings_and_statements(signed_in: Client) -> 
     old_card = make_card("Old card", statement_day=20, due_day=10)
     card = make_account("Card", "liability")
     record(old_card, make_account("Groceries", "expense"), "900", date(2026, 10, 1))
-    run_daily_job(date(2026, 10, 20))
+    run_daily_job(date(2026, 10, 21))
 
     merge(signed_in, old_card, card)
 

@@ -68,17 +68,21 @@ def previous_closing(card: Account, closing: date) -> date:
 
 
 def periods_to_create(card: Account, today: date) -> Iterator[date]:
-    """The closing dates of the periods ended by today with no Statement yet.
+    """The closing dates of the periods that ended before today with no Statement.
 
-    A card with no Statement starts from its latest period, and only while that
-    period's payment is still due.
+    Spends dated on the Statement Day still belong to its period, so the
+    Statement waits for the day after. A card with no Statement starts from its
+    latest period, and only while that period's payment is still due.
     """
+    yesterday = today - timedelta(days=1)
     last = card.statements.order_by("period_end").last()
     if last:
-        yield from closing_dates(card, last.period_end, today)
+        yield from closing_dates(card, last.period_end, yesterday)
         return
     # Any two months hold a Statement Day, however the month ends clamp it.
-    latest = max(closing_dates(card, today - timedelta(days=62), today), default=None)
+    latest = max(
+        closing_dates(card, yesterday - timedelta(days=62), yesterday), default=None
+    )
     if latest and due_date(card, latest) >= today:
         yield latest
 
@@ -119,12 +123,12 @@ def create_statement(card: Account, closing: date) -> None:
     )
     if payment := find_payment(statement):
         settle(statement, payment)
-    elif statement.amount > 0:
-        propose_payment(statement)
+    else:
+        sync_payment_draft(statement)
 
 
 def create_statements(today: date) -> None:
-    """Create every card's Statements for the periods ended by today."""
+    """Create every card's Statements for the periods that ended before today."""
     for card in Account.objects.filter(statement_day__isnull=False):
         for closing in periods_to_create(card, today):
             create_statement(card, closing)
@@ -172,18 +176,45 @@ def match_card_payments(today: date) -> None:
             settle(statement, payment)
 
 
-@db_transaction.atomic
-def enter_actual_amount(statement: Statement, amount: Decimal | None) -> None:
-    """Save the actual Statement Amount, or clear it, and update its payment.
+def sync_payment_draft(statement: Statement) -> None:
+    """Bring the Statement's payment Draft in line with its Statement Amount.
 
-    A waiting payment Draft takes the new amount; with none proposed yet, one is
-    now if there is something left to pay.
+    A waiting Draft takes the amount, or is withdrawn when there is nothing to
+    pay; with none proposed yet, one is now if the Statement is unpaid and there
+    is something to pay. A posted or rejected Draft is left alone.
     """
-    statement.actual_amount = amount
-    statement.save(update_fields=["actual_amount"])
     draft = Draft.objects.filter(statement=statement).first()
     if draft is None:
         if statement.transaction is None and statement.amount > 0:
             propose_payment(statement)
     elif draft.status == Draft.Status.WAITING:
-        draft.splits.filter(to_account=statement.card).update(amount=statement.amount)
+        if statement.amount > 0:
+            draft.splits.filter(to_account=statement.card).update(
+                amount=statement.amount
+            )
+        else:
+            draft.delete()
+
+
+@db_transaction.atomic
+def enter_actual_amount(statement: Statement, amount: Decimal | None) -> None:
+    """Save the actual Statement Amount, or clear it, and update its payment."""
+    statement.actual_amount = amount
+    statement.save(update_fields=["actual_amount"])
+    sync_payment_draft(statement)
+
+
+@db_transaction.atomic
+def refresh_estimates(card: Account) -> None:
+    """Re-estimate the card's Statements with no actual amount and no payment.
+
+    A Card EMI created or foreclosed changes what earlier periods bill.
+    """
+    for statement in card.statements.filter(
+        actual_amount__isnull=True, transaction__isnull=True
+    ):
+        statement.estimated_amount = estimate_statement_amount(
+            card, statement.period_start, statement.period_end
+        )
+        statement.save(update_fields=["estimated_amount"])
+        sync_payment_draft(statement)

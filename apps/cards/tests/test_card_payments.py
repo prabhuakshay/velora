@@ -23,7 +23,7 @@ pytestmark = pytest.mark.django_db
 def billed(card: Account, groceries: Account) -> Statement:
     """The card's Statement to 15 Oct 2026, of 1200 due 5 Nov."""
     record(card, groceries, "1200", date(2026, 9, 20))
-    run_daily_job(date(2026, 10, 15))
+    run_daily_job(date(2026, 10, 16))
     return Statement.objects.get()
 
 
@@ -69,7 +69,7 @@ def test_a_payment_that_settled_a_statement_is_not_counted_in_the_next(
     record(card.pays_from, card, "1200", date(2026, 11, 3))
     record(card, groceries, "400", date(2026, 11, 1))
 
-    run_daily_job(date(2026, 11, 15))
+    run_daily_job(date(2026, 11, 16))
 
     assert Statement.objects.last().amount == Decimal(400)  # type: ignore[union-attr]
 
@@ -79,7 +79,7 @@ def test_posting_the_payment_draft_settles_the_statement(
 ) -> None:
     # Due well after today, so posting it is posting early.
     record(card, groceries, "1200", date(2098, 12, 20))
-    run_daily_job(date(2099, 1, 15))
+    run_daily_job(date(2099, 1, 16))
 
     signed_in.post(reverse("draft_post", args=[Draft.objects.get().pk]))
 
@@ -132,7 +132,7 @@ def test_the_actual_amount_covers_a_payment_the_estimate_did_not(
 def test_an_actual_amount_proposes_a_payment_the_estimate_did_not(
     signed_in: Client, card: Account
 ) -> None:
-    run_daily_job(date(2026, 10, 15))
+    run_daily_job(date(2026, 10, 16))
     statement = Statement.objects.get()
 
     signed_in.post(edit_url(statement), {"actual_amount": "640"})
@@ -199,3 +199,65 @@ def test_the_drafts_list_shows_card_payments_apart(
 
     assert "Card payments" in body
     assert "HDFC card Statement to 15 Oct 2026" in body
+
+
+def test_an_actual_amount_of_zero_withdraws_the_payment_draft(
+    signed_in: Client, billed: Statement
+) -> None:
+    signed_in.post(edit_url(billed), {"actual_amount": "0"})
+
+    assert not Draft.objects.exists()
+
+
+def test_a_positive_actual_amount_after_zero_proposes_the_payment_again(
+    signed_in: Client, billed: Statement
+) -> None:
+    signed_in.post(edit_url(billed), {"actual_amount": "0"})
+
+    signed_in.post(edit_url(billed), {"actual_amount": "900"})
+
+    assert Draft.objects.get().splits.get().amount == Decimal(900)
+
+
+def test_deleting_the_payment_reopens_the_statement_and_proposes_it_again(
+    card: Account, billed: Statement
+) -> None:
+    assert card.pays_from
+    payment = record(card.pays_from, card, "1200", date(2026, 11, 3))
+    run_daily_job(date(2026, 11, 3))
+
+    payment.delete()
+
+    billed.refresh_from_db()
+    assert billed.transaction is None
+    draft = Draft.objects.waiting().get()
+    assert (draft.statement, draft.splits.get().amount) == (billed, Decimal(1200))
+
+
+def test_deleting_a_posted_payment_proposes_it_again(
+    signed_in: Client, billed: Statement
+) -> None:
+    signed_in.post(reverse("draft_post", args=[Draft.objects.get().pk]))
+    payment = Statement.objects.get().transaction
+    assert payment
+
+    payment.delete()
+
+    billed.refresh_from_db()
+    assert billed.transaction is None
+    assert Draft.objects.waiting().get().statement == billed
+
+
+def test_deleting_the_payment_of_nothing_to_pay_proposes_no_draft(
+    signed_in: Client, card: Account, billed: Statement
+) -> None:
+    assert card.pays_from
+    payment = record(card.pays_from, card, "1200", date(2026, 11, 3))
+    run_daily_job(date(2026, 11, 3))
+    signed_in.post(edit_url(billed), {"actual_amount": "0"})
+
+    payment.delete()
+
+    billed.refresh_from_db()
+    assert billed.transaction is None
+    assert not Draft.objects.exists()
