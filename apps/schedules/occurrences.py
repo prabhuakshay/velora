@@ -7,6 +7,7 @@ from django.db import transaction as db_transaction
 from apps.quick_add.models import Draft, DraftSplit
 from apps.quick_add.posting import DraftNotPostableError, post_draft
 from apps.schedules.estimates import last_paid_amount
+from apps.schedules.matching import match_occurrence
 from apps.schedules.models import Occurrence, Schedule
 from apps.schedules.repeat import due_dates
 
@@ -31,10 +32,20 @@ def materialise(schedule: Schedule, today: date) -> None:
 
 
 def regenerate(schedule: Schedule, today: date) -> None:
-    """Lay out the Upcoming Occurrences again, after the Schedule changed."""
+    """Lay out the Upcoming Occurrences again, after the Schedule changed.
+
+    Due ones are matched or drafted now rather than at the next daily job.
+    """
     schedule.occurrences.filter(status=Occurrence.Status.UPCOMING).delete()
-    if schedule.active:
-        materialise(schedule, today)
+    if not schedule.active:
+        return
+    materialise(schedule, today)
+    due = schedule.occurrences.filter(
+        status=Occurrence.Status.UPCOMING, due_date__lte=today
+    ).select_related("schedule")
+    for occurrence in due:
+        if not match_occurrence(occurrence):
+            propose_draft(occurrence)
 
 
 def materialise_occurrences(today: date) -> None:

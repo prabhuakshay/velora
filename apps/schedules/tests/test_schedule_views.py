@@ -11,7 +11,11 @@ from apps.classification.models import Party
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
 from apps.schedules.models import Occurrence, Schedule
-from apps.schedules.tests.conftest import make_schedule, schedule_form_data
+from apps.schedules.tests.conftest import (
+    make_schedule,
+    paid,
+    schedule_form_data,
+)
 from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
@@ -61,6 +65,39 @@ def test_a_new_schedule_lays_out_its_upcoming_occurrences(signed_in: Client) -> 
         (start, Occurrence.Status.UPCOMING),
         (start + timedelta(weeks=1), Occurrence.Status.UPCOMING),
     ]
+
+
+def test_a_new_schedule_already_due_proposes_its_draft_at_once(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    food = make_account("Food", "expense")
+    yesterday = timezone.localdate() - timedelta(days=1)
+
+    signed_in.post(
+        reverse("schedule_create"),
+        schedule_form_data((bank, food, "100"), start_date=yesterday, unit="day"),
+    )
+
+    assert [draft.date for draft in Draft.objects.order_by("date")] == [
+        yesterday,
+        yesterday + timedelta(days=1),
+    ]
+
+
+def test_a_new_schedule_already_paid_proposes_no_draft(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    phone = make_account("Phone", "expense")
+    today = timezone.localdate()
+    paid((bank, phone), Party.objects.create(name="Airtel"), ("990", today))
+
+    signed_in.post(
+        reverse("schedule_create"),
+        schedule_form_data((bank, phone, "1000"), start_date=today),
+    )
+
+    assert not Draft.objects.exists()
+    assert Occurrence.objects.get(due_date=today).status == Occurrence.Status.PAID
 
 
 def test_splits_follow_the_transaction_split_rules(signed_in: Client) -> None:
@@ -175,7 +212,10 @@ def test_the_occurrence_history_links_to_each_draft_and_transaction(
     assert f'href="{reverse("draft_edit", args=[draft.pk])}"' in body
 
 
-def test_editing_changes_only_upcoming_occurrences(signed_in: Client) -> None:
+def test_editing_changes_only_upcoming_occurrences(
+    signed_in: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(timezone, "localdate", lambda *_a, **_k: date(2026, 10, 9))
     bank = make_account("Bank", "asset")
     rent = make_account("Rent", "expense")
     schedule = make_schedule((bank, rent, "25000"), start_date=date(2026, 8, 5))

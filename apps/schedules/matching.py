@@ -82,13 +82,19 @@ def match_transactions(today: date) -> None:
         due_date__lte=today + DATE_TOLERANCE,
     ).select_related("schedule")
     for occurrence in open_occurrences:
-        transaction = find_cover(
-            occurrence.schedule.splits.all(),
-            occurrence.due_date,
-            Transaction.objects.filter(occurrence__isnull=True, statement__isnull=True),
-        )
-        if transaction:
-            cover(occurrence, transaction)
+        match_occurrence(occurrence)
+
+
+def match_occurrence(occurrence: Occurrence) -> bool:
+    """Cover the Occurrence with a recorded Transaction, if one could."""
+    transaction = find_cover(
+        occurrence.schedule.splits.all(),
+        occurrence.due_date,
+        Transaction.objects.filter(occurrence__isnull=True, statement__isnull=True),
+    )
+    if transaction:
+        cover(occurrence, transaction)
+    return transaction is not None
 
 
 def mark_missed(today: date) -> None:

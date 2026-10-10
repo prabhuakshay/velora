@@ -33,7 +33,7 @@ def draft_dates() -> list[date]:
 
 def test_a_paused_schedule_proposes_nothing(signed_in: Client) -> None:
     today = timezone.localdate()
-    schedule = daily_schedule(signed_in, today)
+    schedule = daily_schedule(signed_in, today + timedelta(days=1))
 
     signed_in.post(reverse("schedule_pause", args=[schedule.pk]))
     run_daily_job(today + timedelta(days=2))
@@ -45,7 +45,7 @@ def test_a_paused_schedule_proposes_nothing(signed_in: Client) -> None:
 
 def test_resuming_does_not_catch_up_dates_while_paused(signed_in: Client) -> None:
     today = timezone.localdate()
-    schedule = daily_schedule(signed_in, today - timedelta(days=3))
+    schedule = make_schedule(start_date=today - timedelta(days=3), unit="day")
     signed_in.post(reverse("schedule_pause", args=[schedule.pk]))
 
     signed_in.post(reverse("schedule_resume", args=[schedule.pk]))
@@ -56,7 +56,7 @@ def test_resuming_does_not_catch_up_dates_while_paused(signed_in: Client) -> Non
 
 def test_an_ended_schedule_proposes_nothing_from_today(signed_in: Client) -> None:
     today = timezone.localdate()
-    schedule = daily_schedule(signed_in, today)
+    schedule = daily_schedule(signed_in, today + timedelta(days=1))
 
     signed_in.post(reverse("schedule_end", args=[schedule.pk]))
     run_daily_job(today + timedelta(days=2))

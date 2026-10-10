@@ -16,8 +16,9 @@ if TYPE_CHECKING:
 # In order; each must be safe to run twice on the same day.
 STEPS: tuple[Callable[[date], None], ...] = (
     materialise_occurrences,
-    propose_due_drafts,
+    # Match first, so a Transaction already recorded needs no Draft.
     match_transactions,
+    propose_due_drafts,
     mark_missed,
     # Settle payments first, so a new Statement's estimate leaves them out.
     match_card_payments,
