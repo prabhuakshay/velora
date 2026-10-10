@@ -170,7 +170,7 @@ class Draft(models.Model):
             self.quick_add.posted_without_edits = without_edits
             self.quick_add.save(update_fields=["status", "posted_without_edits"])
         if self.occurrence:
-            self.occurrence.settle(paid=True)
+            self.occurrence.settle(transaction)
 
     def reject(self) -> None:
         """Mark it rejected, and its Occurrence Skipped, never Missed."""
@@ -179,7 +179,7 @@ class Draft(models.Model):
         if self.quick_add:
             self.quick_add.reject()
         if self.occurrence:
-            self.occurrence.settle(paid=False)
+            self.occurrence.settle(None)
 
 
 class DraftSplit(models.Model):
