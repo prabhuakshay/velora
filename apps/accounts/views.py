@@ -1,7 +1,7 @@
 """Views for managing Accounts, one set shared by every kind."""
 
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
+
+    from apps.users.models import User
 
 CHART_WIDTH = 600
 CHART_HEIGHT = 200
@@ -70,7 +72,8 @@ def home(request: HttpRequest) -> HttpResponse:
     """Show Net Worth with the Assets and Liabilities totals behind it."""
     as_of = _as_of_date(request.GET.get("as_of"))
     today = timezone.localdate()
-    history = net_worth_history(today)
+    privacy_mode = cast("User", request.user).privacy_mode
+    history = [] if privacy_mode else net_worth_history(today)
     return render(
         request,
         "index.html",

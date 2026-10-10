@@ -128,6 +128,18 @@ def test_home_page_replaces_chart_with_placeholder(signed_in: Client) -> None:
     assert "points=" not in page
 
 
+def test_home_page_skips_net_worth_history(
+    signed_in: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail(_today: date) -> None:
+        pytest.fail("net_worth_history was called in Privacy Mode")
+
+    monkeypatch.setattr("apps.accounts.views.net_worth_history", fail)
+    turn_on(signed_in)
+
+    assert "Hidden in Privacy Mode" in home_page(signed_in)
+
+
 def test_account_pages_mask_balances_without_sign_or_red(signed_in: Client) -> None:
     bank = opening("Bank", "asset", "1234.50")
     rent = make_account("Rent", "expense")
