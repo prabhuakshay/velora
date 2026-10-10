@@ -18,8 +18,8 @@ from apps.schedules.forms import (
 )
 from apps.schedules.models import Occurrence, Schedule, SuggestedSchedule
 from apps.schedules.occurrences import regenerate
+from apps.schedules.repeat import units_after
 from apps.schedules.subscriptions import subscription_costs, yearly_total
-from apps.schedules.suggestions import next_expected
 from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
@@ -98,7 +98,7 @@ def _initial_from(suggestion: SuggestedSchedule) -> Initial:
         "party": suggestion.party_id,
         "every": 1,
         "unit": suggestion.unit,
-        "start_date": last_paid and next_expected(last_paid.date, suggestion.unit),
+        "start_date": last_paid and units_after(last_paid.date, suggestion.unit, 1),
     }
     split = {
         "from_account": suggestion.from_account_id,

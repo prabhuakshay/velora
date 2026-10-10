@@ -9,8 +9,8 @@ from statistics import median
 from django.db import transaction as db_transaction
 from django.db.models import Sum
 
-from apps.core.dates import months_after
 from apps.schedules.models import Schedule, SuggestedSchedule
+from apps.schedules.repeat import units_after
 from apps.transactions.models import Split
 
 Unit = Schedule.Unit
@@ -30,22 +30,11 @@ class Payment:
     amount: Decimal
 
 
-def next_expected(when: date, unit: str) -> date:
-    """When the next payment is expected, one `unit` after `when`."""
-    match unit:
-        case Unit.WEEK:
-            return when + timedelta(weeks=1)
-        case Unit.MONTH:
-            return months_after(when, 1)
-        case _:
-            return months_after(when, 12)
-
-
 def steady_run(payments: list[Payment], unit: str) -> list[Payment]:
     """The latest payments that each land within tolerance of the one before."""
     run = [payments[-1]]
     for earlier in reversed(payments[:-1]):
-        drift = abs((run[0].date - next_expected(earlier.date, unit)).days)
+        drift = abs((run[0].date - units_after(earlier.date, unit, 1)).days)
         if drift > TOLERANCE_DAYS[unit]:
             break
         run.insert(0, earlier)
@@ -54,7 +43,7 @@ def steady_run(payments: list[Payment], unit: str) -> list[Payment]:
 
 def is_stale(latest: Payment, unit: str, today: date) -> bool:
     """Whether the next payment after the latest is overdue beyond tolerance."""
-    deadline = next_expected(latest.date, unit) + timedelta(days=TOLERANCE_DAYS[unit])
+    deadline = units_after(latest.date, unit, 1) + timedelta(days=TOLERANCE_DAYS[unit])
     return today > deadline
 
 

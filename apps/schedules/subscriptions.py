@@ -15,11 +15,11 @@ from apps.schedules.repeat import cron_dates
 if TYPE_CHECKING:
     from datetime import date
 
-TIMES_A_YEAR = {
-    "day": Decimal(365),
-    "week": Decimal(52),
-    "month": Decimal(12),
-    "year": Decimal(1),
+TIMES_A_YEAR: dict[str, Decimal] = {
+    Schedule.Unit.DAY: Decimal(365),
+    Schedule.Unit.WEEK: Decimal(52),
+    Schedule.Unit.MONTH: Decimal(12),
+    Schedule.Unit.YEAR: Decimal(1),
 }
 
 type PriceHistory = list[tuple[date, Decimal | None]]

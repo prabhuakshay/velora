@@ -7,25 +7,30 @@ from typing import TYPE_CHECKING
 from croniter import CroniterBadDateError, croniter
 
 from apps.core.dates import months_after
+from apps.schedules.models import Schedule
+
+Unit = Schedule.Unit
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from apps.schedules.models import Schedule
+
+def units_after(start: date, unit: str, count: int) -> date:
+    """The date `count` repeat units after `start`, clamped to shorter months."""
+    match unit:
+        case Unit.DAY:
+            return start + timedelta(days=count)
+        case Unit.WEEK:
+            return start + timedelta(weeks=count)
+        case Unit.MONTH:
+            return months_after(start, count)
+        case _:
+            return months_after(start, 12 * count)
 
 
 def nth_due_date(schedule: Schedule, n: int) -> date:
     """The n-th interval due date, counting the start date as the 0th."""
-    steps = n * (schedule.every or 1)
-    match schedule.unit:
-        case "day":
-            return schedule.start_date + timedelta(days=steps)
-        case "week":
-            return schedule.start_date + timedelta(weeks=steps)
-        case "month":
-            return months_after(schedule.start_date, steps)
-        case _:
-            return months_after(schedule.start_date, 12 * steps)
+    return units_after(schedule.start_date, schedule.unit, n * (schedule.every or 1))
 
 
 def cron_dates(expression: str, start: date) -> Iterator[date]:
