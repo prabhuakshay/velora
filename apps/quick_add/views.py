@@ -1,8 +1,7 @@
 """Views for writing Quick Adds and reviewing Drafts."""
 
-from contextlib import suppress
 from functools import wraps
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -13,24 +12,28 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.quick_add import openrouter
-from apps.quick_add.forms import DraftForm, NewPartyForm, QuickAddForm
+from apps.quick_add.forms import (
+    DraftEditForm,
+    DraftForm,
+    DraftSplitFormSet,
+    QuickAddForm,
+)
 from apps.quick_add.models import Draft, DraftSplit, QuickAdd
 from apps.quick_add.posting import (
-    DraftGoneError,
     DraftNotPostableError,
-    form_data,
     matching_party,
     post_draft,
-    posting_edited,
+    post_edited,
+    posting_problems,
+    split_tags,
 )
 from apps.quick_add.stats import ai_stats
 from apps.quick_add.tasks import process_quick_add
-from apps.transactions.models import Transaction
-from apps.transactions.recording import TransactionForms
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from django.forms import BaseInlineFormSet
     from django.http import HttpRequest
     from django.http.response import HttpResponseBase
 
@@ -142,43 +145,86 @@ def draft_post(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG0
     return redirect("draft_list")
 
 
+def save_edits(
+    draft: Draft, form: DraftEditForm, formset: BaseInlineFormSet[Any, Any, Any]
+) -> bool:
+    """Save the edits onto the Draft, unless it stopped waiting meanwhile."""
+    with db_transaction.atomic():
+        if not Draft.objects.select_for_update().filter(
+            pk=draft.pk, status=Draft.Status.WAITING
+        ):
+            return False
+        form.instance.posting_error = ""
+        form.save()
+        formset.save()
+    return True
+
+
+def render_draft_edit(
+    request: HttpRequest,
+    form: DraftEditForm,
+    formset: BaseInlineFormSet[Any, Any, Any],
+    posting_error: str = "",
+) -> HttpResponseBase:
+    """The Draft edit page."""
+    return render(
+        request,
+        "transactions/transaction_form.html",
+        {
+            "form": form,
+            "formset": formset,
+            "new_party": form,
+            "editing_draft": True,
+            "posting_error": posting_error,
+        },
+    )
+
+
+def unsaved_edit(
+    draft: Draft,
+) -> tuple[DraftEditForm, BaseInlineFormSet[Any, Any, Any], str]:
+    """The edit forms filled from the Draft, and why it can't be posted yet."""
+    party = matching_party(draft)
+    problems = posting_problems(draft)
+    return (
+        DraftEditForm(
+            instance=draft,
+            initial={"party": party.pk, "new_party_name": ""} if party else {},
+        ),
+        DraftSplitFormSet(instance=draft),
+        f"Can't post yet: {' '.join(problems)}" if problems else "",
+    )
+
+
 # TransactionForms.save must be the real commit, so a failed commit is seen
 # there and the new files can be removed.
 @db_transaction.non_atomic_requests
 @login_required
 def draft_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """The Transaction form filled from the Draft; saving it posts the Draft."""
+    """Edit the Draft, then save it as it is or save it and post it."""
     draft = get_object_or_404(Draft, pk=pk, status=Draft.Status.WAITING)
-    if request.method == "POST":
-        forms = TransactionForms(request.POST, request.FILES, instance=Transaction())
-        new_party = NewPartyForm(request.POST)
-        if forms.is_valid() and new_party.is_valid():
-            posting = posting_edited(
-                draft,
-                forms.form.instance,
-                new_party.cleaned_data["new_party_name"],
-            )
-            with suppress(DraftGoneError):
-                forms.save(within=posting)
-            return redirect("draft_list")
-    else:
-        party = matching_party(draft)
-        # Bound, so a Draft that no longer passes shows why straight away.
-        forms = TransactionForms(form_data(draft, party), instance=Transaction())
-        forms.is_valid()
-        new_party = NewPartyForm(
-            initial={"new_party_name": "" if party else draft.new_party_name}
+    if request.method != "POST":
+        return render_draft_edit(request, *unsaved_edit(draft))
+    form = DraftEditForm(request.POST, request.FILES, instance=draft)
+    formset = DraftSplitFormSet(request.POST, instance=draft)
+    if not (form.is_valid() and formset.is_valid()):
+        return render_draft_edit(request, form, formset)
+    if (
+        save_edits(draft, form, formset)
+        and request.POST.get("action") == "post"
+        and (reasons := post_edited(draft, split_tags(formset), request.FILES))
+    ):
+        draft.posting_error = " ".join(reasons)
+        draft.save(update_fields=["posting_error"])
+        # Shown afresh from the saved Draft, so saving again can't add its new
+        # Splits twice.
+        return render_draft_edit(
+            request,
+            DraftEditForm(instance=draft),
+            DraftSplitFormSet(instance=draft),
+            f"Couldn't post: {draft.posting_error}",
         )
-    return render(
-        request,
-        "transactions/transaction_form.html",
-        {
-            "form": forms.form,
-            "formset": forms.formset,
-            "new_party": new_party,
-            "editing_draft": True,
-        },
-    )
+    return redirect("draft_list")
 
 
 @login_required

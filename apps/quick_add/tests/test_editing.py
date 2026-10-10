@@ -1,14 +1,16 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
+from html import unescape
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party, Tag
 from apps.quick_add.models import Draft, QuickAdd
-from apps.quick_add.tests.conftest import make_draft
+from apps.quick_add.tests.conftest import make_draft, make_manual_draft
 from apps.transactions.models import Transaction
 from apps.transactions.recording import TransactionForms
 from apps.transactions.tests.conftest import upload
@@ -36,7 +38,7 @@ def test_edit_opens_the_transaction_form_filled_from_the_draft(
     response = signed_in.get(reverse("draft_edit", args=[quick_add.draft.pk]))
 
     form = response.context["form"]
-    assert form["date"].value() == date(2026, 10, 8).isoformat()
+    assert str(form["date"].value()) == date(2026, 10, 8).isoformat()
     assert str(form["party"].value()) == str(toit.pk)
     assert form["description"].value() == "Team lunch"
     assert [
@@ -52,9 +54,15 @@ def test_edit_opens_the_transaction_form_filled_from_the_draft(
     ]
 
 
+def first_split(draft: Draft) -> dict[str, Any]:
+    """The edit form's fields that keep the Draft's first Split as a row."""
+    return {"splits-INITIAL_FORMS": "1", "splits-0-id": draft.splits.get().pk}
+
+
 def edited(**fields: Any) -> dict[str, Any]:
-    """A submitted Transaction form with one Split, as the user saved it."""
+    """The submitted Draft edit form with one Split; Save and post by default."""
     return {
+        "action": "post",
         "date": "2026-10-07",
         "party": "",
         "description": "",
@@ -76,6 +84,7 @@ def test_saving_the_form_posts_the_draft_with_edits(signed_in: Client) -> None:
         edited(
             description="Team lunch",
             attachments=upload("bill.pdf", b"%PDF-1.4 bill"),
+            **first_split(quick_add.draft),
             **{
                 "splits-0-from_account": card.pk,
                 "splits-0-to_account": food.pk,
@@ -130,7 +139,7 @@ def test_new_party_name_is_offered_and_created_on_save(signed_in: Client) -> Non
     quick_add = make_draft((card, food, "1200"), new_party_name="Brik Oven")
 
     page = signed_in.get(reverse("draft_edit", args=[quick_add.draft.pk]))
-    assert page.context["form"]["party"].value() == ""
+    assert not page.context["form"]["party"].value()
     assert page.context["new_party"]["new_party_name"].value() == "Brik Oven"
     assert not Party.objects.exists()
 
@@ -138,6 +147,7 @@ def test_new_party_name_is_offered_and_created_on_save(signed_in: Client) -> Non
         reverse("draft_edit", args=[quick_add.draft.pk]),
         edited(
             new_party_name="Brik Oven",
+            **first_split(quick_add.draft),
             **{
                 "splits-0-from_account": card.pk,
                 "splits-0-to_account": food.pk,
@@ -229,3 +239,157 @@ def test_a_quick_add_draft_can_still_be_edited_without_a_key(
     response = signed_in.get(reverse("draft_edit", args=[quick_add.draft.pk]))
 
     assert response.status_code == 200
+
+
+def test_the_edit_page_offers_save_draft_and_save_and_post(signed_in: Client) -> None:
+    draft = make_manual_draft(description="Dentist")
+
+    body = signed_in.get(reverse("draft_edit", args=[draft.pk])).content.decode()
+
+    assert 'name="action" value="save"' in body
+    assert "Save Draft" in body
+    assert 'name="action" value="post"' in body
+    assert "Save and post" in body
+
+
+def test_save_draft_keeps_the_edits_on_the_waiting_draft(signed_in: Client) -> None:
+    card = make_account("HDFC Card", "liability")
+    food = make_account("Eating Out", "expense")
+    fun = make_account("Fun", "expense")
+    toit = Party.objects.create(name="Toit Brewpub")
+    quick_add = make_draft((card, food, "850"), (card, fun, "150"), party=toit)
+    first, second = quick_add.draft.splits.all()
+
+    response = signed_in.post(
+        reverse("draft_edit", args=[quick_add.draft.pk]),
+        edited(
+            action="save",
+            date="2026-10-20",
+            description="Team lunch, bill to come",
+            **{
+                "splits-TOTAL_FORMS": "3",
+                "splits-INITIAL_FORMS": "2",
+                "splits-0-id": first.pk,
+                "splits-0-from_account": card.pk,
+                "splits-0-to_account": food.pk,
+                "splits-0-amount": "",
+                "splits-1-id": second.pk,
+                "splits-1-from_account": card.pk,
+                "splits-1-to_account": fun.pk,
+                "splits-1-amount": "150",
+                "splits-1-DELETE": "on",
+                "splits-2-from_account": "",
+                "splits-2-to_account": "",
+                "splits-2-amount": "40",
+            },
+        ),
+    )
+
+    assert response["Location"] == reverse("draft_list")
+    assert not Transaction.objects.exists()
+    draft = Draft.objects.get()
+    assert (draft.status, draft.date, draft.party, draft.description) == (
+        Draft.Status.WAITING,
+        date(2026, 10, 20),
+        None,
+        "Team lunch, bill to come",
+    )
+    assert [(s.from_account, s.to_account, s.amount) for s in draft.splits.all()] == [
+        (card, food, None),
+        (None, None, Decimal(40)),
+    ]
+    assert QuickAdd.objects.get().status == QuickAdd.Status.DRAFT
+
+
+def test_save_draft_keeps_a_new_party_name(signed_in: Client) -> None:
+    draft = make_manual_draft(description="Dentist")
+
+    signed_in.post(
+        reverse("draft_edit", args=[draft.pk]),
+        edited(
+            action="save", new_party_name="Smile Dental", **{"splits-TOTAL_FORMS": "0"}
+        ),
+    )
+
+    draft.refresh_from_db()
+    assert draft.new_party_name == "Smile Dental"
+    assert not Party.objects.exists()
+
+
+def test_save_and_post_with_a_gap_saves_the_edits_and_says_why(
+    signed_in: Client,
+) -> None:
+    card = make_account("HDFC Card", "liability")
+    health = make_account("Health", "expense")
+    draft = make_manual_draft(description="Dentist")
+
+    response = signed_in.post(
+        reverse("draft_edit", args=[draft.pk]),
+        edited(
+            description="Dentist, filling",
+            **{
+                "splits-0-from_account": card.pk,
+                "splits-0-to_account": health.pk,
+                "splits-0-amount": "",
+            },
+        ),
+    )
+
+    assert response.status_code == 200
+    body = unescape(response.content.decode())
+    assert "Couldn't post: Split 1: missing amount." in body
+    assert not Transaction.objects.exists()
+    draft.refresh_from_db()
+    assert draft.status == Draft.Status.WAITING
+    assert draft.description == "Dentist, filling"
+    assert draft.posting_error == "Split 1: missing amount."
+    assert [(s.from_account, s.amount) for s in draft.splits.all()] == [(card, None)]
+
+
+def test_save_and_post_breaking_a_rule_saves_the_edits_and_says_why(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    salary = make_account("Salary", "income")
+    draft = make_manual_draft()
+
+    response = signed_in.post(
+        reverse("draft_edit", args=[draft.pk]),
+        edited(
+            **{
+                "splits-0-from_account": bank.pk,
+                "splits-0-to_account": salary.pk,
+                "splits-0-amount": "100",
+            },
+        ),
+    )
+
+    assert "An Income Account can only be a source." in response.content.decode()
+    assert not Transaction.objects.exists()
+    assert Draft.objects.get().splits.get().to_account == salary
+
+
+def test_save_and_post_records_a_draft_dated_after_today_today(
+    signed_in: Client,
+) -> None:
+    card = make_account("HDFC Card", "liability")
+    rent = make_account("Rent", "expense")
+    today = timezone.localdate()
+    draft = make_manual_draft((card, rent, "25000"))
+    later = today + timedelta(days=3)
+
+    page = signed_in.get(reverse("draft_edit", args=[draft.pk])).content.decode()
+    signed_in.post(
+        reverse("draft_edit", args=[draft.pk]),
+        edited(
+            date=later.isoformat(),
+            **{
+                "splits-0-from_account": card.pk,
+                "splits-0-to_account": rent.pk,
+                "splits-0-amount": "25000",
+            },
+        ),
+    )
+
+    assert "cannot be after today" not in page
+    assert Transaction.objects.get().date == today

@@ -111,11 +111,13 @@ def test_editing_fills_in_the_amount_and_posts_it(signed_in: Client) -> None:
     signed_in.post(
         url,
         {
+            "action": "post",
             "date": "2026-10-08",
             "party": "",
             "description": "Dentist",
             "splits-TOTAL_FORMS": 1,
-            "splits-INITIAL_FORMS": 0,
+            "splits-INITIAL_FORMS": 1,
+            "splits-0-id": draft.splits.get().pk,
             "splits-0-from_account": card.pk,
             "splits-0-to_account": dentist.pk,
             "splits-0-amount": "1200",
@@ -138,17 +140,3 @@ def test_a_draft_dated_after_today_posts_on_today(signed_in: Client) -> None:
     post(signed_in, draft)
 
     assert Transaction.objects.get().date == today
-
-
-def test_editing_a_draft_dated_after_today_starts_from_today(
-    signed_in: Client,
-) -> None:
-    card = make_account("HDFC Card", "liability")
-    rent = make_account("Rent", "expense")
-    today = timezone.localdate()
-    draft = make_manual_draft((card, rent, "25000"), date=today + timedelta(days=3))
-
-    form = signed_in.get(reverse("draft_edit", args=[draft.pk])).content.decode()
-
-    assert f'value="{today.isoformat()}"' in form
-    assert "cannot be after today" not in form
