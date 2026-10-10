@@ -1,17 +1,14 @@
 """Forms for a Schedule's rule and the Splits it proposes."""
 
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 from croniter import croniter
 from django import forms
-from django.db.models.functions import Lower
 from django.utils import timezone
 
-from apps.accounts.models import Account
-from apps.classification.models import Party
 from apps.schedules.models import Schedule, ScheduleSplit
 from apps.schedules.repeat import cron_dates
-from apps.transactions.forms import grouped_by_kind, visible_or_current
+from apps.transactions.forms import offer_accounts, offer_parties
 from apps.transactions.split_rules import accounts_error, shared_account_error
 
 # Days ahead to remind when the user leaves it blank, by repeat unit.
@@ -81,10 +78,7 @@ class ScheduleForm(forms.ModelForm[Schedule]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
-        party = cast("forms.ModelChoiceField[Party]", self.fields["party"])
-        party.queryset = visible_or_current(
-            Party.objects.order_by(Lower("name")), self.instance.party_id
-        )
+        offer_parties(self)
         self.fields["reminder_days"].required = False
         if not self.instance.pk:
             self.initial["reminder_days"] = None
@@ -134,15 +128,7 @@ class ScheduleSplitForm(forms.ModelForm[ScheduleSplit]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
-        accounts = visible_or_current(
-            Account.objects.all(),
-            self.instance.from_account_id,
-            self.instance.to_account_id,
-        )
-        for name in ("from_account", "to_account"):
-            field = cast("forms.ModelChoiceField[Account]", self.fields[name])
-            field.queryset = accounts
-            field.choices = grouped_by_kind(accounts)
+        offer_accounts(self)
 
     def clean(self) -> dict[str, Any]:
         """Apply the shared Split rules to the two Accounts."""

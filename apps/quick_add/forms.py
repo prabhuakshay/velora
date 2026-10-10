@@ -6,13 +6,12 @@ from django import forms
 from django.db.models.functions import Lower
 from django.utils import timezone
 
-from apps.accounts.models import Account
 from apps.classification.models import Party, Tag
 from apps.quick_add.models import Draft, DraftSplit, QuickAdd
 from apps.transactions.forms import (
     MultipleFileField,
-    grouped_by_kind,
-    visible_or_current,
+    offer_accounts,
+    offer_parties,
 )
 
 
@@ -72,10 +71,7 @@ class DraftEditForm(forms.ModelForm[Draft]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
-        party = cast("forms.ModelChoiceField[Party]", self.fields["party"])
-        party.queryset = visible_or_current(
-            Party.objects.order_by(Lower("name")), self.instance.party_id
-        )
+        offer_parties(self)
 
     def clean(self) -> dict[str, Any]:
         """A picked Party wins over a new Party name."""
@@ -105,16 +101,9 @@ class DraftSplitForm(forms.ModelForm[DraftSplit]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
-        accounts = visible_or_current(
-            Account.objects.all(),
-            self.instance.from_account_id,
-            self.instance.to_account_id,
-        )
+        offer_accounts(self)
         for name in ("from_account", "to_account"):
-            field = cast("forms.ModelChoiceField[Account]", self.fields[name])
-            field.required = False
-            field.queryset = accounts
-            field.choices = grouped_by_kind(accounts)
+            self.fields[name].required = False
         tags = cast("forms.ModelMultipleChoiceField[Tag]", self.fields["tags"])
         tags.queryset = Tag.objects.filter(hidden=False).order_by(Lower("name"))
 

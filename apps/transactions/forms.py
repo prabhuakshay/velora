@@ -44,6 +44,27 @@ def grouped_by_kind(accounts: QuerySet[Account]) -> list[Any]:
     return [("", "---------"), *[group for group in groups if group[1]]]
 
 
+def offer_parties(form: forms.ModelForm[Any]) -> None:
+    """Offer the visible Parties by name, and the one the record already has."""
+    party = cast("forms.ModelChoiceField[Party]", form.fields["party"])
+    party.queryset = visible_or_current(
+        Party.objects.order_by(Lower("name")), form.instance.party_id
+    )
+
+
+def offer_accounts(form: forms.ModelForm[Any]) -> None:
+    """Offer the visible Accounts by kind, and those the Split already uses."""
+    accounts = visible_or_current(
+        Account.objects.all(),
+        form.instance.from_account_id,
+        form.instance.to_account_id,
+    )
+    for name in ("from_account", "to_account"):
+        field = cast("forms.ModelChoiceField[Account]", form.fields[name])
+        field.queryset = accounts
+        field.choices = grouped_by_kind(accounts)
+
+
 class MultipleFileInput(forms.ClearableFileInput):
     """A file picker that lets the user choose several files."""
 
@@ -108,10 +129,7 @@ class TransactionForm(forms.ModelForm[Transaction]):
                 "data-too-large": TOO_LARGE,
             }
         )
-        party = cast("forms.ModelChoiceField[Party]", self.fields["party"])
-        party.queryset = visible_or_current(
-            Party.objects.order_by(Lower("name")), self.instance.party_id
-        )
+        offer_parties(self)
 
     def clean_date(self) -> Any:  # noqa: ANN401
         """Reject a date after today."""
@@ -160,15 +178,7 @@ class SplitForm(forms.ModelForm[Split]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
-        accounts = visible_or_current(
-            Account.objects.all(),
-            self.instance.from_account_id,
-            self.instance.to_account_id,
-        )
-        for name in ("from_account", "to_account"):
-            field = cast("forms.ModelChoiceField[Account]", self.fields[name])
-            field.queryset = accounts
-            field.choices = grouped_by_kind(accounts)
+        offer_accounts(self)
         applied = self.instance.tags.all() if self.instance.pk else []
         tags = cast("forms.ModelMultipleChoiceField[Tag]", self.fields["tags"])
         tags.queryset = visible_or_current(
