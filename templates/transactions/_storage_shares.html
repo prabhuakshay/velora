@@ -1,0 +1,14 @@
+{% if shares %}
+  <table class="mt-2 w-full rounded-2xl bg-white text-sm shadow-sm ring-1 ring-slate-200">
+    <thead class="text-left text-slate-500">
+      <tr><th class="px-4 py-2 font-normal">{{ label }}</th><th class="px-4 py-2 text-right font-normal">Attachments</th><th class="px-4 py-2 text-right font-normal">Size</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for share in shares %}
+        <tr><td class="px-4 py-2">{{ share.label }}</td><td class="px-4 py-2 text-right tabular-nums">{{ share.count }}</td><td class="px-4 py-2 text-right tabular-nums">{{ share.size|filesizeformat }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="mt-2 text-sm text-slate-500">{{ empty }}</p>
+{% endif %}
