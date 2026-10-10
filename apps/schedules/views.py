@@ -167,7 +167,7 @@ def schedule_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
     """The Schedule and its Occurrence history."""
     schedule = get_object_or_404(Schedule.objects.select_related("party"), pk=pk)
     today = timezone.localdate()
-    occurrences = schedule.occurrences.all()
+    occurrences = schedule.occurrences.select_related("draft")
     return render(
         request,
         "schedules/schedule_detail.html",

@@ -8,8 +8,11 @@ from django.utils import timezone
 
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
+from apps.quick_add.models import Draft
+from apps.schedules.daily_job import run_daily_job
 from apps.schedules.models import Occurrence, Schedule
 from apps.schedules.tests.conftest import make_schedule, schedule_form_data
+from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -151,6 +154,25 @@ def test_the_detail_page_shows_the_occurrence_history(signed_in: Client) -> None
     assert "Every 1 month from 5 Aug 2026" in body
     assert body.index("5 Aug 2026 · Paid") < body.index("5 Sep 2026 · Skipped")
     assert body.index("5 Sep 2026 · Skipped") < body.index("5 Oct 2026 · Upcoming")
+
+
+def test_the_occurrence_history_links_to_each_draft_and_transaction(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    rent = make_account("Rent", "expense")
+    schedule = make_schedule((bank, rent, "25000"), start_date=date(2026, 9, 5))
+    payment = Transaction.objects.create(date=date(2026, 9, 5))
+    payment.splits.create(from_account=bank, to_account=rent, amount=Decimal(25000))
+    run_daily_job(date(2026, 10, 5))
+
+    body = signed_in.get(
+        reverse("schedule_detail", args=[schedule.pk])
+    ).content.decode()
+
+    draft = Draft.objects.get()
+    assert f'href="{reverse("transaction_edit", args=[payment.pk])}"' in body
+    assert f'href="{reverse("draft_edit", args=[draft.pk])}"' in body
 
 
 def test_editing_changes_only_upcoming_occurrences(signed_in: Client) -> None:

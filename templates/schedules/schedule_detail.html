@@ -34,7 +34,15 @@
   <h2 class="mt-6 text-lg font-semibold">Occurrences</h2>
   <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
     {% for occurrence in occurrences %}
-      <li class="py-2 text-sm">{{ occurrence.due_date|date:"j M Y" }} · {{ occurrence.get_status_display }}</li>
+      <li class="py-2 text-sm">
+        {% if occurrence.transaction_id %}
+          <a href="{% url 'transaction_edit' occurrence.transaction_id %}" class="hover:underline">{{ occurrence.due_date|date:"j M Y" }} · {{ occurrence.get_status_display }}</a>
+        {% elif occurrence.draft.status == "waiting" %}
+          <a href="{% url 'draft_edit' occurrence.draft.pk %}" class="hover:underline">{{ occurrence.due_date|date:"j M Y" }} · {{ occurrence.get_status_display }}</a>
+        {% else %}
+          {{ occurrence.due_date|date:"j M Y" }} · {{ occurrence.get_status_display }}
+        {% endif %}
+      </li>
     {% empty %}
       <li class="py-3 text-slate-500">No Occurrences yet.</li>
     {% endfor %}
