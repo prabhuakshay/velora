@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.core.dates import months_after
+from apps.core.views import blank_split_row
 from apps.schedules.forms import (
     ScheduleForm,
     ScheduleSplitFormSet,
@@ -156,15 +157,7 @@ def schedule_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 def schedule_split_row(request: HttpRequest) -> HttpResponse:
     """A blank Split row for the form's "add split" control."""
-    total = request.GET.get("splits-TOTAL_FORMS", "")
-    index = int(total) if total.isdecimal() else 0
-    split = ScheduleSplitFormSet().empty_form
-    split.prefix = f"splits-{index}"
-    return render(
-        request,
-        "transactions/split_row_added.html",
-        {"split": split, "total": index + 1},
-    )
+    return blank_split_row(request, ScheduleSplitFormSet)
 
 
 @login_required

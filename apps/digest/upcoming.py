@@ -41,19 +41,24 @@ def reminders(today: date) -> list[Item]:
         schedule__active=True,
     ).select_related("schedule__party", "draft")
     return [
-        Item(
-            occurrence.due_date,
-            str(occurrence.schedule),
-            occurrence.schedule.amount,
-            _waiting_or(
-                getattr(occurrence, "draft", None),
-                reverse("schedule_detail", args=[occurrence.schedule_id]),
-            ),
-        )
+        _occurrence_item(occurrence)
         for occurrence in occurrences.prefetch_related("schedule__splits")
         if occurrence.due_date
         <= today + timedelta(days=occurrence.schedule.reminder_days)
     ]
+
+
+def _occurrence_item(occurrence: Occurrence) -> Item:
+    """The Occurrence, linking to its waiting Draft, else its Schedule."""
+    return Item(
+        occurrence.due_date,
+        str(occurrence.schedule),
+        occurrence.schedule.amount,
+        _waiting_or(
+            getattr(occurrence, "draft", None),
+            reverse("schedule_detail", args=[occurrence.schedule_id]),
+        ),
+    )
 
 
 def _waiting_or(draft: Draft | None, fallback: str) -> str:
@@ -69,15 +74,7 @@ def missed(today: date) -> list[Item]:  # noqa: ARG001
         status=Occurrence.Status.MISSED
     ).select_related("schedule__party", "draft")
     return [
-        Item(
-            occurrence.due_date,
-            str(occurrence.schedule),
-            occurrence.schedule.amount,
-            _waiting_or(
-                getattr(occurrence, "draft", None),
-                reverse("schedule_detail", args=[occurrence.schedule_id]),
-            ),
-        )
+        _occurrence_item(occurrence)
         for occurrence in occurrences.prefetch_related("schedule__splits")
     ]
 

@@ -1,16 +1,17 @@
 """View helpers shared by apps that manage named, hideable records."""
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from django.contrib import messages
 from django.core.paginator import Page, Paginator
 from django.db import IntegrityError, transaction
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 
 if TYPE_CHECKING:
     from django import forms
     from django.db.models import QuerySet
-    from django.http import HttpRequest
+    from django.forms import BaseFormSet
+    from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
 
 PAGE_SIZE = 25
@@ -71,3 +72,18 @@ def redirect_in_use_to_merge(
         f"another {noun}, or hide it to keep it off new Transactions.",
     )
     return redirect(merge_url)
+
+
+def blank_split_row(
+    request: HttpRequest, formset_class: type[BaseFormSet[Any]]
+) -> HttpResponse:
+    """A blank row of the formset for the form's "add split" control."""
+    total = request.GET.get("splits-TOTAL_FORMS", "")
+    index = int(total) if total.isdecimal() else 0
+    split = formset_class().empty_form
+    split.prefix = f"splits-{index}"
+    return render(
+        request,
+        "transactions/split_row_added.html",
+        {"split": split, "total": index + 1},
+    )

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from apps.accounts.models import Account
 
 DATE_TOLERANCE = timedelta(days=5)
-AMOUNT_TOLERANCE = Decimal("0.10")
+COVER_AMOUNT_TOLERANCE = Decimal("0.10")
 
 
 class Leg(Protocol):
@@ -54,8 +54,8 @@ def find_cover(
         }
         if leg.amount is not None:
             splits["amount__range"] = (
-                leg.amount * (1 - AMOUNT_TOLERANCE),
-                leg.amount * (1 + AMOUNT_TOLERANCE),
+                leg.amount * (1 - COVER_AMOUNT_TOLERANCE),
+                leg.amount * (1 + COVER_AMOUNT_TOLERANCE),
             )
         matches = matches.filter(**{f"splits__{k}": v for k, v in splits.items()})
     return min(

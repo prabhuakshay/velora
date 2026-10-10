@@ -8,6 +8,7 @@ from django.db.models import Min, Q
 from django.utils import timezone
 
 from apps.accounts.models import CARD_SETTINGS_TOGETHER, Account
+from apps.core.forms import clean_unique_name
 from apps.transactions.models import Split
 
 if TYPE_CHECKING:
@@ -118,11 +119,8 @@ class AccountForm(forms.ModelForm[Account]):
 
     def clean_name(self) -> str:
         """Reject a name already in use within this kind, ignoring case."""
-        name: str = self.cleaned_data["name"]
-        kind = self.instance.kind
-        clash = Account.objects.filter(kind=kind, name__iexact=name)
-        if self.instance.pk:
-            clash = clash.exclude(pk=self.instance.pk)
-        if clash.exists():
-            raise forms.ValidationError(self.duplicate_name_error)
-        return name
+        return clean_unique_name(
+            self,
+            Account.objects.filter(kind=self.instance.kind),
+            self.duplicate_name_error,
+        )

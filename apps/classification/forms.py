@@ -5,6 +5,7 @@ from typing import ClassVar
 from django import forms
 
 from apps.classification.models import SWATCH_CLASSES, Party, Tag
+from apps.core.forms import clean_unique_name
 
 
 class PartyForm(forms.ModelForm[Party]):
@@ -17,14 +18,9 @@ class PartyForm(forms.ModelForm[Party]):
 
     def clean_name(self) -> str:
         """Reject a name already in use, ignoring case."""
-        name: str = self.cleaned_data["name"]
-        clash = Party.objects.filter(name__iexact=name)
-        if self.instance.pk:
-            clash = clash.exclude(pk=self.instance.pk)
-        if clash.exists():
-            msg = "A party with this name already exists."
-            raise forms.ValidationError(msg)
-        return name
+        return clean_unique_name(
+            self, Party.objects.all(), "A party with this name already exists."
+        )
 
 
 class TagForm(forms.ModelForm[Tag]):
@@ -44,11 +40,6 @@ class TagForm(forms.ModelForm[Tag]):
 
     def clean_name(self) -> str:
         """Reject a name already in use, ignoring case."""
-        name: str = self.cleaned_data["name"]
-        clash = Tag.objects.filter(name__iexact=name)
-        if self.instance.pk:
-            clash = clash.exclude(pk=self.instance.pk)
-        if clash.exists():
-            msg = "A tag with this name already exists."
-            raise forms.ValidationError(msg)
-        return name
+        return clean_unique_name(
+            self, Tag.objects.all(), "A tag with this name already exists."
+        )

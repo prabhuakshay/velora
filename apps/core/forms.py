@@ -1,4 +1,4 @@
-"""Forms shared by apps that Merge records."""
+"""Form pieces shared across apps."""
 
 from typing import TYPE_CHECKING, Any
 
@@ -20,3 +20,16 @@ class MergeForm(forms.Form):
     ) -> None:
         super().__init__(data)
         self.fields["target"].queryset = targets  # type: ignore[attr-defined]
+
+
+def clean_unique_name(
+    form: forms.ModelForm[Any], others: QuerySet[Any], error: str
+) -> str:
+    """The form's name, unless one of the others has it already, ignoring case."""
+    name: str = form.cleaned_data["name"]
+    clash = others.filter(name__iexact=name)
+    if form.instance.pk:
+        clash = clash.exclude(pk=form.instance.pk)
+    if clash.exists():
+        raise forms.ValidationError(error)
+    return name

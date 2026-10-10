@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.core.views import paginate
+from apps.core.views import blank_split_row, paginate
 from apps.transactions import cloudflare
 from apps.transactions.attachments import (
     AttachmentDeleteError,
@@ -110,15 +110,7 @@ def transaction_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 def split_row(request: HttpRequest) -> HttpResponse:
     """A blank Split row for the form's "add split" control."""
-    total = request.GET.get("splits-TOTAL_FORMS", "")
-    index = int(total) if total.isdecimal() else 0
-    split = SplitFormSet().empty_form
-    split.prefix = f"splits-{index}"
-    return render(
-        request,
-        "transactions/split_row_added.html",
-        {"split": split, "total": index + 1},
-    )
+    return blank_split_row(request, SplitFormSet)
 
 
 @login_required

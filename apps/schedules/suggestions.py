@@ -18,7 +18,7 @@ Unit = Schedule.Unit
 # How many days a payment may land either side of its expected date.
 TOLERANCE_DAYS: dict[str, int] = {Unit.WEEK: 1, Unit.MONTH: 3, Unit.YEAR: 10}
 MIN_PAYMENTS = 3
-AMOUNT_TOLERANCE = Decimal("0.15")
+STEADY_AMOUNT_TOLERANCE = Decimal("0.15")
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ def is_stale(latest: Payment, unit: str, today: date) -> bool:
 def typical_amount(run: list[Payment]) -> Decimal | None:
     """The median amount, if every payment is within tolerance of it."""
     middle = median(payment.amount for payment in run)
-    if all(abs(p.amount - middle) <= middle * AMOUNT_TOLERANCE for p in run):
+    if all(abs(p.amount - middle) <= middle * STEADY_AMOUNT_TOLERANCE for p in run):
         return middle.quantize(Decimal("0.01"))
     return None
 
