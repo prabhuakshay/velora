@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.quick_add import openrouter
-from apps.quick_add.forms import NewPartyForm, QuickAddForm
+from apps.quick_add.forms import DraftForm, NewPartyForm, QuickAddForm
 from apps.quick_add.models import Draft, DraftSplit, QuickAdd
 from apps.quick_add.posting import (
     DraftGoneError,
@@ -70,6 +70,13 @@ def quick_add_create(request: HttpRequest) -> HttpResponseBase:
     return redirect("draft_list")
 
 
+SECTION_HEADINGS = {
+    Draft.Source.QUICK_ADD: "From Quick Add",
+    Draft.Source.SCHEDULE: "From Schedules",
+    Draft.Source.MANUAL: "Started by hand",
+}
+
+
 def waiting_draft(pk: int) -> Draft:
     """The waiting Draft, locked for the request's transaction, or a 404."""
     return get_object_or_404(
@@ -92,18 +99,33 @@ def draft_list(request: HttpRequest) -> HttpResponseBase:
             ),
         )
     )
+    sections = [
+        (heading, [draft for draft in drafts if draft.source == source])
+        for source, heading in SECTION_HEADINGS.items()
+    ]
     enabled = openrouter.is_configured()
     quick_adds = list(QuickAdd.objects.unfinished()) if enabled else []
     return render(
         request,
         "quick_add/draft_list.html",
         {
-            "drafts": drafts,
+            "sections": [section for section in sections if section[1]],
             "quick_adds": quick_adds,
             "processing": any(quick_add.is_processing for quick_add in quick_adds),
             "stats": ai_stats() if enabled else None,
         },
     )
+
+
+@login_required
+def draft_create(request: HttpRequest) -> HttpResponseBase:
+    """Start a Draft by hand, as a placeholder to finish later."""
+    form = DraftForm(request.POST or None)
+    if form.is_valid():
+        form.instance.source = Draft.Source.MANUAL
+        form.save()
+        return redirect("draft_list")
+    return render(request, "quick_add/draft_form.html", {"form": form})
 
 
 @login_required

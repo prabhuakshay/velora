@@ -1,8 +1,13 @@
-"""The Quick Add box."""
+"""The Quick Add box and the hand-made Draft form."""
+
+from typing import Any, ClassVar, cast
 
 from django import forms
+from django.db.models.functions import Lower
+from django.utils import timezone
 
-from apps.quick_add.models import PARTY_NAME_MAX_LENGTH, QuickAdd
+from apps.classification.models import Party
+from apps.quick_add.models import PARTY_NAME_MAX_LENGTH, Draft, QuickAdd
 
 
 class QuickAddForm(forms.ModelForm[QuickAdd]):
@@ -28,3 +33,21 @@ class NewPartyForm(forms.Form):
         required=False,
         help_text="Created on save when no Party is picked above.",
     )
+
+
+class DraftForm(forms.ModelForm[Draft]):
+    """A Draft the user starts by hand; only its date is needed."""
+
+    class Meta:
+        model = Draft
+        fields = ("date", "party", "description")
+        widgets: ClassVar = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "description": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        super().__init__(*args, **kwargs)
+        self.initial["date"] = timezone.localdate()
+        party = cast("forms.ModelChoiceField[Party]", self.fields["party"])
+        party.queryset = Party.objects.filter(hidden=False).order_by(Lower("name"))
