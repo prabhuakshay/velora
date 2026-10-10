@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -6,6 +6,7 @@ import pytest
 from django.urls import reverse
 
 from apps.accounts.tests.conftest import make_account
+from apps.classification.models import Party
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
 from apps.schedules.models import Occurrence
@@ -30,8 +31,14 @@ def rent() -> Account:
     return make_account("Rent", "expense")
 
 
-def record(source: Account, destination: Account, amount: str, on: date) -> None:
-    Transaction.objects.create(date=on).splits.create(
+def record(
+    source: Account,
+    destination: Account,
+    amount: str,
+    on: date,
+    party: Party | None = None,
+) -> None:
+    Transaction.objects.create(date=on, party=party).splits.create(
         from_account=source, to_account=destination, amount=Decimal(amount)
     )
 
@@ -190,3 +197,89 @@ def test_deleting_a_recorded_covering_transaction_reopens_its_occurrence(
     run_daily_job(date(2026, 10, 20))
 
     assert first_status() == Occurrence.Status.MISSED
+
+
+def test_a_schedule_with_no_splits_matches_nothing(
+    bank: Account, rent: Account
+) -> None:
+    make_schedule()
+    record(bank, rent, "25000", date(2026, 10, 5))
+
+    run_daily_job(date(2026, 10, 5))
+
+    assert first_status() == Occurrence.Status.DRAFTED
+
+
+@pytest.mark.parametrize("paid_to", [None, "Someone else"])
+def test_a_transaction_for_another_party_does_not_match(
+    bank: Account, rent: Account, paid_to: str | None
+) -> None:
+    make_schedule((bank, rent, "25000"), party=Party.objects.create(name="Landlord"))
+    paid_party = Party.objects.create(name=paid_to) if paid_to else None
+    record(bank, rent, "25000", date(2026, 10, 5), paid_party)
+
+    run_daily_job(date(2026, 10, 5))
+
+    assert first_status() == Occurrence.Status.DRAFTED
+
+
+def test_a_transaction_for_the_schedules_party_matches(
+    bank: Account, rent: Account
+) -> None:
+    landlord = Party.objects.create(name="Landlord")
+    make_schedule((bank, rent, "25000"), party=landlord)
+    record(bank, rent, "25000", date(2026, 10, 5), landlord)
+
+    run_daily_job(date(2026, 10, 5))
+
+    assert first_status() == Occurrence.Status.PAID
+
+
+def test_a_schedule_with_no_party_matches_any_party(
+    bank: Account, rent: Account
+) -> None:
+    make_schedule((bank, rent, "25000"))
+    record(
+        bank, rent, "25000", date(2026, 10, 5), Party.objects.create(name="Landlord")
+    )
+
+    run_daily_job(date(2026, 10, 5))
+
+    assert first_status() == Occurrence.Status.PAID
+
+
+@pytest.mark.parametrize(
+    ("rule", "days_off", "matches"),
+    [
+        ({"unit": "day"}, 0, True),
+        ({"unit": "day"}, 1, False),
+        ({"unit": "week"}, 3, True),
+        ({"unit": "week"}, 4, False),
+        ({"unit": "week"}, -3, True),
+        ({"unit": "week"}, -4, False),
+        ({"unit": "day", "every": 3}, 1, True),
+        ({"unit": "day", "every": 3}, 2, False),
+        ({"unit": "week", "every": 2}, 5, True),
+        ({"unit": "week", "every": 2}, 6, False),
+        ({"unit": "year"}, 5, True),
+        ({"unit": "year"}, 6, False),
+        ({"cron": "0 0 5 * *", "every": None, "unit": ""}, 5, True),
+        ({"cron": "0 0 5 * *", "every": None, "unit": ""}, 6, False),
+    ],
+)
+def test_the_date_window_narrows_with_the_interval(
+    bank: Account,
+    rent: Account,
+    rule: dict[str, object],
+    days_off: int,
+    *,
+    matches: bool,
+) -> None:
+    make_schedule((bank, rent, "25000"), **rule)
+    on = date(2026, 10, 5) - timedelta(days=days_off)
+    record(bank, rent, "25000", on)
+
+    run_daily_job(max(on, date(2026, 10, 5)))
+
+    status = Occurrence.objects.get(due_date=date(2026, 10, 5)).status
+    assert (status == Occurrence.Status.PAID) is matches

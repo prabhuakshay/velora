@@ -101,7 +101,7 @@ One dated instance of a Schedule. Every Occurrence is Upcoming, Drafted, Paid, S
 _Avoid_: Instance, installment, due
 
 **Paid**:
-An Occurrence whose Draft the user posted, or that a Transaction the user recorded themselves already covers.
+An Occurrence whose Draft the user posted, or that a Transaction the user recorded themselves already covers. A recorded Transaction covers it when it moves every Split of the Schedule, is for the Schedule's Party if it has one, and falls within a few days of the due date, fewer for daily and weekly Schedules.
 _Avoid_: Done, settled, fulfilled
 
 **Missed**:

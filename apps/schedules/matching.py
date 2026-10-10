@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol
 from django.db import transaction as db_transaction
 
 from apps.quick_add.models import Draft
-from apps.schedules.models import Occurrence
+from apps.schedules.models import Occurrence, Schedule
 from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
@@ -34,17 +34,18 @@ def find_cover(
     due_date: date,
     candidates: QuerySet[Transaction],
     earliest: date | None = None,
+    tolerance: timedelta = DATE_TOLERANCE,
 ) -> Transaction | None:
     """The candidate nearest the due date with a matching Split for every leg.
 
-    It must fall within DATE_TOLERANCE of the due date, or from `earliest`
-    when given.
+    It must fall within `tolerance` of the due date, or from `earliest` when
+    given. With no legs, nothing matches.
     """
+    legs = list(legs)
+    if not legs:
+        return None
     matches = candidates.filter(
-        date__range=(
-            earliest or due_date - DATE_TOLERANCE,
-            due_date + DATE_TOLERANCE,
-        )
+        date__range=(earliest or due_date - tolerance, due_date + tolerance)
     )
     for leg in legs:
         splits: dict[str, object] = {
@@ -85,12 +86,36 @@ def match_transactions(today: date) -> None:
         match_occurrence(occurrence)
 
 
+def date_tolerance(schedule: Schedule) -> timedelta:
+    """How far from a due date a Transaction may fall and still cover it.
+
+    Under half the interval, so a Transaction can't cover the next Occurrence.
+    """
+    days: dict[str, int] = {Schedule.Unit.DAY: 1, Schedule.Unit.WEEK: 7}
+    days_per_unit = days.get(schedule.unit)
+    if days_per_unit is None or schedule.every is None:
+        return DATE_TOLERANCE
+    return min(
+        DATE_TOLERANCE, timedelta(days=(days_per_unit * schedule.every - 1) // 2)
+    )
+
+
 def match_occurrence(occurrence: Occurrence) -> bool:
-    """Cover the Occurrence with a recorded Transaction, if one could."""
+    """Cover the Occurrence with a recorded Transaction, if one could.
+
+    When the Schedule has a Party, the Transaction must be for it.
+    """
+    schedule = occurrence.schedule
+    candidates = Transaction.objects.filter(
+        occurrence__isnull=True, statement__isnull=True
+    )
+    if schedule.party_id:
+        candidates = candidates.filter(party_id=schedule.party_id)
     transaction = find_cover(
-        occurrence.schedule.splits.all(),
+        schedule.splits.all(),
         occurrence.due_date,
-        Transaction.objects.filter(occurrence__isnull=True, statement__isnull=True),
+        candidates,
+        tolerance=date_tolerance(schedule),
     )
     if transaction:
         cover(occurrence, transaction)

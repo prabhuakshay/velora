@@ -5,11 +5,13 @@ from typing import TYPE_CHECKING
 
 from django.db import transaction as db_transaction
 from django.db.models import Q
+from django.utils import timezone
 
 from apps.accounts.models import Account
 from apps.core.history import with_reason
 from apps.quick_add.models import DraftSplit
-from apps.schedules.models import ScheduleSplit, SuggestedSchedule
+from apps.schedules.models import Schedule, ScheduleSplit, SuggestedSchedule
+from apps.schedules.occurrences import regenerate
 from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
@@ -128,11 +130,15 @@ class AccountMerge:
         suggestions.filter(to_account=source).update(to_account=target)
 
     def _repoint_schedule_splits(self, reason: str) -> None:
-        """Point Schedule Splits at the target, dropping any it would loop to."""
+        """Point Schedule Splits at the target, dropping any it would loop to.
+
+        A Schedule left with no Splits is paused, keeping its history.
+        """
         source, target = self.source, self.target
-        for split in ScheduleSplit.objects.filter(
-            Q(from_account=source) | Q(to_account=source)
-        ):
+        splits = list(
+            ScheduleSplit.objects.filter(Q(from_account=source) | Q(to_account=source))
+        )
+        for split in splits:
             if split.from_account_id == source.pk:
                 split.from_account = target
             if split.to_account_id == source.pk:
@@ -141,3 +147,11 @@ class AccountMerge:
                 with_reason(split, reason).delete()
             else:
                 with_reason(split, reason).save()
+        for schedule in Schedule.objects.filter(
+            pk__in=[split.schedule_id for split in splits],
+            active=True,
+            splits__isnull=True,
+        ):
+            schedule.active = False
+            with_reason(schedule, reason).save()
+            regenerate(schedule, timezone.localdate())
