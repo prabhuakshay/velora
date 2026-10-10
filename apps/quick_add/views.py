@@ -9,6 +9,7 @@ from django.db import transaction as db_transaction
 from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.quick_add import openrouter
@@ -244,11 +245,22 @@ def failed_quick_add(pk: int) -> QuickAdd:
     )
 
 
+def failed_or_stalled_quick_add(pk: int) -> QuickAdd:
+    """The Failed or stalled Quick Add, locked for the request, or a 404."""
+    quick_add = get_object_or_404(
+        QuickAdd.objects.select_for_update().unfinished(), pk=pk
+    )
+    if not (quick_add.is_failed or quick_add.is_stalled):
+        raise Http404
+    return quick_add
+
+
 def queue_again(quick_add: QuickAdd) -> None:
-    """Send the failed Quick Add back to the AI."""
+    """Send the failed or stalled Quick Add back to the AI."""
     quick_add.status = QuickAdd.Status.PROCESSING
     quick_add.failure_reason = ""
-    quick_add.save(update_fields=["status", "failure_reason"])
+    quick_add.processing_since = timezone.now()
+    quick_add.save(update_fields=["status", "failure_reason", "processing_since"])
     process_quick_add.defer(quick_add_id=quick_add.pk)
 
 
@@ -256,8 +268,8 @@ def queue_again(quick_add: QuickAdd) -> None:
 @requires_quick_add
 @require_POST
 def quick_add_retry(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
-    """Queue a Failed Quick Add again as it is."""
-    queue_again(failed_quick_add(pk))
+    """Queue a Failed or stalled Quick Add again as it is."""
+    queue_again(failed_or_stalled_quick_add(pk))
     return redirect("draft_list")
 
 
@@ -265,8 +277,8 @@ def quick_add_retry(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa:
 @requires_quick_add
 @require_POST
 def quick_add_discard(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
-    """Hide a Failed Quick Add from the Drafts page; it is kept, marked rejected."""
-    failed_quick_add(pk).reject()
+    """Hide a Failed or stalled Quick Add; it is kept, marked rejected."""
+    failed_or_stalled_quick_add(pk).reject()
     return redirect("draft_list")
 
 

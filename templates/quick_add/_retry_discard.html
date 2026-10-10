@@ -1,0 +1,10 @@
+<div class="mt-2 flex gap-2">
+  <form method="post" action="{% url 'quick_add_retry' quick_add.pk %}">
+    {% csrf_token %}
+    <button type="submit" class="btn-secondary py-1.5 text-sm">Retry</button>
+  </form>
+  <form method="post" action="{% url 'quick_add_discard' quick_add.pk %}">
+    {% csrf_token %}
+    <button type="submit" class="btn-secondary py-1.5 text-sm">Discard</button>
+  </form>
+</div>

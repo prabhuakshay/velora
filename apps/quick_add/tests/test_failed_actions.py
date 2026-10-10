@@ -1,10 +1,12 @@
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 from procrastinate.contrib.django.models import ProcrastinateJob
 
-from apps.quick_add.models import QuickAdd
+from apps.quick_add.models import STALL_AFTER, QuickAdd
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -18,6 +20,15 @@ def failed(text: str = "lunch at Toit 850") -> QuickAdd:
         status=QuickAdd.Status.FAILED,
         failure_reason="Couldn't reach OpenRouter; try again later.",
     )
+
+
+def stalled(text: str = "lunch at Toit 850") -> QuickAdd:
+    quick_add = QuickAdd.objects.create(text=text)
+    QuickAdd.objects.filter(pk=quick_add.pk).update(
+        processing_since=timezone.now() - STALL_AFTER - timedelta(seconds=1)
+    )
+    quick_add.refresh_from_db()
+    return quick_add
 
 
 def test_the_drafts_page_offers_the_actions_only_on_failed_quick_adds(
@@ -53,7 +64,7 @@ def test_retry_queues_a_failed_quick_add_again(signed_in: Client) -> None:
     "status",
     [QuickAdd.Status.PROCESSING, QuickAdd.Status.DRAFT, QuickAdd.Status.POSTED],
 )
-def test_actions_are_only_for_failed_quick_adds(
+def test_actions_are_only_for_failed_or_stalled_quick_adds(
     signed_in: Client, action: str, status: QuickAdd.Status
 ) -> None:
     quick_add = QuickAdd.objects.create(text="lunch at Toit 850", status=status)
@@ -129,3 +140,44 @@ def test_resubmit_is_only_for_failed_quick_adds(signed_in: Client) -> None:
     assert response.status_code == 404
     quick_add.refresh_from_db()
     assert quick_add.text == "lunch 850"
+
+
+def test_a_processing_quick_add_stalls_after_the_threshold() -> None:
+    assert not QuickAdd.objects.create(text="lunch 850").is_stalled
+    assert stalled().is_stalled
+
+
+def test_the_drafts_page_offers_retry_and_discard_on_a_stalled_quick_add(
+    signed_in: Client,
+) -> None:
+    quick_add = stalled("lunch 850")
+
+    body = signed_in.get(reverse("draft_list")).content.decode()
+
+    assert "seems stuck" in body
+    for action in ("quick_add_retry", "quick_add_discard"):
+        assert reverse(action, args=[quick_add.pk]) in body
+
+
+def test_retry_queues_a_stalled_quick_add_again_with_a_fresh_clock(
+    signed_in: Client,
+) -> None:
+    quick_add = stalled()
+
+    response = signed_in.post(reverse("quick_add_retry", args=[quick_add.pk]))
+
+    assert response["Location"] == reverse("draft_list")
+    quick_add.refresh_from_db()
+    assert quick_add.status == QuickAdd.Status.PROCESSING
+    assert not quick_add.is_stalled
+    assert ProcrastinateJob.objects.get().args == {"quick_add_id": quick_add.pk}
+
+
+def test_discard_rejects_a_stalled_quick_add(signed_in: Client) -> None:
+    quick_add = stalled()
+
+    signed_in.post(reverse("quick_add_discard", args=[quick_add.pk]))
+
+    quick_add.refresh_from_db()
+    assert quick_add.status == QuickAdd.Status.REJECTED
+    assert not ProcrastinateJob.objects.exists()

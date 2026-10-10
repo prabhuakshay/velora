@@ -1,10 +1,12 @@
 """Drafts, the Quick Adds the AI drafts them from, and the AI calls made."""
 
+from datetime import timedelta
 from decimal import Decimal
 from typing import ClassVar
 
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 from apps.accounts.models import Account
 from apps.classification.models import Party
@@ -14,6 +16,9 @@ from apps.transactions.split_rules import known_total
 MAX_TEXT_LENGTH = 500
 # A new Party name must fit the Party it becomes.
 PARTY_NAME_MAX_LENGTH: int = Party._meta.get_field("name").max_length  # type: ignore[assignment]
+# Longer than a job's three AI calls and their backoff, so only a job that
+# was killed mid-call leaves its Quick Add processing this long.
+STALL_AFTER = timedelta(minutes=5)
 
 
 class QuickAddQuerySet(models.QuerySet["QuickAdd"]):
@@ -38,6 +43,8 @@ class QuickAdd(models.Model):
 
     text = models.CharField(max_length=MAX_TEXT_LENGTH)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Reset on a retry; created_at stays, as it dates the Draft.
+    processing_since = models.DateTimeField(default=timezone.now)
     status = models.CharField(max_length=16, choices=Status, default=Status.PROCESSING)
     failure_reason = models.TextField(blank=True)
     posted_without_edits = models.BooleanField(default=False)
@@ -54,6 +61,13 @@ class QuickAdd(models.Model):
     def is_processing(self) -> bool:
         """Whether the AI is still working on it."""
         return self.status == QuickAdd.Status.PROCESSING
+
+    @property
+    def is_stalled(self) -> bool:
+        """Whether it has been processing too long to still be worked on."""
+        return (
+            self.is_processing and timezone.now() - self.processing_since > STALL_AFTER
+        )
 
     @property
     def is_failed(self) -> bool:

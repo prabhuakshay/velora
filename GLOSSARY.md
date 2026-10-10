@@ -65,7 +65,7 @@ A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule
 _Avoid_: Pending transaction, suggestion, draft entry
 
 **Processing**:
-A Quick Add the AI is still working on, which has no Draft yet.
+A Quick Add the AI is still working on, which has no Draft yet. One still Processing after five minutes is stalled: its job was likely killed, so the user can retry or discard it.
 _Avoid_: Pending, queued, in progress
 
 **Failed**:
@@ -77,7 +77,7 @@ A Quick Add whose Draft the user recorded as a Transaction, with or without edit
 _Avoid_: Accepted, approved, confirmed
 
 **Rejected**:
-A Quick Add the user dropped, by rejecting its Draft or discarding it after it failed. It is kept, but no longer waits for the user.
+A Quick Add the user dropped, by rejecting its Draft or discarding it after it failed or stalled. It is kept, but no longer waits for the user.
 _Avoid_: Deleted, cancelled, dismissed
 
 **Discard**:
