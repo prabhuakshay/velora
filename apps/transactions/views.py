@@ -22,6 +22,7 @@ from apps.transactions.forms import SplitFormSet
 from apps.transactions.models import Attachment, Split, Transaction
 from apps.transactions.recording import TransactionForms
 from apps.transactions.storage_chart import StorageChart
+from apps.transactions.storage_operations import Operations
 from apps.transactions.storage_stats import attachment_storage_stats
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
@@ -180,10 +181,15 @@ def storage_analytics(request: HttpRequest) -> HttpResponse:
     """The Storage page's Cloudflare analytics section, loaded by htmx."""
     if not cloudflare.is_configured():
         raise Http404
-    template = "transactions/_storage_analytics.html"
+    context: dict[str, object] = {}
     try:
-        days = cloudflare.daily_storage()
+        context["chart"] = StorageChart.of(cloudflare.daily_storage())
     except OSError, ValueError:
         logger.exception("Couldn't fetch Cloudflare storage analytics.")
-        return render(request, template, {"failed": True})
-    return render(request, template, {"chart": StorageChart.of(days)})
+        context["chart_failed"] = True
+    try:
+        context["operations"] = Operations.of(cloudflare.monthly_operations())
+    except OSError, ValueError:
+        logger.exception("Couldn't fetch Cloudflare operations analytics.")
+        context["operations_failed"] = True
+    return render(request, "transactions/_storage_analytics.html", context)
