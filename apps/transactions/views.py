@@ -18,6 +18,7 @@ from apps.transactions.attachments import (
 from apps.transactions.forms import SplitFormSet
 from apps.transactions.models import Attachment, Split, Transaction
 from apps.transactions.recording import TransactionForms
+from apps.transactions.storage_stats import attachment_storage_stats
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
@@ -152,4 +153,14 @@ def transaction_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
             "noun": "Transaction",
             "list_url": reverse("transaction_list"),
         },
+    )
+
+
+@login_required
+def storage(request: HttpRequest) -> HttpResponse:
+    """Attachment storage figures from Velora's own records."""
+    return render(
+        request,
+        "transactions/storage.html",
+        {"stats": attachment_storage_stats()},
     )

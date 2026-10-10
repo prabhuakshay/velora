@@ -20,6 +20,7 @@ urlpatterns = [
         views.transaction_delete,
         name="transaction_delete",
     ),
+    path("storage/", views.storage, name="storage"),
     path(
         "attachments/<int:pk>/",
         views.attachment_open,
