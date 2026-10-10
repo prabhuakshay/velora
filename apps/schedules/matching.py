@@ -93,14 +93,14 @@ def match_transactions(today: date) -> None:
 
 def mark_missed(today: date) -> None:
     """Mark Missed each Occurrence still uncovered after its grace period."""
-    overdue = Occurrence.objects.filter(
+    missed = Occurrence.objects.filter(
         status__in=[Occurrence.Status.UPCOMING, Occurrence.Status.DRAFTED],
         due_date__lt=today,
     ).select_related("schedule")
     Occurrence.objects.filter(
         pk__in=[
             occurrence.pk
-            for occurrence in overdue
+            for occurrence in missed
             if occurrence.due_date + timedelta(days=occurrence.schedule.grace_days)
             < today
         ]

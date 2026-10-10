@@ -1,4 +1,4 @@
-"""The morning job that keeps Velora ahead of the user's recurring money."""
+"""The morning job that keeps every Schedule, Statement and Card EMI up to date."""
 
 from typing import TYPE_CHECKING
 

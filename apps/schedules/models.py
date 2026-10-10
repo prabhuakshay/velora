@@ -33,21 +33,16 @@ class Schedule(models.Model):
         related_name="schedules",
     )
     description = models.TextField(blank=True)
-    # The first due date, which every later one is counted from.
     start_date = models.DateField()
-    # The repeat rule is an interval (every and unit) or a cron expression.
     every = models.PositiveSmallIntegerField(
         default=1, null=True, blank=True, validators=[MinValueValidator(1)]
     )
     unit = models.CharField(max_length=8, choices=Unit, default=Unit.MONTH, blank=True)
     cron = models.CharField(max_length=100, blank=True)
-    # The last day it can fall due; open-ended when blank.
     ends_on = models.DateField(null=True, blank=True)
-    # How many due dates it has at most, counted from the start date.
     ends_after = models.PositiveSmallIntegerField(
         null=True, blank=True, validators=[MinValueValidator(1)]
     )
-    # Post the Transaction on the due date instead of proposing a Draft.
     auto_post = models.BooleanField(default=False)
     grace_days = models.PositiveSmallIntegerField(default=3)
     reminder_days = models.PositiveSmallIntegerField(default=3)

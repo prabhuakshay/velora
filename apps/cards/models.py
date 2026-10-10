@@ -25,7 +25,6 @@ class Statement(models.Model):
         Account, on_delete=models.CASCADE, related_name="statements"
     )
     period_start = models.DateField()
-    # The Statement Day the period closed on.
     period_end = models.DateField()
     due_date = models.DateField()
     estimated_amount = models.DecimalField(max_digits=15, decimal_places=2)
