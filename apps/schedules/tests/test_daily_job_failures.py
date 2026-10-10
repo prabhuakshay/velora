@@ -15,6 +15,7 @@ from apps.schedules import daily_job
 from apps.schedules.daily_job import DailyJobError, run_daily_job
 from apps.schedules.matching import match_transactions
 from apps.schedules.models import Occurrence
+from apps.schedules.occurrences import materialise_occurrences
 from apps.schedules.tests.conftest import make_schedule, paid
 
 if TYPE_CHECKING:
@@ -99,6 +100,38 @@ def test_a_failed_step_emails_the_admins(
     [email] = mail.outbox
     assert email.to == ["admin@example.com"]
     assert "broken_step" in email.subject
+    assert f"RuntimeError: {BROKEN}" in email.body
+
+
+def test_failed_items_and_steps_send_one_admin_email(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings.ADMINS = ["admin@example.com"]
+    first, second = rent("Flat rent"), rent("Gym")
+    fail_after(monkeypatch, "apps.schedules.occurrences.materialise", bool)
+    monkeypatch.setattr(daily_job, "STEPS", (materialise_occurrences, broken_step))
+
+    with pytest.raises(DailyJobError):
+        run_daily_job(date(2026, 10, 1))
+
+    [email] = mail.outbox
+    assert email.to == ["admin@example.com"]
+    for failure in (
+        f"materialise_occurrences failed for Schedule {first.pk}",
+        f"materialise_occurrences failed for Schedule {second.pk}",
+        "broken_step failed",
+    ):
+        assert failure in email.body
+    assert email.body.count(f"RuntimeError: {BROKEN}") == 3
+
+
+def test_a_clean_run_emails_no_admins(settings: Settings) -> None:
+    settings.ADMINS = ["admin@example.com"]
+    rent("Flat rent")
+
+    run_daily_job(date(2026, 10, 1))
+
+    assert not [email for email in mail.outbox if "admin@example.com" in email.to]
 
 
 def test_one_failed_schedule_leaves_the_others_materialised(

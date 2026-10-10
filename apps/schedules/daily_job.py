@@ -1,7 +1,10 @@
 """The morning job that keeps every Schedule, Statement and Card EMI up to date."""
 
 import logging
+import traceback
 from typing import TYPE_CHECKING
+
+from django.core.mail import mail_admins
 
 from apps.cards.emis import propose_card_emi_drafts
 from apps.cards.statements import create_statements, match_card_payments
@@ -36,23 +39,32 @@ logger = logging.getLogger("daily_job")
 
 
 class DailyJobError(Exception):
-    """Some steps failed; each failure is already logged."""
+    """Some steps failed; each failure is already logged and emailed."""
 
 
 def run_daily_job(today: date) -> None:
     """Run every step for `today`, catching up due dates still within grace.
 
     A failed step does not stop the later ones. The job raises afterwards, so
-    it shows as failed; the next run catches up.
+    it shows as failed; the next run catches up. The admins get one email
+    for the whole run, so a system-wide fault does not flood their inbox.
     """
-    failed = []
+    failed_steps, reports = [], []
     for step in STEPS:
         try:
             step(today)
-        except ItemsFailedError:
-            failed.append(step.__name__)
+        except ItemsFailedError as error:
+            failed_steps.append(step.__name__)
+            reports.extend(error.failures)
         except Exception:
             logger.exception("%s failed", step.__name__)
-            failed.append(step.__name__)
-    if failed:
-        raise DailyJobError(", ".join(failed))
+            failed_steps.append(step.__name__)
+            reports.append(f"{step.__name__} failed\n{traceback.format_exc()}")
+    if failed_steps:
+        try:
+            mail_admins(
+                f"Daily job failed: {', '.join(failed_steps)}", "\n\n".join(reports)
+            )
+        except Exception:
+            logger.exception("Emailing the admins failed")
+        raise DailyJobError(", ".join(failed_steps))

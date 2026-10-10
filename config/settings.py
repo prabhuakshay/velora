@@ -349,7 +349,7 @@ EMAIL_SUBJECT_PREFIX = env.str("EMAIL_SUBJECT_PREFIX", default="[Velora] ")
 # Where Velora is reached, for links in emails sent outside any request.
 SITE_URL = env.str("SITE_URL", default="http://localhost:8000").rstrip("/")
 
-# Receive 500-error emails (see mail_admins in section 11).
+# Receive 500-error emails (see mail_admins in section 11) and daily job failures.
 ADMINS = env.list("ADMINS", default=[])
 MANAGERS = ADMINS
 
@@ -389,8 +389,6 @@ LOGGING = {
             "level": "ERROR",
             "propagate": False,
         },
-        # Propagates to the console through root.
-        "daily_job": {"handlers": ["mail_admins"]},
     },
 }
 
