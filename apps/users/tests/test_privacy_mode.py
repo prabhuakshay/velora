@@ -245,6 +245,17 @@ def test_privacy_mode_off_page_carries_next_into_the_form(signed_in: Client) -> 
     assert f'name="next" value="{next_url}"' in page
 
 
+def test_privacy_mode_off_page_skips_to_next_when_already_off(
+    signed_in: Client,
+) -> None:
+    next_url = reverse("transaction_list")
+
+    response = signed_in.get(reverse("privacy_mode_off"), {"next": next_url})
+
+    assert response.status_code == 302
+    assert response["Location"] == next_url
+
+
 def test_turning_off_with_unsafe_next_falls_back_to_home(signed_in: Client) -> None:
     turn_on(signed_in)
 
@@ -369,4 +380,5 @@ def test_privacy_mode_off_page_cancels_to_home(signed_in: Client) -> None:
         reverse("privacy_mode_off"), {"next": reverse("transaction_list")}
     ).content.decode()
 
-    assert f'<a href="{reverse("index")}" class="link">Cancel</a>' in page
+    assert f'<a href="{reverse("index")}"' in page
+    assert 'aria-label="Cancel"' in page

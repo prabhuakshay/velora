@@ -49,7 +49,9 @@ class PrivacyModeOffForm(forms.Form):
 
     password = forms.CharField(
         strip=False,
-        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+        widget=forms.PasswordInput(
+            attrs={"autocomplete": "current-password", "autofocus": True}
+        ),
     )
 
     def __init__(self, request: HttpRequest, data: object = None) -> None:

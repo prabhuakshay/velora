@@ -1,18 +1,25 @@
-{% extends "app_base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Turn off Privacy Mode · Velora{% endblock %}
 
-{% block card %}
-  <h1 class="text-xl font-semibold">Turn off Privacy Mode</h1>
-  <p class="mt-2 text-sm text-slate-600">Enter your password to show amounts again.</p>
-  <form method="post" class="mt-6 space-y-4">
-    {% csrf_token %}
-    <input type="hidden" name="next" value="{{ next }}">
-    {% include "partials/form_errors.html" %}
-    {% include "partials/field.html" with field=form.password %}
-    {% include "partials/submit.html" with label="Turn off Privacy Mode" %}
-  </form>
-  <p class="mt-4 text-center text-sm">
-    <a href="{% url 'index' %}" class="link">Cancel</a>
-  </p>
+{% block content %}
+  <main class="fixed inset-0 flex flex-col overflow-y-auto overscroll-none bg-slate-50 px-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    <div class="flex justify-end py-2 md:p-4">
+      <a href="{% url 'index' %}" class="-mr-2 flex size-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-900 active:bg-slate-200" aria-label="Cancel" title="Cancel">{% include "shell/icon.html" with name="x" class="size-6" %}</a>
+    </div>
+    <div class="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center pb-16">
+      <span class="mx-auto flex size-16 items-center justify-center rounded-full bg-slate-200/70 text-slate-700">{% include "shell/icon.html" with name="eye-off" class="size-8" %}</span>
+      <h1 class="mt-5 text-center text-2xl font-semibold tracking-tight">Privacy Mode is on</h1>
+      <p class="mt-2 text-center text-sm text-slate-600">Amounts and Quick Add text are hidden, and editing is locked. Enter your password to show everything again.</p>
+      <form method="post" class="mt-8 space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% comment %}Lets password managers tell which account to fill.{% endcomment %}
+        <input type="email" name="username" value="{{ user.email }}" autocomplete="username" hidden>
+        {% include "partials/form_errors.html" %}
+        {% include "partials/field.html" with field=form.password %}
+        {% include "partials/submit.html" with label="Turn off Privacy Mode" %}
+      </form>
+    </div>
+  </main>
 {% endblock %}

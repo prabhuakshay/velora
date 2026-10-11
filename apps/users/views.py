@@ -63,9 +63,12 @@ def privacy_mode_on(request: HttpRequest) -> HttpResponseBase:
 @login_required
 def privacy_mode_off(request: HttpRequest) -> HttpResponseBase:
     """Turn Privacy Mode off once the user re-enters their password."""
+    user = cast("User", request.user)
+    if not user.privacy_mode:
+        return redirect(_safe_next(request))
     form = PrivacyModeOffForm(request, request.POST or None)
     if form.is_valid():
-        cast("User", request.user).set_privacy_mode(on=False)
+        user.set_privacy_mode(on=False)
         return redirect(_safe_next(request))
     return render(
         request,
