@@ -1,72 +1,121 @@
 {% extends "app_base.html" %}
 
+{% comment %}
+  Desktop: the list beside the selected Transaction's detail. Phone: tapping a
+  row opens its detail as a sheet. Every row's detail is rendered up front, so
+  transaction_list.js only shows one; nothing is fetched on selection.
+{% endcomment %}
+
 {% block title %}Transactions · Velora{% endblock %}
 
+{% block main_width %}{% endblock %}
+
 {% block main %}
-  <div class="flex items-center justify-between gap-3">
-    <h1 class="text-2xl font-bold tracking-tight">Transactions</h1>
-    <div class="flex gap-2">
-      <a href="{% url 'transaction_export' %}{{ export_query }}" hx-boost="false" download class="btn-secondary py-2 text-sm">Export CSV</a>
-      <a href="{% url 'transaction_create' %}" class="btn-primary py-2 text-sm">New Transaction</a>
-    </div>
-  </div>
-  <form method="get" class="mt-4 space-y-3">
-    <div class="flex gap-2">
-      <div class="field-control min-w-0 flex-1">
-        <label for="{{ filters.q.id_for_label }}" class="sr-only">{{ filters.q.label }}</label>
-        {{ filters.q }}
-      </div>
-      <button type="submit" class="btn-secondary">Search</button>
-    </div>
-    <details class="rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200"{% if filters.narrowing or filters.errors %} open{% endif %}>
-      <summary class="cursor-pointer text-sm font-medium">Filters{% if filters.narrowing %} ({{ filters.narrowing }}){% endif %}</summary>
-      <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        {% include "partials/field.html" with field=filters.account %}
-        {% include "partials/field.html" with field=filters.party %}
-        {% include "partials/field.html" with field=filters.tag %}
-        <div class="hidden sm:block"></div>
-        {% include "partials/field.html" with field=filters.start %}
-        {% include "partials/field.html" with field=filters.end %}
-        {% include "partials/field.html" with field=filters.min_total %}
-        {% include "partials/field.html" with field=filters.max_total %}
-      </div>
-      <button type="submit" class="btn-secondary mt-3">Apply</button>
-    </details>
-  </form>
-  {% if filters.active %}
-    <p class="mt-3 flex items-center justify-between text-sm text-slate-600">
-      <span>{{ page.paginator.count }} matching Transaction{{ page.paginator.count|pluralize }}</span>
-      <a href="{% url 'transaction_list' %}" class="link">Clear</a>
-    </p>
-  {% endif %}
-  <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-    {% for transaction in page %}
-      <li class="flex items-center justify-between gap-3 py-3">
-        <div class="min-w-0">
-          <p class="truncate font-medium">
-            <span class="text-slate-500">{{ transaction.date|date:"j M Y" }}</span>
-            {% if transaction.party %}· {{ transaction.party }}{% endif %}
+  <div class="md:grid md:h-[calc(100dvh-4rem)] md:grid-cols-[22rem_1fr] md:overflow-hidden md:rounded-2xl md:bg-white md:shadow-sm md:ring-1 md:ring-slate-200 lg:grid-cols-[26rem_1fr]">
+    <section class="flex min-h-0 flex-col md:border-r md:border-slate-200" aria-label="Transactions">
+      <div class="md:border-b md:border-slate-200 md:p-4">
+        <div class="mb-3 hidden items-center justify-between md:flex">
+          <h1 class="text-lg font-semibold tracking-tight">Transactions <span class="ml-1 text-sm font-normal text-slate-400 tabular-nums">{{ page.paginator.count }}</span></h1>
+          <div class="flex gap-1">
+            <a href="{% url 'transaction_export' %}{{ export_query }}" hx-boost="false" download class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Export CSV" title="Export CSV">{% include "shell/icon.html" with name="download" class="size-4" %}</a>
+            <a href="{% url 'transaction_create' %}" class="rounded-lg bg-slate-900 p-2 text-white hover:bg-slate-700" aria-label="New Transaction" title="New Transaction">{% include "shell/icon.html" with name="plus" class="size-4" %}</a>
+          </div>
+        </div>
+        <form method="get" action="{% url 'transaction_list' %}" class="flex gap-2">
+          {% for field in filters %}{% if field.name != "q" and field.value %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}{% endfor %}
+          <label class="relative min-w-0 flex-1">
+            <span class="sr-only">{{ filters.q.label }}</span>
+            {% include "shell/icon.html" with name="search" class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" %}
+            <input type="search" name="q" value="{{ filters.q.value|default:'' }}" placeholder="Search" enterkeyhint="search" class="h-10 w-full rounded-xl bg-slate-200/60 pr-3 pl-9 text-base placeholder:text-slate-500 focus:bg-white focus:ring-2 focus:ring-slate-900 focus:outline-hidden md:h-9 md:rounded-lg md:bg-slate-100 md:text-sm">
+          </label>
+          <button type="button" data-dialog-open="transaction-filters" class="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-200/60 text-slate-700 active:bg-slate-300 md:size-9 md:rounded-lg md:bg-slate-100 md:hover:bg-slate-200" aria-label="Filters">
+            {% include "shell/icon.html" with name="sliders" class="size-4" %}
+            {% if filters.narrowing %}<span class="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-slate-900 text-[10px] font-semibold text-white">{{ filters.narrowing }}</span>{% endif %}
+          </button>
+          <a href="{% url 'transaction_create' %}" class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white active:bg-slate-700 md:hidden" aria-label="New Transaction">{% include "shell/icon.html" with name="plus" class="size-5" %}</a>
+        </form>
+        {% if filters.errors %}
+          <p role="alert" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">A filter was invalid and ignored. <button type="button" data-dialog-open="transaction-filters" class="font-medium underline">Review filters</button></p>
+        {% endif %}
+        {% if chips %}
+          <div class="-mx-4 mt-3 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0 [&::-webkit-scrollbar]:hidden">
+            {% for label, query in chips %}
+              <a href="{{ query }}" class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 py-1.5 pr-2 pl-3 text-xs font-medium text-white active:bg-slate-700 md:hover:bg-slate-700" aria-label="Remove filter {{ label }}">
+                {{ label }}{% include "shell/icon.html" with name="x" class="size-3.5 text-white/70" %}
+              </a>
+            {% endfor %}
+          </div>
+          <p class="mt-2 flex items-center justify-between text-xs text-slate-500">
+            <span>{{ page.paginator.count }} matching Transaction{{ page.paginator.count|pluralize }}</span>
+            <a href="{% url 'transaction_list' %}" class="font-medium underline-offset-2 hover:text-slate-900 hover:underline">Clear</a>
           </p>
-          {% if transaction.description %}<p class="truncate text-sm text-slate-700">{{ transaction.description }}</p>{% endif %}
-          {% for split in transaction.splits.all %}
-            <p class="truncate text-xs text-slate-500">{{ split.from_account }} → {{ split.to_account }}</p>
-          {% endfor %}
-        </div>
-        <div class="flex shrink-0 items-center gap-3 text-sm">
-          {% if transaction.attachment_count %}
-            <span class="flex items-center gap-1 text-slate-500" aria-label="{{ transaction.attachment_count }} Attachment{{ transaction.attachment_count|pluralize }}" title="{{ transaction.attachment_count }} Attachment{{ transaction.attachment_count|pluralize }}">
-              <svg viewBox="0 0 24 24" class="size-4 fill-none stroke-current stroke-2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
-              <span class="tabular-nums" aria-hidden="true">{{ transaction.attachment_count }}</span>
-            </span>
-          {% endif %}
-          <span class="font-medium tabular-nums">{% amount transaction.total %}</span>
-          <a href="{% url 'transaction_edit' transaction.pk %}" class="link">Edit</a>
-          <a href="{% url 'transaction_delete' transaction.pk %}" class="text-red-600 underline hover:text-red-800">Delete</a>
-        </div>
-      </li>
-    {% empty %}
-      <li class="py-3 text-slate-500">{% if filters.active %}No Transactions match.{% else %}No Transactions yet.{% endif %}</li>
-    {% endfor %}
-  </ul>
-  {% include "partials/pagination.html" with previous_label="Newer" next_label="Older" %}
+        {% endif %}
+      </div>
+
+      <ul class="-mx-4 mt-3 divide-y divide-slate-100 bg-white md:mx-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
+        {% for transaction in page %}
+          <li>
+            <button type="button" data-transaction="{{ transaction.pk }}" data-dialog-open="transaction-sheet" {% if forloop.first %}aria-current="true"{% endif %} class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-hidden active:bg-slate-100 md:border-l-2 md:border-transparent md:hover:bg-slate-50 md:focus-visible:bg-slate-50 md:aria-[current=true]:border-slate-900 md:aria-[current=true]:bg-slate-100">
+              <span class="min-w-0 flex-1">
+                <span class="flex items-baseline justify-between gap-3">
+                  <span class="truncate font-medium">{% include "transactions/_transaction_title.html" %}</span>
+                  <span class="shrink-0 text-sm font-semibold">{% include "transactions/_transaction_total.html" %}</span>
+                </span>
+                <span class="mt-0.5 flex items-center justify-between gap-3 text-xs text-slate-500">
+                  <span class="truncate">{{ transaction.date|date:"j M Y" }} · {% with split=transaction.splits.all.0 count=transaction.splits.all|length %}{{ split.from_account }} → {{ split.to_account }}{% if count > 1 %} +{{ count|add:"-1" }}{% endif %}{% endwith %}</span>
+                  {% if transaction.attachment_count %}
+                    <span class="flex shrink-0 items-center gap-0.5 text-slate-400" aria-label="{{ transaction.attachment_count }} Attachment{{ transaction.attachment_count|pluralize }}" title="{{ transaction.attachment_count }} Attachment{{ transaction.attachment_count|pluralize }}">
+                      {% include "shell/icon.html" with name="paperclip" class="size-3.5" %}<span class="tabular-nums" aria-hidden="true">{{ transaction.attachment_count }}</span>
+                    </span>
+                  {% endif %}
+                </span>
+              </span>
+              {% include "shell/icon.html" with name="chevron-right" class="size-4 text-slate-300 md:hidden" %}
+            </button>
+          </li>
+        {% empty %}
+          <li class="flex flex-col items-center px-6 py-16 text-center">
+            <span class="flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="receipt" class="size-6" %}</span>
+            {% if filters.active %}
+              <p class="mt-4 font-semibold">No Transactions match.</p>
+              <p class="mt-1 text-sm text-slate-500">Try fewer filters or a different search.</p>
+              <a href="{% url 'transaction_list' %}" class="btn-secondary mt-5">Clear filters</a>
+            {% else %}
+              <p class="mt-4 font-semibold">No Transactions yet.</p>
+              <p class="mt-1 text-sm text-slate-500">Record one to see it here.</p>
+              <a href="{% url 'transaction_create' %}" class="btn-primary mt-5">New Transaction</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+
+      {% if page.paginator.num_pages > 1 %}
+        <nav class="mt-3 flex items-center justify-between text-sm md:mt-0 md:border-t md:border-slate-200 md:px-4 md:py-2" aria-label="Pages">
+          {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{{ extra_query }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-slate-100">{% include "shell/icon.html" with name="chevron-left" class="size-4" %}Newer</a>{% else %}<span></span>{% endif %}
+          <span class="text-xs text-slate-400 tabular-nums">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+          {% if page.has_next %}<a href="?page={{ page.next_page_number }}{{ extra_query }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-slate-100">Older{% include "shell/icon.html" with name="chevron-right" class="size-4" %}</a>{% else %}<span></span>{% endif %}
+        </nav>
+      {% endif %}
+    </section>
+
+    <section data-transaction-pane class="hidden min-h-0 overflow-y-auto overscroll-contain md:block" aria-label="Selected Transaction">
+      {% for transaction in page %}
+        <article data-transaction-detail="{{ transaction.pk }}" class="max-w-2xl" {% if not forloop.first %}hidden{% endif %}>
+          {% include "transactions/_transaction_detail.html" %}
+        </article>
+      {% empty %}
+        <p class="flex h-full items-center justify-center text-sm text-slate-400">Nothing to show</p>
+      {% endfor %}
+    </section>
+  </div>
+
+  <dialog id="transaction-sheet" data-dialog data-sheet aria-label="Transaction" class="m-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto overscroll-contain rounded-t-2xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-black/50 md:hidden">
+    <div class="sticky top-0 z-10 flex justify-end bg-white/95 px-4 pt-2 backdrop-blur">
+      <div class="absolute top-2 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-slate-300" aria-hidden="true"></div>
+      <button type="button" data-dialog-close class="mt-1 -mr-2 flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 active:bg-slate-200">Done</button>
+    </div>
+    <div data-transaction-sheet-body class="pb-[env(safe-area-inset-bottom)]"></div>
+  </dialog>
+
+  {% include "transactions/_filter_sheet.html" %}
 {% endblock %}

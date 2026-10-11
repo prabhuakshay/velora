@@ -160,3 +160,38 @@ def test_pagination_keeps_the_filters(
 
     assert "?page=2&amp;q=shop" in first.content.decode()
     assert len(second.context["page"]) == 2
+
+
+def test_each_active_filter_is_a_chip_that_removes_only_itself(
+    signed_in: Client, accounts: dict[str, Account]
+) -> None:
+    bank = accounts["bank"]
+    tag = Tag.objects.create(name="Trip")
+    query: dict[str, str | int] = {
+        "q": "shop",
+        "account": bank.pk,
+        "tag": tag.pk,
+        "start": "2026-03-01",
+    }
+
+    response = signed_in.get(reverse("transaction_list"), query)
+
+    assert dict(response.context["chips"]) == {
+        "“shop”": f"?account={bank.pk}&tag={tag.pk}&start=2026-03-01",
+        "Bank": f"?q=shop&tag={tag.pk}&start=2026-03-01",
+        "#Trip": f"?q=shop&account={bank.pk}&start=2026-03-01",
+        "From 1 Mar 2026": f"?q=shop&account={bank.pk}&tag={tag.pk}",
+    }
+
+
+def test_chips_drop_the_page(signed_in: Client) -> None:
+    response = signed_in.get(reverse("transaction_list"), {"q": "x", "page": "2"})
+
+    assert response.context["chips"] == [("“x”", "?")]
+
+
+def test_invalid_filter_gets_no_chip(signed_in: Client) -> None:
+    response = signed_in.get(reverse("transaction_list"), {"start": "not a date"})
+
+    assert response.context["chips"] == []
+    assert "A filter was invalid and ignored." in response.content.decode()

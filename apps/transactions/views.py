@@ -77,6 +77,7 @@ def transaction_list(request: HttpRequest) -> HttpResponse:
         {
             "page": paginate(request, filters.apply(_listed_transactions())),
             "filters": filters,
+            "chips": filters.chips(request.GET),
             "extra_query": f"&{query.urlencode()}" if query else "",
             "export_query": f"?{query.urlencode()}" if query else "",
         },

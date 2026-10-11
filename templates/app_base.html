@@ -69,7 +69,7 @@
       {% include "shell/privacy.html" with class="-mr-2 flex size-11 items-center justify-center rounded-full text-slate-500 active:bg-slate-200" %}
     </header>
     <main id="main" class="min-w-0 flex-1 [view-transition-name:main] overflow-y-auto overscroll-contain px-4 py-4 md:px-10 md:py-8">
-      <div class="max-w-3xl">
+      <div class="{% block main_width %}max-w-3xl{% endblock %}">
         {% for message in messages %}
           <p role="{% if message.level_tag == 'error' or message.level_tag == 'warning' %}alert{% else %}status{% endif %}" class="mb-4 rounded-lg px-3 py-2 text-sm ring-1 {% if message.level_tag == 'error' %}bg-red-50 text-red-800 ring-red-200{% elif message.level_tag == 'warning' %}bg-amber-50 text-amber-800 ring-amber-200{% elif message.level_tag == 'success' %}bg-emerald-50 text-emerald-800 ring-emerald-200{% else %}bg-sky-50 text-sky-800 ring-sky-200{% endif %}">{{ message }}</p>
         {% endfor %}

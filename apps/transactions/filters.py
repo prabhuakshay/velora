@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, cast
 from django import forms
 from django.db.models import Q
 from django.db.models.functions import Lower
+from django.utils.dateformat import format as format_date
 
 from apps.accounts.models import Account
 from apps.classification.models import Party, Tag
@@ -12,7 +13,10 @@ from apps.transactions.forms import grouped_by_kind
 from apps.transactions.models import Split
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from django.db.models import QuerySet
+    from django.http import QueryDict
 
     from apps.transactions.models import Transaction
 
@@ -23,6 +27,17 @@ LOOKUPS = {
     "end": "date__lte",
     "min_total": "total__gte",
     "max_total": "total__lte",
+}
+
+CHIP_LABELS: dict[str, Callable[[Any], str]] = {
+    "q": lambda value: f"“{value}”",
+    "account": str,
+    "party": str,
+    "tag": lambda value: f"#{value}",
+    "start": lambda value: f"From {format_date(value, 'j M Y')}",
+    "end": lambda value: f"To {format_date(value, 'j M Y')}",
+    "min_total": lambda value: f"Min {value}",
+    "max_total": lambda value: f"Max {value}",
 }
 
 
@@ -75,6 +90,16 @@ class TransactionFilterForm(forms.Form):
     def narrowing(self) -> int:
         """How many filters beyond the search box are active."""
         return len(self.active.keys() - {"q"})
+
+    def chips(self, query: QueryDict) -> list[tuple[str, str]]:
+        """Each active filter's label, with the query string that drops it."""
+        chips = []
+        for name, value in self.active.items():
+            rest = query.copy()
+            rest.pop(name, None)
+            rest.pop("page", None)
+            chips.append((CHIP_LABELS[name](value), f"?{rest.urlencode()}"))
+        return chips
 
     def apply(self, transactions: QuerySet[Transaction]) -> QuerySet[Transaction]:
         """The Transactions matching every active filter."""
