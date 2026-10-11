@@ -141,6 +141,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.quick_add.context_processors.quick_add",
                 "apps.schedules.context_processors.suggested_schedules",
+                "apps.core.context_processors.navigation",
             ],
             # Available in every template without {% load %}.
             "builtins": [

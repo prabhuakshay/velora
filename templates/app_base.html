@@ -1,97 +1,63 @@
 {% extends "base.html" %}
 
+{% comment %}
+  Desktop: sidebar. Phone: title bar, bottom tab bar and the More sheet, laid
+  out to fill the screen so only <main> scrolls, like an installed app.
+  Stroke widths are picked at runtime, so they're named here for Tailwind to
+  emit: stroke-[2.25] stroke-[1.75]
+{% endcomment %}
 {% block content %}
-  {% url 'index' as home_url %}
-  {% url 'password_change' as password_change_url %}
-  {% url 'preferences' as preferences_url %}
-  {% url 'party_list' as parties_url %}
-  {% url 'tag_list' as tags_url %}
-  {% url 'transaction_list' as transactions_url %}
-  {% url 'account_list' 'asset' as asset_accounts_url %}
-  {% url 'account_list' 'liability' as liability_accounts_url %}
-  {% url 'account_list' 'expense' as expense_accounts_url %}
-  {% url 'account_list' 'income' as income_accounts_url %}
+  {% comment %}Counts are callables; resolve each once, not per badge.{% endcomment %}
+  {% with draft_count=draft_count suggested_schedule_count=suggested_schedule_count %}
   <a href="#main" class="fixed top-2 left-2 z-50 -translate-y-16 rounded-lg bg-white px-3 py-2 text-sm font-medium ring-2 ring-slate-900 focus:translate-y-0">Skip to main content</a>
-  <div class="md:flex md:min-h-screen">
-    <aside class="border-b border-slate-200 bg-white p-4 text-sm md:w-56 md:shrink-0 md:border-r md:border-b-0">
-      <div class="flex items-center justify-between">
-        <a href="{{ home_url }}" class="text-lg font-bold tracking-tight">Velora</a>
-        {% if user.privacy_mode %}
-          <a href="{% url 'privacy_mode_off' %}?next={{ request.get_full_path|urlencode }}" class="rounded-lg p-1.5 text-slate-900 hover:bg-slate-100" aria-label="Privacy Mode is on. Turn it off" title="Privacy Mode is on. Turn it off">
-            <svg viewBox="0 0 24 24" class="size-5 fill-none stroke-current stroke-2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
-          </a>
-        {% else %}
-          <form method="post" action="{% url 'privacy_mode_on' %}">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button type="submit" class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Turn on Privacy Mode" title="Turn on Privacy Mode">
-              <svg viewBox="0 0 24 24" class="size-5 fill-none stroke-current stroke-2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-          </form>
-        {% endif %}
+  <div class="flex h-dvh touch-manipulation flex-col overscroll-none bg-slate-50 [-webkit-tap-highlight-color:transparent] md:flex-row">
+    <aside class="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white text-sm md:flex">
+      <div class="flex h-14 items-center justify-between px-4">
+        <a href="{% url 'index' %}" class="text-base font-semibold tracking-tight">Velora</a>
+        {% include "shell/privacy.html" with class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" %}
       </div>
-      <nav class="mt-4 flex flex-wrap gap-1 md:flex-col">
-        <a href="{{ home_url }}" class="nav-link{% if request.path == home_url %} nav-link-active{% endif %}">Home</a>
-        <a href="{{ transactions_url }}" class="nav-link{% if transactions_url in request.path %} nav-link-active{% endif %}">Transactions</a>
-        {% url 'draft_list' as drafts_url %}
-        <a href="{{ drafts_url }}" class="nav-link flex items-center justify-between{% if drafts_url in request.path %} nav-link-active{% endif %}">
-          Drafts
-          {% with count=draft_count %}
-            {% if count %}<span class="rounded-full bg-slate-900 px-2 text-xs text-white tabular-nums" aria-label="{{ count }} Draft{{ count|pluralize }} waiting">{{ count }}</span>{% endif %}
-          {% endwith %}
-        </a>
-        {% url 'schedule_list' as schedules_url %}
-        <a href="{{ schedules_url }}" class="nav-link flex items-center justify-between{% if schedules_url in request.path %} nav-link-active{% endif %}">
-          Schedules
-          {% with count=suggested_schedule_count %}
-            {% if count %}<span class="rounded-full bg-slate-900 px-2 text-xs text-white tabular-nums" aria-label="{{ count }} Suggested Schedule{{ count|pluralize }} waiting">{{ count }}</span>{% endif %}
-          {% endwith %}
-        </a>
-        {% url 'subscription_list' as subscriptions_url %}
-        <a href="{{ subscriptions_url }}" class="nav-link{% if subscriptions_url in request.path %} nav-link-active{% endif %}">Subscriptions</a>
-        {% url 'forecast' as forecast_url %}
-        <a href="{{ forecast_url }}" class="nav-link{% if forecast_url in request.path %} nav-link-active{% endif %}">Forecast</a>
-        <details class="group w-full"{% if parties_url in request.path or tags_url in request.path %} open{% endif %}>
-          <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
-            Classification
-            <span class="text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+      <nav class="flex flex-1 flex-col gap-0.5 px-2 pb-2" aria-label="Main">
+        {% for item in nav_all %}
+          {% if item.children %}
+            <p class="mt-5 mb-1 px-2.5 text-xs font-medium text-slate-400">{{ item.label }}</p>
+            {% for c in item.children %}
+              <a href="{{ c.url }}" {% if c.active %}aria-current="page"{% endif %} class="rounded-md py-1.5 pr-2.5 pl-9 font-medium outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 {% if c.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">{{ c.label }}</a>
+            {% endfor %}
+          {% else %}
+            <a href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %} class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 font-medium outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 {% if item.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+              {% include "shell/icon.html" with name=item.icon class="size-4" %}
+              <span class="flex-1">{{ item.label }}</span>
+              {% include "shell/badge.html" with key=item.badge class="rounded-full bg-slate-900 px-1.5 text-xs text-white tabular-nums" %}
+            </a>
+          {% endif %}
+        {% endfor %}
+      </nav>
+      <div class="border-t border-slate-200 p-2">
+        <details class="group"{% if nav_profile.active %} open{% endif %}>
+          <summary class="flex cursor-pointer list-none items-center gap-2 rounded-md px-2.5 py-2 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+            <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-medium text-white uppercase" aria-hidden="true">{{ user.email|slice:":1" }}</span>
+            <span class="min-w-0 flex-1 truncate text-xs text-slate-600">{{ user.email }}</span>
+            {% include "shell/icon.html" with name="chevron" class="size-3.5 text-slate-400 transition-transform group-open:rotate-180" %}
           </summary>
-          <div class="mt-1 ml-3 flex flex-col gap-1 border-l border-slate-200 pl-2">
-            <a href="{{ parties_url }}" class="nav-link{% if parties_url in request.path %} nav-link-active{% endif %}">Parties</a>
-            <a href="{{ tags_url }}" class="nav-link{% if tags_url in request.path %} nav-link-active{% endif %}">Tags</a>
-          </div>
-        </details>
-        <details class="group w-full"{% if request.resolver_match.kwargs.kind %} open{% endif %}>
-          <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
-            Accounts
-            <span class="text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
-          </summary>
-          <div class="mt-1 ml-3 flex flex-col gap-1 border-l border-slate-200 pl-2">
-            <a href="{{ asset_accounts_url }}" class="nav-link{% if asset_accounts_url in request.path %} nav-link-active{% endif %}">Asset</a>
-            <a href="{{ liability_accounts_url }}" class="nav-link{% if liability_accounts_url in request.path %} nav-link-active{% endif %}">Liability</a>
-            <a href="{{ expense_accounts_url }}" class="nav-link{% if expense_accounts_url in request.path %} nav-link-active{% endif %}">Expense</a>
-            <a href="{{ income_accounts_url }}" class="nav-link{% if income_accounts_url in request.path %} nav-link-active{% endif %}">Income</a>
-          </div>
-        </details>
-        <details class="group w-full"{% if password_change_url in request.path or preferences_url in request.path %} open{% endif %}>
-          <summary class="nav-link flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
-            Profile
-            <span class="text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
-          </summary>
-          <div class="mt-1 ml-3 flex flex-col gap-1 border-l border-slate-200 pl-2">
-            <a href="{{ preferences_url }}" class="nav-link{% if preferences_url in request.path %} nav-link-active{% endif %}">Preferences</a>
-            <a href="{{ password_change_url }}" class="nav-link{% if password_change_url in request.path %} nav-link-active{% endif %}">Change password</a>
+          <div class="mt-1 flex flex-col gap-0.5">
+            {% for c in nav_profile.children %}
+              <a href="{{ c.url }}" {% if c.active %}aria-current="page"{% endif %} class="rounded-md px-2.5 py-1.5 font-medium {% if c.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">{{ c.label }}</a>
+            {% endfor %}
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}
-              <button type="submit" class="nav-link w-full text-left">Log out</button>
+              <button type="submit" class="w-full rounded-md px-2.5 py-1.5 text-left font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900">Log out</button>
             </form>
           </div>
         </details>
-      </nav>
-      <p class="mt-4 truncate text-xs text-slate-500">{{ user.email }}</p>
+      </div>
     </aside>
-    <main id="main" class="min-w-0 flex-1 px-4 py-6 md:px-8">
-      <div class="max-w-2xl">
+
+    <header class="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
+      <p class="py-3 text-lg font-semibold tracking-tight">{{ nav_title }}</p>
+      {% include "shell/privacy.html" with class="-mr-2 flex size-11 items-center justify-center rounded-full text-slate-500 active:bg-slate-200" %}
+    </header>
+    <main id="main" class="min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-10 md:py-8">
+      <div class="max-w-3xl">
         {% for message in messages %}
           <p role="{% if message.level_tag == 'error' or message.level_tag == 'warning' %}alert{% else %}status{% endif %}" class="mb-4 rounded-lg px-3 py-2 text-sm ring-1 {% if message.level_tag == 'error' %}bg-red-50 text-red-800 ring-red-200{% elif message.level_tag == 'warning' %}bg-amber-50 text-amber-800 ring-amber-200{% elif message.level_tag == 'success' %}bg-emerald-50 text-emerald-800 ring-emerald-200{% else %}bg-sky-50 text-sky-800 ring-sky-200{% endif %}">{{ message }}</p>
         {% endfor %}
@@ -102,5 +68,22 @@
         {% endblock %}
       </div>
     </main>
+    <nav class="flex shrink-0 border-t border-slate-200 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden" aria-label="Tabs">
+      {% for item in nav_tabs %}
+        <a href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %} class="flex h-12 flex-1 flex-col items-center justify-center gap-1 text-[10px] leading-none font-medium active:opacity-60 {% if item.active %}text-slate-900{% else %}text-slate-500{% endif %}">
+          <span class="relative">
+            {% include "shell/icon.html" with name=item.icon class="size-5" stroke=item.active|yesno:"stroke-[2.25],stroke-[1.75]" %}
+            {% include "shell/badge.html" with key=item.badge class="absolute -top-1 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] leading-none font-semibold text-white tabular-nums" %}
+          </span>
+          {{ item.label }}
+        </a>
+      {% endfor %}
+      <button type="button" data-dialog-open="more" class="flex h-12 flex-1 flex-col items-center justify-center gap-1 text-[10px] leading-none font-medium active:opacity-60 {% if nav_more_active %}text-slate-900{% else %}text-slate-500{% endif %}">
+        {% include "shell/icon.html" with name="grid" class="size-5" stroke=nav_more_active|yesno:"stroke-[2.25],stroke-[1.75]" %}
+        More
+      </button>
+    </nav>
   </div>
+  {% include "shell/more_sheet.html" %}
+  {% endwith %}
 {% endblock %}

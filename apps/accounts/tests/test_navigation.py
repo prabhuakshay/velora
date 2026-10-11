@@ -36,24 +36,16 @@ def test_anonymous_is_redirected_to_login(
     assert response["Location"] == f"{reverse('login')}?next={url}"
 
 
-def accounts_group_tag(body: str) -> str:
-    before_summary = body[: body.index("Accounts\n")]
-    return before_summary.rsplit("<details", 1)[1].split(">", maxsplit=1)[0]
-
-
-def test_sidebar_links_to_accounts_in_a_closed_group(signed_in: Client) -> None:
+def test_sidebar_links_to_every_account_kind(signed_in: Client) -> None:
     body = signed_in.get(reverse("index")).content.decode()
 
-    assert "open" not in accounts_group_tag(body)
     for kind in KINDS:
         assert list_url(kind) in body
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_sidebar_accounts_group_is_open_on_its_pages(
-    signed_in: Client, kind: str
-) -> None:
-    assert "open" in accounts_group_tag(list_page(signed_in, kind))
+def test_sidebar_marks_the_current_account_kind(signed_in: Client, kind: str) -> None:
+    assert f'href="{list_url(kind)}" aria-current="page"' in list_page(signed_in, kind)
 
 
 @pytest.mark.parametrize("path", ["/accounts/savings/", "/accounts/savings/new/"])

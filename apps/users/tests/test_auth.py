@@ -66,9 +66,9 @@ def test_sidebar_shows_profile_menu(client: Client, user: User) -> None:
 
     content = client.get(reverse("index")).content.decode()
 
-    assert re.search(r"<summary[^>]*>\s*Profile\b", content)
-    assert not re.search(r"<summary[^>]*>\s*Account\b", content)
-    assert not re.search(r"<details[^>]*open>\s*<summary[^>]*>\s*Profile", content)
+    menu = content.split("<details", 1)[1].split("</summary>", 1)[0]
+    assert user.email in menu
+    assert "open" not in menu.split(">", 1)[0]
 
 
 def test_profile_menu_opens_on_password_change_page(client: Client, user: User) -> None:
@@ -76,7 +76,7 @@ def test_profile_menu_opens_on_password_change_page(client: Client, user: User) 
 
     content = client.get(reverse("password_change")).content.decode()
 
-    assert re.search(r"<details[^>]*open>\s*<summary[^>]*>\s*Profile", content)
+    assert "open" in content.split("<details", 1)[1].split(">", 1)[0]
 
 
 def test_logout_signs_out(client: Client, user: User) -> None:

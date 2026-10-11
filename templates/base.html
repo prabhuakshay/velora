@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{% block title %}Velora{% endblock %}</title>
     {% comment %}
       No history cache: snapshots would sit in localStorage and let Back show
@@ -18,6 +18,7 @@
     <script src="{% static 'js/htmx.min.js' %}" defer></script>
     <script src="{% static 'js/alpine.min.js' %}" defer></script>
     <script src="{% static 'js/attachment_limit.js' %}" defer></script>
+    <script src="{% static 'js/app_shell.js' %}" defer></script>
     {% include "partials/forget_post.html" %}
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-900 antialiased" hx-boost="true" hx-ext="head-support">

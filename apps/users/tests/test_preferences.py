@@ -16,8 +16,8 @@ pytestmark = pytest.mark.django_db
 
 
 def profile_group_tag(body: str) -> str:
-    before_summary = body[: body.index("Profile\n")]
-    return before_summary.rsplit("<details", 1)[1].split(">", maxsplit=1)[0]
+    # The sidebar's account menu is the shell's only <details>.
+    return body.split("<details", 1)[1].split(">", maxsplit=1)[0]
 
 
 def test_preferences_needs_sign_in(client: Client) -> None:
@@ -87,4 +87,4 @@ def test_profile_group_opens_on_preferences(signed_in: Client) -> None:
     body = signed_in.get(reverse("preferences")).content.decode()
 
     assert "open" in profile_group_tag(body)
-    assert f'href="{reverse("preferences")}" class="nav-link nav-link-active"' in body
+    assert f'href="{reverse("preferences")}" aria-current="page"' in body

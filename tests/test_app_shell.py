@@ -5,8 +5,11 @@ from django.contrib import messages
 from django.contrib.messages.storage.base import Message
 from django.template.loader import render_to_string
 from django.test import RequestFactory
+from django.urls import reverse
 
 if TYPE_CHECKING:
+    from django.test import Client
+
     from apps.users.models import User
 
 pytestmark = pytest.mark.django_db
@@ -43,3 +46,19 @@ def test_skip_link_precedes_nav_and_targets_main(user: User) -> None:
     before_nav = html.split("<aside")[0]
     assert 'href="#main"' in before_nav
     assert '<main id="main"' in html
+
+
+def test_more_tab_is_active_on_a_page_that_lives_in_the_more_sheet(
+    signed_in: Client,
+) -> None:
+    body = signed_in.get(reverse("tag_list")).content.decode()
+    more_tab = body[: body.index("More\n")].rsplit("<button", 1)[1]
+
+    assert "text-slate-900" in more_tab
+    assert f'href="{reverse("tag_list")}" aria-current="page"' in body
+
+
+def test_phone_title_names_the_current_page(signed_in: Client) -> None:
+    body = signed_in.get(reverse("account_list", args=["liability"])).content.decode()
+
+    assert '<p class="py-3 text-lg font-semibold tracking-tight">Liability</p>' in body
