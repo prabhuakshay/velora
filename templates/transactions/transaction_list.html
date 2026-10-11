@@ -13,7 +13,7 @@
 {% block main %}
   <div class="md:grid md:h-[calc(100dvh-4rem)] md:grid-cols-[22rem_1fr] md:overflow-hidden md:rounded-2xl md:bg-white md:shadow-sm md:ring-1 md:ring-slate-200 lg:grid-cols-[26rem_1fr]">
     <section class="flex min-h-0 flex-col md:border-r md:border-slate-200" aria-label="Transactions">
-      <div class="md:border-b md:border-slate-200 md:p-4">
+      <div class="sticky -top-4 z-10 -mx-4 border-b border-slate-200 bg-slate-50/90 px-4 pt-2 pb-3 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-4 md:backdrop-blur-none">
         <div class="mb-3 hidden items-center justify-between md:flex">
           <h1 class="text-lg font-semibold tracking-tight">Transactions <span class="ml-1 text-sm font-normal text-slate-400 tabular-nums">{{ page.paginator.count }}</span></h1>
           <div class="flex gap-1">
@@ -52,7 +52,7 @@
         {% endif %}
       </div>
 
-      <ul class="-mx-4 mt-3 divide-y divide-slate-100 bg-white md:mx-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
+      <ul class="-mx-4 divide-y divide-slate-100 bg-white md:mx-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
         {% for transaction in page %}
           <li>
             <button type="button" data-transaction="{{ transaction.pk }}" data-dialog-open="transaction-sheet" {% if forloop.first %}aria-current="true"{% endif %} class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-hidden active:bg-slate-100 md:border-l-2 md:border-transparent md:hover:bg-slate-50 md:focus-visible:bg-slate-50 md:aria-[current=true]:border-slate-900 md:aria-[current=true]:bg-slate-100">
