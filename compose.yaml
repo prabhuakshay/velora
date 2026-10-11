@@ -2,6 +2,10 @@
 #
 # No database service: DATABASE_URL in .env is used as-is. A server on this
 # machine is host.docker.internal from inside the container, not localhost.
+#
+# On a fresh clone, run `mkdir -p node_modules staticfiles` first: Docker
+# creates missing mount points for the volumes below as root, which then
+# blocks host-side npm and collectstatic.
 
 name: velora
 
