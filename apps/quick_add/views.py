@@ -1,5 +1,6 @@
 """Views for writing Quick Adds and reviewing Drafts."""
 
+from datetime import timedelta
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
@@ -9,6 +10,8 @@ from django.db import transaction as db_transaction
 from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.defaultfilters import pluralize
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.core.views import paginate
@@ -75,15 +78,6 @@ def quick_add_create(request: HttpRequest) -> HttpResponseBase:
     return redirect("draft_list")
 
 
-SECTION_HEADINGS = {
-    Draft.Source.QUICK_ADD: "From Quick Add",
-    Draft.Source.SCHEDULE: "From Schedules",
-    Draft.Source.MANUAL: "Started by hand",
-    Draft.Source.STATEMENT: "Card payments",
-    Draft.Source.CARD_EMI: "Card EMI interest",
-}
-
-
 def waiting_draft(pk: int) -> Draft:
     """The waiting Draft, locked for the request's transaction, or a 404."""
     return get_object_or_404(
@@ -94,8 +88,10 @@ def waiting_draft(pk: int) -> Draft:
 @login_required
 def draft_list(request: HttpRequest) -> HttpResponseBase:
     """The waiting Drafts, and the Quick Adds still processing or failed."""
+    # Newest first, so what the AI just finished is on top, not on the last page.
     drafts = (
         Draft.objects.waiting()
+        .order_by("-created_at", "-pk")
         .select_related("party", "quick_add")
         .prefetch_related(
             Prefetch(
@@ -107,18 +103,15 @@ def draft_list(request: HttpRequest) -> HttpResponseBase:
         )
     )
     page = paginate(request, drafts)
-    sections = [
-        (heading, [draft for draft in page if draft.source == source])
-        for source, heading in SECTION_HEADINGS.items()
-    ]
     enabled = openrouter.is_configured()
     quick_adds = list(QuickAdd.objects.unfinished()) if enabled else []
     return render(
         request,
         "quick_add/draft_list.html",
         {
-            "sections": [section for section in sections if section[1]],
             "page": page,
+            # Drafts newer than this glow once as they arrive in the list.
+            "fresh_since": timezone.now() - timedelta(seconds=10),
             "quick_adds": quick_adds,
             "processing": any(quick_add.is_processing for quick_add in quick_adds),
             "stats": ai_stats() if enabled else None,
@@ -148,6 +141,21 @@ def draft_post(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG0
     except DraftNotPostableError as error:
         draft.posting_error = str(error)
         draft.save(update_fields=["posting_error"])
+    return redirect("draft_list")
+
+
+@login_required
+@require_POST
+def draft_post_all(request: HttpRequest) -> HttpResponseBase:
+    """Post every waiting Draft that is complete and not an estimate."""
+    posted = 0
+    for draft in Draft.objects.select_for_update().waiting().filter(estimated=False):
+        if posting_problems(draft):
+            continue
+        with db_transaction.atomic():
+            post_draft(draft)
+        posted += 1
+    messages.success(request, f"Posted {posted} Draft{pluralize(posted)}.")
     return redirect("draft_list")
 
 

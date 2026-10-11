@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def test_the_drafts_list_shows_a_missing_amount_as_unknown(signed_in: Client) -> None:
+def test_the_drafts_list_asks_for_a_missing_amount(signed_in: Client) -> None:
     card = make_account("HDFC Card", "liability")
     dentist = make_account("Health", "expense")
     make_manual_draft((card, dentist, None), description="Dentist, pay later")
@@ -27,7 +27,7 @@ def test_the_drafts_list_shows_a_missing_amount_as_unknown(signed_in: Client) ->
     body = signed_in.get(reverse("draft_list")).content.decode()
 
     assert "Dentist, pay later" in body
-    assert "₹?" in body
+    assert "Amount needed" in body
     assert "₹850.00" in body
 
 

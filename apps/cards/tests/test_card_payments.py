@@ -192,12 +192,12 @@ def test_a_payment_recorded_before_the_job_caught_up_means_no_draft(
     assert not Draft.objects.exists()
 
 
-def test_the_drafts_list_shows_card_payments_apart(
+def test_the_drafts_list_marks_card_payments(
     signed_in: Client, billed: Statement
 ) -> None:
     body = signed_in.get(reverse("draft_list")).content.decode()
 
-    assert "Card payments" in body
+    assert "Card payment" in body
     assert "HDFC card Statement to 15 Oct 2026" in body
 
 

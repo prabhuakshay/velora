@@ -212,3 +212,34 @@ def test_balances_change_only_once_a_draft_is_posted(signed_in: Client) -> None:
     assert balance() == 0
     post(signed_in, quick_add)
     assert balance() == Decimal(850)
+
+
+def test_post_all_posts_every_complete_draft(signed_in: Client) -> None:
+    card = make_account("HDFC Card", "liability")
+    food = make_account("Eating Out", "expense")
+    lunch = make_draft((card, food, "850"), text="lunch")
+    dinner = make_draft((card, food, "1200"), text="dinner")
+
+    response = signed_in.post(reverse("draft_post_all"), follow=True)
+
+    assert Transaction.objects.count() == 2
+    for quick_add in (lunch, dinner):
+        quick_add.refresh_from_db()
+        assert quick_add.status == QuickAdd.Status.POSTED
+    assert "Posted 2 Drafts." in response.content.decode()
+
+
+def test_post_all_leaves_gaps_and_estimates_waiting(signed_in: Client) -> None:
+    card = make_account("HDFC Card", "liability")
+    food = make_account("Eating Out", "expense")
+    gap = make_draft((card, food, None), text="no amount")
+    estimate = make_draft((card, food, "599"), text="phone", estimated=True)
+
+    response = signed_in.post(reverse("draft_post_all"), follow=True)
+
+    assert not Transaction.objects.exists()
+    for quick_add in (gap, estimate):
+        quick_add.refresh_from_db()
+        assert quick_add.status == QuickAdd.Status.DRAFT
+        assert not quick_add.draft.posting_error
+    assert "Posted 0 Drafts." in response.content.decode()

@@ -1,29 +1,65 @@
-<li class="py-3">
-  {% if draft.quick_add %}<p class="text-sm text-slate-500">“{% if user.privacy_mode %}Hidden in Privacy Mode{% else %}{{ draft.quick_add.text }}{% endif %}”</p>{% endif %}
-  <p class="mt-1 font-medium">
-    <span class="text-slate-500">{{ draft.date|date:"j M Y" }}</span>
-    {% if draft.party %}· {{ draft.party }}{% elif draft.new_party_name %}· {{ draft.new_party_name }} <span class="text-xs text-slate-500">(new Party)</span>{% endif %}
-  </p>
-  {% if draft.estimated %}<p class="text-xs font-medium text-amber-700">Estimate from the last amount paid</p>{% endif %}
-  {% if draft.description %}<p class="text-sm text-slate-700">{{ draft.description }}</p>{% endif %}
-  {% for split in draft.splits.all %}
-    <p class="flex justify-between gap-3 text-xs text-slate-500">
-      <span class="truncate">{{ split.from_account|default:"Removed Account" }} → {{ split.to_account|default:"Removed Account" }}</span>
-      <span class="tabular-nums">{% if split.amount is None %}₹?{% else %}{% amount split.amount %}{% endif %}</span>
+{% with splits=draft.splits.all %}
+{% comment %}
+  The left edge shows where the Draft came from, matching the source dot,
+  unless it needs a look: red when posting failed, amber for a missing amount
+  or an estimate.
+{% endcomment %}
+<li class="flex gap-4 px-4 py-4 shadow-[inset_3px_0] {% if draft.posting_error %}shadow-red-500{% elif draft.estimated or draft.amount is None %}shadow-amber-400{% elif draft.source == 'quick_add' %}shadow-violet-500{% elif draft.source == 'schedule' %}shadow-sky-500{% elif draft.source == 'statement' or draft.source == 'card_emi' %}shadow-emerald-500{% else %}shadow-slate-400{% endif %}{% if draft.created_at > fresh_since %} draft-arrive{% endif %}">
+  <div class="w-10 shrink-0 text-center leading-none">
+    <p class="text-xl font-semibold tabular-nums">{{ draft.date|date:"j" }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ draft.date|date:"M" }}</p>
+    <p class="sr-only">{{ draft.date|date:"j M Y" }}</p>
+  </div>
+  <div class="min-w-0 flex-1">
+    <div class="flex items-start justify-between gap-3">
+      <p class="min-w-0 font-medium">
+        {% if draft.party %}{{ draft.party }}{% elif draft.new_party_name %}{{ draft.new_party_name }} <span class="rounded bg-slate-100 px-1 text-xs font-normal text-slate-600">new Party</span>{% elif draft.description %}{{ draft.description }}{% else %}<span class="text-slate-400">No Party</span>{% endif %}
+      </p>
+      {% if splits|length == 1 %}
+        {% if splits.0.amount is None %}
+          <p class="shrink-0 text-sm font-medium text-amber-700">Amount needed</p>
+        {% else %}
+          <p class="shrink-0 text-lg leading-tight font-semibold tabular-nums">{% amount splits.0.amount %}</p>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% if draft.description and draft.party or draft.description and draft.new_party_name %}<p class="text-sm text-slate-600">{{ draft.description }}</p>{% endif %}
+    <div class="mt-1 space-y-0.5">
+      {% for split in splits %}
+        <p class="flex items-center justify-between gap-3 text-sm text-slate-500">
+          <span class="flex min-w-0 items-center gap-1.5">
+            <span class="truncate">{{ split.from_account|default:"Removed Account" }}</span>
+            {% include "shell/icon.html" with name="arrow-right" class="size-3.5 text-slate-400" %}
+            <span class="truncate">{{ split.to_account|default:"Removed Account" }}</span>
+          </span>
+          {% if splits|length > 1 %}<span class="shrink-0 tabular-nums{% if split.amount is None %} text-amber-700{% endif %}">{% if split.amount is None %}Amount needed{% else %}{% amount split.amount %}{% endif %}</span>{% endif %}
+        </p>
+      {% endfor %}
+    </div>
+    <p class="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
+      <span class="size-1.5 shrink-0 rounded-full {% if draft.source == 'quick_add' %}bg-violet-500{% elif draft.source == 'schedule' %}bg-sky-500{% elif draft.source == 'statement' or draft.source == 'card_emi' %}bg-emerald-500{% else %}bg-slate-400{% endif %}" aria-hidden="true"></span>
+      <span class="shrink-0">{% if draft.source == 'quick_add' %}Quick Add{% elif draft.source == 'schedule' %}Schedule{% elif draft.source == 'statement' %}Card payment{% elif draft.source == 'card_emi' %}Card EMI{% else %}By hand{% endif %}</span>
+      {% if draft.quick_add %}<span class="truncate text-slate-400">“{% if user.privacy_mode %}Hidden in Privacy Mode{% else %}{{ draft.quick_add.text }}{% endif %}”</span>{% endif %}
     </p>
-  {% endfor %}
-  {% if draft.posting_error %}
-    <p class="mt-1 text-sm text-red-600">Couldn't post: {{ draft.posting_error }} <a href="{% url 'draft_edit' draft.pk %}" class="font-medium underline">Edit</a></p>
-  {% endif %}
-  <div class="mt-2 flex gap-2">
-    <form method="post" action="{% url 'draft_post' draft.pk %}">
-      {% csrf_token %}
-      <button type="submit" class="btn-primary py-1.5 text-sm">Post</button>
-    </form>
-    <a href="{% url 'draft_edit' draft.pk %}" class="btn-secondary py-1.5 text-sm">Edit</a>
-    <form method="post" action="{% url 'draft_reject' draft.pk %}">
-      {% csrf_token %}
-      <button type="submit" class="btn-secondary py-1.5 text-sm">Reject</button>
-    </form>
+    {% if draft.estimated %}<p class="mt-1 text-sm text-amber-700">Estimate from the last amount paid</p>{% endif %}
+    {% if draft.posting_error %}<p class="mt-1 text-sm text-red-700">Couldn't post: {{ draft.posting_error }}</p>{% endif %}
+    <div class="mt-3 flex items-center gap-2">
+      <form method="post" action="{% url 'draft_post' draft.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 active:scale-95 motion-reduce:active:scale-100">
+          {% include "shell/icon.html" with name="check" class="size-4" stroke="stroke-[2.5]" %}Post
+        </button>
+      </form>
+      <a href="{% url 'draft_edit' draft.pk %}" class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50">
+        {% include "shell/icon.html" with name="pencil" class="size-4" %}Edit
+      </a>
+      <form method="post" action="{% url 'draft_reject' draft.pk %}" class="ml-auto">
+        {% csrf_token %}
+        <button type="submit" class="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:bg-red-50 hover:text-red-700">
+          {% include "shell/icon.html" with name="x" class="size-4" %}Reject
+        </button>
+      </form>
+    </div>
   </div>
 </li>
+{% endwith %}

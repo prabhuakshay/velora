@@ -97,3 +97,20 @@ html:has(#main) {
     translate: 0 6px;
   }
 }
+
+/* A Draft the AI just finished glows once as the polling list swaps it in. */
+@keyframes draft-arrive {
+  from {
+    background-color: var(--color-violet-100);
+  }
+}
+
+.draft-arrive {
+  animation: draft-arrive 2.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draft-arrive {
+    animation: none;
+  }
+}

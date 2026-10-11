@@ -123,3 +123,13 @@ document.addEventListener("touchend", (e) => {
 });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+
+// "/" jumps to the Quick Add box on the Drafts page.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target.closest?.("input, textarea, select, [contenteditable]")) return;
+  const box = document.getElementById("quick-add-text");
+  if (!box) return;
+  e.preventDefault();
+  box.focus();
+});

@@ -62,34 +62,18 @@ def test_the_drafts_page_offers_a_new_draft(signed_in: Client) -> None:
     assert reverse("draft_create") in body
 
 
-def test_the_drafts_page_separates_drafts_by_source(signed_in: Client) -> None:
+def test_the_drafts_page_lists_every_source_newest_first(signed_in: Client) -> None:
     make_manual_draft(description="Dentist, pay later")
-    make_draft(text="lunch at Toit 850", description="Team lunch")
     make_schedule(start_date=date(2026, 10, 1), description="Rent")
     run_daily_job(date(2026, 10, 1))
+    make_draft(text="lunch at Toit 850", description="Team lunch")
 
-    body = signed_in.get(reverse("draft_list")).content.decode()
+    page = signed_in.get(reverse("draft_list")).content.decode()
+    body = page[page.index('id="drafts"') :]
 
-    order = [
-        "From Quick Add",
-        "Team lunch",
-        "From Schedules",
-        "Rent",
-        "Started by hand",
-        "Dentist, pay later",
-    ]
+    order = ["Team lunch", "Quick Add", "Rent", "Schedule", "Dentist", "By hand"]
     positions = [body.index(text) for text in order]
     assert positions == sorted(positions)
-
-
-def test_a_source_with_no_waiting_drafts_shows_no_heading(signed_in: Client) -> None:
-    make_manual_draft(description="Dentist")
-
-    body = signed_in.get(reverse("draft_list")).content.decode()
-
-    assert "Started by hand" in body
-    assert "From Quick Add" not in body
-    assert "From Schedules" not in body
 
 
 def test_a_hand_made_draft_posts_to_a_transaction(signed_in: Client) -> None:
@@ -170,8 +154,8 @@ def test_the_draft_list_is_paginated(signed_in: Client) -> None:
     first = signed_in.get(reverse("draft_list")).content.decode()
     second = signed_in.get(reverse("draft_list") + "?page=2").content.decode()
 
-    assert "Draft 01" in first
-    assert "Draft 26" not in first
-    assert "Draft 26" in second
-    assert "Draft 01" not in second
+    assert "Draft 26" in first
+    assert "Draft 01" not in first
+    assert "Draft 01" in second
+    assert "Draft 26" not in second
     assert "?page=2" in first
