@@ -1,4 +1,5 @@
-// The shell's loading bar, the More sheet's open/close and its swipe-down-to-close.
+// The shell's loading bar, the More sheet's open/close and its swipe-down-to-close,
+// and the service worker that makes Velora installable.
 
 // Only boosted page loads, not in-page partials like Quick Add polling.
 document.addEventListener("htmx:beforeRequest", (e) => {
@@ -103,3 +104,5 @@ document.addEventListener("touchend", (e) => {
     s.animate([{ transform: from }, { transform: "translateY(0)" }], { duration: 300, easing: EASE });
   }
 });
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");

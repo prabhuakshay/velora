@@ -19,7 +19,7 @@ class NoStoreMiddleware:
     """Keep pages out of browser and back-forward caches.
 
     Without this, the back button can redisplay a signed-in page after logout.
-    A future PWA service worker must also skip caching these responses.
+    The service worker (templates/pwa/sw.js) never caches them either.
     """
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
