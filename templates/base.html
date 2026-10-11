@@ -9,7 +9,7 @@
       signed-in pages after logout. Error responses are swapped too, so a
       boosted form shows its lockout or CSRF page instead of doing nothing.
     {% endcomment %}
-    <meta name="htmx-config" content='{"includeIndicatorStyles": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true, "responseHandling": [{"code": "204", "swap": false}, {"code": "...", "swap": true}]}'>
+    <meta name="htmx-config" content='{"includeIndicatorStyles": false, "globalViewTransitions": true, "historyCacheSize": 0, "refreshOnHistoryMiss": true, "responseHandling": [{"code": "204", "swap": false}, {"code": "...", "swap": true}]}'>
     {% comment %}
       No nonce on these: 'self' already allows them, and a per-request nonce
       would make head-support see them as new and re-run them on every swap.
