@@ -117,5 +117,9 @@
     <div data-transaction-sheet-body class="pb-[env(safe-area-inset-bottom)]"></div>
   </dialog>
 
+  {% for transaction in page %}
+    {% include "transactions/_delete_dialog.html" with next=here %}
+  {% endfor %}
+
   {% include "transactions/_filter_sheet.html" %}
 {% endblock %}

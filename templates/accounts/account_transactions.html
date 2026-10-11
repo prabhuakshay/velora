@@ -65,7 +65,7 @@
           {% if transaction.pk in emi_candidates %}
             <a href="{% url 'card_emi_create' transaction.pk %}" class="link">Make Card EMI</a>
           {% endif %}
-          <a href="{% url 'transaction_edit' transaction.pk %}" class="link">Edit</a>
+          <a href="{% url 'transaction_edit' transaction.pk %}?next={{ request.get_full_path|urlencode }}" class="link">Edit</a>
         </div>
       </li>
     {% empty %}

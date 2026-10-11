@@ -98,7 +98,11 @@ class TransactionForm(forms.ModelForm[Transaction]):
     the Transaction is saved.
     """
 
-    attachments = MultipleFileField(required=False)
+    attachments = MultipleFileField(
+        required=False,
+        help_text=f"Receipts, bills or photos. Up to {MAX_ATTACHMENTS} files, "
+        f"{MAX_TOTAL_MB} MB in all.",
+    )
 
     class Meta:
         model = Transaction

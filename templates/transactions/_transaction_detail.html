@@ -11,9 +11,10 @@
   </div>
   <p class="mt-5 text-4xl font-semibold tracking-tight">{% include "transactions/_transaction_total.html" %}</p>
   {% if transaction.party and transaction.description %}<p class="mt-3 whitespace-pre-line text-slate-600">{{ transaction.description }}</p>{% endif %}
-  <div class="mt-6 grid grid-cols-2 gap-2 md:flex">
-    <a href="{% url 'transaction_edit' transaction.pk %}" class="btn-primary flex items-center justify-center gap-2 py-2.5 text-sm">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
-    <a href="{% url 'transaction_delete' transaction.pk %}" class="btn-secondary flex items-center justify-center gap-2 py-2.5 text-red-600 hover:bg-red-50">{% include "shell/icon.html" with name="trash" class="size-4" %}Delete</a>
+  <div class="mt-6 grid grid-cols-3 gap-2 md:flex">
+    <a href="{% url 'transaction_edit' transaction.pk %}?next={{ here|urlencode }}" class="btn-primary flex items-center justify-center gap-2 py-2.5 text-sm">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
+    <a href="{% url 'schedule_create' %}?transaction={{ transaction.pk }}" class="btn-secondary flex items-center justify-center gap-2 py-2.5" title="Make a Schedule from this Transaction">{% include "shell/icon.html" with name="repeat" class="size-4" %}Schedule</a>
+    <button type="button" data-dialog-open="delete-transaction-{{ transaction.pk }}" class="btn-secondary flex items-center justify-center gap-2 py-2.5 text-red-600 hover:bg-red-50">{% include "shell/icon.html" with name="trash" class="size-4" %}Delete</button>
   </div>
 </div>
 <div class="space-y-6 border-t border-slate-100 px-5 py-6 md:px-8">
@@ -47,13 +48,25 @@
       {% endfor %}
     </ul>
   </section>
-  {% if transaction.attachment_count %}
-    <section>
-      <h3 class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Attachment{{ transaction.attachment_count|pluralize }}</h3>
-      <a href="{% url 'transaction_edit' transaction.pk %}" class="mt-3 flex items-center gap-3 rounded-xl p-3 ring-1 ring-slate-200 hover:bg-slate-50">
-        <span class="flex size-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">{% include "shell/icon.html" with name="paperclip" class="size-4" %}</span>
-        <span class="text-sm font-medium">{{ transaction.attachment_count }} file{{ transaction.attachment_count|pluralize }}</span>
-      </a>
-    </section>
-  {% endif %}
+  {% with attachments=transaction.attachments.all %}
+    {% if attachments %}
+      <section>
+        <h3 class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Attachment{{ attachments|length|pluralize }}</h3>
+        <ul class="mt-3 divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
+          {% for attachment in attachments %}
+            <li>
+              <a href="{% url 'attachment_open' attachment.pk %}" target="_blank" rel="noopener" class="flex items-center gap-3 p-3 hover:bg-slate-50">
+                <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">{% include "shell/icon.html" with name="paperclip" class="size-4" %}</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium">{{ attachment.original_name }}</span>
+                  <span class="block text-xs text-slate-500">{{ attachment.size|filesizeformat }}</span>
+                </span>
+                {% include "shell/icon.html" with name="external" class="size-4 text-slate-400" %}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  {% endwith %}
 </div>

@@ -1,20 +1,20 @@
-<ul class="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200">
+<ul class="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
   {% for attachment in attachments %}
     {% url 'attachment_open' attachment.pk as open_url %}
-    <li class="flex items-center gap-3 px-3 py-2">
+    <li class="flex items-center gap-3 p-3">
       <a href="{{ open_url }}" target="_blank" rel="noopener" class="shrink-0">
         {% if attachment.is_image %}
-          <img src="{{ open_url }}" alt="" class="size-10 rounded object-cover">
+          <img src="{{ open_url }}" alt="" class="size-10 rounded-lg object-cover ring-1 ring-slate-200">
         {% else %}
-          <svg viewBox="0 0 24 24" class="size-10 fill-none stroke-slate-400 stroke-[1.5]" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+          <span class="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="paperclip" class="size-4" %}</span>
         {% endif %}
       </a>
-      <div class="min-w-0">
-        <a href="{{ open_url }}" target="_blank" rel="noopener" class="link block truncate text-sm">{{ attachment.original_name }}</a>
+      <div class="min-w-0 flex-1">
+        <a href="{{ open_url }}" target="_blank" rel="noopener" class="block truncate text-sm font-medium hover:underline">{{ attachment.original_name }}</a>
         <p class="text-xs text-slate-500">{{ attachment.size|filesizeformat }}</p>
       </div>
       {# The edit page's form can't contain another, so the button submits a form placed after it. #}
-      <button type="submit" form="delete-attachment-{{ attachment.pk }}" class="ml-auto text-sm text-red-600 underline hover:text-red-800">Delete</button>
+      <button type="submit" form="delete-attachment-{{ attachment.pk }}" class="-mr-1 flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600" aria-label="Delete {{ attachment.original_name }}" title="Delete">{% include "shell/icon.html" with name="trash" class="size-4" %}</button>
     </li>
   {% endfor %}
 </ul>

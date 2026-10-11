@@ -71,9 +71,10 @@ function closeDialog(dialog) {
 document.addEventListener("click", (e) => {
   const opener = e.target.closest("[data-dialog-open]");
   if (opener) openDialog(document.getElementById(opener.dataset.dialogOpen));
-  const dialog = document.querySelector("dialog[data-dialog][open]");
+  // The dialog clicked in, not the first open one, as a dialog can open over another.
+  const dialog = e.target.closest("dialog[data-dialog][open]");
   // A click on the dialog element itself is a click on its backdrop.
-  if (dialog && (e.target === dialog || e.target.closest("[data-dialog-close]") || e.target.closest("dialog[data-dialog] a"))) {
+  if (dialog && (e.target === dialog || e.target.closest("[data-dialog-close]") || e.target.closest("a"))) {
     closeDialog(dialog);
   }
 });

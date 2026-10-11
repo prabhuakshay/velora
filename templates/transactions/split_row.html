@@ -1,14 +1,40 @@
-<fieldset class="space-y-4 rounded-lg border border-slate-200 p-4">
-  <legend class="px-1 text-sm font-medium text-slate-700">Split</legend>
+{% comment %}The Split number comes from a CSS counter, so rows added by htmx are numbered too.{% endcomment %}
+<fieldset class="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200 transition-opacity [counter-increment:split] has-[[name$=-DELETE]:checked]:opacity-50 md:p-4">
+  <legend class="sr-only">Split</legend>
   {% for hidden in split.hidden_fields %}{{ hidden }}{% endfor %}
-  {% include "partials/form_errors.html" with form=split %}
-  {% include "partials/field.html" with field=split.from_account %}
-  {% include "partials/field.html" with field=split.to_account %}
-  {% include "partials/field.html" with field=split.amount %}
-  {% if split.tags.field.queryset.exists %}
-    {% include "partials/field.html" with field=split.tags %}
-  {% endif %}
-  <label class="flex items-center gap-2 text-sm text-slate-700">
-    {{ split.DELETE }} Remove this Split
-  </label>
+  <div class="flex items-center justify-between">
+    <p class="text-sm font-semibold text-slate-700 before:content-['Split_'_counter(split)]" aria-hidden="true"></p>
+    <label class="group -mr-1 flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 has-checked:bg-red-50 has-checked:text-red-600 has-focus-visible:ring-2 has-focus-visible:ring-slate-900 [&_input]:sr-only">
+      {{ split.DELETE }}{% include "shell/icon.html" with name="trash" class="size-3.5" %}<span class="group-has-checked:hidden">Remove</span><span class="hidden group-has-checked:inline">Removed · Undo</span>
+    </label>
+  </div>
+  <div class="mt-3 space-y-4">
+    {% include "partials/form_errors.html" with form=split %}
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-2">
+      {% include "partials/field.html" with field=split.from_account %}
+      <span class="hidden pt-9 text-slate-400 md:block">{% include "shell/icon.html" with name="arrow-right" class="size-4" %}</span>
+      {% include "partials/field.html" with field=split.to_account %}
+    </div>
+    <div>
+      <label for="{{ split.amount.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ split.amount.label }}</label>
+      <div class="field-control relative mt-1 [&_input]:pl-7 [&_input]:font-medium [&_input]:tabular-nums">
+        <span class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" aria-hidden="true">₹</span>
+        {{ split.amount }}
+      </div>
+      {% for error in split.amount.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+    </div>
+    {% if split.tags.field.queryset.exists %}
+      <fieldset>
+        <legend class="text-sm font-medium text-slate-700">{{ split.tags.label }}</legend>
+        <div class="mt-1.5 flex flex-wrap gap-1.5">
+          {% for choice in split.tags %}
+            <label class="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 select-none hover:ring-slate-300 has-checked:bg-slate-900 has-checked:text-white has-checked:ring-slate-900 has-focus-visible:ring-2 has-focus-visible:ring-slate-900 [&_input]:sr-only">
+              {{ choice.tag }}<span class="size-1.5 rounded-full {{ choice.data.value.instance.swatch_class }}" aria-hidden="true"></span>{{ choice.choice_label }}
+            </label>
+          {% endfor %}
+        </div>
+        {% for error in split.tags.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+      </fieldset>
+    {% endif %}
+  </div>
 </fieldset>

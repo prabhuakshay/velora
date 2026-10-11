@@ -10,6 +10,7 @@ from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.core.views import blank_split_row, paginate
@@ -49,7 +50,8 @@ def _listed_transactions() -> QuerySet[Transaction]:
                 queryset=Split.objects.select_related(
                     "from_account", "to_account"
                 ).prefetch_related("tags"),
-            )
+            ),
+            "attachments",
         )
         .annotate(
             total=Sum("splits__amount"),
@@ -80,6 +82,7 @@ def transaction_list(request: HttpRequest) -> HttpResponse:
             "chips": filters.chips(request.GET),
             "extra_query": f"&{query.urlencode()}" if query else "",
             "export_query": f"?{query.urlencode()}" if query else "",
+            "here": request.get_full_path(),
         },
     )
 
@@ -92,6 +95,16 @@ def transaction_export(request: HttpRequest) -> HttpResponse:
     return transactions_csv(filters.apply(_listed_transactions()))
 
 
+def _return_url(request: HttpRequest) -> str:
+    """Where to go once done: the page that sent the user here, else the list."""
+    url = request.GET.get("next", "")
+    if url_has_allowed_host_and_scheme(
+        url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return url
+    return reverse("transaction_list")
+
+
 def _save_transaction_forms(
     request: HttpRequest, instance: Transaction
 ) -> HttpResponseBase:
@@ -101,7 +114,7 @@ def _save_transaction_forms(
     )
     if forms.is_valid():
         forms.save()
-        return redirect("transaction_list")
+        return redirect(_return_url(request))
     form, formset = forms.form, forms.formset
     if request.FILES:
         form.add_error(
@@ -115,6 +128,7 @@ def _save_transaction_forms(
             "form": form,
             "formset": formset,
             "transaction": instance if instance.pk else None,
+            "return_url": _return_url(request),
         },
     )
 
@@ -133,7 +147,10 @@ def transaction_create(request: HttpRequest) -> HttpResponseBase:
 @blocked_in_privacy_mode
 def transaction_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Edit a Transaction and its Splits."""
-    return _save_transaction_forms(request, get_object_or_404(Transaction, pk=pk))
+    # Listed, so the delete dialog has the total like the list's does.
+    return _save_transaction_forms(
+        request, get_object_or_404(_listed_transactions(), pk=pk)
+    )
 
 
 @login_required
@@ -166,7 +183,7 @@ def attachment_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 def transaction_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Confirm, then delete a Transaction, its Splits and its Attachments."""
-    transaction = get_object_or_404(Transaction, pk=pk)
+    transaction = get_object_or_404(_listed_transactions(), pk=pk)
     if request.method == "POST":
         try:
             with db_transaction.atomic():
@@ -174,16 +191,12 @@ def transaction_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
                 transaction.delete()
         except AttachmentDeleteError as error:
             messages.error(request, str(error))
-            return redirect("transaction_delete", pk=pk)
-        return redirect("transaction_list")
+            return redirect(request.get_full_path())
+        return redirect(_return_url(request))
     return render(
         request,
-        "confirm_delete.html",
-        {
-            "object": transaction,
-            "noun": "Transaction",
-            "list_url": reverse("transaction_list"),
-        },
+        "transactions/transaction_confirm_delete.html",
+        {"transaction": transaction, "return_url": _return_url(request)},
     )
 
 

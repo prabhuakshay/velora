@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 import pytest
 from django.urls import reverse
@@ -196,3 +197,55 @@ def test_changes_are_kept_in_history(signed_in: Client) -> None:
 
     assert Transaction.history.filter(history_type="-").count() == 1
     assert Split.history.filter(history_type="-").count() == 1
+
+
+def test_edit_returns_to_the_page_it_came_from(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    groceries = make_account("Groceries", "expense")
+    transaction = record(date(2026, 3, 1), bank, groceries, "100")
+    came_from = reverse("transaction_list") + "?q=milk&page=2"
+    url = transaction_url("transaction_edit", transaction) + "?next=" + quote(came_from)
+
+    response = signed_in.post(
+        url, form_data(bank, groceries, split_id=transaction.splits.get().pk)
+    )
+
+    assert response["Location"] == came_from
+
+
+def test_edit_ignores_a_next_on_another_site(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    groceries = make_account("Groceries", "expense")
+    transaction = record(date(2026, 3, 1), bank, groceries, "100")
+    url = transaction_url("transaction_edit", transaction) + "?next=https://evil.test/"
+
+    response = signed_in.post(
+        url, form_data(bank, groceries, split_id=transaction.splits.get().pk)
+    )
+
+    assert response["Location"] == reverse("transaction_list")
+
+
+def test_delete_returns_to_the_page_it_came_from(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    groceries = make_account("Groceries", "expense")
+    transaction = record(date(2026, 3, 1), bank, groceries, "100")
+    came_from = reverse("transaction_list") + "?q=milk"
+    url = transaction_url("transaction_delete", transaction) + "?next=" + came_from
+
+    response = signed_in.post(url)
+
+    assert response["Location"] == came_from
+    assert not Transaction.objects.exists()
+
+
+def test_list_offers_delete_in_page_keeping_the_filters(signed_in: Client) -> None:
+    bank = make_account("Bank", "asset")
+    groceries = make_account("Groceries", "expense")
+    transaction = record(date(2026, 3, 1), bank, groceries, "100", description="Milk")
+
+    body = list_page(signed_in, "?q=Milk")
+
+    delete_url = transaction_url("transaction_delete", transaction)
+    assert f'id="delete-transaction-{transaction.pk}"' in body
+    assert f'action="{delete_url}?next=/transactions/%3Fq%3DMilk"' in body
