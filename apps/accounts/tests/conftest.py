@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.accounts.models import Account
 
@@ -18,6 +19,15 @@ def list_url(kind: str) -> str:
 
 def list_page(client: Client, kind: str, query: str = "") -> str:
     return client.get(list_url(kind) + query).content.decode()
+
+
+def page_text(html: str) -> str:
+    """The page's text as read, tags dropped and whitespace collapsed."""
+    return " ".join(strip_tags(html).split())
+
+
+def list_text(client: Client, kind: str) -> str:
+    return page_text(list_page(client, kind))
 
 
 def account_url(name: str, account: Account) -> str:

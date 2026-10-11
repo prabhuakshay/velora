@@ -25,9 +25,13 @@ class TransactionForms:
         files: Any = None,  # noqa: ANN401
         *,
         instance: Transaction,
+        initial_splits: list[dict[str, Any]] | None = None,
     ) -> None:
         self.form = TransactionForm(data, files, instance=instance)
-        self.formset = cast("BaseSplitFormSet", SplitFormSet(data, instance=instance))
+        self.formset = cast(
+            "BaseSplitFormSet",
+            SplitFormSet(data, instance=instance, initial=initial_splits),
+        )
 
     def is_valid(self) -> bool:
         """Whether the Transaction and its Splits can be saved."""

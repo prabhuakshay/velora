@@ -2,31 +2,75 @@
 
 {% block title %}{% if account %}Edit{% else %}New{% endif %} {{ kind.label }} Account · Velora{% endblock %}
 
-{% block card %}
-  <h1 class="text-xl font-semibold">{% if account %}Edit{% else %}New{% endif %} {{ kind.label }} Account</h1>
-  <form method="post" class="mt-6 space-y-4">
+{% block main_width %}max-w-2xl{% endblock %}
+
+{% block main %}
+  {% if account %}{% url 'account_transactions' kind account.pk as cancel_url %}{% else %}{% url 'account_list' kind as cancel_url %}{% endif %}
+  <div class="flex items-center gap-2">
+    <a href="{{ cancel_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{% if account %}Edit{% else %}New{% endif %} {{ kind.label }} Account</h1>
+      {% if account %}<p class="truncate text-sm text-slate-500">{{ account.name }}</p>{% endif %}
+    </div>
+  </div>
+
+  <form method="post" class="mt-4 space-y-4 md:mt-6">
     {% csrf_token %}
-    {% include "partials/form_errors.html" %}
-    {% include "partials/field.html" with field=form.name %}
+    {% if form.non_field_errors %}{% include "partials/form_errors.html" %}{% endif %}
+
+    <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="details-title">
+      <h2 id="details-title" class="font-semibold">Details</h2>
+      {% include "partials/field.html" with field=form.name %}
+      {% include "partials/field.html" with field=form.notes %}
+    </section>
+
     {% if form.opening_balance %}
-      {% include "partials/field.html" with field=form.opening_balance %}
-      {% include "partials/field.html" with field=form.opening_balance_date %}
-      {% include "partials/field.html" with field=form.include_in_net_worth %}
-      {% include "partials/field.html" with field=form.low_balance_threshold %}
+      <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="balance-title">
+        <div>
+          <h2 id="balance-title" class="font-semibold">Balance</h2>
+          <p class="mt-0.5 text-sm text-slate-500">{% if kind == "liability" %}What you owed{% else %}What it held{% endif %} on the day you start recording it here.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {% include "partials/field.html" with field=form.opening_balance %}
+          {% include "partials/field.html" with field=form.opening_balance_date %}
+        </div>
+        {% with field=form.include_in_net_worth %}
+          <div>
+            <label class="flex cursor-pointer items-start gap-3 text-sm [&_input]:mt-0.5 [&_input]:size-4 [&_input]:shrink-0 [&_input]:accent-slate-900">
+              {{ field }}
+              <span><span class="block font-medium text-slate-700">{{ field.label }}</span><span class="block text-slate-500">Untick to keep it out of Net Worth, such as a car you'd never sell.</span></span>
+            </label>
+            {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+          </div>
+        {% endwith %}
+        {% include "partials/field.html" with field=form.low_balance_threshold %}
+      </section>
     {% endif %}
+
     {% if form.statement_day %}
-      <fieldset class="space-y-4">
-        <legend class="text-sm font-semibold text-slate-900">Credit card</legend>
-        <p class="text-xs text-slate-500">For a credit card, set all three; otherwise leave them blank.</p>
-        {% include "partials/field.html" with field=form.statement_day %}
-        {% include "partials/field.html" with field=form.due_day %}
-        {% include "partials/field.html" with field=form.pays_from %}
-      </fieldset>
+      <details class="group rounded-2xl bg-white shadow-sm ring-1 ring-slate-200"{% if account.is_card or form.statement_day.value or form.due_day.value or form.pays_from.value or form.statement_day.errors or form.due_day.errors or form.pays_from.errors %} open{% endif %}>
+        <summary class="flex cursor-pointer list-none items-center gap-3 p-4 md:px-6 [&::-webkit-details-marker]:hidden">
+          <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-100">{% include "shell/icon.html" with name="card" class="size-4" %}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-semibold">Credit card</span>
+            <span class="block text-sm text-slate-500">Track Statements and their payments. Set all three, or leave all blank.</span>
+          </span>
+          {% include "shell/icon.html" with name="chevron" class="size-4 text-slate-400 transition-transform group-open:rotate-180" %}
+        </summary>
+        <div class="space-y-4 border-t border-slate-100 p-4 md:px-6">
+          <div class="grid grid-cols-2 gap-4">
+            {% include "partials/field.html" with field=form.statement_day %}
+            {% include "partials/field.html" with field=form.due_day %}
+          </div>
+          {% include "partials/field.html" with field=form.pays_from %}
+        </div>
+      </details>
     {% endif %}
-    {% include "partials/field.html" with field=form.notes %}
-    {% include "partials/submit.html" with label="Save" %}
+
+    {% comment %}-bottom-4 and -mb-4 offset main's padding, so the bar stays flush on the tab bar even at the end of the scroll.{% endcomment %}
+    <div class="sticky -bottom-4 z-10 -mx-4 -mb-4 flex items-center gap-3 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-4 backdrop-blur md:static md:mx-0 md:mb-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+      <a href="{{ cancel_url }}" class="btn-secondary flex flex-1 items-center justify-center py-2.5 md:flex-none">Cancel</a>
+      <div class="flex-1 md:w-40 md:flex-none">{% include "partials/submit.html" with label=account|yesno:"Save,Add Account" %}</div>
+    </div>
   </form>
-  <p class="mt-4 text-center text-sm">
-    <a href="{% url 'account_list' kind %}" class="link">Cancel</a>
-  </p>
 {% endblock %}

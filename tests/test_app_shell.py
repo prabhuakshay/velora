@@ -61,7 +61,9 @@ def test_more_tab_is_active_on_a_page_that_lives_in_the_more_sheet(
 def test_phone_title_names_the_current_page(signed_in: Client) -> None:
     body = signed_in.get(reverse("account_list", args=["liability"])).content.decode()
 
-    assert '<p class="py-3 text-lg font-semibold tracking-tight">Liability</p>' in body
+    assert (
+        '<p class="py-3 text-lg font-semibold tracking-tight">Liabilities</p>' in body
+    )
 
 
 def _accounts_section(body: str) -> str:

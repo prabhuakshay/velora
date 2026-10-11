@@ -5,7 +5,8 @@ import pytest
 
 from apps.accounts.models import Account
 from apps.accounts.tests.conftest import make_account
-from apps.cards.models import CardEMI
+from apps.cards.models import CardEMI, Statement
+from apps.schedules.daily_job import run_daily_job
 from apps.transactions.models import Transaction
 
 
@@ -41,6 +42,14 @@ def card() -> Account:
 @pytest.fixture
 def groceries() -> Account:
     return make_account("Groceries", "expense")
+
+
+@pytest.fixture
+def billed(card: Account, groceries: Account) -> Statement:
+    """The card's Statement to 15 Oct 2026, of 1200 due 5 Nov."""
+    record(card, groceries, "1200", date(2026, 9, 20))
+    run_daily_job(date(2026, 10, 16))
+    return Statement.objects.get()
 
 
 def make_card_emi(  # noqa: PLR0913

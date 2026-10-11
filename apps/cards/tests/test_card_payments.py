@@ -19,14 +19,6 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-@pytest.fixture
-def billed(card: Account, groceries: Account) -> Statement:
-    """The card's Statement to 15 Oct 2026, of 1200 due 5 Nov."""
-    record(card, groceries, "1200", date(2026, 9, 20))
-    run_daily_job(date(2026, 10, 16))
-    return Statement.objects.get()
-
-
 def test_a_recorded_payment_withdraws_the_payment_draft(
     card: Account, billed: Statement
 ) -> None:

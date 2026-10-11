@@ -1,0 +1,26 @@
+<section id="emi-schedule" class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="schedule-title">
+  <div class="flex items-baseline justify-between gap-3 px-4 pt-4 md:px-5">
+    <h2 id="schedule-title" class="font-semibold">Installments</h2>
+    {% if plan %}<p class="text-xs text-slate-500">{{ plan.emi.months }} month{{ plan.emi.months|pluralize }} · ends {{ plan.ends|date:"M Y" }}</p>{% endif %}
+  </div>
+  {% if plan %}
+    <dl class="mx-4 mt-3 grid grid-cols-3 gap-2 md:mx-5">
+      <div class="min-w-0 rounded-xl bg-slate-50 p-2.5 ring-1 sm:p-3 ring-slate-100">
+        <dt class="text-xs font-medium text-slate-500">Interest + GST</dt>
+        <dd class="mt-1 truncate text-sm font-semibold tabular-nums sm:text-base">{% amount plan.interest %}</dd>
+      </div>
+      <div class="min-w-0 rounded-xl bg-slate-50 p-2.5 ring-1 sm:p-3 ring-slate-100">
+        <dt class="text-xs font-medium text-slate-500">Fees</dt>
+        <dd class="mt-1 truncate text-sm font-semibold tabular-nums sm:text-base">{% amount plan.fees %}</dd>
+      </div>
+      <div class="min-w-0 rounded-xl bg-slate-50 p-2.5 ring-1 sm:p-3 ring-slate-100">
+        <dt class="text-xs font-medium text-slate-500">Paid in all</dt>
+        <dd class="mt-1 truncate text-sm font-semibold tabular-nums sm:text-base">{% amount plan.total %}</dd>
+      </div>
+    </dl>
+    <div class="mt-2">{% include "cards/_installments.html" %}</div>
+    <div class="pb-2"></div>
+  {% else %}
+    <p class="px-4 py-8 text-center text-sm text-slate-500 md:px-5">Enter the months and interest rate to see each installment.</p>
+  {% endif %}
+</section>

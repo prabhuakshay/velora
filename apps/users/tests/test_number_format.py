@@ -4,7 +4,12 @@ from typing import TYPE_CHECKING
 import pytest
 from django.urls import reverse
 
-from apps.accounts.tests.conftest import account_url, list_page, make_account
+from apps.accounts.tests.conftest import (
+    account_url,
+    list_page,
+    make_account,
+    page_text,
+)
 from apps.accounts.tests.test_account_transactions import record, view_page
 from apps.accounts.tests.test_balance import opening
 from apps.accounts.tests.test_net_worth import home_page
@@ -77,10 +82,8 @@ def test_international_applies_across_pages(signed_in: Client, user: User) -> No
     record(date(2026, 3, 1), bank, rent, "250000", "Rent")
 
     assert "<td>₹750,000.00</td>" in home_page(signed_in)
-    accounts = list_page(signed_in, "asset")
-    assert "Balance ₹750,000.00" in accounts
-    assert "Opening Balance ₹1,000,000.00" in accounts
-    view = view_page(signed_in, bank)
+    assert "Balance ₹750,000.00" in page_text(list_page(signed_in, "asset"))
+    view = page_text(view_page(signed_in, bank))
     assert "Balance ₹750,000.00" in view
     assert "Opening Balance ₹1,000,000.00" in view
     assert "₹250,000.00" in view

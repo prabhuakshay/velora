@@ -55,8 +55,13 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
             "wallet",
             "Accounts",
             [
-                leaf(kind.title(), reverse("account_list", args=[kind]))
-                for kind in ("asset", "liability", "expense", "income")
+                leaf(label, reverse("account_list", args=[kind]))
+                for kind, label in (
+                    ("asset", "Assets"),
+                    ("liability", "Liabilities"),
+                    ("expense", "Expenses"),
+                    ("income", "Income"),
+                )
             ],
         ),
         group(

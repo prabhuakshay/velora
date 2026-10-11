@@ -7,7 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import Account
-from apps.accounts.tests.conftest import account_url, make_account
+from apps.accounts.tests.conftest import account_url, make_account, page_text
+from apps.accounts.tests.test_account_transactions import view_page
 from apps.cards.tests.conftest import record
 
 if TYPE_CHECKING:
@@ -113,17 +114,17 @@ def test_edit_changes_opening_balance_and_date(signed_in: Client) -> None:
     assert account.opening_balance_date == date(2026, 2, 1)
 
 
-def test_list_shows_opening_balance(signed_in: Client) -> None:
-    Account.objects.create(
+def test_account_page_shows_opening_balance(signed_in: Client) -> None:
+    card = Account.objects.create(
         name="Card",
         kind="liability",
         opening_balance=Decimal("-1500.75"),
         opening_balance_date=date(2026, 1, 1),
     )
 
-    response = signed_in.get(reverse("account_list", kwargs={"kind": "liability"}))
+    page = view_page(signed_in, card)
 
-    assert "Opening Balance -₹1,500.75" in response.content.decode()
+    assert "Opening Balance -₹1,500.75" in page_text(page)
 
 
 def test_opening_balance_date_after_the_first_split_is_refused(

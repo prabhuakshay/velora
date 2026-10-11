@@ -6,8 +6,14 @@ import pytest
 from django.conf import settings
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import strip_tags
 
-from apps.accounts.tests.conftest import account_url, list_page, make_account
+from apps.accounts.tests.conftest import (
+    account_url,
+    list_page,
+    make_account,
+    page_text,
+)
 from apps.accounts.tests.test_account_transactions import record, view_page
 from apps.accounts.tests.test_balance import opening
 from apps.accounts.tests.test_net_worth import home_page
@@ -147,14 +153,16 @@ def test_account_pages_mask_balances_without_sign_or_red(signed_in: Client) -> N
     turn_on(signed_in)
 
     for page in (list_page(signed_in, "asset"), view_page(signed_in, bank)):
-        assert f"Balance {MASK}" in page
-        assert f"Opening Balance {MASK}" in page
+        assert MASK in page
+        assert f"Balance {strip_tags(MASK)}" in page_text(page)
         assert "1,234.50" not in page
         assert "3,765.50" not in page
         assert "-₹" not in page
         assert '"text-sm text-red-600"' not in page
         assert "mt-2 text-sm text-red-600" not in page
-    assert "5,000.00" not in view_page(signed_in, bank)
+    view = view_page(signed_in, bank)
+    assert f"Opening Balance {strip_tags(MASK)}" in page_text(view)
+    assert "5,000.00" not in view
 
 
 def test_transaction_list_masks_amounts(signed_in: Client) -> None:

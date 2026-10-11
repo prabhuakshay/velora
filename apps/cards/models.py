@@ -78,9 +78,14 @@ class Installment:
         return (self.interest * GST_RATE).quantize(CENT, ROUND_HALF_UP)
 
     @property
+    def charges(self) -> Decimal:
+        """The interest and the GST on it."""
+        return self.interest + self.gst
+
+    @property
     def billed(self) -> Decimal:
         """What it adds to the Statement Amount."""
-        return self.principal + self.interest + self.gst
+        return self.principal + self.charges
 
 
 @dataclass(frozen=True)

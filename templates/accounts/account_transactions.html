@@ -1,76 +1,287 @@
 {% extends "app_base.html" %}
 
-{% block title %}{{ account.name }} · {{ kind.label }} Accounts · Velora{% endblock %}
+{% block title %}{{ account.name }} · {{ title }} · Velora{% endblock %}
+
+{% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
 
 {% block main %}
-  <p class="text-sm"><a href="{% url 'account_list' kind %}" class="link">{{ kind.label }} Accounts</a></p>
-  <div class="mt-2 flex items-center justify-between gap-3">
-    <h1 class="truncate text-2xl font-bold tracking-tight">{{ account.name }}</h1>
-    <a href="{% url 'account_edit' kind account.pk %}" class="btn-primary py-2 text-sm">Edit</a>
+  {% with balances=account.has_opening_balance %}
+  <div class="flex items-center gap-2">
+    <a href="{% url 'account_list' kind %}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to {{ title }}">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    {% include "accounts/_avatar.html" with size="size-9" %}
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{{ account.name }}</h1>
+      <p class="truncate text-sm text-slate-500">{{ kind.label }} Account{% if account.is_card %} · Credit card{% endif %}</p>
+    </div>
+    <a href="{% url 'account_edit' kind account.pk %}" class="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
+    <button type="button" data-dialog-open="account-actions" class="-mr-2 flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="More actions" title="More actions">{% include "shell/icon.html" with name="dots" class="size-5" stroke="stroke-[3]" %}</button>
   </div>
-  {% if account.has_opening_balance %}
-    <p class="mt-2 text-sm {% amount_color account.balance %}">Balance {% amount account.balance %}</p>
-    <p class="text-xs text-slate-500">Opening Balance {% amount account.opening_balance %} on {{ account.opening_balance_date }}</p>
-  {% endif %}
-  {% if statements %}
-    <h2 class="mt-6 text-lg font-semibold">Statements</h2>
-    <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-      {% for statement in statements %}
-        <li class="flex items-center justify-between gap-3 py-3">
-          <div class="min-w-0">
-            <p class="font-medium">Due {{ statement.due_date|date:"j M Y" }}</p>
-            <p class="text-xs text-slate-500">{{ statement.period_start|date:"j M Y" }} to {{ statement.period_end|date:"j M Y" }}{% if statement.transaction %} · Paid{% endif %}</p>
+
+  <div class="mt-4 md:mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
+    <div class="space-y-4">
+      <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
+        {% if account.hidden or balances and not account.include_in_net_worth or balances and account.past_threshold %}
+          <div class="mb-4 flex flex-wrap gap-1.5">
+            {% if account.hidden %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Hidden</span>{% endif %}
+            {% if balances and not account.include_in_net_worth %}<span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">Excluded from Net Worth</span>{% endif %}
+            {% if balances and account.past_threshold %}<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">{% include "shell/icon.html" with name="alert" class="size-3.5" %}{% if account.kind == "liability" %}Owing over {% amount account.low_balance_threshold %}{% else %}Below {% amount account.low_balance_threshold %}{% endif %}</span>{% endif %}
           </div>
-          <div class="flex shrink-0 items-center gap-3 text-sm">
-            <span class="tabular-nums">{% amount statement.amount %}{% if statement.actual_amount is None %} <span class="text-xs text-slate-500">(estimate)</span>{% endif %}</span>
-            <a href="{% url 'statement_edit' statement.pk %}" class="link">Enter actual</a>
+        {% endif %}
+        {% if balances %}
+          <p class="text-sm text-slate-500">Balance{% if account.kind == "liability" %} <span class="text-slate-400">· what you owe</span>{% endif %}</p>
+          <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color account.balance %}">{% amount account.balance %}</p>
+          <p class="mt-2 text-sm text-slate-500">Opening Balance {% amount account.opening_balance %} on {{ account.opening_balance_date|date:"j M Y" }}</p>
+        {% else %}
+          <p class="text-sm text-slate-500">{% if kind == "expense" %}Spent{% else %}Earned{% endif %} in {{ this_month.start|date:"F" }}</p>
+          <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{% amount this_month.net %}</p>
+          <p class="mt-2 text-sm text-slate-500">{% amount last_month.net %} in {{ last_month.start|date:"F" }}</p>
+        {% endif %}
+
+        <div class="mt-5 flex flex-wrap gap-2">
+          <a href="{% url 'transaction_create' %}?account={{ account.pk }}&amp;next={{ here|urlencode }}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Transaction</a>
+          <a href="{% url 'transaction_list' %}?account={{ account.pk }}" class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name="search" class="size-4" %}Search its Transactions</a>
+          {% if not user.privacy_mode %}<a href="{% url 'transaction_export' %}?account={{ account.pk }}" hx-boost="false" download class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name="download" class="size-4" %}CSV</a>{% endif %}
+        </div>
+      </section>
+
+      {% comment %}Swipes sideways on phones, where three tiles side by side would cut their amounts short.{% endcomment %}
+      <dl class="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:gap-3 [&::-webkit-scrollbar]:hidden">
+        {% if balances %}
+          <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+            <dt class="truncate text-xs font-medium text-slate-500">{% if account.kind == "liability" %}Paid off{% else %}Money in{% endif %}</dt>
+            <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{% amount this_month.moved_in %}</dd>
+            <dd class="text-xs text-slate-500">{{ this_month.start|date:"F" }}</dd>
           </div>
-        </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-  {% if card_emis %}
-    <h2 class="mt-6 text-lg font-semibold">Card EMIs</h2>
-    <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-      {% for emi, progress in card_emis %}
-        <li class="flex items-center justify-between gap-3 py-3">
-          <div class="min-w-0">
-            <p class="font-medium"><span class="tabular-nums">{% amount emi.principal %}</span> over {{ emi.months }} months at {{ emi.annual_rate|floatformat:"-2" }}%</p>
-            <p class="text-xs text-slate-500">{{ progress.paid }} paid · {{ progress.left }} left · ends {{ progress.end_month|date:"M Y" }}{% if emi.foreclosed_on %} · Foreclosed {{ emi.foreclosed_on|date:"j M Y" }}{% endif %}</p>
+          <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+            <dt class="truncate text-xs font-medium text-slate-500">{% if account.kind == "liability" %}Charged{% else %}Money out{% endif %}</dt>
+            <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{% amount this_month.moved_out %}</dd>
+            <dd class="text-xs text-slate-500">{{ this_month.start|date:"F" }}</dd>
           </div>
-          {% if not emi.foreclosed_on %}
-            <a href="{% url 'card_emi_foreclose' emi.pk %}" class="link shrink-0 text-sm">Foreclose</a>
+        {% else %}
+          <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+            <dt class="truncate text-xs font-medium text-slate-500">Monthly average</dt>
+            <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{% amount average %}</dd>
+            <dd class="text-xs text-slate-500">Last 11 months</dd>
+          </div>
+          <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+            <dt class="truncate text-xs font-medium text-slate-500">This year</dt>
+            <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{% amount year_total %}</dd>
+            <dd class="text-xs text-slate-500">Since 1 Jan</dd>
+          </div>
+        {% endif %}
+        <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+          <dt class="truncate text-xs font-medium text-slate-500">Transactions</dt>
+          <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{{ count }}</dd>
+          <dd class="truncate text-xs text-slate-500">{% with newest=rows.0 %}{% if newest %}Last {{ newest.transaction.date|date:"j M" }}{% else %}None yet{% endif %}{% endwith %}</dd>
+        </div>
+      </dl>
+
+      {% if forecast %}
+        <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 md:p-5 {% if forecast.breach %}ring-red-200{% else %}ring-slate-200{% endif %}" aria-labelledby="forecast-title">
+          <div class="flex items-center justify-between gap-3">
+            <h2 id="forecast-title" class="font-semibold">Next 30 days</h2>
+            <a href="{% url 'forecast' %}" class="flex items-center gap-0.5 text-sm font-medium text-slate-500 hover:text-slate-900">Forecast{% include "shell/icon.html" with name="chevron-right" class="size-4" %}</a>
+          </div>
+          {% if forecast.breach %}
+            <p class="mt-2 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">{% include "shell/icon.html" with name="alert" class="mt-0.5 size-4" %}<span>Expected {% if forecast.breach.owes %}to owe over{% else %}under{% endif %} {% amount account.low_balance_threshold %} from {{ forecast.breach.on|date:"j M" }}.</span></p>
           {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-  {% if statements or card_emis %}
-    <h2 class="mt-6 text-lg font-semibold">Transactions</h2>
-  {% endif %}
-  <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-    {% for transaction in page %}
-      <li class="flex items-center justify-between gap-3 py-3">
-        <div class="min-w-0">
-          <p class="truncate font-medium">
-            <span class="text-slate-500">{{ transaction.date|date:"j M Y" }}</span>
-            {% if transaction.party %}· {{ transaction.party }}{% endif %}
-          </p>
-          {% if transaction.description %}<p class="truncate text-sm text-slate-700">{{ transaction.description }}</p>{% endif %}
-          {% for split in transaction.splits.all %}
-            <p class="truncate text-xs text-slate-500">{{ split.from_account }} → {{ split.to_account }} <span class="tabular-nums">{% amount split.amount %}</span></p>
+          <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt class="text-slate-500">By {{ forecast.end_day|date:"j M" }}</dt>
+              <dd class="mt-0.5 text-lg font-semibold tabular-nums {% amount_color forecast.end %}">{% amount forecast.end %}</dd>
+            </div>
+            <div>
+              <dt class="text-slate-500">{% if account.kind == "liability" %}Most owed{% else %}Lowest{% endif %}</dt>
+              <dd class="mt-0.5 text-lg font-semibold tabular-nums {% amount_color forecast.worst %}">{% amount forecast.worst %} <span class="text-xs font-normal text-slate-500">{{ forecast.worst_day|date:"j M" }}</span></dd>
+            </div>
+          </dl>
+        </section>
+      {% endif %}
+
+      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="months-title">
+        <div class="flex items-baseline justify-between gap-3">
+          <h2 id="months-title" class="font-semibold">{% if balances %}Month-end balances{% elif kind == "expense" %}Spent by month{% else %}Earned by month{% endif %}</h2>
+          <span class="text-xs text-slate-500">Last 12 months</span>
+        </div>
+        {% if user.privacy_mode %}
+          <p class="mt-4 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
+        {% else %}
+          {% include "accounts/_month_bars.html" with caption=balances|yesno:"Month-end balances,Totals by month" %}
+        {% endif %}
+      </section>
+
+      <section class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="transactions-title">
+        <div class="flex items-baseline justify-between gap-3 px-4 pt-4 md:px-5">
+          <h2 id="transactions-title" class="font-semibold">Transactions{% if count %} <span class="text-sm font-normal text-slate-400 tabular-nums">{{ count }}</span>{% endif %}</h2>
+          {% if balances and rows %}<span class="text-xs text-slate-500">Balance after each</span>{% endif %}
+        </div>
+        <ul class="mt-2 divide-y divide-slate-100">
+          {% for row in rows %}
+            {% with transaction=row.transaction %}
+              <li class="flex items-center">
+                <a href="{% url 'transaction_edit' transaction.pk %}?next={{ here|urlencode }}" class="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50 active:bg-slate-100 md:px-5">
+                  <span class="flex w-9 shrink-0 flex-col items-center text-center leading-none" aria-hidden="true">
+                    <span class="text-lg font-semibold tabular-nums">{{ transaction.date|date:"j" }}</span>
+                    <span class="mt-1 text-[11px] text-slate-500">{{ transaction.date|date:"M" }}</span>
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="flex items-baseline justify-between gap-3">
+                      <span class="truncate font-medium"><span class="sr-only">{{ transaction.date|date:"j M Y" }} </span>{% include "transactions/_transaction_title.html" %}</span>
+                      <span class="shrink-0 font-semibold tabular-nums">{% if user.privacy_mode %}{% amount row.change %}{% elif balances and row.change > 0 %}<span class="text-emerald-600">+{% amount row.change %}</span>{% else %}{% amount row.change %}{% endif %}</span>
+                    </span>
+                    <span class="mt-0.5 flex items-center justify-between gap-3 text-xs text-slate-500">
+                      <span class="truncate">
+                        {% for split in transaction.splits.all %}{% if not forloop.first %}, {% endif %}{% if split.from_account_id == account.pk %}to {{ split.to_account }}{% else %}from {{ split.from_account }}{% endif %}{% if transaction.splits.all|length > 1 %} <span class="tabular-nums">{% amount split.amount %}</span>{% endif %}{% endfor %}{% if transaction.party and transaction.description %} · {{ transaction.description }}{% endif %}
+                      </span>
+                      {% if row.balance_after is not None %}<span class="shrink-0 tabular-nums {% amount_color row.balance_after %}">{% amount row.balance_after %}</span>{% endif %}
+                    </span>
+                  </span>
+                </a>
+                {% if transaction.pk in emi_candidates %}
+                  <a href="{% url 'card_emi_create' transaction.pk %}" class="mr-3 shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200 md:mr-4">Make Card EMI</a>
+                {% endif %}
+              </li>
+            {% endwith %}
+          {% empty %}
+            <li class="flex flex-col items-center px-6 py-12 text-center">
+              <span class="flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="receipt" class="size-6" %}</span>
+              <p class="mt-4 font-semibold">No Transactions yet</p>
+              <p class="mt-1 text-sm text-slate-500">Record one that moves money {% if balances %}in or out of{% elif kind == "expense" %}to{% else %}from{% endif %} {{ account.name }}.</p>
+              <a href="{% url 'transaction_create' %}?account={{ account.pk }}&amp;next={{ here|urlencode }}" class="btn-primary mt-5 inline-flex items-center gap-1.5 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Transaction</a>
+            </li>
           {% endfor %}
-        </div>
-        <div class="flex shrink-0 items-center gap-3 text-sm">
-          {% if transaction.pk in emi_candidates %}
-            <a href="{% url 'card_emi_create' transaction.pk %}" class="link">Make Card EMI</a>
+        </ul>
+        {% if page.paginator.num_pages > 1 %}
+          <nav class="flex items-center justify-between border-t border-slate-100 px-3 py-2 text-sm" aria-label="Pages">
+            {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-slate-100">{% include "shell/icon.html" with name="chevron-left" class="size-4" %}Newer</a>{% else %}<span></span>{% endif %}
+            <span class="text-xs text-slate-400 tabular-nums">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+            {% if page.has_next %}<a href="?page={{ page.next_page_number }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-slate-100">Older{% include "shell/icon.html" with name="chevron-right" class="size-4" %}</a>{% else %}<span></span>{% endif %}
+          </nav>
+        {% endif %}
+      </section>
+    </div>
+
+    <aside class="mt-4 space-y-4 lg:sticky lg:top-0 lg:mt-0">
+      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="details-title">
+        <h2 id="details-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Details</h2>
+        <dl class="mt-3 space-y-2.5 text-sm">
+          <div class="flex justify-between gap-3"><dt class="text-slate-500">Kind</dt> <dd class="text-right font-medium">{{ kind.label }}</dd></div>
+          {% if balances %}
+            <div class="flex justify-between gap-3"><dt class="text-slate-500">Opened</dt> <dd class="text-right font-medium tabular-nums">{{ account.opening_balance_date|date:"j M Y" }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-slate-500">Net Worth</dt> <dd class="text-right font-medium">{% if account.include_in_net_worth %}Included{% else %}Excluded{% endif %}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-slate-500">{% if account.kind == "liability" %}Warn when owing over{% else %}Warn below{% endif %}</dt> <dd class="text-right font-medium tabular-nums">{% if account.kind == "liability" and not account.low_balance_threshold %}No warning{% else %}{% amount account.low_balance_threshold %}{% endif %}</dd></div>
           {% endif %}
-          <a href="{% url 'transaction_edit' transaction.pk %}?next={{ request.get_full_path|urlencode }}" class="link">Edit</a>
-        </div>
-      </li>
-    {% empty %}
-      <li class="py-3 text-slate-500">No Transactions yet.</li>
-    {% endfor %}
-  </ul>
-  {% include "partials/pagination.html" with previous_label="Newer" next_label="Older" %}
+          <div class="flex justify-between gap-3"><dt class="text-slate-500">Status</dt> <dd class="text-right font-medium">{% if account.hidden %}Hidden{% else %}In use{% endif %}</dd></div>
+        </dl>
+        {% if account.notes %}
+          <div class="mt-3 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+            <p class="text-xs font-medium text-slate-500">Notes</p>
+            <p class="mt-0.5 whitespace-pre-line">{{ account.notes }}</p>
+          </div>
+        {% endif %}
+      </section>
+
+      {% if account.is_card %}
+        <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="card-title">
+          <h2 id="card-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Credit card</h2>
+          <dl class="mt-3 space-y-2.5 text-sm">
+            <div class="flex justify-between gap-3"><dt class="text-slate-500">Statement Day</dt> <dd class="text-right font-medium tabular-nums">{{ account.statement_day }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-slate-500">Due Day</dt> <dd class="text-right font-medium tabular-nums">{{ account.due_day }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-slate-500">Pays from</dt> <dd class="min-w-0 truncate text-right font-medium"><a href="{% url 'account_transactions' account.pays_from.kind account.pays_from.pk %}" class="hover:underline">{{ account.pays_from }}</a></dd></div>
+          </dl>
+        </section>
+      {% endif %}
+
+      {% if statements %}
+        <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="statements-title">
+          <h2 id="statements-title" class="px-4 pt-4 text-xs font-semibold tracking-wide text-slate-500 uppercase md:px-5">Statements</h2>
+          <ul class="mt-2 divide-y divide-slate-100">
+            {% for statement in statements %}
+              <li>
+                <a href="{% url 'statement_edit' statement.pk %}" class="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 md:px-5" title="Enter the actual Statement Amount">
+                  <span class="min-w-0 flex-1">
+                    <span class="block font-medium">Due {{ statement.due_date|date:"j M Y" }}</span>
+                    <span class="block truncate text-xs text-slate-500">{{ statement.period_start|date:"j M" }} to {{ statement.period_end|date:"j M Y" }}</span>
+                  </span>
+                  <span class="shrink-0 text-right">
+                    <span class="block font-semibold tabular-nums">{% amount statement.amount %}</span>
+                    <span class="block text-xs {% if statement.transaction %}text-emerald-700{% else %}text-slate-500{% endif %}">{% if statement.transaction %}Paid{% elif statement.actual_amount is None %}Estimate{% else %}Actual{% endif %}</span>
+                  </span>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+          <p class="px-4 pt-1 pb-3 text-xs text-slate-400 md:px-5">Tap one to enter its actual amount.</p>
+        </section>
+      {% endif %}
+
+      {% if card_emis %}
+        <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="emis-title">
+          <h2 id="emis-title" class="px-4 pt-4 text-xs font-semibold tracking-wide text-slate-500 uppercase md:px-5">Card EMIs</h2>
+          <ul class="mt-2 divide-y divide-slate-100">
+            {% for emi, progress in card_emis %}
+              <li>
+                <a href="{% url 'card_emi_detail' emi.pk %}" class="block px-4 py-3 text-sm hover:bg-slate-50 md:px-5">
+                  <span class="flex items-baseline justify-between gap-3">
+                    <span class="min-w-0 truncate font-medium">{% include "transactions/_transaction_title.html" with transaction=emi.purchase %}</span>
+                    <span class="shrink-0 font-semibold tabular-nums">{% amount emi.principal %}</span>
+                  </span>
+                  <svg viewBox="0 0 {{ emi.months }} 4" preserveAspectRatio="none" class="mt-2 h-1.5 w-full overflow-hidden rounded-full" role="img" aria-label="{{ progress.paid }} of {{ emi.months }} paid">
+                    <rect width="{{ emi.months }}" height="4" class="fill-slate-100"/>
+                    <rect width="{{ progress.paid }}" height="4" class="{% if emi.foreclosed_on %}fill-slate-400{% else %}fill-slate-900{% endif %}"/>
+                  </svg>
+                  <span class="mt-1.5 block text-xs text-slate-500">{{ progress.paid }} paid · {{ progress.left }} left · ends {{ progress.end_month|date:"M Y" }}{% if emi.foreclosed_on %} · Foreclosed {{ emi.foreclosed_on|date:"j M Y" }}{% endif %}</span>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+    </aside>
+  </div>
+
+  <dialog id="account-actions" data-dialog data-sheet aria-labelledby="account-actions-title" class="m-0 mt-auto w-full max-w-none rounded-t-2xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-black/50 md:m-auto md:max-w-sm md:rounded-2xl">
+    <div class="px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] md:pt-4">
+      <div class="mx-auto mb-1 h-1 w-9 rounded-full bg-slate-300 md:hidden" aria-hidden="true"></div>
+      <div class="flex items-center justify-between">
+        <h2 id="account-actions-title" class="truncate text-lg font-semibold tracking-tight">{{ account.name }}</h2>
+        <button type="button" data-dialog-close class="-mr-2 flex h-11 items-center rounded-full px-3 text-sm font-medium text-slate-600 active:bg-slate-200 md:hover:bg-slate-100">Done</button>
+      </div>
+      <div class="mt-2 divide-y divide-slate-200 overflow-hidden rounded-xl bg-slate-100">
+        <a href="{% url 'account_edit' kind account.pk %}" class="flex min-h-12 items-center gap-3 px-3.5 font-medium hover:bg-slate-200 active:bg-slate-200">{% include "shell/icon.html" with name="pencil" class="size-5 text-slate-500" %}Edit</a>
+        <form method="post" action="{% url account.hidden|yesno:'account_unhide,account_hide' kind account.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="flex min-h-12 w-full items-center gap-3 px-3.5 text-left font-medium hover:bg-slate-200 active:bg-slate-200">
+            {% include "shell/icon.html" with name=account.hidden|yesno:"eye,eye-off" class="size-5 text-slate-500" %}
+            <span class="flex-1">{% if account.hidden %}Unhide{% else %}Hide{% endif %}<span class="block text-xs font-normal text-slate-500">{% if account.hidden %}Put it back in the list and on new Transactions{% else %}Keep it off the list and new Transactions{% endif %}</span></span>
+          </button>
+        </form>
+        <a href="{% url 'account_merge' kind account.pk %}" class="flex min-h-12 items-center gap-3 px-3.5 py-2 font-medium hover:bg-slate-200 active:bg-slate-200">
+          {% include "shell/icon.html" with name="merge" class="size-5 text-slate-500" %}
+          <span class="flex-1">Merge into another<span class="block text-xs font-normal text-slate-500">Move everything to another {{ kind.label }} Account</span></span>
+        </a>
+      </div>
+      {% if used_by %}
+        <p class="mt-3 flex items-start gap-3 rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-slate-500 ring-1 ring-slate-200">{% include "shell/icon.html" with name="trash" class="mt-0.5 size-5 text-slate-400" %}<span>Can't be deleted while used by {{ used_by }}. Merge or hide it instead.</span></p>
+      {% else %}
+        <button type="button" data-dialog-open="delete-account" class="mt-3 flex min-h-12 w-full items-center gap-3 rounded-xl bg-slate-100 px-3.5 font-medium text-red-700 hover:bg-red-50 active:bg-red-100">{% include "shell/icon.html" with name="trash" class="size-5" %}Delete</button>
+      {% endif %}
+    </div>
+  </dialog>
+
+  {% if not used_by %}
+    <dialog id="delete-account" data-dialog data-sheet aria-labelledby="delete-account-title" class="m-0 mt-auto w-full max-w-none rounded-t-2xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-black/50 md:m-auto md:max-w-sm md:rounded-2xl">
+      <div class="px-5 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-6 md:pt-6 md:pb-6">
+        <div class="mx-auto mb-4 h-1 w-9 rounded-full bg-slate-300 md:hidden" aria-hidden="true"></div>
+        <h2 id="delete-account-title" class="text-lg font-semibold tracking-tight">Delete {{ account.name }}?</h2>
+        <p class="mt-1 text-sm text-slate-600">It has no Transactions or Schedules. This can't be undone.</p>
+        <form method="post" action="{% url 'account_delete' kind account.pk %}" class="mt-5 grid grid-cols-2 gap-3">
+          {% csrf_token %}
+          <button type="button" data-dialog-close class="btn-secondary py-2.5">Cancel</button>
+          <button type="submit" class="rounded-lg bg-red-600 px-4 py-2.5 font-medium text-white hover:bg-red-700">Delete</button>
+        </form>
+      </div>
+    </dialog>
+  {% endif %}
+  {% endwith %}
 {% endblock %}

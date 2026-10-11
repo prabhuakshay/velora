@@ -10,8 +10,6 @@ from apps.accounts.models import Account
 from apps.accounts.tests.conftest import (
     KINDS,
     account_url,
-    list_page,
-    list_url,
     make_account,
 )
 from apps.transactions.models import Split, Transaction
@@ -50,10 +48,11 @@ def merge_scenario() -> tuple[Account, Account, Account]:
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_every_account_row_offers_merge(signed_in: Client, kind: str) -> None:
+def test_every_account_page_offers_merge(signed_in: Client, kind: str) -> None:
     account = make_account("Old card", kind)
 
-    assert account_url("account_merge", account) in list_page(signed_in, kind)
+    page = signed_in.get(account_url("account_transactions", account)).content
+    assert account_url("account_merge", account) in page.decode()
 
 
 def test_merge_targets_are_other_accounts_of_the_same_kind(signed_in: Client) -> None:
@@ -89,7 +88,7 @@ def test_merge_repoints_splits_and_removes_self_splits_and_the_source(
         account_url("account_merge", old_bank), {"target": bank.pk}, follow=True
     )
 
-    assert response.redirect_chain == [(list_url("asset"), 302)]
+    assert response.redirect_chain == [(account_url("account_transactions", bank), 302)]
     assert "Merged Old bank into Bank." in response.content.decode()
     assert not Account.objects.filter(pk=old_bank.pk).exists()
     splits = [

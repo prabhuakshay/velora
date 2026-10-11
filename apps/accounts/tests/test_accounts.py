@@ -2,10 +2,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.forms import AccountForm
 from apps.accounts.models import Account
-from apps.accounts.tests.conftest import KINDS, list_page, list_url
+from apps.accounts.tests.conftest import KINDS, account_url, list_page, make_account
+from apps.accounts.tests.test_account_transactions import record
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -30,8 +32,8 @@ def test_create_account_stores_kind_from_page(signed_in: Client, kind: str) -> N
         },
     )
 
-    assert response["Location"] == list_url(kind)
     account = Account.objects.get()
+    assert response["Location"] == account_url("account_transactions", account)
     assert (account.name, account.notes, account.kind) == ("Groceries", "Food", kind)
 
 
@@ -95,7 +97,7 @@ def test_edit_renames_and_updates_notes(signed_in: Client) -> None:
         {"name": "Groceries", "notes": "new"},
     )
 
-    assert response["Location"] == list_url("expense")
+    assert response["Location"] == account_url("account_transactions", account)
     account.refresh_from_db()
     assert (account.name, account.notes) == ("Groceries", "new")
 
@@ -164,14 +166,37 @@ def test_admin_lists_accounts_with_kind_and_history(
     assert client.get(history).status_code == 200
 
 
-def test_list_is_paginated_keeping_show_hidden(signed_in: Client) -> None:
-    for number in range(26):
+def test_list_shows_every_account_with_hidden_ones_folded_apart(
+    signed_in: Client,
+) -> None:
+    for number in range(30):
         Account.objects.create(name=f"Account {number:02}", kind="expense")
+    Account.objects.create(name="Old", kind="expense", hidden=True)
 
-    first = signed_in.get(list_url("expense") + "?show_hidden=1").content.decode()
-    second = list_page(signed_in, "expense", "?page=2")
+    shown, folded = list_page(signed_in, "expense").split("data-hidden-accounts")
 
-    assert "Account 24" in first
-    assert "Account 25" not in first
-    assert "Account 25" in second
-    assert "?page=2&amp;show_hidden=1" in first
+    assert "Account 00" in shown
+    assert "Account 29" in shown
+    assert "Old" not in shown
+    assert "Old" in folded
+
+
+@pytest.mark.parametrize(
+    ("sort", "first"), [("name", "Books"), ("amount", "Rent"), ("recent", "Fuel")]
+)
+def test_list_sorts_by_name_this_months_amount_or_last_use(
+    signed_in: Client, sort: str, first: str
+) -> None:
+    today = timezone.localdate()
+    bank = make_account("Bank", "asset")
+    books = make_account("Books", "expense")
+    rent = make_account("Rent", "expense")
+    fuel = make_account("Fuel", "expense")
+    record(today.replace(day=1), bank, rent, "900", "Rent")
+    record(today.replace(day=1), bank, books, "10", "Books")
+    record(today, bank, fuel, "50", "Fuel")
+
+    body = list_page(signed_in, "expense", f"?sort={sort}")
+
+    names = ["Books", "Fuel", "Rent"]
+    assert min(names, key=lambda n: body.index(f">{n}<")) == first

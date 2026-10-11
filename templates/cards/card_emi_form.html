@@ -1,20 +1,86 @@
 {% extends "app_base.html" %}
 
-{% block title %}Card EMI · Velora{% endblock %}
+{% block title %}Make Card EMI · Velora{% endblock %}
 
-{% block card %}
-  <h1 class="text-xl font-semibold">Make Card EMI</h1>
-  <p class="mt-1 text-sm text-slate-500">{{ form.instance.card }} purchase on {{ purchase.date|date:"j M Y" }}{% if purchase.party %} · {{ purchase.party }}{% endif %}</p>
-  <p class="mt-2 text-sm text-slate-700">The purchase stays recorded at full price. Each Statement Amount gets that month's installment instead, and the interest and GST arrive as Drafts.</p>
-  <form method="post" class="mt-6 space-y-4">
+{% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
+
+{% block main %}
+  {% url 'account_transactions' card.kind card.pk as cancel_url %}
+  <div class="flex items-center gap-2">
+    <a href="{{ cancel_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to {{ card }}">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Make Card EMI</h1>
+      <p class="truncate text-sm text-slate-500">{{ card }}</p>
+    </div>
+  </div>
+
+  <form method="post" class="mt-4 space-y-4 md:mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-6 lg:space-y-0">
     {% csrf_token %}
-    {% include "partials/form_errors.html" %}
-    {% for field in form %}
-      {% include "partials/field.html" %}
-    {% endfor %}
-    {% include "partials/submit.html" with label="Save" %}
+    <div class="space-y-4 lg:col-start-1">
+      <a href="{% url 'transaction_edit' purchase.pk %}" class="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 hover:ring-slate-300 md:px-5">
+        <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-100">{% include "shell/icon.html" with name="card" class="size-5" %}</span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate font-medium">{% include "transactions/_transaction_title.html" with transaction=purchase %}</span>
+          <span class="block truncate text-sm text-slate-500">Bought {{ purchase.date|date:"j M Y" }} on {{ card }}</span>
+        </span>
+        <span class="shrink-0 font-semibold tabular-nums">{% amount spent %}</span>
+      </a>
+
+      <p class="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-900 ring-1 ring-sky-200">The purchase stays recorded at full price. Each Statement Amount gets that month's installment instead, and the interest and GST arrive as Drafts.</p>
+
+      {% if form.non_field_errors %}{% include "partials/form_errors.html" %}{% endif %}
+
+      <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="terms-title">
+        <div>
+          <h2 id="terms-title" class="font-semibold">Terms</h2>
+          <p class="mt-0.5 text-sm text-slate-500">As the bank offered them. The installments update as you type.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          {% include "partials/field.html" with field=form.principal %}
+          {% include "partials/field.html" with field=form.months %}
+          {% include "partials/field.html" with field=form.annual_rate %}
+          {% include "partials/field.html" with field=form.processing_fee %}
+        </div>
+        <datalist id="emi-months"><option value="3"></option><option value="6"></option><option value="9"></option><option value="12"></option><option value="18"></option><option value="24"></option></datalist>
+      </section>
+
+      <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="billing-title">
+        <div>
+          <h2 id="billing-title" class="font-semibold">Billing</h2>
+          <p class="mt-0.5 text-sm text-slate-500">Where the first installment lands, and where its interest is recorded.</p>
+        </div>
+        {% include "partials/field.html" with field=form.first_statement %}
+        {% include "partials/field.html" with field=form.interest_account %}
+      </section>
+
+      {% include "cards/_emi_schedule.html" %}
+    </div>
+
+    {% comment %}Previews the terms as they change; kept off the aside so the Save button does not spin with it.{% endcomment %}
+    <span hidden
+          hx-get="{{ request.path }}"
+          hx-trigger="input delay:300ms from:closest form"
+          hx-sync="this:replace"
+          hx-include="[name=principal],[name=months],[name=annual_rate],[name=processing_fee],[name=first_statement]"
+          hx-target="#emi-summary"
+          hx-select="#emi-summary"
+          hx-select-oob="#emi-schedule"
+          hx-swap="outerHTML transition:false"
+          hx-push-url="false"></span>
+
+    {% comment %}-bottom-4 and -mb-4 offset main's padding, so the bar stays flush on the tab bar even at the end of the scroll.{% endcomment %}
+    <aside class="sticky -bottom-4 z-10 -mx-4 -mb-4 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-4 backdrop-blur md:bottom-0 md:mx-0 md:mb-0 md:rounded-2xl md:border md:shadow-lg lg:top-0 lg:bottom-auto lg:col-start-2 lg:row-start-1 lg:mx-0 lg:mb-0 lg:rounded-2xl lg:border-0 lg:bg-white lg:p-5 lg:shadow-sm lg:ring-1 lg:ring-slate-200 lg:backdrop-blur-none" aria-label="Save">
+      <div class="flex items-center gap-3 lg:block">
+        <div id="emi-summary" class="min-w-0 flex-1" aria-live="polite">
+          <p class="text-xs font-medium text-slate-500">Each month</p>
+          <p class="truncate text-lg font-semibold tracking-tight tabular-nums lg:mt-1 lg:text-3xl">{% if plan %}{% amount plan.monthly %}{% else %}<span class="text-slate-300">—</span>{% endif %}</p>
+          <p class="mt-1 hidden text-xs text-slate-500 lg:block">{% if not plan %}Enter the months and interest rate.{% elif plan.cost %}Plus GST on the interest. Costs {% amount plan.cost %} more than paying outright.{% else %}No-cost EMI: nothing more than the purchase.{% endif %}</p>
+        </div>
+        <div class="flex shrink-0 gap-2 lg:mt-5 lg:grid">
+          <div class="whitespace-nowrap">{% include "partials/submit.html" with label="Make Card EMI" %}</div>
+          <a href="{{ cancel_url }}" class="btn-secondary hidden items-center justify-center py-2.5 lg:flex">Cancel</a>
+        </div>
+      </div>
+    </aside>
   </form>
-  <p class="mt-4 text-center text-sm">
-    <a href="{% url 'account_transactions' form.instance.card.kind form.instance.card.pk %}" class="link">Cancel</a>
-  </p>
 {% endblock %}

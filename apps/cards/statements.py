@@ -20,8 +20,22 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-def estimate_statement_amount(card: Account, start: date, end: date) -> Decimal:
-    """The Statement Amount the card's activity from start to end suggests.
+@dataclass(frozen=True)
+class Estimate:
+    """What a Statement Amount estimate is made of."""
+
+    spent: Decimal
+    paid: Decimal
+    card_emis: Decimal
+
+    @property
+    def amount(self) -> Decimal:
+        """The estimate itself."""
+        return self.spent - self.paid + self.card_emis
+
+
+def estimate(card: Account, start: date, end: date) -> Estimate:
+    """What the card's activity from start to end suggests the Statement holds.
 
     Spends minus payments and refunds to the card, all dated in the period. A
     payment that settled an earlier Statement paid for that period, not this
@@ -42,7 +56,12 @@ def estimate_statement_amount(card: Account, start: date, end: date) -> Decimal:
         (emi.billed(start, end) for emi in card.card_emis.select_related("purchase")),
         Decimal(0),
     )
-    return (spent["total"] or Decimal(0)) - (paid["total"] or Decimal(0)) + emis
+    return Estimate(spent["total"] or Decimal(0), paid["total"] or Decimal(0), emis)
+
+
+def estimate_statement_amount(card: Account, start: date, end: date) -> Decimal:
+    """The Statement Amount the card's activity from start to end suggests."""
+    return estimate(card, start, end).amount
 
 
 def closing_dates(card: Account, after: date, until: date) -> Iterator[date]:

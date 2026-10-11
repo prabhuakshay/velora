@@ -61,6 +61,7 @@ class AccountForm(forms.ModelForm[Account]):
                 "Warn when the Forecast expects you to owe more than this; "
                 "0 for no warning."
             )
+        self.fields["opening_balance"].label = "Opening Balance"
         self.fields["opening_balance_date"].label = "Opening Balance date"
         if not self.instance.pk:
             self.initial["opening_balance"] = Decimal(0)

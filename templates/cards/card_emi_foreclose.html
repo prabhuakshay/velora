@@ -2,19 +2,91 @@
 
 {% block title %}Foreclose Card EMI · Velora{% endblock %}
 
-{% block card %}
-  <h1 class="text-xl font-semibold">Foreclose Card EMI</h1>
-  <p class="mt-1 text-sm text-slate-500">{{ emi.card }} · {% amount emi.principal %} over {{ emi.months }} months</p>
-  <p class="mt-2 text-sm text-slate-700">The remaining principal and the foreclosure fee are added to the next Statement Amount, and no further installments are billed.</p>
-  <form method="post" class="mt-6 space-y-4">
+{% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
+
+{% block main %}
+  {% url 'card_emi_detail' emi.pk as cancel_url %}
+  <div class="flex items-center gap-2">
+    <a href="{{ cancel_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to the Card EMI">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Foreclose Card EMI</h1>
+      <p class="truncate text-sm text-slate-500">{% include "transactions/_transaction_title.html" with transaction=emi.purchase %} · {{ emi.card }}</p>
+    </div>
+  </div>
+
+  <form method="post" class="mt-4 space-y-4 md:mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-6 lg:space-y-0">
     {% csrf_token %}
-    {% include "partials/form_errors.html" %}
-    {% for field in form %}
-      {% include "partials/field.html" %}
-    {% endfor %}
-    {% include "partials/submit.html" with label="Foreclose" %}
+    <div class="space-y-4 lg:col-start-1">
+      <a href="{{ cancel_url }}" class="block rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 hover:ring-slate-300 md:px-5">
+        <span class="flex items-baseline justify-between gap-3">
+          <span class="font-semibold tabular-nums">{% amount emi.principal %}</span>
+          <span class="text-xs text-slate-500">{{ emi.months }} months at {{ emi.annual_rate|floatformat:"-2" }}%</span>
+        </span>
+        <svg viewBox="0 0 {{ emi.months }} 4" preserveAspectRatio="none" class="mt-2 h-1.5 w-full overflow-hidden rounded-full" role="img" aria-label="{{ plan.billed }} of {{ emi.months }} billed">
+          <rect width="{{ emi.months }}" height="4" class="fill-slate-100"/>
+          <rect width="{{ plan.billed }}" height="4" class="fill-slate-900"/>
+        </svg>
+        <span class="mt-1.5 block text-xs text-slate-500">{{ plan.billed }} of {{ emi.months }} billed · {% amount plan.monthly %} a month</span>
+      </a>
+
+      <p class="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-900 ring-1 ring-sky-200">The rest of the principal and the foreclosure fee are added to the next Statement Amount, and no further installments are billed.</p>
+
+      {% if form.non_field_errors %}{% include "partials/form_errors.html" %}{% endif %}
+
+      <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="foreclose-title">
+        <h2 id="foreclose-title" class="font-semibold">Foreclosure</h2>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {% include "partials/field.html" with field=form.foreclosed_on %}
+          {% include "partials/field.html" with field=form.foreclosure_fee %}
+        </div>
+      </section>
+
+      <section id="foreclose-outcome" class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="outcome-title" aria-live="polite">
+        <h2 id="outcome-title" class="font-semibold">What changes</h2>
+        {% with outcome=after.foreclosure %}
+          {% if outcome %}
+            <dl class="mt-3 space-y-2.5 text-sm">
+              <div class="flex justify-between gap-3"><dt class="text-slate-500">Billed with the Statement to</dt> <dd class="text-right font-medium tabular-nums">{{ outcome.closing|date:"j M Y" }}</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-slate-500">Principal left</dt> <dd class="text-right font-medium tabular-nums">{% amount outcome.remaining %}</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-slate-500">Foreclosure fee</dt> <dd class="text-right font-medium tabular-nums">{% amount outcome.fee %}</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-slate-500">Interest + GST not charged</dt> <dd class="text-right font-medium tabular-nums">{% amount outcome.saved %}</dd></div>
+              <div class="flex justify-between gap-3 border-t border-slate-100 pt-2.5">
+                <dt class="font-medium">Net saving</dt>
+                <dd class="text-right font-semibold tabular-nums {% if outcome.net > 0 %}text-emerald-700{% else %}{% amount_color outcome.net %}{% endif %}">{% amount outcome.net %}</dd>
+              </div>
+            </dl>
+            <p class="mt-3 text-xs text-slate-500">{{ after.kept|length }} of {{ emi.months }} installments billed in all.</p>
+          {% else %}
+            <p class="mt-2 text-sm text-slate-500">Enter when you foreclose it and the fee to see what it saves.</p>
+          {% endif %}
+        {% endwith %}
+      </section>
+    </div>
+
+    {% comment %}Previews the terms as they change; kept off the aside so the Save button does not spin with it.{% endcomment %}
+    <span hidden
+          hx-get="{{ request.path }}"
+          hx-trigger="input delay:300ms from:closest form"
+          hx-sync="this:replace"
+          hx-include="[name=foreclosed_on],[name=foreclosure_fee]"
+          hx-target="#foreclose-summary"
+          hx-select="#foreclose-summary"
+          hx-select-oob="#foreclose-outcome"
+          hx-swap="outerHTML transition:false"
+          hx-push-url="false"></span>
+
+    {% comment %}-bottom-4 and -mb-4 offset main's padding, so the bar stays flush on the tab bar even at the end of the scroll.{% endcomment %}
+    <aside class="sticky -bottom-4 z-10 -mx-4 -mb-4 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-4 backdrop-blur md:bottom-0 md:mx-0 md:mb-0 md:rounded-2xl md:border md:shadow-lg lg:top-0 lg:bottom-auto lg:col-start-2 lg:row-start-1 lg:mx-0 lg:mb-0 lg:rounded-2xl lg:border-0 lg:bg-white lg:p-5 lg:shadow-sm lg:ring-1 lg:ring-slate-200 lg:backdrop-blur-none" aria-label="Foreclose">
+      <div class="flex items-center gap-3 lg:block">
+        <div id="foreclose-summary" class="min-w-0 flex-1">
+          <p class="text-xs font-medium text-slate-500">Billed at once</p>
+          <p class="truncate text-lg font-semibold tracking-tight tabular-nums lg:mt-1 lg:text-3xl">{% if after.foreclosure %}{% amount after.foreclosure.billed %}{% else %}<span class="text-slate-300">—</span>{% endif %}</p>
+        </div>
+        <div class="flex shrink-0 gap-2 lg:mt-5 lg:grid">
+          <div class="w-28 lg:w-auto">{% include "partials/submit.html" with label="Foreclose" %}</div>
+          <a href="{{ cancel_url }}" class="btn-secondary hidden items-center justify-center py-2.5 lg:flex">Cancel</a>
+        </div>
+      </div>
+    </aside>
   </form>
-  <p class="mt-4 text-center text-sm">
-    <a href="{% url 'account_transactions' emi.card.kind emi.card.pk %}" class="link">Cancel</a>
-  </p>
 {% endblock %}

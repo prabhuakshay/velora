@@ -30,7 +30,7 @@
           <span>{{ last.0|date:"j M Y" }}</span>
         </div>
       {% endwith %}
-      <table class="sr-only">
+      <div class="sr-only"><table>
         <caption>Net Worth at each month-end and today</caption>
         <thead><tr><th scope="col">Date</th><th scope="col">Net Worth</th></tr></thead>
         <tbody>
@@ -38,7 +38,7 @@
             <tr><td>{{ when|date:"j M Y" }}</td><td>{% amount value %}</td></tr>
           {% endfor %}
         </tbody>
-      </table>
+      </table></div>
     {% else %}
       <p class="mt-2 text-sm text-slate-600">No Net Worth history yet. Add an Asset or Liability Account to see it.</p>
     {% endif %}

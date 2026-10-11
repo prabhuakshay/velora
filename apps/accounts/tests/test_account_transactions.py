@@ -4,7 +4,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from apps.accounts.tests.conftest import account_url, list_page, make_account
+from apps.accounts.tests.conftest import (
+    account_url,
+    list_page,
+    make_account,
+    page_text,
+)
 from apps.classification.models import Party
 from apps.transactions.models import Transaction
 
@@ -73,7 +78,7 @@ def test_view_shows_balance_for_balance_kinds(signed_in: Client) -> None:
     groceries = make_account("Groceries", "expense")
     record(date(2026, 3, 1), bank, groceries, "100", "Weekly")
 
-    assert "Balance -₹100.00" in view_page(signed_in, bank)
+    assert "Balance -₹100.00" in page_text(view_page(signed_in, bank))
     assert "Balance" not in view_page(signed_in, groceries)
 
 

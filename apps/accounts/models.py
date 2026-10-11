@@ -24,16 +24,22 @@ class AccountKind(models.TextChoices):
 
 
 BALANCE_KINDS = (AccountKind.ASSET, AccountKind.LIABILITY)
+# Money moving out of these grows them: what is owed, or what is earned.
+OWING_KINDS = (AccountKind.LIABILITY, AccountKind.INCOME)
 # Clamped to the last day of shorter months.
 DAY_OF_MONTH = [MinValueValidator(1), MaxValueValidator(31)]
 
 
-def _split_total(account_field: str, as_of: date | None) -> Coalesce:
+def _split_total(
+    account_field: str, as_of: date | None, since: date | None = None
+) -> Coalesce:
     # Looked up by name: the transactions app imports this module.
     split = apps.get_model("transactions", "Split")
     splits = split.objects.filter(**{account_field: models.OuterRef("pk")})
     if as_of is not None:
         splits = splits.filter(transaction__date__lte=as_of)
+    if since is not None:
+        splits = splits.filter(transaction__date__gte=since)
     totals = (
         splits.values(account_field)
         .annotate(total=models.Sum("amount"))
@@ -67,6 +73,34 @@ class AccountQuerySet(models.QuerySet["Account"]):
                 output_field=self.model._meta.get_field("opening_balance"),
             )
         return self.annotate(balance=balance)
+
+    def with_activity(self, name: str, since: date, until: date) -> Self:
+        """Annotate how far each Account moved between the dates, inclusive.
+
+        Positive is each kind's usual way: an Asset growing, a Liability owing
+        more, an Expense spent or Income earned.
+        """
+        moved_in = _split_total("to_account", until, since) - _split_total(
+            "from_account", until, since
+        )
+        signed = models.Case(
+            models.When(kind__in=OWING_KINDS, then=-moved_in),
+            default=moved_in,
+        )
+        return self.annotate(**{name: signed})
+
+    def with_last_used(self) -> Self:
+        """Annotate the date of each Account's newest Transaction, if any."""
+        split = apps.get_model("transactions", "Split")
+        newest = (
+            split.objects.filter(
+                models.Q(from_account=models.OuterRef("pk"))
+                | models.Q(to_account=models.OuterRef("pk"))
+            )
+            .order_by("-transaction__date")
+            .values("transaction__date")[:1]
+        )
+        return self.annotate(last_used=models.Subquery(newest))
 
 
 CARD_SETTINGS_TOGETHER = (
@@ -128,8 +162,12 @@ class Account(models.Model):
     objects = AccountQuerySet.as_manager()
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
-    # Set only on Accounts fetched through with_balance().
+    # Set only on Accounts fetched through with_balance(), with_activity() as
+    # the list names them, and with_last_used().
     balance: Decimal
+    this_month: Decimal
+    last_month: Decimal
+    last_used: date | None
 
     class Meta:
         constraints: ClassVar = [
@@ -179,6 +217,23 @@ class Account(models.Model):
     def has_opening_balance(self) -> bool:
         """Whether this kind of Account carries an Opening Balance."""
         return self.kind in BALANCE_KINDS
+
+    @property
+    def sign(self) -> int:
+        """1 when money moving in grows this Account, -1 when it shrinks it."""
+        return -1 if self.kind in OWING_KINDS else 1
+
+    @property
+    def past_threshold(self) -> bool:
+        """Whether its Balance is past the Low-Balance Threshold now.
+
+        Read like the Forecast's warning: a Liability's 0 means no warning.
+        Needs the Balance from with_balance().
+        """
+        threshold = self.low_balance_threshold
+        if self.kind == AccountKind.LIABILITY:
+            return bool(threshold) and self.balance > threshold
+        return self.kind == AccountKind.ASSET and self.balance < threshold
 
     @property
     def is_card(self) -> bool:

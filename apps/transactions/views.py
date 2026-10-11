@@ -1,7 +1,7 @@
 """Views for recording and reviewing Transactions."""
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from apps.accounts.models import Account
 from apps.core.views import blank_split_row, paginate
 from apps.transactions import cloudflare
 from apps.transactions.attachments import (
@@ -106,11 +107,16 @@ def _return_url(request: HttpRequest) -> str:
 
 
 def _save_transaction_forms(
-    request: HttpRequest, instance: Transaction
+    request: HttpRequest,
+    instance: Transaction,
+    initial_splits: list[dict[str, Any]] | None = None,
 ) -> HttpResponseBase:
     """Show the create or edit form, saving the Transaction and Splits once valid."""
     forms = TransactionForms(
-        request.POST or None, request.FILES or None, instance=instance
+        request.POST or None,
+        request.FILES or None,
+        instance=instance,
+        initial_splits=initial_splits,
     )
     if forms.is_valid():
         forms.save()
@@ -138,8 +144,19 @@ def _save_transaction_forms(
 @db_transaction.non_atomic_requests
 @login_required
 def transaction_create(request: HttpRequest) -> HttpResponseBase:
-    """Record a new Transaction."""
-    return _save_transaction_forms(request, Transaction())
+    """Record a new Transaction, its first Split starting at the Account in the URL.
+
+    Or ending there, for an Expense Account, which money only goes to.
+    """
+    raw = request.GET.get("account", "")
+    account = Account.objects.filter(pk=raw).first() if raw.isdecimal() else None
+    side = (
+        "to_account"
+        if account and account.kind == Account.Kind.EXPENSE
+        else "from_account"
+    )
+    initial = [{side: account.pk}] if account else None
+    return _save_transaction_forms(request, Transaction(), initial)
 
 
 @db_transaction.non_atomic_requests

@@ -1,0 +1,17 @@
+<ol class="divide-y divide-slate-100">
+  {% for row in plan.rows %}
+    <li class="flex items-center gap-3 px-4 py-2.5 text-sm md:px-5{% if row.state == 'cancelled' %} text-slate-400{% endif %}">
+      <span class="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums {% if row.state == 'billed' %}bg-slate-900 text-white{% elif row.state == 'next' %}bg-white text-slate-900 ring-2 ring-slate-900{% else %}bg-slate-100 text-slate-500{% endif %}">{% if row.state == 'billed' %}{% include "shell/icon.html" with name="check" class="size-3.5" %}<span class="sr-only">{{ row.number }}</span>{% else %}{{ row.number }}{% endif %}</span>
+      <span class="min-w-0 flex-1">
+        <span class="block font-medium tabular-nums{% if row.state == 'cancelled' %} line-through{% endif %}">{{ row.closing|date:"j M Y" }}</span>
+        <span class="block text-xs {% if row.state == 'cancelled' %}text-slate-400{% else %}text-slate-500{% endif %}">{% amount row.installment.principal %} principal{% if row.installment.interest %} · {% amount row.installment.charges %} interest and GST{% endif %}</span>
+      </span>
+      <span class="shrink-0 text-right">
+        <span class="block tabular-nums {% if row.state == 'cancelled' %}font-medium line-through{% else %}font-semibold{% endif %}">{% amount row.installment.billed %}</span>
+        {% if row.state == 'billed' %}<span class="block text-xs text-slate-500">Billed</span>
+        {% elif row.state == 'next' and today %}<span class="block text-xs font-medium text-slate-900">Next</span>
+        {% elif row.state == 'cancelled' %}<span class="block text-xs">Foreclosed</span>{% endif %}
+      </span>
+    </li>
+  {% endfor %}
+</ol>

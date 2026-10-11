@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 import pytest
 from django.urls import reverse
 
-from apps.accounts.tests.conftest import list_page, make_account
+from apps.accounts.tests.conftest import list_text, make_account
 from apps.transactions.tests.conftest import form_data
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ def test_transfer_moves_balance_between_assets(signed_in: Client) -> None:
 
     record(signed_in, bank, cash, "200.00")
 
-    page = list_page(signed_in, "asset")
+    page = list_text(signed_in, "asset")
     assert "Balance ₹800.00" in page
     assert "Balance ₹250.00" in page
 
@@ -46,7 +46,7 @@ def test_spending_lowers_asset_balance(signed_in: Client) -> None:
 
     record(signed_in, bank, groceries, "300.25")
 
-    assert "Balance ₹699.75" in list_page(signed_in, "asset")
+    assert "Balance ₹699.75" in list_text(signed_in, "asset")
 
 
 def test_salary_raises_asset_balance(signed_in: Client) -> None:
@@ -55,7 +55,7 @@ def test_salary_raises_asset_balance(signed_in: Client) -> None:
 
     record(signed_in, salary, bank, "5000.00")
 
-    assert "Balance ₹6,000.00" in list_page(signed_in, "asset")
+    assert "Balance ₹6,000.00" in list_text(signed_in, "asset")
 
 
 def test_refund_raises_asset_balance(signed_in: Client) -> None:
@@ -65,7 +65,7 @@ def test_refund_raises_asset_balance(signed_in: Client) -> None:
 
     record(signed_in, clothes, bank, "150.00")
 
-    assert "Balance ₹750.00" in list_page(signed_in, "asset")
+    assert "Balance ₹750.00" in list_text(signed_in, "asset")
 
 
 def test_overspending_shows_negative_asset_balance(signed_in: Client) -> None:
@@ -74,7 +74,7 @@ def test_overspending_shows_negative_asset_balance(signed_in: Client) -> None:
 
     record(signed_in, bank, rent, "250.00")
 
-    assert "Balance -₹150.00" in list_page(signed_in, "asset")
+    assert "Balance -₹150.00" in list_text(signed_in, "asset")
 
 
 def test_card_spending_raises_what_is_owed(signed_in: Client) -> None:
@@ -83,7 +83,7 @@ def test_card_spending_raises_what_is_owed(signed_in: Client) -> None:
 
     record(signed_in, card, fuel, "1200.00")
 
-    assert "Balance ₹1,700.00" in list_page(signed_in, "liability")
+    assert "Balance ₹1,700.00" in list_text(signed_in, "liability")
 
 
 def test_card_payment_lowers_what_is_owed_and_the_asset(signed_in: Client) -> None:
@@ -92,11 +92,11 @@ def test_card_payment_lowers_what_is_owed_and_the_asset(signed_in: Client) -> No
 
     record(signed_in, bank, card, "1500.00")
 
-    assert "Balance ₹500.00" in list_page(signed_in, "liability")
-    assert "Balance ₹1,500.00" in list_page(signed_in, "asset")
+    assert "Balance ₹500.00" in list_text(signed_in, "liability")
+    assert "Balance ₹1,500.00" in list_text(signed_in, "asset")
 
 
 def test_account_without_splits_shows_opening_balance(signed_in: Client) -> None:
     opening("Card", "liability", "75.50")
 
-    assert "Balance ₹75.50" in list_page(signed_in, "liability")
+    assert "Balance ₹75.50" in list_text(signed_in, "liability")

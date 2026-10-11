@@ -18,31 +18,34 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
+def shown_part(client: Client, kind: str) -> str:
+    """The list above its folded-away hidden Accounts."""
+    return list_page(client, kind).split("data-hidden-accounts")[0]
+
+
 @pytest.mark.parametrize("kind", KINDS)
-def test_hide_removes_from_list_and_show_hidden_offers_unhide(
+def test_hide_folds_the_account_away_and_its_page_offers_unhide(
     signed_in: Client, kind: str
 ) -> None:
     account = make_account(name="Old card", kind=kind)
 
     response = signed_in.post(account_url("account_hide", account))
 
-    assert response["Location"] == list_url(kind)
-    assert "Old card" not in list_page(signed_in, kind)
-    content = signed_in.get(list_url(kind) + "?show_hidden=1").content.decode()
-    assert "Old card" in content
-    assert account_url("account_unhide", account) + "?show_hidden=1" in content
+    assert response["Location"] == account_url("account_transactions", account)
+    page = signed_in.get(response["Location"]).content.decode()
+    assert account_url("account_unhide", account) in page
+    assert "Old card" not in shown_part(signed_in, kind)
+    assert "Old card" in list_page(signed_in, kind)
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_unhide_keeps_show_hidden_and_returns_account_to_list(
-    signed_in: Client, kind: str
-) -> None:
+def test_unhide_returns_the_account_to_the_list(signed_in: Client, kind: str) -> None:
     account = make_account(name="Old card", kind=kind, hidden=True)
 
-    response = signed_in.post(account_url("account_unhide", account) + "?show_hidden=1")
+    response = signed_in.post(account_url("account_unhide", account))
 
-    assert response["Location"] == list_url(kind) + "?show_hidden=1"
-    assert "Old card" in list_page(signed_in, kind)
+    assert response["Location"] == account_url("account_transactions", account)
+    assert "Old card" in shown_part(signed_in, kind)
 
 
 @pytest.mark.parametrize("kind", KINDS)

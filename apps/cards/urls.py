@@ -9,6 +9,7 @@ urlpatterns = [
         views.card_emi_create,
         name="card_emi_create",
     ),
+    path("card-emis/<int:pk>/", views.card_emi_detail, name="card_emi_detail"),
     path(
         "card-emis/<int:pk>/foreclose/",
         views.card_emi_foreclose,
