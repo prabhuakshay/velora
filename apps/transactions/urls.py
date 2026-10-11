@@ -4,6 +4,7 @@ from apps.transactions import views
 
 urlpatterns = [
     path("transactions/", views.transaction_list, name="transaction_list"),
+    path("transactions/export/", views.transaction_export, name="transaction_export"),
     path("transactions/new/", views.transaction_create, name="transaction_create"),
     path(
         "transactions/split-row/",

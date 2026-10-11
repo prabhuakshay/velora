@@ -19,6 +19,8 @@ from apps.transactions.attachments import (
     delete_attachment_files,
 )
 from apps.transactions.bucket_stats import bucket_stats
+from apps.transactions.export import transactions_csv
+from apps.transactions.filters import TransactionFilterForm
 from apps.transactions.forms import SplitFormSet
 from apps.transactions.models import Attachment, Split, Transaction
 from apps.transactions.recording import TransactionForms
@@ -30,21 +32,23 @@ from apps.users.privacy_mode import blocked_in_privacy_mode
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from django.db.models import QuerySet
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
 
 logger = logging.getLogger(__name__)
 
 
-@login_required
-def transaction_list(request: HttpRequest) -> HttpResponse:
-    """List every Transaction, newest first, a page at a time."""
-    transactions = (
+def _listed_transactions() -> QuerySet[Transaction]:
+    """Every Transaction with its Splits and totals, newest first."""
+    return (
         Transaction.objects.select_related("party")
         .prefetch_related(
             Prefetch(
                 "splits",
-                queryset=Split.objects.select_related("from_account", "to_account"),
+                queryset=Split.objects.select_related(
+                    "from_account", "to_account"
+                ).prefetch_related("tags"),
             )
         )
         .annotate(
@@ -59,8 +63,32 @@ def transaction_list(request: HttpRequest) -> HttpResponse:
         )
         .order_by("-date", "-pk")
     )
-    page = paginate(request, transactions)
-    return render(request, "transactions/transaction_list.html", {"page": page})
+
+
+@login_required
+def transaction_list(request: HttpRequest) -> HttpResponse:
+    """List the Transactions matching the filters, newest first, a page at a time."""
+    filters = TransactionFilterForm(request.GET)
+    query = request.GET.copy()
+    query.pop("page", None)
+    return render(
+        request,
+        "transactions/transaction_list.html",
+        {
+            "page": paginate(request, filters.apply(_listed_transactions())),
+            "filters": filters,
+            "extra_query": f"&{query.urlencode()}" if query else "",
+            "export_query": f"?{query.urlencode()}" if query else "",
+        },
+    )
+
+
+@login_required
+@blocked_in_privacy_mode
+def transaction_export(request: HttpRequest) -> HttpResponse:
+    """Download the Transactions matching the filters as CSV."""
+    filters = TransactionFilterForm(request.GET)
+    return transactions_csv(filters.apply(_listed_transactions()))
 
 
 def _save_transaction_forms(
