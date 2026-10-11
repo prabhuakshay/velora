@@ -46,7 +46,7 @@ def test_an_empty_quick_add_is_rejected_with_a_message(
 ) -> None:
     response = signed_in.post(reverse("quick_add_create"), {"text": text}, follow=True)
 
-    assert response.redirect_chain == [(reverse("transaction_list"), 302)]
+    assert response.redirect_chain == [(reverse("draft_list"), 302)]
     assert "Write what happened" in response.content.decode()
     assert not QuickAdd.objects.exists()
     assert not ProcrastinateJob.objects.exists()
@@ -67,11 +67,15 @@ def test_a_quick_add_of_500_characters_is_kept(signed_in: Client) -> None:
     assert QuickAdd.objects.get().text == "x" * 500
 
 
-def test_transactions_list_has_the_quick_add_box(signed_in: Client) -> None:
-    body = page(signed_in, "transaction_list")
+def test_drafts_page_has_the_quick_add_box(signed_in: Client) -> None:
+    body = page(signed_in, "draft_list")
 
     assert reverse("quick_add_create") in body
     assert 'maxlength="500"' in body
+
+
+def test_transactions_list_has_no_quick_add_box(signed_in: Client) -> None:
+    assert reverse("quick_add_create") not in page(signed_in, "transaction_list")
 
 
 def test_drafts_page_shows_the_draft_beside_the_text(signed_in: Client) -> None:
@@ -177,7 +181,7 @@ def test_without_an_api_key_quick_add_is_hidden_but_drafts_stay(
 ) -> None:
     settings.OPENROUTER_API_KEY = ""
 
-    body = page(signed_in, "transaction_list")
+    body = page(signed_in, "draft_list")
 
     assert reverse("quick_add_create") not in body
     assert reverse("draft_list") in body

@@ -68,7 +68,7 @@ def quick_add_create(request: HttpRequest) -> HttpResponseBase:
     form = QuickAddForm(request.POST)
     if not form.is_valid():
         show_errors(request, form)
-        return redirect("transaction_list")
+        return redirect("draft_list")
     quick_add = form.save()
     # Same database transaction as the save, so the job never sees a missing row.
     process_quick_add.defer(quick_add_id=quick_add.pk)

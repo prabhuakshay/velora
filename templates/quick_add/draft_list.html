@@ -7,6 +7,14 @@
     <h1 class="text-2xl font-bold tracking-tight">Drafts</h1>
     <a href="{% url 'draft_create' %}" class="btn-primary py-2 text-sm">New Draft</a>
   </div>
+  {% if quick_add_enabled %}
+    <form method="post" action="{% url 'quick_add_create' %}" class="mt-4 flex gap-2">
+      {% csrf_token %}
+      <label for="quick-add-text" class="sr-only">Quick Add</label>
+      <input id="quick-add-text" type="text" name="text" required maxlength="{{ quick_add_max_length }}" placeholder="Quick Add, like “dinner 1200 on hdfc card”" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      <button type="submit" class="btn-primary py-2 text-sm">Add</button>
+    </form>
+  {% endif %}
   {% if stats %}{% include "quick_add/_stats.html" %}{% endif %}
   {% comment %}
     Polls only while something is processing; the swapped-in list drops the
