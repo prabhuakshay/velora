@@ -421,3 +421,18 @@ def test_save_and_post_records_a_draft_dated_after_today_today(
 
     assert "cannot be after today" not in page
     assert Transaction.objects.get().date == today
+
+
+def test_edit_shows_where_the_draft_came_from_and_offers_reject(
+    signed_in: Client,
+) -> None:
+    quick_add = make_draft(text="dinner at Brik Oven 1200")
+
+    body = unescape(
+        signed_in.get(reverse("draft_edit", args=[quick_add.draft.pk])).content.decode()
+    )
+
+    assert "You wrote" in body
+    assert "“dinner at Brik Oven 1200”" in body
+    assert "Quick Add" in body
+    assert reverse("draft_reject", args=[quick_add.draft.pk]) in body

@@ -114,3 +114,13 @@ html:has(#main) {
     animation: none;
   }
 }
+
+/* A Draft's Split amount still to fill in before it can be posted. */
+.field-control input.draft-gap {
+  @apply border-amber-400 bg-amber-50 ring-1 ring-amber-400;
+}
+
+/* A picked Party wins over a new Party name, so the name field hides while one is picked. */
+section:has(#id_party option:checked:not([value=""])) [data-new-party] {
+  display: none;
+}

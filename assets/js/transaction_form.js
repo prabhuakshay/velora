@@ -13,8 +13,18 @@
       (split) => !split.querySelector("[name$='-DELETE']:checked"),
     );
     const amounts = kept.map((split) => Number(split.querySelector("[name$='-amount']")?.value) || 0);
-    // Privacy Mode keeps the server's mask in place of the figure.
-    if (!("private" in total.dataset)) {
+    // A Draft may wait without an amount; flag each gap rather than total it as zero.
+    const draft = "draft" in total.dataset;
+    let missing = false;
+    for (const input of document.querySelectorAll("#splits [name$='-amount']")) {
+      const gap = draft && input.value === "" && kept.includes(input.closest("fieldset"));
+      input.classList.toggle("draft-gap", gap);
+      missing ||= gap;
+    }
+    total.classList.toggle("text-amber-700", missing);
+    if (missing) {
+      total.textContent = "Missing";
+    } else if (!("private" in total.dataset)) {
       const format = formats[total.dataset.numberFormat] ?? formats.indian;
       total.textContent = `₹${format.format(amounts.reduce((sum, a) => sum + a, 0))}`;
     }

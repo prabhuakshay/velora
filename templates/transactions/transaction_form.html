@@ -11,7 +11,16 @@
     <div class="min-w-0 flex-1">
       <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{% if editing_draft %}Edit Draft{% elif transaction %}Edit Transaction{% else %}New Transaction{% endif %}</h1>
       {% if transaction and not editing_draft %}<p class="truncate text-sm text-slate-500">{% include "transactions/_transaction_title.html" %} · {{ transaction.date|date:"j M Y" }}</p>{% endif %}
+      {% if editing_draft %}
+        <p class="flex min-w-0 items-center gap-1.5 text-sm text-slate-500">
+          {% include "quick_add/_source.html" %}
+          <span class="truncate">{% firstof draft.party draft.new_party_name draft.description %}{% if draft.party or draft.new_party_name or draft.description %} · {% endif %}{{ draft.date|date:"j M Y" }}</span>
+        </p>
+      {% endif %}
     </div>
+    {% if editing_draft %}
+      <button type="submit" form="reject-draft" class="-mr-2 flex h-10 items-center gap-1 rounded-full px-3 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-700 active:bg-red-100" title="Reject this Draft">{% include "shell/icon.html" with name="x" class="size-4" %}Reject</button>
+    {% endif %}
     {% if transaction and not editing_draft %}
       <a href="{% url 'schedule_create' %}?transaction={{ transaction.pk }}" class="flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Make a Schedule from this Transaction" title="Make a Schedule from this Transaction">{% include "shell/icon.html" with name="repeat" class="size-5" %}</a>
       <button type="button" data-dialog-open="delete-transaction-{{ transaction.pk }}" class="-mr-2 flex size-10 items-center justify-center rounded-full text-red-600 hover:bg-red-50 active:bg-red-100" aria-label="Delete Transaction" title="Delete Transaction">{% include "shell/icon.html" with name="trash" class="size-5" %}</button>
@@ -25,6 +34,12 @@
   {% endcomment %}
   <form method="post" enctype="multipart/form-data" class="mt-4 space-y-4 md:mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-6 lg:space-y-0">
     {% csrf_token %}
+    {% if editing_draft and draft.quick_add %}
+      <p class="rounded-2xl bg-violet-50 px-4 py-3 text-sm text-violet-900 ring-1 ring-violet-200 lg:col-start-1">
+        <span class="text-violet-700">You wrote</span>
+        <span class="mt-0.5 block text-base">“{% if user.privacy_mode %}Hidden in Privacy Mode{% else %}{{ draft.quick_add.text }}{% endif %}”</span>
+      </p>
+    {% endif %}
     {% if posting_error or form.non_field_errors %}
       <div class="space-y-2 lg:col-start-1">
         {% if posting_error %}<p role="alert" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">{{ posting_error }}</p>{% endif %}
@@ -38,7 +53,7 @@
         {% include "partials/field.html" with field=form.date %}
         {% include "partials/field.html" with field=form.party %}
       </div>
-      {% if editing_draft %}{% include "partials/field.html" with field=new_party.new_party_name %}{% endif %}
+      {% if editing_draft %}<div data-new-party>{% include "partials/field.html" with field=new_party.new_party_name %}</div>{% endif %}
       {% include "partials/field.html" with field=form.description %}
     </section>
 
@@ -76,7 +91,7 @@
       <div class="flex items-center gap-3 lg:block">
         <div class="min-w-0 flex-1">
           <p class="text-xs font-medium text-slate-500">Total</p>
-          <p class="truncate text-lg font-semibold tracking-tight tabular-nums lg:mt-1 lg:text-3xl" data-split-total data-number-format="{{ user.number_format }}"{% if user.privacy_mode %} data-private{% endif %}>{% amount 0 %}</p>
+          <p class="truncate text-lg font-semibold tracking-tight tabular-nums lg:mt-1 lg:text-3xl" data-split-total{% if editing_draft %} data-draft{% endif %} data-number-format="{{ user.number_format }}"{% if user.privacy_mode %} data-private{% endif %}>{% amount 0 %}</p>
           <p class="mt-1 hidden text-xs text-slate-500 lg:block" data-split-count></p>
         </div>
         {% if editing_draft %}
@@ -95,6 +110,11 @@
     </aside>
   </form>
 
+  {% if editing_draft %}
+    <form id="reject-draft" method="post" action="{% url 'draft_reject' draft.pk %}">
+      {% csrf_token %}
+    </form>
+  {% endif %}
   {% for attachment in transaction.attachments.all %}
     <form id="delete-attachment-{{ attachment.pk }}" method="post" action="{% url 'attachment_delete' attachment.pk %}">
       {% csrf_token %}

@@ -197,6 +197,7 @@ def render_draft_edit(
             "formset": formset,
             "new_party": form,
             "editing_draft": True,
+            "draft": form.instance,
             "posting_error": posting_error,
         },
     )

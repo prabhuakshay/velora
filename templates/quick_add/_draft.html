@@ -37,8 +37,7 @@
       {% endfor %}
     </div>
     <p class="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
-      <span class="size-1.5 shrink-0 rounded-full {% if draft.source == 'quick_add' %}bg-violet-500{% elif draft.source == 'schedule' %}bg-sky-500{% elif draft.source == 'statement' or draft.source == 'card_emi' %}bg-emerald-500{% else %}bg-slate-400{% endif %}" aria-hidden="true"></span>
-      <span class="shrink-0">{% if draft.source == 'quick_add' %}Quick Add{% elif draft.source == 'schedule' %}Schedule{% elif draft.source == 'statement' %}Card payment{% elif draft.source == 'card_emi' %}Card EMI{% else %}By hand{% endif %}</span>
+      {% include "quick_add/_source.html" %}
       {% if draft.quick_add %}<span class="truncate text-slate-400">“{% if user.privacy_mode %}Hidden in Privacy Mode{% else %}{{ draft.quick_add.text }}{% endif %}”</span>{% endif %}
     </p>
     {% if draft.estimated %}<p class="mt-1 text-sm text-amber-700">Estimate from the last amount paid</p>{% endif %}
