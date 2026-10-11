@@ -22,6 +22,15 @@
   visibility: visible;
 }
 
+/*
+ * Only the app shell's <main> scrolls. A scrollable page behind the shell lets
+ * iOS scroll it when the keyboard or a date picker opens, shifting the shell up.
+ * :has, not a body class, as boosted page swaps keep <body>'s attributes.
+ */
+html:has(#main) {
+  overflow: hidden;
+}
+
 @layer components {
   .btn-primary {
     @apply rounded-lg bg-slate-900 px-4 py-2.5 font-medium text-white hover:bg-slate-700;
