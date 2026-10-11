@@ -113,8 +113,10 @@ def test_the_detail_page_describes_cron_end_and_auto_post_rules(
         reverse("schedule_detail", args=[schedule.pk])
     ).content.decode()
 
-    assert "On cron 0 0 * * 5#2 from 1 Oct 2026, 6 times" in body
-    assert "Auto-post" in body
+    text = " ".join(strip_tags(body).split())
+    assert "Repeats On cron 0 0 * * 5#2 First due 1 Oct 2026 Ends 12 Mar 2027" in text
+    assert "On the due date Posts it" in text
+    assert "Auto-post" in text
 
 
 def test_a_cron_subscription_costs_what_falls_due_in_a_year(

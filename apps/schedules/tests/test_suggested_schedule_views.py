@@ -47,6 +47,8 @@ def test_waiting_suggestions_are_listed_for_review(signed_in: Client) -> None:
     assert "₹649.00" in body
     assert "Every month" in body
     assert "5 Sep 2026" in body
+    assert "Paid 3 times" in body
+    assert 'Next expected around <span class="font-medium">5 Oct 2026</span>' in body
     assert reverse("suggested_schedule_confirm", args=[suggestion.pk]) in body
     assert reverse("suggested_schedule_dismiss", args=[suggestion.pk]) in body
 

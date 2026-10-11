@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from apps.accounts.tests.conftest import make_account
 from apps.quick_add.models import Draft
@@ -113,4 +114,5 @@ def test_missed_occurrences_show_in_the_schedules_history(signed_in: Client) -> 
 
     response = signed_in.get(reverse("schedule_detail", args=[schedule.pk]))
 
-    assert "5 Oct 2026 · Missed" in response.content.decode()
+    text = " ".join(strip_tags(response.content.decode()).split())
+    assert "5 Oct 2026 Missed" in text

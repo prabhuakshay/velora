@@ -1,30 +1,71 @@
 {% extends "app_base.html" %}
+{% load schedules %}
 
 {% block title %}Schedules · Velora{% endblock %}
 
 {% block main %}
-  <div class="flex items-center justify-between gap-3">
-    <h1 class="text-2xl font-bold tracking-tight">Schedules</h1>
-    <a href="{% url 'schedule_create' %}" class="btn-primary py-2 text-sm">New Schedule</a>
+  <div class="flex items-end justify-between gap-3">
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold tracking-tight">Schedules{% if on %} <span class="align-middle text-base font-semibold text-slate-400 tabular-nums">{{ on|length }}</span>{% endif %}</h1>
+      <p class="mt-0.5 text-sm text-slate-500">What repeats, and what falls due next.</p>
+    </div>
+    <a href="{% url 'schedule_create' %}" class="btn-primary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Schedule</a>
   </div>
+
   {% with count=suggested_schedule_count %}
     {% if count %}
-      <a href="{% url 'suggested_schedule_list' %}" class="mt-4 block rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100">{{ count }} Suggested Schedule{{ count|pluralize }} waiting for review</a>
+      <a href="{% url 'suggested_schedule_list' %}" class="mt-4 flex items-center gap-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
+        <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sky-600 ring-1 ring-sky-200">{% include "shell/icon.html" with name="sparkle" class="size-4" %}</span>
+        <span class="min-w-0 flex-1"><span class="font-medium">{{ count }} Suggested Schedule{{ count|pluralize }} waiting for review</span><span class="block text-xs text-sky-700">Repeated payments Velora noticed. Confirm one to track it.</span></span>
+        {% include "shell/icon.html" with name="chevron-right" class="size-4 text-sky-500" %}
+      </a>
     {% endif %}
   {% endwith %}
-  <ul class="mt-4 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-    {% for schedule in schedules %}
-      <li class="{% if not schedule.active or schedule.ends_on and schedule.ends_on < today %}opacity-50 {% endif %}flex items-center justify-between gap-3 py-3">
-        <div class="min-w-0">
-          <a href="{% url 'schedule_detail' schedule.pk %}" class="block truncate font-medium hover:underline">{{ schedule }}</a>
-          <p class="text-xs text-slate-500">
-            {% include "schedules/_state.html" with next_due=schedule.upcoming.0 %}
-          </p>
+
+  {% if on %}
+    {% comment %}Swipes sideways on phones, where three tiles side by side would be too narrow.{% endcomment %}
+    <dl class="-mx-4 mt-4 flex snap-x gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:gap-3 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
+      {% for label, flow in stats %}
+        <div class="w-44 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:w-auto md:p-4" title="Money out and in. Transfers between your own Accounts and open amounts are left out.">
+          <dt class="text-xs font-medium text-slate-500">{{ label }}</dt>
+          <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums md:text-2xl">{% amount flow.out %}</dd>
+          <dd class="mt-0.5 truncate text-xs text-slate-500">
+            {% if flow.income %}<span class="{% if not user.privacy_mode %}text-emerald-600{% endif %} tabular-nums">{% if not user.privacy_mode %}+{% endif %}{% amount flow.income %}</span> in · {% endif %}{% if forloop.last %}{{ flow.due }} active{% else %}{{ flow.due }} due{% endif %}{% if flow.open %} · {{ flow.open }} open{% endif %}
+          </dd>
         </div>
-        <span class="shrink-0 tabular-nums">{% with total=schedule.amount %}{% if total is None %}<span class="text-slate-500">Open amount</span>{% else %}{% amount total %}{% endif %}{% endwith %}</span>
-      </li>
-    {% empty %}
-      <li class="py-3 text-slate-500">No Schedules yet.</li>
-    {% endfor %}
-  </ul>
+      {% endfor %}
+    </dl>
+  {% endif %}
+
+  {% if on %}
+    <ul class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+      {% for schedule in on %}
+        {% include "schedules/_schedule_row.html" %}
+      {% endfor %}
+    </ul>
+  {% elif not paused and not ended %}
+    <div class="mt-4 rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center">
+      <span class="mx-auto flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="repeat" class="size-6" %}</span>
+      <p class="mt-4 font-semibold">No Schedules yet</p>
+      <p class="mx-auto mt-1 max-w-sm text-sm text-slate-500">Add rent, salary or a phone bill, and Velora proposes a Draft on each due date. You can also make one from any Transaction.</p>
+      <a href="{% url 'schedule_create' %}" class="btn-primary mt-5 inline-flex items-center gap-1.5 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Schedule</a>
+    </div>
+  {% else %}
+    <p class="mt-4 rounded-2xl bg-white px-4 py-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">Nothing is running right now.</p>
+  {% endif %}
+
+  {% for title, group in stopped %}
+    {% if group %}
+      <details class="group mt-6"{% if not on %} open{% endif %}>
+        <summary class="flex cursor-pointer list-none items-center gap-1 text-sm font-semibold text-slate-600 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
+          {% include "shell/icon.html" with name="chevron-right" class="size-4 transition-transform group-open:rotate-90" %}{{ title }} <span class="font-normal text-slate-400 tabular-nums">{{ group|length }}</span>
+        </summary>
+        <ul class="mt-2 divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+          {% for schedule in group %}
+            {% include "schedules/_schedule_row.html" %}
+          {% endfor %}
+        </ul>
+      </details>
+    {% endif %}
+  {% endfor %}
 {% endblock %}

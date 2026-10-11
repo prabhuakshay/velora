@@ -5,12 +5,14 @@ from typing import TYPE_CHECKING
 import pytest
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import strip_tags
 
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
 from apps.schedules.models import Occurrence, Schedule
+from apps.schedules.occurrences import regenerate
 from apps.schedules.tests.conftest import (
     make_schedule,
     paid,
@@ -24,6 +26,10 @@ if TYPE_CHECKING:
 
 
 pytestmark = pytest.mark.django_db
+
+
+def page_text(body: str) -> str:
+    return " ".join(strip_tags(body).split())
 
 
 def test_a_schedule_is_created_from_its_template_and_rule(signed_in: Client) -> None:
@@ -167,9 +173,11 @@ def test_the_list_shows_each_schedules_next_due_date_and_amount(
 
     body = signed_in.get(reverse("schedule_list")).content.decode()
 
-    assert body.index("Flat rent") < body.index("₹25,000.00")
-    assert body.index("Power bill") < body.index("Open amount")
+    rent_row = body[body.index("Flat rent") : body.index("Power bill")]
+    assert "₹25,000.00" in rent_row
+    assert "Open amount" in body[body.index("Power bill") :]
     assert body.count(f"Next due {soon:%-d %b %Y}") == 2
+    assert "Next 7 days ₹25,000.00 2 due · 1 open" in page_text(body)
     for schedule in Schedule.objects.all():
         assert reverse("schedule_detail", args=[schedule.pk]) in body
     assert reverse("schedule_create") in body
@@ -189,9 +197,10 @@ def test_the_detail_page_shows_the_occurrence_history(signed_in: Client) -> None
         reverse("schedule_detail", args=[schedule.pk])
     ).content.decode()
 
-    assert "Every 1 month from 5 Aug 2026" in body
-    assert body.index("5 Aug 2026 · Paid") < body.index("5 Sep 2026 · Skipped")
-    assert body.index("5 Sep 2026 · Skipped") < body.index("5 Oct 2026 · Upcoming")
+    text = page_text(body)
+    assert "Repeats Every month First due 5 Aug 2026" in text
+    assert "Coming up 5 Oct 2026" in text
+    assert "History 2 5 Sep 2026 Skipped 5 Aug 2026 Paid" in text
 
 
 def test_the_occurrence_history_links_to_each_draft_and_transaction(
@@ -311,13 +320,87 @@ def test_add_split_treats_a_non_decimal_count_as_zero(signed_in: Client) -> None
 def test_the_occurrence_history_is_paginated(signed_in: Client) -> None:
     schedule = make_schedule()
     for day in range(1, 27):
-        schedule.occurrences.create(due_date=date(2026, 1, day))
+        schedule.occurrences.create(
+            due_date=date(2026, 1, day), status=Occurrence.Status.SKIPPED
+        )
     url = reverse("schedule_detail", args=[schedule.pk])
 
     first = signed_in.get(url).content.decode()
     second = signed_in.get(url + "?page=2").content.decode()
 
-    assert "1 Jan 2026" in first
-    assert "26 Jan 2026" not in first
-    assert "26 Jan 2026" in second
+    assert "26 Jan 2026" in first
+    assert ">1 Jan 2026" not in first
+    assert ">1 Jan 2026" in second
     assert "?page=2" in first
+
+
+def test_the_list_puts_the_next_due_first_and_sets_stopped_ones_apart(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    rent = make_account("Rent", "expense")
+    today = timezone.localdate()
+    cases: list[tuple[str, int, dict[str, object]]] = [
+        ("Later", 20, {}),
+        ("Sooner", 3, {}),
+        ("Resting", 5, {"active": False}),
+        ("Over", -40, {"ends_on": today - timedelta(days=10)}),
+    ]
+    for description, days, fields in cases:
+        schedule = make_schedule(
+            (bank, rent, "100"),
+            description=description,
+            start_date=today + timedelta(days=days),
+            **fields,
+        )
+        regenerate(schedule, today)
+
+    text = page_text(signed_in.get(reverse("schedule_list")).content.decode())
+
+    assert text.index("Sooner") < text.index("Later")
+    assert "Paused 1 Resting ₹100.00 Paused" in text
+    assert "Ended 1 Over ₹100.00 Ended" in text
+
+
+def test_the_list_sums_what_falls_due_apart_from_transfers(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    card = make_account("Card", "liability")
+    rent = make_account("Rent", "expense")
+    salary = make_account("Salary", "income")
+    soon = timezone.localdate() + timedelta(days=2)
+    for split in [(bank, rent, "100"), (salary, bank, "900"), (bank, card, "50")]:
+        regenerate(make_schedule(split, start_date=soon), timezone.localdate())
+
+    text = page_text(signed_in.get(reverse("schedule_list")).content.decode())
+
+    assert "Next 7 days ₹100.00 +₹900.00 in · 3 due" in text
+
+
+def test_the_detail_page_counts_how_past_occurrences_went(
+    signed_in: Client,
+) -> None:
+    bank = make_account("Bank", "asset")
+    rent = make_account("Rent", "expense")
+    schedule = make_schedule((bank, rent, "25000"), start_date=date(2026, 7, 5))
+    for month, payment in [(7, "25000"), (8, "26000")]:
+        transaction = Transaction.objects.create(date=date(2026, month, 5))
+        transaction.splits.create(
+            from_account=bank, to_account=rent, amount=Decimal(payment)
+        )
+        schedule.occurrences.create(
+            due_date=date(2026, month, 5),
+            status=Occurrence.Status.PAID,
+            transaction=transaction,
+        )
+    schedule.occurrences.create(
+        due_date=date(2026, 9, 5), status=Occurrence.Status.MISSED
+    )
+
+    text = page_text(
+        signed_in.get(reverse("schedule_detail", args=[schedule.pk])).content.decode()
+    )
+
+    assert "Paid 2 Missed 1 Skipped 0 Paid in all ₹51,000.00" in text
+    assert "5 Sep 2026 Missed No payment found 5 Aug 2026 Paid ₹26,000.00" in text

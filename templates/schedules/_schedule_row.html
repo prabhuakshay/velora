@@ -1,0 +1,39 @@
+{% load schedules %}
+{% with splits=schedule.splits.all ended=schedule|has_ended:today %}
+<li>
+  <a href="{% url 'schedule_detail' schedule.pk %}" class="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-slate-50 active:bg-slate-100">
+    <span class="flex w-10 shrink-0 flex-col items-center text-center leading-none" aria-hidden="true">
+      {% if schedule.active and not ended and schedule.next_due %}
+        <span class="text-xl font-semibold tabular-nums{% if schedule.next_due > horizon %} text-slate-400{% endif %}">{{ schedule.next_due|date:"j" }}</span>
+        <span class="mt-1 text-xs text-slate-500">{{ schedule.next_due|date:"M" }}</span>
+      {% else %}
+        <span class="flex size-9 items-center justify-center rounded-full bg-slate-100 text-slate-400">{% include "shell/icon.html" with name=ended|yesno:"x,pause" class="size-4" %}</span>
+      {% endif %}
+    </span>
+    <span class="min-w-0 flex-1">
+      <span class="flex items-baseline justify-between gap-3">
+        <span class="truncate font-medium">{{ schedule }}</span>
+        <span class="shrink-0 font-semibold">{% include "schedules/_amount.html" with amount=schedule.amount %}</span>
+      </span>
+      <span class="mt-0.5 flex items-center justify-between gap-3 text-xs text-slate-500">
+        <span class="truncate">
+          {% if ended %}Ended {{ schedule.ends_on|date:"j M Y" }}{% elif not schedule.active %}Paused{% elif schedule.next_due %}<span class="sr-only">Next due {{ schedule.next_due|date:"j M Y" }}, </span><span class="{% if schedule.next_due <= today %}font-medium text-amber-700{% endif %}">{{ schedule.next_due|days_away:today|capfirst }}</span>{% else %}Nothing upcoming{% endif %}
+          · {% include "schedules/_rule.html" %}{% if schedule.party and schedule.description %} · {{ schedule.party }}{% endif %}
+        </span>
+        <span class="hidden shrink-0 items-center gap-1 sm:flex">
+          {% with split=splits.0 %}<span class="max-w-32 truncate">{{ split.from_account }}</span>{% include "shell/icon.html" with name="arrow-right" class="size-3 text-slate-400" %}<span class="max-w-32 truncate">{{ split.to_account }}</span>{% endwith %}{% if splits|length > 1 %} +{{ splits|length|add:"-1" }}{% endif %}
+        </span>
+      </span>
+      {% if schedule.waiting or schedule.last_status == "missed" or schedule.auto_post or schedule.is_subscription %}
+        <span class="mt-1.5 flex flex-wrap gap-1">
+          {% if schedule.waiting %}<span class="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">{{ schedule.waiting }} Draft{{ schedule.waiting|pluralize }} waiting</span>{% endif %}
+          {% if schedule.last_status == "missed" %}<span class="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Last one Missed</span>{% endif %}
+          {% if schedule.auto_post %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Auto-post</span>{% endif %}
+          {% if schedule.is_subscription %}<span class="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">Subscription</span>{% endif %}
+        </span>
+      {% endif %}
+    </span>
+    {% include "shell/icon.html" with name="chevron-right" class="size-4 text-slate-300" %}
+  </a>
+</li>
+{% endwith %}

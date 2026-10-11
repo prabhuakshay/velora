@@ -50,6 +50,7 @@ class ScheduleForm(forms.ModelForm[Schedule]):
             "ends_on": "Last due date",
             "ends_after": "Number of Occurrences",
             "reminder_days": "Remind days before",
+            "auto_post": "Auto-post",
             "is_subscription": "Subscription",
             "trial_ends_on": "Trial ends on",
         }
@@ -133,6 +134,7 @@ class ScheduleSplitForm(forms.ModelForm[ScheduleSplit]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
         offer_accounts(self)
+        self.fields["amount"].widget.attrs["placeholder"] = "Open amount"
 
     def clean(self) -> dict[str, Any]:
         """Apply the shared Split rules to the two Accounts."""

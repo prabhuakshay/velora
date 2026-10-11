@@ -1,51 +1,213 @@
 {% extends "app_base.html" %}
+{% load schedules %}
 
 {% block title %}{{ schedule }} · Velora{% endblock %}
 
+{% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
+
 {% block main %}
-  <div class="flex items-center justify-between gap-3">
-    <h1 class="truncate text-2xl font-bold tracking-tight">{{ schedule }}</h1>
-    <a href="{% url 'schedule_edit' schedule.pk %}" class="btn-secondary py-2 text-sm">Edit</a>
-  </div>
-  <div class="mt-4 space-y-1 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200">
-    <p class="font-medium">{% if schedule.cron %}On cron {{ schedule.cron }}{% else %}Every {{ schedule.every }} {{ schedule.unit }}{{ schedule.every|pluralize }}{% endif %} from {{ schedule.start_date|date:"j M Y" }}{% if schedule.ends_after %}, {{ schedule.ends_after }} time{{ schedule.ends_after|pluralize }}{% endif %}{% if schedule.ends_on %} until {{ schedule.ends_on|date:"j M Y" }}{% endif %}{% if schedule.auto_post %} · Auto-post{% endif %}</p>
-    <p class="text-slate-500">{% include "schedules/_state.html" %}</p>
-    {% if schedule.party %}<p>{{ schedule.party }}</p>{% endif %}
-    {% if schedule.description %}<p class="text-slate-700">{{ schedule.description }}</p>{% endif %}
-    {% for split in splits %}
-      <p class="flex justify-between gap-3 text-xs text-slate-500">
-        <span class="truncate">{{ split.from_account }} → {{ split.to_account }}</span>
-        <span class="tabular-nums">{% if split.amount is None %}Open amount{% else %}{% amount split.amount %}{% endif %}</span>
-      </p>
-    {% endfor %}
-    <div class="flex gap-2 pt-2">
-      <form method="post" action="{% url schedule.active|yesno:'schedule_pause,schedule_resume' schedule.pk %}">
-        {% csrf_token %}
-        <button type="submit" class="btn-secondary py-1.5 text-sm">{% if schedule.active %}Pause{% else %}Resume{% endif %}</button>
-      </form>
-      {% if not ended %}
-        <form method="post" action="{% url 'schedule_end' schedule.pk %}">
-          {% csrf_token %}
-          <button type="submit" class="btn-secondary py-1.5 text-sm">End</button>
-        </form>
-      {% endif %}
+  <div class="flex items-center gap-2">
+    <a href="{% url 'schedule_list' %}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to Schedules">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{{ schedule }}</h1>
+      <p class="truncate text-sm text-slate-500">{% include "schedules/_rule.html" %}{% if schedule.party and schedule.description %} · {{ schedule.party }}{% endif %}</p>
     </div>
+    <a href="{% url 'schedule_edit' schedule.pk %}" class="-mr-2 flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
   </div>
-  <h2 class="mt-6 text-lg font-semibold">Occurrences</h2>
-  <ul class="mt-2 divide-y divide-slate-100 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-    {% for occurrence in page %}
-      <li class="py-2 text-sm">
-        {% if occurrence.transaction_id %}
-          <a href="{% url 'transaction_edit' occurrence.transaction_id %}" class="hover:underline">{{ occurrence.due_date|date:"j M Y" }} · {{ occurrence.get_status_display }}</a>
-        {% elif occurrence.draft.status == "waiting" %}
-          <a href="{% url 'draft_edit' occurrence.draft.pk %}" class="hover:underline">{{ occurrence.due_date|date:"j M Y" }} · {{ occurrence.get_status_display }}</a>
-        {% else %}
-          {{ occurrence.due_date|date:"j M Y" }} · {{ occurrence.get_status_display }}
-        {% endif %}
-      </li>
-    {% empty %}
-      <li class="py-3 text-slate-500">No Occurrences yet.</li>
-    {% endfor %}
-  </ul>
-  {% include "partials/pagination.html" %}
+
+  <div class="mt-4 md:mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
+    <div class="space-y-4">
+      <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
+        <div class="flex flex-wrap gap-1.5">
+          {% if ended %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Ended {{ schedule.ends_on|date:"j M Y" }}</span>
+          {% elif not schedule.active %}<span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">Paused</span>
+          {% else %}<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"><span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>Active</span>{% endif %}
+          {% if schedule.auto_post %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600" title="Records the Transaction on each due date without a Draft">Auto-post</span>{% endif %}
+          {% if schedule.is_subscription %}<span class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700">Subscription</span>{% endif %}
+          {% if not user.privacy_mode %}
+            {% if schedule.is_income %}<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Income</span>
+            {% elif schedule.is_transfer %}<span class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">Transfer</span>{% endif %}
+          {% endif %}
+        </div>
+        <p class="mt-4 text-4xl font-semibold tracking-tight">{% include "schedules/_amount.html" %}</p>
+        {% if amount is None and record.average is not None %}<p class="mt-1 text-sm text-slate-500">About {% amount record.average %} on average, from {{ record.paid }} paid</p>{% endif %}
+        {% with next=upcoming.0 %}
+          {% if next %}
+            <p class="mt-3 flex items-center gap-2 text-sm text-slate-600">
+              {% include "shell/icon.html" with name="calendar" class="size-4 text-slate-400" %}
+              <span>Next due <span class="font-medium text-slate-900">{{ next.due_date|date:"D, j M Y" }}</span> · <span class="{% if next.due_date <= today %}font-medium text-amber-700{% endif %}">{{ next.due_date|days_away:today }}</span></span>
+            </p>
+          {% elif not ended and not schedule.active %}
+            <p class="mt-3 text-sm text-slate-600">Paused, so no Drafts are proposed. Resume to pick up from today; dates while paused are never proposed.</p>
+          {% elif not ended %}
+            <p class="mt-3 text-sm text-slate-600">Nothing falls due in the next 30 days.</p>
+          {% endif %}
+        {% endwith %}
+
+        <div class="mt-5 flex flex-wrap gap-2">
+          {% if not ended %}
+            <form method="post" action="{% url schedule.active|yesno:'schedule_pause,schedule_resume' schedule.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name=schedule.active|yesno:"pause,play" class="size-4" %}{% if schedule.active %}Pause{% else %}Resume{% endif %}</button>
+            </form>
+            <button type="button" data-dialog-open="end-schedule" class="btn-secondary flex items-center gap-1.5 py-2 hover:border-red-200 hover:bg-red-50 hover:text-red-700">{% include "shell/icon.html" with name="ban" class="size-4" %}End</button>
+          {% endif %}
+          {% if schedule.party %}
+            <a href="{% url 'party_transactions' schedule.party.pk %}" class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name="receipt" class="size-4" %}{{ schedule.party }}'s Transactions</a>
+          {% endif %}
+        </div>
+      </section>
+
+      {% if page.paginator.count %}
+      <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
+        <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+          <dt class="text-xs font-medium text-slate-500">Paid</dt>
+          <dd class="mt-1 text-xl font-semibold tabular-nums">{{ record.paid }}</dd>
+        </div>
+        <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+          <dt class="text-xs font-medium text-slate-500">Missed</dt>
+          <dd class="mt-1 text-xl font-semibold tabular-nums{% if record.counts.missed %} text-red-600{% endif %}">{{ record.counts.missed|default:0 }}</dd>
+        </div>
+        <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+          <dt class="text-xs font-medium text-slate-500">Skipped</dt>
+          <dd class="mt-1 text-xl font-semibold tabular-nums">{{ record.counts.skipped|default:0 }}</dd>
+        </div>
+        <div class="min-w-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+          <dt class="text-xs font-medium text-slate-500">Paid in all</dt>
+          <dd class="mt-1 truncate text-xl font-semibold tabular-nums">{% amount record.paid_total %}</dd>
+        </div>
+      </dl>
+      {% endif %}
+
+      {% if record.counts.drafted %}
+        <a href="{% url 'draft_list' %}" class="flex items-center gap-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
+          {% include "shell/icon.html" with name="inbox" class="size-5 text-sky-600" %}
+          <span class="flex-1">{{ record.counts.drafted }} Draft{{ record.counts.drafted|pluralize }} from this Schedule waiting for you to post</span>
+          {% include "shell/icon.html" with name="chevron-right" class="size-4 text-sky-500" %}
+        </a>
+      {% endif %}
+
+      {% if upcoming or later %}
+        <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="coming-up-title">
+          <h2 id="coming-up-title" class="px-4 pt-4 font-semibold md:px-5">Coming up</h2>
+          <ul class="mt-2 divide-y divide-slate-100">
+            {% for occurrence in upcoming %}
+              <li class="flex items-center gap-3 px-4 py-2.5 text-sm md:px-5">
+                <span class="w-24 shrink-0 font-medium tabular-nums">{{ occurrence.due_date|date:"j M Y" }}</span>
+                <span class="flex-1 text-slate-500">{{ occurrence.due_date|date:"D" }} · {{ occurrence.due_date|days_away:today }}</span>
+                {% include "schedules/_occurrence_status.html" with status=occurrence.status label=occurrence.get_status_display %}
+              </li>
+            {% endfor %}
+            {% for day in later %}
+              <li class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-500 md:px-5">
+                <span class="w-24 shrink-0 tabular-nums">{{ day|date:"j M Y" }}</span>
+                <span class="flex-1">{{ day|date:"D" }} · {{ day|days_away:today }}</span>
+                <span class="text-xs text-slate-400">Later</span>
+              </li>
+            {% endfor %}
+          </ul>
+          {% if later %}<p class="px-4 pt-1 pb-3 text-xs text-slate-400 md:px-5">Due dates more than 30 days out are laid out as they come closer.</p>{% else %}<div class="pb-2"></div>{% endif %}
+        </section>
+      {% endif %}
+
+      <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="history-title">
+        <h2 id="history-title" class="px-4 pt-4 font-semibold md:px-5">History{% if page.paginator.count %} <span class="text-sm font-normal text-slate-400 tabular-nums">{{ page.paginator.count }}</span>{% endif %}</h2>
+        <ul class="mt-2 divide-y divide-slate-100">
+          {% for occurrence in page %}
+            <li class="flex items-center gap-3 px-4 py-2.5 text-sm md:px-5">
+              <span class="w-24 shrink-0 font-medium tabular-nums">{{ occurrence.due_date|date:"j M Y" }}</span>
+              <span class="min-w-0 flex-1">
+                {% include "schedules/_occurrence_status.html" with status=occurrence.status label=occurrence.get_status_display %}
+              </span>
+              {% if occurrence.transaction_id %}
+                <a href="{% url 'transaction_edit' occurrence.transaction_id %}" class="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 font-medium tabular-nums text-slate-700 hover:bg-slate-100">{% if occurrence.paid is not None %}{% amount occurrence.paid %}{% else %}Transaction{% endif %}{% include "shell/icon.html" with name="chevron-right" class="size-3.5 text-slate-400" %}</a>
+              {% elif occurrence.draft.status == "waiting" %}
+                <a href="{% url 'draft_edit' occurrence.draft.pk %}" class="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 font-medium text-sky-700 hover:bg-sky-50">Review Draft{% include "shell/icon.html" with name="chevron-right" class="size-3.5" %}</a>
+              {% elif occurrence.status == "missed" %}
+                <span class="shrink-0 text-xs text-slate-400">No payment found</span>
+              {% endif %}
+            </li>
+          {% empty %}
+            <li class="px-4 py-6 text-center text-sm text-slate-500 md:px-5">Nothing has fallen due yet.</li>
+          {% endfor %}
+        </ul>
+        <div class="px-4 pb-3 md:px-5">{% include "partials/pagination.html" with previous_label="Newer" next_label="Older" %}</div>
+      </section>
+    </div>
+
+    <aside class="mt-4 space-y-4 lg:sticky lg:top-0 lg:mt-0">
+      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="rule-title">
+        <h2 id="rule-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Rule</h2>
+        <dl class="mt-3 space-y-2.5 text-sm">
+          <div class="flex justify-between gap-3"><dt class="text-slate-500">Repeats</dt> <dd class="text-right font-medium">{% include "schedules/_rule.html" %}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-slate-500">First due</dt> <dd class="text-right font-medium tabular-nums">{{ schedule.start_date|date:"j M Y" }}</dd></div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-slate-500">Ends</dt>
+            <dd class="text-right font-medium">
+              {% if final %}<span class="tabular-nums">{{ final|date:"j M Y" }}</span>{% if left and not ended %} <span class="block text-xs font-normal text-slate-500">{{ left }} more to go</span>{% endif %}{% elif schedule.ends_after %}After {{ schedule.ends_after }}{% else %}Never{% endif %}
+            </dd>
+          </div>
+          <div class="flex justify-between gap-3"><dt class="text-slate-500">On the due date</dt> <dd class="text-right font-medium">{% if schedule.auto_post %}Posts it{% else %}Proposes a Draft{% endif %}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-slate-500">Reminder</dt> <dd class="text-right font-medium">{% if schedule.reminder_days %}{{ schedule.reminder_days }} day{{ schedule.reminder_days|pluralize }} before{% else %}On the day{% endif %}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-slate-500">Missed after</dt> <dd class="text-right font-medium">{{ schedule.grace_days }} day{{ schedule.grace_days|pluralize }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="splits-title">
+        <h2 id="splits-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Split{{ schedule.splits.all|length|pluralize }}</h2>
+        <ul class="mt-3 space-y-2">
+          {% for split in schedule.splits.all %}
+            <li class="rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+              <div class="flex items-center gap-2">
+                <a href="{% url 'account_transactions' split.from_account.kind split.from_account_id %}" class="min-w-0 flex-1 hover:underline"><span class="block truncate font-medium">{{ split.from_account }}</span><span class="block text-xs text-slate-500">{{ split.from_account.get_kind_display }}</span></a>
+                {% include "shell/icon.html" with name="arrow-right" class="size-4 text-slate-400" %}
+                <a href="{% url 'account_transactions' split.to_account.kind split.to_account_id %}" class="min-w-0 flex-1 text-right hover:underline"><span class="block truncate font-medium">{{ split.to_account }}</span><span class="block text-xs text-slate-500">{{ split.to_account.get_kind_display }}</span></a>
+              </div>
+              <p class="mt-2 border-t border-slate-200/70 pt-2 text-right font-semibold tabular-nums">{% if split.amount is None %}<span class="font-medium text-slate-500">Open amount</span>{% else %}{% amount split.amount %}{% endif %}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      {% if schedule.is_subscription %}
+        <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="subscription-title">
+          <h2 id="subscription-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Subscription</h2>
+          <dl class="mt-3 space-y-2.5 text-sm">
+            {% if schedule.plan %}<div class="flex justify-between gap-3"><dt class="text-slate-500">Plan</dt> <dd class="text-right font-medium">{{ schedule.plan }}</dd></div>{% endif %}
+            {% if yearly is not None %}
+              <div class="flex justify-between gap-3"><dt class="text-slate-500">A month</dt> <dd class="text-right font-medium tabular-nums">{% amount monthly %}</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-slate-500">A year</dt> <dd class="text-right font-medium tabular-nums">{% amount yearly %}</dd></div>
+            {% endif %}
+            {% if schedule.trial_ends_on %}
+              <div class="flex justify-between gap-3"><dt class="text-slate-500">Trial ends</dt> <dd class="text-right font-medium tabular-nums{% if schedule.trial_ends_on >= today %} text-amber-700{% endif %}">{{ schedule.trial_ends_on|date:"j M Y" }} <span class="block text-xs font-normal text-slate-500">{{ schedule.trial_ends_on|days_away:today }}</span></dd></div>
+            {% endif %}
+          </dl>
+          {% if schedule.how_to_cancel %}
+            <div class="mt-3 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+              <p class="text-xs font-medium text-slate-500">To cancel</p>
+              <p class="mt-0.5 whitespace-pre-line">{{ schedule.how_to_cancel }}</p>
+            </div>
+          {% endif %}
+        </section>
+      {% endif %}
+    </aside>
+  </div>
+
+  {% if not ended %}
+    <dialog id="end-schedule" data-dialog data-sheet aria-labelledby="end-schedule-title" class="m-0 mt-auto w-full max-w-none rounded-t-2xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-black/50 md:m-auto md:max-w-sm md:rounded-2xl">
+      <div class="px-5 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-6 md:pt-6 md:pb-6">
+        <div class="mx-auto mb-4 h-1 w-9 rounded-full bg-slate-300 md:hidden" aria-hidden="true"></div>
+        <div class="flex flex-col items-center text-center">
+          <span class="flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600">{% include "shell/icon.html" with name="ban" class="size-6" %}</span>
+          <h2 id="end-schedule-title" class="mt-4 text-lg font-semibold tracking-tight">End {{ schedule }}?</h2>
+          <p class="mt-2 text-sm text-slate-500">Nothing falls due from today on. Its history and any Drafts already proposed stay. To stop for a while instead, pause it.</p>
+        </div>
+        <form method="post" action="{% url 'schedule_end' schedule.pk %}" class="mt-6 flex flex-col-reverse gap-2 md:flex-row">
+          {% csrf_token %}
+          <button type="button" data-dialog-close class="btn-secondary flex-1 py-3 md:py-2.5">Cancel</button>
+          <button type="submit" class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 font-medium text-white hover:bg-red-700 active:bg-red-800 md:py-2.5">End Schedule</button>
+        </form>
+      </div>
+    </dialog>
+  {% endif %}
 {% endblock %}

@@ -124,3 +124,8 @@ html:has(#main) {
 section:has(#id_party option:checked:not([value=""])) [data-new-party] {
   display: none;
 }
+
+/* A Schedule's Subscription fields show only while it is marked as one. */
+section:has(#id_is_subscription:not(:checked)) [data-subscription-fields] {
+  display: none;
+}

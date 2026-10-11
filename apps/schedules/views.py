@@ -1,11 +1,11 @@
 """Views for listing, editing, pausing and ending Schedules."""
 
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
-from django.db.models import Prefetch
+from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -17,10 +17,26 @@ from apps.schedules.forms import (
     ScheduleSplitFormSet,
     has_open_amount,
 )
-from apps.schedules.models import Occurrence, Schedule, SuggestedSchedule
+from apps.schedules.models import (
+    Occurrence,
+    Schedule,
+    SuggestedSchedule,
+)
 from apps.schedules.occurrences import regenerate
+from apps.schedules.overview import (
+    a_month,
+    coming_up,
+    due_dates_left,
+    final_due_date,
+    later_due_dates,
+    record,
+)
 from apps.schedules.repeat import units_after
-from apps.schedules.subscriptions import subscription_costs, yearly_total
+from apps.schedules.subscriptions import (
+    subscription_costs,
+    times_a_year,
+    yearly_total,
+)
 from apps.transactions.models import Transaction
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
@@ -113,21 +129,65 @@ def _initial_from(suggestion: SuggestedSchedule) -> Initial:
     return schedule, [split]
 
 
+# Each Split's Accounts, which tell an income or a Transfer Schedule apart.
+SPLIT_ACCOUNTS = ("splits__from_account", "splits__to_account")
+
+
 @login_required
 def schedule_list(request: HttpRequest) -> HttpResponseBase:
-    """Every Schedule with its next due date and amount."""
-    schedules = Schedule.objects.select_related("party").prefetch_related(
-        "splits",
-        Prefetch(
-            "occurrences",
-            queryset=Occurrence.objects.filter(status=Occurrence.Status.UPCOMING),
-            to_attr="upcoming",
-        ),
+    """Every Schedule by what it does next, and what falls due soon."""
+    today = timezone.localdate()
+    past = Occurrence.objects.filter(schedule=OuterRef("pk")).exclude(
+        status=Occurrence.Status.UPCOMING
     )
+    schedules = (
+        Schedule.objects.select_related("party")
+        .prefetch_related(*SPLIT_ACCOUNTS)
+        .annotate(
+            waiting=Count(
+                "occurrences", filter=Q(occurrences__status=Occurrence.Status.DRAFTED)
+            ),
+            last_status=Subquery(past.order_by("-due_date").values("status")[:1]),
+            next_due=Min(
+                "occurrences__due_date",
+                filter=Q(occurrences__status=Occurrence.Status.UPCOMING),
+            ),
+        )
+        # Meta.ordering is dropped once an aggregate groups the rows.
+        .order_by("pk")
+    )
+    on, paused, ended = [], [], []
+    for schedule in schedules:
+        if schedule.has_ended(today):
+            ended.append(schedule)
+        elif schedule.active:
+            # Occurrences are laid out only 30 days ahead; look past them.
+            if schedule.next_due is None:
+                schedule.next_due = next(
+                    iter(later_due_dates(schedule, today, 1)), None
+                )
+            on.append(schedule)
+        else:
+            paused.append(schedule)
+    soon = Occurrence.objects.filter(
+        status=Occurrence.Status.UPCOMING,
+        due_date__lte=today + timedelta(days=30),
+    ).prefetch_related(*(f"schedule__{lookup}" for lookup in SPLIT_ACCOUNTS))
     return render(
         request,
         "schedules/schedule_list.html",
-        {"schedules": schedules, "today": timezone.localdate()},
+        {
+            # The next due first; one with nothing upcoming goes last.
+            "on": sorted(on, key=lambda s: s.next_due or date.max),
+            "stopped": [("Paused", paused), ("Ended", ended)],
+            "stats": [
+                ("Next 7 days", coming_up(soon, today + timedelta(days=7))),
+                ("Next 30 days", coming_up(soon, today + timedelta(days=30))),
+                ("Average month", a_month(on, today)),
+            ],
+            "horizon": today + timedelta(days=30),
+            "today": today,
+        },
     )
 
 
@@ -163,18 +223,40 @@ def schedule_split_row(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def schedule_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """The Schedule and its Occurrence history."""
-    schedule = get_object_or_404(Schedule.objects.select_related("party"), pk=pk)
+    """The Schedule, what falls due next and how its past Occurrences went."""
+    schedule = get_object_or_404(
+        Schedule.objects.select_related("party").prefetch_related(*SPLIT_ACCOUNTS),
+        pk=pk,
+    )
     today = timezone.localdate()
-    occurrences = schedule.occurrences.select_related("draft")
+    upcoming = schedule.occurrences.filter(status=Occurrence.Status.UPCOMING)
+    history = (
+        schedule.occurrences.exclude(status=Occurrence.Status.UPCOMING)
+        .select_related("draft")
+        .annotate(paid=Sum("transaction__splits__amount"))
+        .order_by("-due_date", "-pk")
+    )
+    final = final_due_date(schedule)
+    amount = schedule.amount
+    yearly = (
+        amount * times_a_year(schedule, today)
+        if schedule.is_subscription and amount is not None
+        else None
+    )
     return render(
         request,
         "schedules/schedule_detail.html",
         {
             "schedule": schedule,
-            "splits": schedule.splits.select_related("from_account", "to_account"),
-            "page": paginate(request, occurrences),
-            "next_due": occurrences.filter(status=Occurrence.Status.UPCOMING).first(),
+            "amount": amount,
+            "upcoming": upcoming,
+            "later": later_due_dates(schedule, today),
+            "page": paginate(request, history),
+            "record": record(schedule),
+            "final": final,
+            "left": final and due_dates_left(schedule, today, final),
+            "yearly": yearly,
+            "monthly": yearly and yearly / 12,
             "ended": schedule.has_ended(today),
             "today": today,
         },
@@ -232,16 +314,30 @@ def schedule_end(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: AR
 
 @login_required
 def subscription_list(request: HttpRequest) -> HttpResponseBase:
-    """Every Subscription with its monthly and yearly cost, and the totals."""
-    rows = subscription_costs(timezone.localdate())
+    """Every Subscription with its cost, the totals and the trials still running."""
+    today = timezone.localdate()
+    rows = subscription_costs(today)
     total = yearly_total(rows)
+    trials = sorted(
+        (
+            row.schedule
+            for row in rows
+            if row.counted
+            and row.schedule.trial_ends_on
+            and row.schedule.trial_ends_on >= today
+        ),
+        key=lambda schedule: schedule.trial_ends_on or today,
+    )
     return render(
         request,
         "schedules/subscription_list.html",
         {
             "page": paginate(request, rows),
+            "counted": sum(row.counted for row in rows),
             "yearly_total": total,
             "monthly_total": total / 12,
+            "trials": trials,
+            "today": today,
         },
     )
 
@@ -253,13 +349,23 @@ def suggested_schedule_list(request: HttpRequest) -> HttpResponseBase:
         SuggestedSchedule.objects.filter(status=SuggestedSchedule.Status.WAITING)
         .select_related("party", "from_account", "to_account")
         .prefetch_related(
-            Prefetch("evidence", queryset=Transaction.objects.order_by("date"))
+            Prefetch(
+                "evidence",
+                queryset=Transaction.objects.order_by("date").annotate(
+                    total=Sum("splits__amount")
+                ),
+            )
         )
     )
+    rows = []
+    for suggestion in suggestions:
+        last = list(suggestion.evidence.all())[-1:]
+        expected = last and units_after(last[0].date, suggestion.unit, 1)
+        rows.append((suggestion, expected or None))
     return render(
         request,
         "schedules/suggested_schedule_list.html",
-        {"suggestions": suggestions},
+        {"rows": rows, "today": timezone.localdate()},
     )
 
 

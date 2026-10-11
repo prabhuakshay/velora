@@ -6,10 +6,11 @@ from decimal import Decimal
 from itertools import takewhile
 from typing import TYPE_CHECKING
 
+from django.db.models import Min, Q
 from django.utils import timezone
 
 from apps.core.dates import months_after
-from apps.schedules.models import Schedule, ScheduleSplit
+from apps.schedules.models import Occurrence, Schedule, ScheduleSplit
 from apps.schedules.repeat import cron_dates
 
 if TYPE_CHECKING:
@@ -75,7 +76,7 @@ def _price_histories(schedule_ids: list[int]) -> dict[int, PriceHistory]:
     return histories
 
 
-def _times_a_year(schedule: Schedule, today: date) -> Decimal:
+def times_a_year(schedule: Schedule, today: date) -> Decimal:
     """How often it falls due a year; a cron rule's count for the coming year."""
     if not schedule.cron:
         return TIMES_A_YEAR[schedule.unit] / (schedule.every or 1)
@@ -93,13 +94,22 @@ def _times_a_year(schedule: Schedule, today: date) -> Decimal:
 def subscription_costs(today: date) -> list[SubscriptionCost]:
     """Every Subscription with its cost at its current amount."""
     schedules = list(
-        Schedule.objects.filter(is_subscription=True).prefetch_related("splits")
+        Schedule.objects.filter(is_subscription=True)
+        .prefetch_related("splits")
+        .annotate(
+            next_due=Min(
+                "occurrences__due_date",
+                filter=Q(occurrences__status=Occurrence.Status.UPCOMING),
+            )
+        )
+        # Meta.ordering is dropped once an aggregate groups the rows.
+        .order_by("pk")
     )
     histories = _price_histories([schedule.pk for schedule in schedules])
     costs = []
     for schedule in schedules:
         amount = schedule.amount
-        yearly = None if amount is None else amount * _times_a_year(schedule, today)
+        yearly = None if amount is None else amount * times_a_year(schedule, today)
         ended = schedule.ends_on is not None and schedule.ends_on < today
         history = histories.get(schedule.pk, [])
         costs.append(SubscriptionCost(schedule, yearly, ended, history))

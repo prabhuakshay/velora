@@ -72,7 +72,7 @@ def test_subscriptions_show_their_monthly_and_yearly_cost_and_totals(
     assert "Streaming Every month ₹649.00 ₹649.00 a month · ₹7,788.00 a year" in text
     assert "Domain Every year ₹1,200.00 ₹100.00 a month · ₹1,200.00 a year" in text
     assert "Rent" not in text
-    assert "Total ₹749.00 a month · ₹8,988.00 a year" in text
+    assert "Together, a month ₹749.00 ₹8,988.00 a year" in text
 
 
 def test_open_paused_and_ended_subscriptions_stay_out_of_the_totals(
@@ -100,7 +100,7 @@ def test_open_paused_and_ended_subscriptions_stay_out_of_the_totals(
     assert "Cloud Every month Open amount" in text
     assert "Gym Every month · Paused ₹500.00" in text
     assert "News Every month · Ended" in text
-    assert "Total ₹100.00 a month · ₹1,200.00 a year" in text
+    assert "Together, a month ₹100.00 ₹1,200.00 a year" in text
 
 
 def test_costs_follow_the_number_format(signed_in: Client, user: User) -> None:
@@ -132,7 +132,7 @@ def test_privacy_mode_hides_every_cost(signed_in: Client, user: User) -> None:
     text = page_text(signed_in)
 
     assert "Streaming Every month ₹•••• ₹•••• a month · ₹•••• a year" in text
-    assert "Total ₹•••• a month · ₹•••• a year" in text
+    assert "Together, a month ₹•••• ₹•••• a year" in text
     assert "649" not in text
     assert "7,788" not in text
 
@@ -159,10 +159,10 @@ def test_a_subscription_shows_how_its_amount_changed(signed_in: Client) -> None:
 
     assert (
         "Streaming Every month ₹649.00 ₹649.00 a month · ₹7,788.00 a year"
-        " Price history: ₹499.00 from 10 Jan 2025 · ₹599.00 from 1 Jun 2025"
-        " · ₹649.00 from 1 Feb 2026"
+        " Price ₹499.00 from 10 Jan 2025 ₹599.00 from 1 Jun 2025"
+        " ₹649.00 from 1 Feb 2026"
     ) in text
-    assert text.count("Price history") == 1
+    assert text.count("Price ₹") == 1
 
 
 def test_the_list_is_paginated_with_totals_over_every_subscription(
@@ -185,4 +185,4 @@ def test_the_list_is_paginated_with_totals_over_every_subscription(
     assert "Service 26" in second
     assert "Service 01" not in second
     for text in (first, second):
-        assert "Total ₹260.00 a month · ₹3,120.00 a year" in text
+        assert "Together, a month ₹260.00 ₹3,120.00 a year" in text

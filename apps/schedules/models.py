@@ -7,7 +7,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
-from apps.accounts.models import Account
+from apps.accounts.models import BALANCE_KINDS, Account, AccountKind
 from apps.classification.models import Party
 from apps.transactions.models import Transaction
 from apps.transactions.split_rules import known_total
@@ -79,6 +79,22 @@ class Schedule(models.Model):
     def amount(self) -> Decimal | None:
         """What it moves each time, or None while any Split's amount is open."""
         return known_total(split.amount for split in self.splits.all())
+
+    @property
+    def is_income(self) -> bool:
+        """Whether any Split comes from an Income Account."""
+        return any(
+            split.from_account.kind == AccountKind.INCOME for split in self.splits.all()
+        )
+
+    @property
+    def is_transfer(self) -> bool:
+        """Whether every Split moves money between Asset and Liability Accounts."""
+        return all(
+            split.from_account.kind in BALANCE_KINDS
+            and split.to_account.kind in BALANCE_KINDS
+            for split in self.splits.all()
+        )
 
     def has_ended(self, today: date) -> bool:
         """Whether it was ended before today."""

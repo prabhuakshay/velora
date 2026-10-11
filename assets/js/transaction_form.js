@@ -21,9 +21,14 @@
       input.classList.toggle("draft-gap", gap);
       missing ||= gap;
     }
+    // A Schedule's blank amount is open on purpose, so it reads as Open amount, not a gap.
+    const open = "open" in total.dataset && kept.some((split) => split.querySelector("[name$='-amount']")?.value === "");
     total.classList.toggle("text-amber-700", missing);
+    total.classList.toggle("text-slate-500", open);
     if (missing) {
       total.textContent = "Missing";
+    } else if (open) {
+      total.textContent = "Open amount";
     } else if (!("private" in total.dataset)) {
       const format = formats[total.dataset.numberFormat] ?? formats.indian;
       total.textContent = `₹${format.format(amounts.reduce((sum, a) => sum + a, 0))}`;

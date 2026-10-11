@@ -1,0 +1,7 @@
+<div>
+  <label class="flex cursor-pointer items-start gap-3 text-sm">
+    <input type="checkbox" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="mt-0.5 size-4 shrink-0 accent-slate-900"{% if field.value %} checked{% endif %}{% if field.help_text %} aria-describedby="{{ field.auto_id }}_helptext"{% endif %}>
+    <span><span class="block font-medium text-slate-700">{{ field.label }}</span>{% if field.help_text %}<span id="{{ field.auto_id }}_helptext" class="block text-slate-500">{{ field.help_text }}</span>{% endif %}</span>
+  </label>
+  {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+</div>
