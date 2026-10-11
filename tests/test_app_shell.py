@@ -62,3 +62,28 @@ def test_phone_title_names_the_current_page(signed_in: Client) -> None:
     body = signed_in.get(reverse("account_list", args=["liability"])).content.decode()
 
     assert '<p class="py-3 text-lg font-semibold tracking-tight">Liability</p>' in body
+
+
+def _accounts_section(body: str) -> str:
+    return next(
+        line for line in body.splitlines() if 'data-nav-section="accounts"' in line
+    )
+
+
+def test_sidebar_sections_start_collapsed(signed_in: Client) -> None:
+    body = signed_in.get(reverse("index")).content.decode()
+
+    assert not _accounts_section(body).endswith(" open>")
+
+
+def test_sidebar_section_stays_expanded_from_cookie(signed_in: Client) -> None:
+    signed_in.cookies["nav_expanded"] = "accounts.classification"
+    body = signed_in.get(reverse("index")).content.decode()
+
+    assert _accounts_section(body).endswith(" open>")
+
+
+def test_section_expands_when_it_holds_the_current_page(signed_in: Client) -> None:
+    body = signed_in.get(reverse("account_list", args=["asset"])).content.decode()
+
+    assert _accounts_section(body).endswith(" open>")

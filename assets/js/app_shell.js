@@ -1,5 +1,6 @@
-// The shell's loading bar, the More sheet's open/close and its swipe-down-to-close,
-// and the service worker that makes Velora installable.
+// The shell's loading bar, the sidebar's collapsible sections, the More sheet's
+// open/close and its swipe-down-to-close, and the service worker that makes
+// Velora installable.
 
 // Only boosted page loads, not in-page partials like Quick Add polling.
 document.addEventListener("htmx:beforeRequest", (e) => {
@@ -8,6 +9,21 @@ document.addEventListener("htmx:beforeRequest", (e) => {
 for (const done of ["htmx:afterSwap", "htmx:responseError", "htmx:sendError"]) {
   document.addEventListener(done, () => delete document.documentElement.dataset.loading);
 }
+
+// A cookie, not localStorage, so the server renders sections already expanded
+// instead of them snapping open after every page load. Clicks, not toggle
+// events: those also fire for a section opened because it holds the current page.
+document.addEventListener("click", (e) => {
+  const summary = e.target.closest("details[data-nav-section] > summary");
+  if (!summary) return;
+  const key = summary.parentElement.dataset.navSection;
+  const saved = document.cookie.match(/(?:^|; )nav_expanded=([^;]*)/)?.[1] ?? "";
+  const expanded = new Set(saved.split(".").filter(Boolean));
+  // Runs before the browser flips open, so open means it's about to close.
+  if (summary.parentElement.open) expanded.delete(key);
+  else expanded.add(key);
+  document.cookie = `nav_expanded=${[...expanded].join(".")}; path=/; max-age=31536000; samesite=lax`;
+});
 
 // Animated in JS rather than CSS @starting-style, which older iOS Safari ignores.
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)";

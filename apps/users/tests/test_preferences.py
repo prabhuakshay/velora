@@ -16,8 +16,7 @@ pytestmark = pytest.mark.django_db
 
 
 def profile_group_tag(body: str) -> str:
-    # The sidebar's account menu is the shell's only <details>.
-    return body.split("<details", 1)[1].split(">", maxsplit=1)[0]
+    return body.split("<details data-nav-profile", 1)[1].split(">", maxsplit=1)[0]
 
 
 def test_preferences_needs_sign_in(client: Client) -> None:

@@ -14,19 +14,30 @@
   <div class="flex h-dvh touch-manipulation flex-col overscroll-none bg-slate-50 [-webkit-tap-highlight-color:transparent] md:flex-row">
     <aside class="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white text-sm md:flex">
       <div class="flex h-14 items-center justify-between px-4">
-        <a href="{% url 'index' %}" class="text-base font-semibold tracking-tight">Velora</a>
+        <a href="{% url 'index' %}" class="flex items-center gap-2 text-base font-semibold tracking-tight">
+          <img src="{% static 'icons/icon.svg' %}" alt="" class="size-6">
+          Velora
+        </a>
         {% include "shell/privacy.html" with class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" %}
       </div>
       <nav class="flex flex-1 flex-col gap-0.5 px-2 pb-2" aria-label="Main">
         {% for item in nav_all %}
           {% if item.children %}
-            <p class="mt-5 mb-1 px-2.5 text-xs font-medium text-slate-400">{{ item.label }}</p>
-            {% for c in item.children %}
-              <a href="{{ c.url }}" {% if c.active %}aria-current="page"{% endif %} class="rounded-md py-1.5 pr-2.5 pl-9 font-medium transition-colors outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 {% if c.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">{{ c.label }}</a>
-            {% endfor %}
+            <details data-nav-section="{{ item.key }}" class="group/section"{% if item.open %} open{% endif %}>
+              <summary class="flex cursor-pointer list-none items-center gap-2.5 rounded-md px-2.5 py-2 font-medium transition-colors outline-hidden {% if item.active %}text-slate-900{% else %}text-slate-600{% endif %} hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-900 [&::-webkit-details-marker]:hidden">
+                {% include "shell/icon.html" with name=item.icon class=item.active|yesno:"size-4 text-slate-900,size-4 text-slate-400" %}
+                <span class="flex-1">{{ item.label }}</span>
+                {% include "shell/icon.html" with name="chevron" class="size-3.5 -rotate-90 text-slate-400 transition-transform group-open/section:rotate-0" %}
+              </summary>
+              <div class="mt-0.5 ml-[1.125rem] flex flex-col gap-0.5 border-l border-slate-200 pl-2">
+                {% for c in item.children %}
+                  <a href="{{ c.url }}" {% if c.active %}aria-current="page"{% endif %} class="rounded-md px-2.5 py-1.5 font-medium transition-colors outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 {% if c.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">{{ c.label }}</a>
+                {% endfor %}
+              </div>
+            </details>
           {% else %}
-            <a href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %} class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 font-medium transition-colors outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 {% if item.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-              {% include "shell/icon.html" with name=item.icon class="size-4" %}
+            <a href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %} class="group flex items-center gap-2.5 rounded-md px-2.5 py-2 font-medium transition-colors outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 {% if item.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+              {% include "shell/icon.html" with name=item.icon class="size-4 text-slate-400 group-hover:text-slate-600 group-aria-[current=page]:text-slate-900" %}
               <span class="flex-1">{{ item.label }}</span>
               {% include "shell/badge.html" with key=item.badge class="rounded-full bg-slate-900 px-1.5 text-xs text-white tabular-nums" %}
             </a>
@@ -34,7 +45,7 @@
         {% endfor %}
       </nav>
       <div class="border-t border-slate-200 p-2">
-        <details class="group"{% if nav_profile.active %} open{% endif %}>
+        <details data-nav-profile class="group"{% if nav_profile.active %} open{% endif %}>
           <summary class="flex cursor-pointer list-none items-center gap-2 rounded-md px-2.5 py-2 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
             <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-medium text-white uppercase" aria-hidden="true">{{ user.email|slice:":1" }}</span>
             <span class="min-w-0 flex-1 truncate text-xs text-slate-600">{{ user.email }}</span>

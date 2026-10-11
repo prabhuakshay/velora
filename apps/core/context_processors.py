@@ -27,10 +27,18 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
         item = leaf(label, url, exact=exact, badge=badge)
         return item | {"icon": icon, "children": []}
 
-    def group(label: str, children: list[dict[str, Any]]) -> dict[str, Any]:
+    # app_shell.js writes the sidebar sections the user expanded.
+    expanded = request.COOKIES.get("nav_expanded", "").split(".")
+
+    def group(icon: str, label: str, children: list[dict[str, Any]]) -> dict[str, Any]:
+        key = label.lower()
+        active = any(c["active"] for c in children)
         return {
+            "icon": icon,
+            "key": key,
             "label": label,
-            "active": any(c["active"] for c in children),
+            "active": active,
+            "open": active or key in expanded,
             "children": children,
         }
 
@@ -44,6 +52,7 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
         top("card", label="Subscriptions", url=reverse("subscription_list")),
         top("trend", label="Forecast", url=reverse("forecast")),
         group(
+            "wallet",
             "Accounts",
             [
                 leaf(kind.title(), reverse("account_list", args=[kind]))
@@ -51,11 +60,13 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
             ],
         ),
         group(
+            "tag",
             "Classification",
             [leaf("Parties", reverse("party_list")), leaf("Tags", reverse("tag_list"))],
         ),
     ]
     profile = group(
+        "user",
         "Profile",
         [
             leaf("Preferences", reverse("preferences")),
