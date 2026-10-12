@@ -115,9 +115,18 @@ def post_draft(draft: Draft) -> Transaction:
     forms = TransactionForms(form_data(draft, party_for(draft)), instance=Transaction())
     if not forms.is_valid():
         raise DraftNotPostableError(forms.errors())
-    transaction = forms.save()
+    return forms.save(within=marking_posted(draft, forms.form.instance))
+
+
+@contextmanager
+def marking_posted(draft: Draft, transaction: Transaction) -> Iterator[None]:
+    """Wrap saving the Transaction so the Draft is linked to it before it is seen.
+
+    A Statement's payment must be linked before the card is re-estimated, or
+    the payment would count against the Statement after it.
+    """
+    yield
     draft.mark_posted(transaction, without_edits=True)
-    return transaction
 
 
 def posting_problems(draft: Draft) -> list[str]:

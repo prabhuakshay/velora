@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Account
 from apps.budgets.models import Budget, BudgetWarning
+from apps.cards.statements import refresh_estimates
 from apps.core.history import with_reason
 from apps.quick_add.models import DraftSplit
 from apps.schedules.models import Schedule, ScheduleSplit, SuggestedSchedule
@@ -70,7 +71,8 @@ class AccountMerge:
         """Repoint everything on the source at the target, then remove the source.
 
         That is every Split, Draft, Schedule Split, Suggested Schedule, card
-        and Card EMI. Budgets go over only when the target has none.
+        and Card EMI, re-estimating the target's Statements once they have
+        moved. Budgets go over only when the target has none.
         Saves and deletes row by row so change history records each one.
         """
         if self.refusal:
@@ -104,6 +106,7 @@ class AccountMerge:
                 )
                 with_reason(target, reason).save()
             with_reason(source, reason).delete()
+            refresh_estimates(target)
 
     def _move_card(self, reason: str) -> None:
         """Hand the source's card settings, Statements and Card EMIs to the target."""

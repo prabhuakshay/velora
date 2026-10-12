@@ -117,3 +117,20 @@ def test_deleting_an_interest_account_sends_the_user_to_merge(
     response = signed_in.post(account_url("account_delete", charges))
 
     assert response["Location"] == account_url("account_merge", charges)
+
+
+def test_merging_an_account_into_a_card_re_estimates_its_statements(
+    signed_in: Client,
+) -> None:
+    card = make_card("Card")
+    old_card = make_account("Old card", "liability")
+    groceries = make_account("Groceries", "expense")
+    record(card, groceries, "1200", date(2026, 9, 20))
+    record(old_card, groceries, "300", date(2026, 10, 1))
+    run_daily_job(date(2026, 10, 16))
+
+    merge(signed_in, old_card, card)
+
+    statement = Statement.objects.get()
+    assert statement.estimated_amount == 1500
+    assert Draft.objects.get().splits.get().amount == 1500

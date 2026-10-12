@@ -201,6 +201,8 @@ def match_card_payments(today: date) -> None:
     ).select_related("card")
 
     def settle_if_paid(statement: Statement) -> None:
+        # Settling an earlier Statement re-estimates this one.
+        statement.refresh_from_db()
         if payment := find_payment(statement):
             settle(statement, payment)
 
@@ -239,16 +241,18 @@ def enter_actual_amount(statement: Statement, amount: Decimal | None) -> None:
 
 
 @db_transaction.atomic
-def refresh_estimates(card: Account) -> None:
-    """Re-estimate the card's Statements with no actual amount and no payment.
+def refresh_estimates(*accounts: Account) -> None:
+    """Re-estimate the unpaid Statements of each Account that is a card.
 
-    A Card EMI created or foreclosed changes what earlier periods bill.
+    Any change to a card's Splits, Card EMIs or paid Statements can change
+    what an earlier period's estimate comes to. A paid Statement is history.
     """
-    for statement in card.statements.filter(
-        actual_amount__isnull=True, transaction__isnull=True
-    ):
-        statement.estimated_amount = estimate_statement_amount(
-            card, statement.period_start, statement.period_end
-        )
-        statement.save(update_fields=["estimated_amount"])
-        sync_payment_draft(statement)
+    for account in accounts:
+        if not account.is_card:
+            continue
+        for statement in account.statements.filter(transaction__isnull=True):
+            statement.estimated_amount = estimate_statement_amount(
+                account, statement.period_start, statement.period_end
+            )
+            statement.save(update_fields=["estimated_amount"])
+            sync_payment_draft(statement)

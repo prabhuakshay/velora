@@ -8,6 +8,7 @@ from apps.accounts.tests.conftest import page_text
 from apps.cards.models import Statement
 from apps.cards.tests.conftest import record
 from apps.cards.tests.test_card_payments import edit_url
+from apps.cards.tests.test_statement_estimate_refresh import record_via_form
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
 
@@ -59,3 +60,14 @@ def test_a_paid_statement_links_its_payment(
 
     assert "Paid on" in page_text(page)
     assert reverse("transaction_edit", args=[payment.pk]) in page
+
+
+def test_the_headline_matches_the_breakdown_after_a_late_transaction(
+    signed_in: Client, card: Account, groceries: Account, billed: Statement
+) -> None:
+    record_via_form(signed_in, card, groceries, amount="400", date="2026-10-10")
+
+    text = page_text(signed_in.get(edit_url(billed)).content.decode())
+
+    assert "₹1,600.00 Estimated from the Transactions" in text
+    assert "Comes to ₹1,600.00" in text

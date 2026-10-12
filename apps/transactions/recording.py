@@ -7,9 +7,11 @@ from django.db import transaction as db_transaction
 
 from apps.transactions.attachments import remove_files, save_attachments
 from apps.transactions.forms import BaseSplitFormSet, SplitFormSet, TransactionForm
+from apps.transactions.models import Transaction
+from apps.transactions.signals import splits_saved, touched_accounts
 
 if TYPE_CHECKING:
-    from apps.transactions.models import Attachment, Transaction
+    from apps.transactions.models import Attachment
 
 
 class TransactionForms:
@@ -70,12 +72,19 @@ class TransactionForms:
         Transaction go in `within`, which wraps the save inside that block.
         """
         saved: list[Attachment] = []
+        before = touched_accounts(self.form.instance)
         try:
-            with db_transaction.atomic(), within or nullcontext():
-                self.formset.instance = self.form.save()
-                self.formset.save()
-                saved = save_attachments(
-                    self.formset.instance, self.form.cleaned_data["attachments"]
+            with db_transaction.atomic():
+                with within or nullcontext():
+                    self.formset.instance = self.form.save()
+                    self.formset.save()
+                    saved = save_attachments(
+                        self.formset.instance, self.form.cleaned_data["attachments"]
+                    )
+                # After `within`, so a posted Draft is linked before it is seen.
+                splits_saved.send(
+                    Transaction,
+                    account_ids=before | touched_accounts(self.formset.instance),
                 )
         except Exception:
             # Rolling back the rows can't take the files back out of storage.
