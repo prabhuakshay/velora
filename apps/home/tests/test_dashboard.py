@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -9,6 +9,7 @@ from django.utils import timezone
 from apps.accounts.tests.conftest import make_account, page_text
 from apps.accounts.tests.test_balance import opening
 from apps.cards.models import Statement
+from apps.cards.tests.conftest import make_card
 from apps.home import dashboard
 from apps.transactions.models import Split, Transaction
 
@@ -117,6 +118,23 @@ def test_cards_show_the_latest_closed_statement_and_limit_used() -> None:
     assert statement is not None
     assert statement.period_end == date(2026, 6, 5)
     assert rows[0].limit_percent == 75
+
+
+def test_cards_show_nothing_to_pay_for_a_zero_statement(signed_in: Client) -> None:
+    card = make_card()
+    due = timezone.localdate() - timedelta(days=3)
+    Statement.objects.create(
+        card=card,
+        period_start=due - timedelta(days=50),
+        period_end=due - timedelta(days=20),
+        due_date=due,
+        estimated_amount=Decimal(0),
+    )
+
+    text = page_text(signed_in.get(reverse("index")).content.decode())
+
+    assert "Nothing to pay" in text
+    assert "overdue" not in text
 
 
 def test_net_worth_change_is_since_last_month_end() -> None:

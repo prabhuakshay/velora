@@ -249,7 +249,7 @@ def sync_payment_draft(statement: Statement) -> None:
     """
     draft = Draft.objects.filter(statement=statement).first()
     if draft is None:
-        if statement.transaction is None and statement.amount > 0:
+        if statement.needs_payment:
             propose_payment(statement)
     elif draft.status == Draft.Status.WAITING:
         if statement.amount > 0:

@@ -205,6 +205,39 @@ def test_an_actual_amount_of_zero_withdraws_the_payment_draft(
     assert not Draft.objects.exists()
 
 
+@pytest.mark.parametrize(
+    ("estimated", "actual", "paid", "needs_payment"),
+    [
+        ("1200", None, False, True),
+        ("0", None, False, False),
+        ("-500", None, False, False),
+        ("1200", None, True, False),
+        ("1200", "0", False, False),
+    ],
+)
+def test_a_statement_needs_payment_only_when_unpaid_with_something_to_pay(
+    card: Account,
+    *,
+    estimated: str,
+    actual: str | None,
+    paid: bool,
+    needs_payment: bool,
+) -> None:
+    statement = Statement(
+        card=card,
+        period_start=date(2026, 9, 16),
+        period_end=date(2026, 10, 15),
+        due_date=date(2026, 11, 5),
+        estimated_amount=Decimal(estimated),
+        actual_amount=None if actual is None else Decimal(actual),
+        transaction=Transaction.objects.create(date=date(2026, 11, 3))
+        if paid
+        else None,
+    )
+
+    assert statement.needs_payment is needs_payment
+
+
 def test_a_positive_actual_amount_after_zero_proposes_the_payment_again(
     signed_in: Client, billed: Statement
 ) -> None:

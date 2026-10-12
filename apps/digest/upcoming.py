@@ -102,7 +102,7 @@ def card_due_days(today: date) -> list[Item]:
             ),
         )
         for statement in statements
-        if statement.amount > 0
+        if statement.needs_payment
     ]
 
 

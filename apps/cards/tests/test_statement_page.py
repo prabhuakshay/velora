@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.tests.conftest import make_account, page_text
 from apps.cards.models import Statement
@@ -135,6 +136,80 @@ def test_a_linked_payment_shows_as_paid_on_the_page_and_home(
     assert "Not this payment" in page_text(page)
     assert "Link payment" not in page_text(page)
     assert "Statement paid" in signed_in.get(reverse("index")).content.decode()
+
+
+@pytest.mark.parametrize("refund", [None, "500"])
+def test_a_statement_with_nothing_to_pay_is_never_overdue(
+    signed_in: Client,
+    card: Account,
+    groceries: Account,
+    late_today: date,
+    refund: str | None,
+) -> None:
+    if refund:
+        record(groceries, card, refund, date(2026, 10, 1))
+    run_daily_job(date(2026, 10, 16))
+
+    page = page_text(signed_in.get(edit_url(Statement.objects.get())).content.decode())
+    home = page_text(signed_in.get(reverse("index")).content.decode())
+
+    assert "Nothing to pay" in page
+    assert "Overdue" not in page
+    assert "Due in" not in page
+    assert "Nothing to pay" in home
+    assert "overdue" not in home
+
+
+@pytest.mark.parametrize(
+    ("spent", "page_status", "home_status"),
+    [
+        (None, "Nothing to pay", "Nothing to pay"),
+        ("1200", "Due in", "₹1,200.00 due 5 Nov"),
+    ],
+)
+def test_before_its_due_date_a_statement_shows_whether_it_needs_paying(  # noqa: PLR0913
+    signed_in: Client,
+    card: Account,
+    groceries: Account,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    spent: str | None,
+    page_status: str,
+    home_status: str,
+) -> None:
+    monkeypatch.setattr(timezone, "localdate", lambda *_a, **_k: date(2026, 11, 1))
+    if spent:
+        record(card, groceries, spent, date(2026, 9, 20))
+    run_daily_job(date(2026, 10, 16))
+
+    page = page_text(signed_in.get(edit_url(Statement.objects.get())).content.decode())
+    home = page_text(signed_in.get(reverse("index")).content.decode())
+
+    assert page_status in page
+    assert home_status in home
+    assert "verdue" not in page + home
+
+
+def test_an_actual_amount_switches_an_overdue_statement_to_nothing_to_pay_and_back(
+    signed_in: Client, billed: Statement, late_today: date
+) -> None:
+    def shown() -> tuple[str, str]:
+        page = page_text(signed_in.get(edit_url(billed)).content.decode())
+        home = page_text(signed_in.get(reverse("index")).content.decode())
+        return page, home
+
+    signed_in.post(edit_url(billed), {"actual_amount": "0"})
+    page, home = shown()
+    assert "Nothing to pay" in page
+    assert "Overdue" not in page
+    assert "Nothing to pay" in home
+    assert "overdue" not in home
+
+    signed_in.post(edit_url(billed), {"actual_amount": "900"})
+    page, home = shown()
+    assert "Overdue" in page
+    assert "Nothing to pay" not in page
+    assert "₹900.00 overdue since 5 Nov" in home
 
 
 @pytest.mark.parametrize("url", [link_url, unlink_url])

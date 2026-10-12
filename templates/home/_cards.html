@@ -16,6 +16,7 @@
                 {% with statement=row.statement %}
                   {% if not statement %}No Statement yet
                   {% elif statement.transaction_id %}Statement paid
+                  {% elif not statement.needs_payment %}Nothing to pay
                   {% elif statement.due_date < today %}<span class="font-medium text-red-700">{% amount statement.amount %} overdue since {{ statement.due_date|date:"j M" }}</span>
                   {% else %}{% amount statement.amount %} due {{ statement.due_date|date:"j M" }}{% endif %}
                 {% endwith %}

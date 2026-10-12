@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.accounts.tests.conftest import make_account
 from apps.cards.tests.conftest import make_card, record
+from apps.digest.upcoming import card_due_days
 from apps.quick_add.models import Draft
 from apps.quick_add.tests.conftest import make_manual_draft
 from apps.schedules.daily_job import DailyJobError, run_daily_job
@@ -164,6 +165,13 @@ def test_the_digest_shows_a_card_due_day_with_its_statement_amount() -> None:
     assert "5 Nov 2026: HDFC card, ₹1,200.00" in email.body
     payment = Draft.objects.get()
     assert SITE + reverse("draft_edit", args=[payment.pk]) in email.body
+
+
+def test_the_digest_leaves_out_a_card_due_day_with_nothing_to_pay() -> None:
+    make_card()
+    run_daily_job(date(2026, 10, 16))
+
+    assert card_due_days(date(2026, 11, 2)) == []
 
 
 def made_on(made: date, draft: Draft) -> None:

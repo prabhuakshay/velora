@@ -64,6 +64,11 @@ class Statement(models.Model):
             return self.actual_amount
         return self.estimated_amount
 
+    @property
+    def needs_payment(self) -> bool:
+        """Unpaid with something to pay."""
+        return self.transaction_id is None and self.amount > 0
+
 
 @dataclass(frozen=True)
 class Installment:

@@ -23,6 +23,7 @@
     <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
       <div class="flex flex-wrap gap-1.5">
         {% if statement.transaction %}<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">{% include "shell/icon.html" with name="check" class="size-3.5" %}Paid</span>
+        {% elif not statement.needs_payment %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Nothing to pay</span>
         {% elif statement.due_date < today %}<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">{% include "shell/icon.html" with name="alert" class="size-3.5" %}Overdue</span>
         {% else %}<span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">Due {{ statement.due_date|days_away:today }}</span>{% endif %}
         <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{% if statement.actual_amount is None %}Estimate{% else %}Actual amount{% endif %}</span>
