@@ -351,3 +351,12 @@ def test_accounts_without_a_budget_wait_under_add_a_budget(signed_in: Client) ->
     assert text.index("Rent") < text.index("Add a Budget") < text.index("Books")
     assert cell(page, "Budget for Books") == ""
     assert "<details" in page
+
+
+def test_no_bar_marks_today(signed_in: Client) -> None:
+    today = timezone.localdate()
+    set_budget(None, Decimal(10000), today)
+    set_budget(make_account("Groceries", "expense"), Decimal(5000), today)
+    set_budget(make_account("Fuel", "expense"), Decimal(2000), today)
+
+    assert "<line " not in budgets_page(signed_in)

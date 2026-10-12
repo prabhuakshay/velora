@@ -29,12 +29,11 @@ def budget_bar(  # noqa: PLR0913
     *,
     thick: bool = False,
 ) -> dict[str, Any]:
-    """Spent and Expected as shares of the Budget, with today's mark this month."""
+    """Spent and Expected as shares of the Budget."""
     spent_share = _share(spent, budget)
     expected_share = min(_share(expected or Decimal(0), budget), WHOLE - spent_share)
     return {
         "user": context.get("user"),
-        "pace": context.get("pace"),
         "spent": spent_share,
         "expected": expected_share,
         "state": state,

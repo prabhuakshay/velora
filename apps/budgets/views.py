@@ -50,11 +50,6 @@ def _month(request: HttpRequest) -> date:
     return month
 
 
-def _pace(today: date) -> float:
-    """How far through its month today is, as a percent, to set Spent against."""
-    return today.day / monthrange(today.year, today.month)[1] * 100
-
-
 def this_month_only(view: View) -> View:
     """Refuse an edit sent for any month but this one; past months are read-only.
 
@@ -93,7 +88,6 @@ def budget_list(request: HttpRequest) -> HttpResponseBase:
             "picture": picture,
             "rows": picture.by_attention,
             "to_add": picture.to_add if editable else [],
-            "pace": _pace(today) if current else None,
             "days_left": monthrange(today.year, today.month)[1] - today.day + 1,
             "previous": months_after(month, -1),
             "next": None if current else months_after(month, 1),
@@ -131,6 +125,5 @@ def budget_edit(request: HttpRequest, pk: int | None = None) -> HttpResponseBase
             "row": row,
             "fid": "overall" if account is None else f"budget-{account.pk}",
             "errors": form["amount"].errors,
-            "pace": _pace(timezone.localdate()),
         },
     )

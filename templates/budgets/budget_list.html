@@ -37,11 +37,6 @@
 
       <div class="mt-4">
         {% include "budgets/_overall_figures.html" %}
-        {% if pace is not None and picture.overall and not user.privacy_mode %}
-          <svg class="-mt-1 block h-4 w-full overflow-visible text-[11px]" aria-hidden="true">
-            <text x="{{ pace|stringformat:'.2f' }}%" y="10" text-anchor="{% if pace < 12 %}start{% elif pace > 88 %}end{% else %}middle{% endif %}" class="fill-slate-500">Today</text>
-          </svg>
-        {% endif %}
       </div>
 
       <dl class="mt-4 flex items-baseline justify-between gap-3 border-t border-slate-100 pt-4 text-sm">
