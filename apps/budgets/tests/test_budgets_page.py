@@ -14,6 +14,7 @@ from apps.accounts.tests.conftest import make_account, page_text
 from apps.accounts.tests.test_balance import opening
 from apps.budgets.models import Budget, set_budget
 from apps.budgets.tests.conftest import move
+from apps.quick_add.tests.conftest import make_manual_draft
 from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 from apps.users.tests.test_privacy_mode import MASK
 
@@ -57,6 +58,15 @@ def test_each_budget_shows_budget_spent_and_left(signed_in: Client) -> None:
     assert "Budget ₹12,000.00" in text
     assert "Spent ₹2,500.00" in text
     assert "₹9,500.00 left" in text
+
+
+def test_each_budget_shows_what_is_expected(signed_in: Client) -> None:
+    today = timezone.localdate()
+    rent = make_account("Rent", "expense")
+    make_manual_draft((opening("Bank", "asset", "0"), rent, "25000"), date=today)
+    set_on(signed_in, rent, "30000")
+
+    assert "Expected ₹25,000.00" in budgets_text(signed_in)
 
 
 def test_each_row_links_to_the_months_transactions(signed_in: Client) -> None:
@@ -179,6 +189,7 @@ def test_privacy_mode_masks_every_amount(signed_in: Client) -> None:
     text = page_text(page)
     assert f"Budget {strip_tags(MASK)}" in text
     assert f"Spent {strip_tags(MASK)}" in text
+    assert f"Expected {strip_tags(MASK)}" in text
     assert "12,000" not in page
     assert "13,000" not in page
     assert "1,000" not in page
