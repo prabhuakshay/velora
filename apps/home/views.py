@@ -9,7 +9,9 @@ from django.utils import timezone
 from apps.accounts import forecast_view
 from apps.accounts.forecast import DAYS, forecast
 from apps.budgets.picture import budget_picture
+from apps.budgets.warnings import due_warnings
 from apps.core.dates import month_start, months_after
+from apps.digest.upcoming import upcoming
 from apps.home import dashboard
 from apps.schedules.subscriptions import subscription_costs, yearly_total
 
@@ -56,7 +58,7 @@ def home(request: HttpRequest) -> HttpResponse:
             ),
             "cards": dashboard.cards(today),
             "budgets": dashboard.budget_card(budgets),
-            "budget_picture": budgets,
+            "upcoming_sections": upcoming(today, due_warnings(today, budgets), outlook),
             "subscriptions_monthly": yearly_total(costs) / 12,
             "subscriptions_count": sum(cost.counted for cost in costs),
             "recent": dashboard.recent_transactions(),

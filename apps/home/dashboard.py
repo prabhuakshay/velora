@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from apps.accounts.activity import month_end
 from apps.accounts.models import Account, AccountKind
-from apps.accounts.net_worth import net_worth, net_worth_history
+from apps.accounts.net_worth import history_dates, net_worth_on
 from apps.cards.models import Statement
 from apps.classification.models import earned, spent
 from apps.core.dates import month_start, months_after
@@ -63,14 +63,16 @@ class NetWorthCard:
 def net_worth_card(today: date, months: int | None, *, charted: bool) -> NetWorthCard:
     """Net Worth with its history over the last months, uncharted in Privacy Mode."""
     since = month_start(today) - timedelta(days=1)
-    now = net_worth(today)
-    history: list[tuple[date, Decimal]] = []
+    points: list[date] = []
     if charted:
         start = None if months is None else months_after(since, -months)
-        history = net_worth_history(today, start)
+        points = history_dates(today, start)
+    values = net_worth_on([since, *points, today])
+    now = values[today]
+    history = [(when, values[when].total) for when in points]
     return NetWorthCard(
         now=now,
-        change=now.total - net_worth(since).total,
+        change=now.total - values[since].total,
         since=since,
         history=history,
         chart=line([value for _, value in history]) if len(history) > 1 else None,
@@ -216,11 +218,14 @@ def cards(today: date) -> list[CardRow]:
         .with_balance()
         .order_by("name")
     )
-    latest: dict[int, Statement] = {}
-    for statement in Statement.objects.filter(
-        card__in=accounts, period_end__lte=today
-    ).order_by("period_end"):
-        latest[statement.card_id] = statement
+    latest = {
+        statement.card_id: statement
+        for statement in Statement.objects.filter(
+            card__in=accounts, period_end__lte=today
+        )
+        .order_by("card_id", "-period_end")
+        .distinct("card_id")
+    }
     return [CardRow(card, latest.get(card.pk)) for card in accounts]
 
 

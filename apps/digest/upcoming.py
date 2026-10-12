@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from django.db.models import Q
 from django.urls import reverse
 
-from apps.accounts.forecast import Item, forecast
+from apps.accounts.forecast import Forecast, Item, forecast
 from apps.budgets.warnings import due_warnings, warning_items
 from apps.cards.models import Statement
 from apps.quick_add.models import Draft
@@ -136,10 +136,11 @@ def stale_drafts(today: date) -> list[Item]:
     ]
 
 
-def low_balances(today: date) -> list[Item]:
+def low_balances(today: date, outlook: Forecast | None = None) -> list[Item]:
     """Each Account the Forecast expects past its Low-Balance Threshold.
 
-    Dated the first day it is, with the Balance expected then.
+    Dated the first day it is, with the Balance expected then. Reads the
+    outlook when given, rather than building today's Forecast again.
     """
     return [
         Item(
@@ -150,7 +151,7 @@ def low_balances(today: date) -> list[Item]:
             breach.balance,
             reverse("forecast"),
         )
-        for breach in forecast(today).breaches
+        for breach in (outlook or forecast(today)).breaches
     ]
 
 
@@ -165,14 +166,23 @@ SECTIONS: tuple[tuple[str, Callable[[date], list[Item]]], ...] = (
 )
 
 
-def upcoming(today: date, warned: list[Row] | None = None) -> list[Section]:
+def upcoming(
+    today: date, warned: list[Row] | None = None, outlook: Forecast | None = None
+) -> list[Section]:
     """The sections with something in them.
 
     Budgets shows the warned Budgets when given, else those due today, so the
-    digest can record exactly the warnings it sent.
+    digest can record exactly the warnings it sent. A page that already built
+    today's Forecast passes it as outlook.
     """
     if warned is None:
         warned = due_warnings(today)
-    sections = [Section(title, find(today)) for title, find in SECTIONS]
+    sections = [
+        Section(
+            title,
+            low_balances(today, outlook) if find is low_balances else find(today),
+        )
+        for title, find in SECTIONS
+    ]
     sections.append(Section("Budgets", warning_items(warned, today)))
     return [section for section in sections if section.items]

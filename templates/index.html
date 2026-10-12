@@ -1,5 +1,4 @@
 {% extends "app_base.html" %}
-{% load upcoming %}
 
 {% block main_width %}max-w-2xl lg:max-w-6xl{% endblock %}
 
@@ -37,7 +36,7 @@
       {% include "home/_recent.html" %}
     </div>
     <aside class="contents lg:block lg:space-y-4">
-      <div class="order-first">{% upcoming_panel budget_picture %}</div>
+      <div class="order-first">{% include "digest/_upcoming_panel.html" with sections=upcoming_sections %}</div>
       {% include "home/_outlook.html" %}
       {% include "home/_cards.html" %}
       {% include "home/_subscriptions.html" %}

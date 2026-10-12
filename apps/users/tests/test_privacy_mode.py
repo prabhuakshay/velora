@@ -139,9 +139,9 @@ def test_home_page_skips_net_worth_history(
     signed_in: Client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def fail(_today: date, _since: date | None = None) -> None:
-        pytest.fail("net_worth_history was called in Privacy Mode")
+        pytest.fail("history_dates was called in Privacy Mode")
 
-    monkeypatch.setattr("apps.home.dashboard.net_worth_history", fail)
+    monkeypatch.setattr("apps.home.dashboard.history_dates", fail)
     turn_on(signed_in)
 
     assert "Hidden in Privacy Mode" in home_page(signed_in)

@@ -6,6 +6,7 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.accounts.forecast import DAYS, forecast
 from apps.accounts.tests.conftest import make_account, page_text
 from apps.accounts.tests.test_balance import opening
 from apps.cards.models import Statement
@@ -15,7 +16,9 @@ from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
     from django.test import Client
+    from pytest_django import DjangoAssertNumQueries
 
+    from apps.accounts.forecast import Forecast
     from apps.accounts.models import Account
 
 pytestmark = pytest.mark.django_db
@@ -120,6 +123,27 @@ def test_cards_show_the_latest_closed_statement_and_limit_used() -> None:
     assert rows[0].limit_percent == 75
 
 
+def test_cards_fetch_only_the_latest_statement(
+    django_assert_num_queries: DjangoAssertNumQueries,
+) -> None:
+    card = make_card()
+    for end in (date(2026, 3, 15), date(2026, 5, 15), date(2026, 4, 15)):
+        Statement.objects.create(
+            card=card,
+            period_start=end - timedelta(days=30),
+            period_end=end,
+            due_date=end + timedelta(days=20),
+            estimated_amount=Decimal(100),
+        )
+
+    with django_assert_num_queries(2):
+        rows = dashboard.cards(TODAY)
+
+    statement = rows[0].statement
+    assert statement is not None
+    assert statement.period_end == date(2026, 5, 15)
+
+
 def test_cards_show_nothing_to_pay_for_a_zero_statement(signed_in: Client) -> None:
     card = make_card()
     due = timezone.localdate() - timedelta(days=3)
@@ -149,6 +173,40 @@ def test_net_worth_change_is_since_last_month_end() -> None:
     assert card.change_percent == 25
     assert card.history[-1] == (TODAY, Decimal(1250))
     assert card.chart is not None
+
+
+@pytest.mark.parametrize("months", [6, 12, None])
+@pytest.mark.parametrize("charted", [True, False])
+def test_net_worth_card_query_count_is_fixed(
+    django_assert_max_num_queries: DjangoAssertNumQueries,
+    months: int | None,
+    charted: bool,  # noqa: FBT001
+) -> None:
+    bank = opening("Bank", "asset", "1000")
+    bank.opening_balance_date = date(2023, 1, 1)
+    bank.save()
+    move(date(2024, 5, 1), make_account("Salary", "income"), bank, "250")
+
+    with django_assert_max_num_queries(3):
+        dashboard.net_worth_card(TODAY, months, charted=charted)
+
+
+def test_home_page_builds_the_forecast_once(
+    signed_in: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[date] = []
+
+    def spy(start: date, length: int = DAYS) -> Forecast:
+        calls.append(start)
+        return forecast(start, length)
+
+    monkeypatch.setattr("apps.home.views.forecast", spy)
+    monkeypatch.setattr("apps.digest.upcoming.forecast", spy)
+    opening("Bank", "asset", "1000")
+
+    signed_in.get(reverse("index"))
+
+    assert len(calls) == 1
 
 
 def test_net_worth_card_skips_history_when_uncharted() -> None:

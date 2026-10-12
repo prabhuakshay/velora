@@ -6,10 +6,12 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.accounts.net_worth import net_worth
+from apps.accounts.net_worth import net_worth, net_worth_history, net_worth_on
 from apps.accounts.tests.conftest import edit_account, make_account
 from apps.accounts.tests.test_balance import opening, record
 from apps.accounts.tests.test_net_worth import home_page
+from apps.core.dates import months_after
+from apps.home.tests.test_dashboard import move
 from apps.transactions.tests.conftest import form_data
 
 if TYPE_CHECKING:
@@ -22,6 +24,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
+# What GET / costs, whatever the history or Account count.
+NUM_QUERIES = 28
 POINT_ROW = re.compile(r"<tr><td>([^<]+)</td><td>₹([^<]+)</td></tr>")
 
 
@@ -128,5 +132,68 @@ def test_home_page_query_count_does_not_grow_with_accounts(
         record(signed_in, salary, account, "10.00")
     today(date(2026, 6, 15))
 
-    with django_assert_num_queries(38):
+    with django_assert_num_queries(NUM_QUERIES):
         signed_in.get(reverse("index"))
+
+
+def test_every_point_matches_net_worth_across_edge_cases() -> None:
+    bank = opening("Bank", "asset", "1000.00")
+    late = opening("Late", "asset", "300.00")
+    card = opening("Card", "liability", "200.00")
+    hidden = opening("Hidden", "asset", "50.00")
+    hidden.hidden = True
+    excluded = opening("Car", "asset", "5000.00")
+    excluded.include_in_net_worth = False
+    for account, opened in (
+        (bank, date(2025, 1, 10)),
+        (late, date(2025, 6, 15)),
+        (card, date(2025, 2, 1)),
+        (hidden, date(2025, 3, 3)),
+        (excluded, date(2025, 1, 1)),
+    ):
+        account.opening_balance_date = opened
+        account.save()
+    salary = make_account("Salary", "income")
+    food = make_account("Food", "expense")
+    move(date(2024, 12, 20), salary, bank, "70.00")
+    move(date(2025, 3, 5), card, food, "40.00")
+    move(date(2025, 4, 30), bank, card, "25.00")
+    move(date(2025, 5, 2), salary, late, "10.00")
+    move(date(2025, 7, 1), salary, excluded, "99.00")
+    move(date(2025, 9, 20), salary, hidden, "5.00")
+    move(date(2025, 9, 21), salary, bank, "500.00")
+    today = date(2025, 9, 20)
+
+    points = net_worth_history(today)
+
+    assert points[0][0] == date(2025, 1, 31)
+    assert points[-1][0] == today
+    for when, value in points:
+        assert value == net_worth(when).total, when
+    before = date(2024, 12, 31)
+    assert net_worth_on([before, today])[before].total == 0 == net_worth(before).total
+
+
+def test_history_is_empty_without_balance_accounts() -> None:
+    make_account("Salary", "income")
+
+    assert net_worth_history(date(2026, 6, 15)) == []
+
+
+@pytest.mark.parametrize("range_key", ["6m", "1y", "all"])
+@pytest.mark.parametrize("months", [6, 36])
+def test_home_page_query_count_does_not_grow_with_history(
+    signed_in: Client,
+    today: SetToday,
+    django_assert_num_queries: DjangoAssertNumQueries,
+    months: int,
+    range_key: str,
+) -> None:
+    bank = opening("Bank", "asset", "100.00")
+    bank.opening_balance_date = months_after(date(2026, 6, 15), -months)
+    bank.save()
+    record(signed_in, make_account("Salary", "income"), bank, "10.00")
+    today(date(2026, 6, 15))
+
+    with django_assert_num_queries(NUM_QUERIES):
+        signed_in.get(reverse("index"), {"range": range_key})
