@@ -32,7 +32,11 @@
       {% if statement.transaction %}
         <p class="mt-3 flex items-center gap-2 text-sm text-slate-600">
           {% include "shell/icon.html" with name="receipt" class="size-4 shrink-0 text-slate-400" %}
-          <span>Paid on <a href="{% url 'transaction_edit' statement.transaction.pk %}" class="font-medium text-slate-900 hover:underline">{{ statement.transaction.date|date:"j M Y" }}</a></span>
+          <span class="flex-1">Paid on <a href="{% url 'transaction_edit' statement.transaction.pk %}" class="font-medium text-slate-900 hover:underline">{{ statement.transaction.date|date:"j M Y" }}</a></span>
+          <form method="post" action="{% url 'statement_unlink_payment' statement.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="text-xs font-medium text-slate-500 hover:text-slate-900 hover:underline">Not this payment</button>
+          </form>
         </p>
       {% endif %}
       <div class="mt-5 flex flex-wrap gap-2">
@@ -46,6 +50,33 @@
         <span class="flex-1">Its payment Draft is waiting for you to post</span>
         {% include "shell/icon.html" with name="chevron-right" class="size-4 text-sky-500" %}
       </a>
+    {% endif %}
+
+    {% if not statement.transaction %}
+      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="link-title">
+        <h2 id="link-title" class="font-semibold">Link payment</h2>
+        <p class="mt-0.5 text-sm text-slate-500">Already paid it? Pick the payment into {{ card }} to mark this Statement paid.</p>
+        {% if candidates %}
+          <ul class="mt-3 divide-y divide-slate-100 text-sm">
+            {% for payment in candidates %}
+              <li>
+                <form method="post" action="{% url 'statement_link_payment' statement.pk %}" class="flex items-center gap-3 py-2.5">
+                  {% csrf_token %}
+                  <input type="hidden" name="transaction" value="{{ payment.pk }}">
+                  <span class="min-w-0 flex-1">
+                    <span class="block font-medium">{{ payment.date|date:"j M Y" }}</span>
+                    <span class="block truncate text-xs text-slate-500">{{ payment.paid_from }}</span>
+                  </span>
+                  <span class="shrink-0 font-medium tabular-nums">{% amount payment.paid %}</span>
+                  <button type="submit" class="btn-secondary shrink-0 py-1.5">Link</button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="mt-3 text-sm text-slate-500">No payment into {{ card }} since {{ statement.period_end|date:"j M Y" }} is free to link.</p>
+        {% endif %}
+      </section>
     {% endif %}
 
     <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="estimate-title">

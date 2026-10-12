@@ -6,9 +6,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.db import transaction as db_transaction
-from django.db.models import Sum
+from django.db.models import Min, QuerySet, Sum
 
-from apps.accounts.models import Account
+from apps.accounts.models import Account, AccountKind
 from apps.cards.models import Statement
 from apps.core.dates import day_of
 from apps.core.jobs import run_each
@@ -192,6 +192,26 @@ def settle(statement: Statement, transaction: Transaction) -> None:
     statement.save(update_fields=["transaction"])
 
 
+def payment_candidates(statement: Statement, today: date) -> QuerySet[Transaction]:
+    """The recorded payments into the card the user can link to the Statement.
+
+    Any Asset Account may pay it, of any amount, as long as the payment is
+    dated after the period closed and settles nothing else. Each carries the
+    Account it came from and the amount it paid into the card.
+    """
+    # The Sums reuse the filter's join, so they add up only the paying Splits.
+    return Transaction.objects.filter(
+        splits__to_account=statement.card,
+        splits__from_account__kind=AccountKind.ASSET,
+        occurrence__isnull=True,
+        statement__isnull=True,
+        date__range=(statement.period_end + timedelta(days=1), today),
+    ).annotate(
+        paid=Sum("splits__amount"),
+        paid_from=Min("splits__from_account__name"),
+    )
+
+
 def match_card_payments(today: date) -> None:
     """Settle each unpaid Statement a recorded payment already covers."""
     unpaid = Statement.objects.filter(
@@ -207,6 +227,16 @@ def match_card_payments(today: date) -> None:
             settle(statement, payment)
 
     run_each("match_card_payments", unpaid, settle_if_paid)
+
+
+@db_transaction.atomic
+def unsettle(statement: Statement) -> None:
+    """Put the Statement back to unpaid, leaving its payment as recorded."""
+    statement.transaction = None
+    statement.save(update_fields=["transaction"])
+    # The payment counts in the period it is dated in again, and the
+    # Statement's own Draft follows once it is unpaid.
+    refresh_estimates(statement.card)
 
 
 def sync_payment_draft(statement: Statement) -> None:

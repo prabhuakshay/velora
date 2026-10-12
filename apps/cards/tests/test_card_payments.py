@@ -6,11 +6,14 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.accounts.tests.conftest import make_account
 from apps.cards.models import Statement
-from apps.cards.statements import enter_actual_amount
-from apps.cards.tests.conftest import record
+from apps.cards.statements import enter_actual_amount, settle
+from apps.cards.tests.conftest import make_card, record
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
+from apps.schedules.tests.conftest import make_schedule
+from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -270,3 +273,192 @@ def test_a_payment_draft_is_estimated_until_the_actual_amount_is_entered(
 
     enter_actual_amount(billed, None)
     assert draft().estimated
+
+
+def link_url(statement: Statement) -> str:
+    return reverse("statement_link_payment", args=[statement.pk])
+
+
+def unlink_url(statement: Statement) -> str:
+    return reverse("statement_unlink_payment", args=[statement.pk])
+
+
+@pytest.mark.parametrize(
+    ("amount", "on", "other_bank"),
+    [
+        ("1200", date(2026, 11, 2), True),
+        ("600", date(2026, 11, 3), False),
+        ("1200", date(2026, 11, 20), False),
+    ],
+    ids=["second bank", "far off the amount", "late"],
+)
+@pytest.mark.usefixtures("late_today")
+def test_linking_a_payment_marks_the_statement_paid(  # noqa: PLR0913
+    signed_in: Client,
+    card: Account,
+    billed: Statement,
+    *,
+    amount: str,
+    on: date,
+    other_bank: bool,
+) -> None:
+    source = make_account("ICICI savings", "asset") if other_bank else card.pays_from
+    assert source
+    payment = record(source, card, amount, on)
+    run_daily_job(timezone.localdate())
+
+    response = signed_in.post(link_url(billed), {"transaction": payment.pk})
+
+    assert response["Location"] == edit_url(billed)
+    billed.refresh_from_db()
+    assert billed.transaction == payment
+    assert not Draft.objects.waiting().filter(statement=billed).exists()
+
+
+def test_linking_a_payment_raises_the_next_estimate(
+    signed_in: Client,
+    card: Account,
+    groceries: Account,
+    billed: Statement,
+    late_today: date,
+) -> None:
+    other_bank = make_account("ICICI savings", "asset")
+    payment = record(other_bank, card, "1200", date(2026, 11, 2))
+    record(card, groceries, "400", date(2026, 11, 1))
+    run_daily_job(date(2026, 11, 16))
+    november = Statement.objects.get(period_end=date(2026, 11, 15))
+    assert november.amount == Decimal(-800)
+
+    signed_in.post(link_url(billed), {"transaction": payment.pk})
+
+    november.refresh_from_db()
+    assert november.amount == Decimal(400)
+
+
+def test_a_payment_linked_elsewhere_is_refused(
+    signed_in: Client,
+    card: Account,
+    groceries: Account,
+    billed: Statement,
+    late_today: date,
+) -> None:
+    assert card.pays_from
+    record(card, groceries, "500", date(2026, 10, 20))
+    run_daily_job(date(2026, 11, 16))
+    november = Statement.objects.get(period_end=date(2026, 11, 15))
+    payment = record(card.pays_from, card, "500", date(2026, 11, 20))
+    settle(november, payment)
+
+    response = signed_in.post(link_url(billed), {"transaction": payment.pk})
+
+    assert response["Location"] == edit_url(billed)
+    billed.refresh_from_db()
+    november.refresh_from_db()
+    assert billed.transaction is None
+    assert november.transaction == payment
+    assert (
+        "Pick a payment into the card"
+        in signed_in.get(edit_url(billed)).content.decode()
+    )
+
+
+@pytest.mark.usefixtures("late_today")
+def test_payments_linked_to_an_occurrence_or_another_card_are_refused(
+    signed_in: Client, card: Account, billed: Statement
+) -> None:
+    assert card.pays_from
+    scheduled = record(card.pays_from, card, "1200", date(2026, 11, 4))
+    make_schedule((card.pays_from, card, "1200")).occurrences.create(
+        due_date=date(2026, 11, 4), transaction=scheduled
+    )
+    elsewhere = record(card.pays_from, make_card("SBI card"), "1200", date(2026, 11, 4))
+
+    for payment in (scheduled, elsewhere):
+        signed_in.post(link_url(billed), {"transaction": payment.pk})
+
+    billed.refresh_from_db()
+    assert billed.transaction is None
+
+
+@pytest.mark.usefixtures("late_today")
+def test_a_paid_statement_refuses_another_payment(
+    signed_in: Client, card: Account, billed: Statement
+) -> None:
+    assert card.pays_from
+    first = record(card.pays_from, card, "1200", date(2026, 11, 3))
+    settle(billed, first)
+    second = record(card.pays_from, card, "1200", date(2026, 11, 4))
+
+    signed_in.post(link_url(billed), {"transaction": second.pk})
+
+    billed.refresh_from_db()
+    assert billed.transaction == first
+
+
+@pytest.mark.parametrize("pk", ["999", "", "x"])
+def test_an_unknown_payment_is_refused(
+    signed_in: Client, billed: Statement, late_today: date, pk: str
+) -> None:
+    response = signed_in.post(link_url(billed), {"transaction": pk})
+
+    assert response["Location"] == edit_url(billed)
+    billed.refresh_from_db()
+    assert billed.transaction is None
+
+
+def test_a_payment_dated_in_the_period_is_refused(
+    signed_in: Client, card: Account, billed: Statement, late_today: date
+) -> None:
+    assert card.pays_from
+    payment = record(card.pays_from, card, "1200", date(2026, 10, 15))
+
+    signed_in.post(link_url(billed), {"transaction": payment.pk})
+
+    billed.refresh_from_db()
+    assert billed.transaction is None
+
+
+def test_unlinking_reopens_the_statement_and_proposes_its_payment(
+    signed_in: Client,
+    card: Account,
+    groceries: Account,
+    billed: Statement,
+    late_today: date,
+) -> None:
+    assert card.pays_from
+    payment = record(card.pays_from, card, "1200", date(2026, 11, 3))
+    record(card, groceries, "400", date(2026, 11, 1))
+    run_daily_job(date(2026, 11, 16))
+    november = Statement.objects.get(period_end=date(2026, 11, 15))
+    assert november.amount == Decimal(400)
+
+    response = signed_in.post(unlink_url(billed))
+
+    assert response["Location"] == edit_url(billed)
+    billed.refresh_from_db()
+    november.refresh_from_db()
+    assert billed.transaction is None
+    assert Transaction.objects.filter(pk=payment.pk).exists()
+    assert Draft.objects.waiting().get(statement=billed).splits.get().amount == (
+        Decimal(1200)
+    )
+    assert november.amount == Decimal(-800)
+
+
+def test_unlinking_leaves_a_rejected_draft_rejected(
+    signed_in: Client, card: Account, billed: Statement, late_today: date
+) -> None:
+    assert card.pays_from
+    draft = Draft.objects.get()
+    draft.status = Draft.Status.REJECTED
+    draft.save()
+    payment = record(card.pays_from, card, "1200", date(2026, 11, 3))
+    settle(billed, payment)
+
+    signed_in.post(unlink_url(billed))
+
+    billed.refresh_from_db()
+    assert billed.transaction is None
+    assert list(Draft.objects.values_list("status", flat=True)) == [
+        Draft.Status.REJECTED
+    ]

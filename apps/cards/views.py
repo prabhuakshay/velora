@@ -9,12 +9,20 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.timezone import localdate
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from apps.cards.forms import CardEMIForm, ForecloseForm, StatementForm
 from apps.cards.models import CardEMI, Statement
 from apps.cards.plans import Plan
-from apps.cards.statements import enter_actual_amount, estimate, refresh_estimates
+from apps.cards.statements import (
+    enter_actual_amount,
+    estimate,
+    payment_candidates,
+    refresh_estimates,
+    settle,
+    unsettle,
+)
 from apps.quick_add.models import Draft
 from apps.transactions.models import Transaction
 from apps.users.privacy_mode import blocked_in_privacy_mode
@@ -49,6 +57,13 @@ def statement_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
         )
         return redirect("account_transactions", kind=card.kind, pk=card.pk)
     statements = card.statements.order_by("period_end")
+    today = timezone.localdate()
+    candidates = []
+    if statement.transaction is None:
+        candidates = sorted(
+            payment_candidates(statement, today).order_by("date", "pk"),
+            key=lambda payment: abs(payment.date - statement.due_date),
+        )
     return render(
         request,
         "cards/statement_form.html",
@@ -56,13 +71,49 @@ def statement_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
             "form": form,
             "statement": statement,
             "card": card,
-            "today": localdate(),
+            "today": today,
+            "candidates": candidates,
             "parts": estimate(card, statement.period_start, statement.period_end),
             "draft": Draft.objects.waiting().filter(statement=statement).first(),
             "older": statements.filter(period_end__lt=statement.period_end).last(),
             "newer": statements.filter(period_end__gt=statement.period_end).first(),
         },
     )
+
+
+@login_required
+@blocked_in_privacy_mode
+@require_POST
+def statement_link_payment(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Mark the Statement paid by a recorded payment the user picked."""
+    statement = get_object_or_404(Statement.objects.select_related("card"), pk=pk)
+    candidates = payment_candidates(statement, timezone.localdate())
+    chosen = request.POST.get("transaction", "")
+    payment = candidates.filter(pk=chosen).first() if chosen.isdigit() else None
+    if statement.transaction_id:
+        messages.error(request, "This Statement is already paid.")
+    elif payment is None:
+        messages.error(
+            request,
+            "Pick a payment into the card, dated after the period closed and "
+            "not linked to anything else.",
+        )
+    else:
+        settle(statement, payment)
+        messages.success(request, f"Marked paid on {payment.date:%-d %b %Y}.")
+    return redirect("statement_edit", pk=statement.pk)
+
+
+@login_required
+@blocked_in_privacy_mode
+@require_POST
+def statement_unlink_payment(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Put the Statement back to unpaid when its payment was the wrong one."""
+    statement = get_object_or_404(Statement.objects.select_related("card"), pk=pk)
+    if statement.transaction_id:
+        unsettle(statement)
+        messages.success(request, "The Statement is unpaid again.")
+    return redirect("statement_edit", pk=statement.pk)
 
 
 def _planned(form: CardEMIForm) -> Plan | None:
@@ -120,7 +171,7 @@ def card_emi_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
         CardEMI.objects.select_related("card", "purchase", "interest_account"),
         pk=pk,
     )
-    today = localdate()
+    today = timezone.localdate()
     plan = Plan.of(emi, today)
     return render(
         request,
@@ -144,16 +195,22 @@ def card_emi_foreclose(request: HttpRequest, pk: int) -> HttpResponseBase:
         pk=pk,
     )
     # A copy, as a preview sets the foreclosure on the instance the form holds.
-    before = Plan.of(copy(emi), localdate())
+    before = Plan.of(copy(emi), timezone.localdate())
     form = ForecloseForm(
-        _bound_data(request), instance=emi, initial={"foreclosed_on": localdate()}
+        _bound_data(request),
+        instance=emi,
+        initial={"foreclosed_on": timezone.localdate()},
     )
     if request.method == "POST" and form.is_valid():
         form.save()
         refresh_estimates(emi.card)
         messages.success(request, "Foreclosed the Card EMI.")
         return redirect("card_emi_detail", pk=emi.pk)
-    after = Plan.of(emi, localdate()) if form.is_bound and form.is_valid() else None
+    after = (
+        Plan.of(emi, timezone.localdate())
+        if form.is_bound and form.is_valid()
+        else None
+    )
     return render(
         request,
         "cards/card_emi_foreclose.html",

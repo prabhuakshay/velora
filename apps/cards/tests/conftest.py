@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from django.utils import timezone
 
 from apps.accounts.models import Account
 from apps.accounts.tests.conftest import make_account
@@ -50,6 +51,14 @@ def billed(card: Account, groceries: Account) -> Statement:
     record(card, groceries, "1200", date(2026, 9, 20))
     run_daily_job(date(2026, 10, 16))
     return Statement.objects.get()
+
+
+@pytest.fixture
+def late_today(monkeypatch: pytest.MonkeyPatch) -> date:
+    """Today is 25 Nov 2026, after the billed Statement was due."""
+    today = date(2026, 11, 25)
+    monkeypatch.setattr(timezone, "localdate", lambda *_a, **_k: today)
+    return today
 
 
 def make_card_emi(  # noqa: PLR0913
