@@ -18,6 +18,8 @@ from apps.transactions.models import Transaction
 if TYPE_CHECKING:
     from django.test import Client
 
+    from apps.users.models import User
+
 
 pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("user")]
 
@@ -171,3 +173,21 @@ def test_a_same_day_rerun_leaves_a_new_warning_for_the_next_digest() -> None:
     assert digest_on(TODAY) == ""
 
     assert f"16 Jun 2026: {CLOSE}" in digest_on(date(2026, 6, 16))
+
+
+def test_privacy_mode_masks_the_budget_amounts(
+    signed_in: Client, user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(timezone, "localdate", lambda *_a, **_k: TODAY)
+    user.set_privacy_mode(on=True)
+    groceries = make_account("Groceries", "expense")
+    set_budget(groceries, Decimal(10000), TODAY)
+    move(TODAY, bank(), groceries, "12000")
+
+    panel = signed_in.get(reverse("index")).content.decode()
+    body = digest_on(TODAY)
+
+    assert f"Budgets 15 Jun 2026 {OVER} ₹••••" in page_text(panel)
+    assert f"{OVER}, ₹••••" in body
+    assert "12,000" not in panel
+    assert "12,000" not in body
