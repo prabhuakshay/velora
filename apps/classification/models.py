@@ -1,6 +1,6 @@
 """Classification models: parties and tags."""
 
-from typing import TYPE_CHECKING, ClassVar, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from django.apps import apps
 from django.db import models
@@ -44,20 +44,29 @@ def earned() -> models.Case:
     return _signed(AccountKind.INCOME, into=False)
 
 
+def _over(
+    rows: models.QuerySet[Any],
+    function: str,
+    expression: object,
+    field: models.Field[Any, Any],
+) -> models.Subquery:
+    # A plain aggregate with no GROUP BY, so the subquery is always one row.
+    # Used for counts and dates too: Count and Max over a join would make the
+    # outer query GROUP BY the money subqueries, running them once per row.
+    value = models.Func(expression, function=function, output_field=field)
+    return models.Subquery(rows.order_by().annotate(value=value).values("value")[:1])
+
+
 def _split_totals(link: str, since: date | None) -> dict[str, Coalesce]:
     # Looked up by name: the transactions app imports this module.
     split = apps.get_model("transactions", "Split")
-    splits = split.objects.filter(**{link: models.OuterRef("pk")}).order_by()
+    splits = split.objects.filter(**{link: models.OuterRef("pk")})
     if since is not None:
         splits = splits.filter(transaction__date__gte=since)
 
     def total(expression: models.Case) -> Coalesce:
-        # A plain SUM with no GROUP BY, so the subquery is always one row.
-        summed = models.Func(expression, function="SUM", output_field=MONEY)
         return Coalesce(
-            models.Subquery(splits.annotate(total=summed).values("total")[:1]),
-            models.Value(0),
-            output_field=MONEY,
+            _over(splits, "SUM", expression, MONEY), models.Value(0), output_field=MONEY
         )
 
     return {"spent": total(spent()), "earned": total(earned())}
@@ -85,9 +94,13 @@ class PartyQuerySet(models.QuerySet["Party"]):
 
         And its money spent and earned, on or after since if given.
         """
+        transaction = apps.get_model("transactions", "Transaction")
+        rows = transaction.objects.filter(party=models.OuterRef("pk"))
         return self.annotate(
-            transaction_count=models.Count("transactions"),
-            last_used=models.Max("transactions__date"),
+            transaction_count=_over(
+                rows, "COUNT", models.F("pk"), models.IntegerField()
+            ),
+            last_used=_over(rows, "MAX", models.F("date"), models.DateField()),
             **_split_totals("transaction__party", since),
         )
 
@@ -128,9 +141,13 @@ class TagQuerySet(models.QuerySet["Tag"]):
 
         And the money spent and earned on its Splits, on or after since if given.
         """
+        split = apps.get_model("transactions", "Split")
+        rows = split.objects.filter(tags=models.OuterRef("pk"))
         return self.annotate(
-            split_count=models.Count("splits"),
-            last_used=models.Max("splits__transaction__date"),
+            split_count=_over(rows, "COUNT", models.F("pk"), models.IntegerField()),
+            last_used=_over(
+                rows, "MAX", models.F("transaction__date"), models.DateField()
+            ),
             **_split_totals("tags", since),
         )
 
