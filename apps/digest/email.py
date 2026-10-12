@@ -33,18 +33,16 @@ def send_digest(today: date) -> None:
 
 
 def _send(user: User, today: date, sections: list[Section]) -> None:
-    body = render_to_string(
-        "digest/digest_email.txt",
-        {
-            "user": user,
-            "today": today,
-            "sections": sections,
-            "site_url": settings.SITE_URL,
-        },
-    )
+    context = {
+        "user": user,
+        "today": today,
+        "sections": sections,
+        "site_url": settings.SITE_URL,
+    }
     send_mail(
         f"{settings.EMAIL_SUBJECT_PREFIX}Your digest for {today:%-d %b %Y}",
-        body,
+        render_to_string("digest/digest_email.txt", context),
         None,
         [user.email],
+        html_message=render_to_string("digest/digest_email.html", context),
     )

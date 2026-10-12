@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from django.core import mail
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives, send_mail
 from django.urls import reverse
 from django.utils import timezone
 
@@ -270,3 +270,20 @@ def test_the_digest_warns_of_a_low_balance_with_its_first_day() -> None:
     assert "Low balance" in email.body
     assert "5 Oct 2026: Salary bank, -₹15,000.00" in email.body
     assert SITE + reverse("forecast") in email.body
+
+
+def test_the_digest_has_an_html_version(user: User) -> None:
+    bank = make_account("Bank", "asset")
+    rent = make_account("Rent", "expense")
+    schedule = make_schedule((bank, rent, "25000"), description="Flat rent")
+
+    run_daily_job(date(2026, 10, 2))
+
+    [email] = mail.outbox
+    assert isinstance(email, EmailMultiAlternatives)
+    [(html, mimetype)] = email.alternatives
+    assert mimetype == "text/html"
+    assert isinstance(html, str)
+    assert "Flat rent" in html
+    assert "₹25,000.00" in html
+    assert SITE + reverse("schedule_detail", args=[schedule.pk]) in html
