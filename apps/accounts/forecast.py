@@ -4,11 +4,12 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from django.db import models
-from django.db.models import Max
 from django.urls import reverse
 
+from apps.accounts.expected import upcoming_due, waiting_drafts
 from apps.accounts.models import BALANCE_KINDS, Account, AccountKind
 from apps.cards.statements import (
     closing_dates,
@@ -18,8 +19,9 @@ from apps.cards.statements import (
 )
 from apps.quick_add.models import Draft, DraftSplit
 from apps.schedules.estimates import last_paid_amount
-from apps.schedules.models import Occurrence, Schedule, ScheduleSplit
-from apps.schedules.repeat import due_dates
+
+if TYPE_CHECKING:
+    from apps.schedules.models import ScheduleSplit
 
 DAYS = 30
 
@@ -101,37 +103,6 @@ class Forecast:
     moves: list[Move]
 
 
-def _due(start: date, end: date) -> list[tuple[date, Schedule]]:
-    """Each active Schedule's Upcoming due dates by the end.
-
-    Occurrences are only stored DAYS_AHEAD, so later due dates are worked out
-    from the Schedule, after its last stored Occurrence.
-    """
-    schedules = (
-        Schedule.objects.filter(active=True)
-        .select_related("party")
-        .prefetch_related("splits")
-        .annotate(last_due=Max("occurrences__due_date"))
-    )
-    by_pk = {schedule.pk: schedule for schedule in schedules}
-    due: list[tuple[date, Schedule]] = [
-        (occurrence.due_date, by_pk[occurrence.schedule_id])
-        for occurrence in Occurrence.objects.filter(
-            status=Occurrence.Status.UPCOMING,
-            schedule__in=by_pk,
-            due_date__lte=end,
-        )
-    ]
-    for schedule in schedules:
-        since = (
-            schedule.last_due + timedelta(days=1)
-            if schedule.last_due
-            else max(filter(None, [schedule.start_date, schedule.resumed_on, start]))
-        )
-        due += [(when, schedule) for when in due_dates(schedule, since, end)]
-    return due
-
-
 def _occurrence_moves(start: date, end: date, amountless: list[Item]) -> list[Move]:
     """Upcoming Occurrences; a Drafted one is counted by its Draft instead.
 
@@ -139,7 +110,7 @@ def _occurrence_moves(start: date, end: date, amountless: list[Item]) -> list[Mo
     """
     estimates: dict[int, Decimal | None] = {}
     moves = []
-    for due, schedule in _due(start, end):
+    for due, schedule in upcoming_due(start, end):
         url = reverse("schedule_detail", args=[schedule.pk])
         unknown: set[int] = set()
         for split in schedule.splits.all():
@@ -174,14 +145,8 @@ def _account_ids(split: ScheduleSplit | DraftSplit) -> set[int]:
 
 
 def _draft_moves(end: date, amountless: list[Item]) -> list[Move]:
-    drafts = (
-        Draft.objects.waiting()
-        .filter(date__lte=end)
-        .select_related("party")
-        .prefetch_related("splits")
-    )
     moves = []
-    for draft in drafts:
+    for draft in waiting_drafts(end):
         splits = list(draft.splits.all())
         url = reverse("draft_edit", args=[draft.pk])
         if unknown := {
