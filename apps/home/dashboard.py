@@ -237,7 +237,10 @@ ATTENTION = {State.OVER: 0, State.CLOSE: 1, State.FINE: 2}
 
 
 def _attention(row: BudgetRow) -> tuple[int, Decimal]:
-    share = row.spent / row.budget if row.budget else Decimal(0)
+    if row.budget:
+        share = row.spent / row.budget
+    else:
+        share = Decimal("Infinity") if row.spent > 0 else Decimal(0)
     return ATTENTION[row.state], -share
 
 

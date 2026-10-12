@@ -56,6 +56,17 @@ def test_overall_budget_comes_first_then_over_close_and_by_share(
     assert "Close" in text.split("Groceries")[1].split("Fuel")[0]
 
 
+def test_a_zero_budget_spent_on_comes_before_other_over_budgets(
+    signed_in: Client,
+) -> None:
+    budget("Rent", "1000", "3000")
+    budget("Gifts", "0", "10")
+
+    text = page_text(card(signed_in))
+
+    assert text.index("Gifts") < text.index("Rent")
+
+
 def test_card_is_hidden_when_no_budget_applies_this_month(signed_in: Client) -> None:
     groceries = make_account("Groceries", "expense")
     set_budget(groceries, None, timezone.localdate())
