@@ -5,3 +5,18 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # Django, psycopg and the rest of uv.lock.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+  # Tailwind CLI, and htmx and Alpine, which are vendored into static/js.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+  # Keeps the SHA-pinned Actions current; it rewrites the # vX.Y.Z comment too.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
