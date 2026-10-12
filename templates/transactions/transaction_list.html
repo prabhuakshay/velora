@@ -2,8 +2,9 @@
 
 {% comment %}
   From lg: the list beside the selected Transaction's detail. Narrower: tapping
-  a row opens its detail as a sheet, as tablets are too narrow for both. Every row's detail is rendered up front, so
-  transaction_list.js only shows one; nothing is fetched on selection.
+  a row opens its detail as a sheet, as tablets are too narrow for both. Only
+  the first row's detail is rendered; transaction_list.js fetches the others
+  on selection. Without JS, a row opens the Transaction's own page.
 {% endcomment %}
 
 {% block title %}Transactions · Velora{% endblock %}
@@ -56,10 +57,11 @@
         {% endif %}
       </div>
 
-      <ul class="-mx-4 divide-y divide-slate-100 bg-white md:mx-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
+      {% comment %}hx-sync: selecting a row aborts the last row's fetch, so a slow response can't replace a newer one.{% endcomment %}
+      <ul hx-sync="this:replace" class="-mx-4 divide-y divide-slate-100 bg-white md:mx-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
         {% for transaction in page %}
           <li>
-            <button type="button" data-transaction="{{ transaction.pk }}" data-dialog-open="transaction-sheet" {% if forloop.first %}aria-current="true"{% endif %} class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-hidden active:bg-slate-100 md:hover:bg-slate-50 md:focus-visible:bg-slate-50 lg:border-l-2 lg:border-transparent lg:aria-[current=true]:border-slate-900 lg:aria-[current=true]:bg-slate-100">
+            <a href="{% url 'transaction_detail' transaction.pk %}?next={{ here|urlencode }}" hx-boost="false" data-transaction="{{ transaction.pk }}" data-dialog-open="transaction-sheet" aria-controls="transaction-pane" {% if forloop.first %}aria-current="true"{% endif %} class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-hidden active:bg-slate-100 md:hover:bg-slate-50 md:focus-visible:bg-slate-50 lg:border-l-2 lg:border-transparent lg:aria-[current=true]:border-slate-900 lg:aria-[current=true]:bg-slate-100">
               <span class="min-w-0 flex-1">
                 <span class="flex items-baseline justify-between gap-3">
                   <span class="truncate font-medium">{% include "transactions/_transaction_title.html" %}</span>
@@ -75,7 +77,7 @@
                 </span>
               </span>
               {% include "shell/icon.html" with name="chevron-right" class="size-4 text-slate-300 lg:hidden" %}
-            </button>
+            </a>
           </li>
         {% empty %}
           <li class="flex flex-col items-center px-6 py-16 text-center">
@@ -102,15 +104,19 @@
       {% endif %}
     </section>
 
-    <section data-transaction-pane class="hidden min-h-0 overflow-y-auto overscroll-contain lg:block" aria-label="Selected Transaction">
-      {% for transaction in page %}
-        <article data-transaction-detail="{{ transaction.pk }}" {% if not forloop.first %}hidden{% endif %}>
-          {% include "transactions/_transaction_detail.html" %}
-        </article>
-      {% empty %}
-        <p class="flex h-full items-center justify-center text-sm text-slate-400">Nothing to show</p>
-      {% endfor %}
+    <section id="transaction-pane" data-transaction-pane class="hidden min-h-0 overflow-y-auto overscroll-contain transition-opacity data-loading:opacity-50 lg:block" aria-label="Selected Transaction">
+      {% with transaction=page.0 %}
+        {% if transaction %}
+          {% include "transactions/_transaction_panel.html" %}
+        {% else %}
+          <p class="flex h-full items-center justify-center text-sm text-slate-400">Nothing to show</p>
+        {% endif %}
+      {% endwith %}
     </section>
+    <p data-transaction-announce class="sr-only" aria-live="polite"></p>
+    <template data-transaction-error>
+      <p class="px-5 py-8 text-sm text-slate-600 md:px-8">Couldn't load this Transaction. <a href="" class="font-medium underline">Open it</a></p>
+    </template>
   </div>
 
   <dialog id="transaction-sheet" data-dialog data-sheet aria-label="Transaction" class="m-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto overscroll-contain rounded-t-2xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-black/50 md:m-auto md:max-h-[85dvh] md:max-w-xl md:rounded-2xl lg:hidden">
@@ -118,12 +124,8 @@
       <div class="absolute top-2 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-slate-300 md:hidden" aria-hidden="true"></div>
       <button type="button" data-dialog-close class="mt-1 -mr-2 flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 active:bg-slate-200">Done</button>
     </div>
-    <div data-transaction-sheet-body class="pb-[env(safe-area-inset-bottom)]"></div>
+    <div data-transaction-sheet-body class="pb-[env(safe-area-inset-bottom)] transition-opacity data-loading:opacity-50"></div>
   </dialog>
-
-  {% for transaction in page %}
-    {% include "transactions/_delete_dialog.html" with next=here %}
-  {% endfor %}
 
   {% include "transactions/_filter_sheet.html" %}
 {% endblock %}

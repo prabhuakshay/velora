@@ -12,6 +12,11 @@ urlpatterns = [
         name="transaction_split_row",
     ),
     path(
+        "transactions/<int:pk>/",
+        views.transaction_detail,
+        name="transaction_detail",
+    ),
+    path(
         "transactions/<int:pk>/edit/",
         views.transaction_edit,
         name="transaction_edit",

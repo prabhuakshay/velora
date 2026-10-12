@@ -18,7 +18,7 @@
       <div class="mt-6 grid shrink-0 grid-cols-3 gap-2 @3xl:mt-0 @3xl:flex">
         <a href="{% url 'transaction_edit' transaction.pk %}?next={{ here|urlencode }}" class="btn-primary flex items-center justify-center gap-2 py-2.5 text-sm">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
         <a href="{% url 'schedule_create' %}?transaction={{ transaction.pk }}" class="btn-secondary flex items-center justify-center gap-2 py-2.5" title="Make a Schedule from this Transaction">{% include "shell/icon.html" with name="repeat" class="size-4" %}Schedule</a>
-        <button type="button" data-dialog-open="delete-transaction-{{ transaction.pk }}" class="btn-secondary flex items-center justify-center gap-2 py-2.5 text-red-600 hover:bg-red-50">{% include "shell/icon.html" with name="trash" class="size-4" %}Delete</button>
+        <a href="{% url 'transaction_delete' transaction.pk %}?next={{ here|urlencode }}" hx-boost="false" data-dialog-open="delete-transaction-{{ transaction.pk }}" class="btn-secondary flex items-center justify-center gap-2 py-2.5 text-red-600 hover:bg-red-50">{% include "shell/icon.html" with name="trash" class="size-4" %}Delete</a>
       </div>
     </div>
     {% if transaction.party and transaction.description %}<p class="mt-4 max-w-3xl whitespace-pre-line text-slate-600">{{ transaction.description }}</p>{% endif %}

@@ -88,6 +88,24 @@ def transaction_list(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+def transaction_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    """One Transaction: the list's selected panel for htmx, else a full page."""
+    template = (
+        "transactions/_transaction_panel.html"
+        if request.headers.get("HX-Request")
+        else "transactions/transaction_detail.html"
+    )
+    return render(
+        request,
+        template,
+        {
+            "transaction": get_object_or_404(_listed_transactions(), pk=pk),
+            "here": _return_url(request),
+        },
+    )
+
+
+@login_required
 @blocked_in_privacy_mode
 def transaction_export(request: HttpRequest) -> HttpResponse:
     """Download the Transactions matching the filters as CSV."""

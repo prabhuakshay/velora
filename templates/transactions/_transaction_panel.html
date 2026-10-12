@@ -1,0 +1,9 @@
+{% comment %}
+  The selected Transaction on the list, fetched on selection, with its own
+  delete dialog. The list reads out its title, amount and date on selection,
+  as the panel itself isn't a live region.
+{% endcomment %}
+<article data-transaction-detail="{{ transaction.pk }}" data-title="{% include 'transactions/_transaction_title.html' %}" data-amount="{% if not user.privacy_mode %}{% amount transaction.total %}{% endif %}" data-date="{{ transaction.date|date:'j M Y' }}">
+  {% include "transactions/_transaction_detail.html" %}
+</article>
+{% include "transactions/_delete_dialog.html" with next=here %}

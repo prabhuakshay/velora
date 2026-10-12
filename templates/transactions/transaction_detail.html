@@ -1,0 +1,12 @@
+{% extends "app_base.html" %}
+
+{% block title %}Transaction · Velora{% endblock %}
+
+{% block main %}
+  <div class="mx-auto max-w-4xl">
+    <a href="{{ here }}" class="-ml-2 mb-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100">{% include "shell/icon.html" with name="chevron-left" class="size-4" %}Transactions</a>
+    <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+      {% include "transactions/_transaction_panel.html" %}
+    </div>
+  </div>
+{% endblock %}
