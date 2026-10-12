@@ -61,20 +61,15 @@ html:has(#main) {
 /*
  * Page changes: htmx swaps boosted pages inside a view transition
  * (globalViewTransitions in base.html), and full loads use cross-document
- * ones. The shell stays put while only <main> fades and rises.
+ * ones. The shell stays put while <main> does a quick crossfade, kept short
+ * and motionless so rapid navigation doesn't flicker or jump.
  */
 @view-transition {
   navigation: auto;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(main) {
-    animation: 120ms ease-in both main-out;
-  }
-
-  ::view-transition-new(main) {
-    animation: 220ms ease-out both main-in;
-  }
+::view-transition-group(main) {
+  animation-duration: 60ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -82,19 +77,6 @@ html:has(#main) {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none;
-  }
-}
-
-@keyframes main-out {
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes main-in {
-  from {
-    opacity: 0;
-    translate: 0 6px;
   }
 }
 
