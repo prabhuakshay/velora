@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import Account
-from apps.budgets.models import Budget
+from apps.budgets.models import Budget, BudgetWarning
 from apps.core.history import with_reason
 from apps.quick_add.models import DraftSplit
 from apps.schedules.models import Schedule, ScheduleSplit, SuggestedSchedule
@@ -124,11 +124,14 @@ class AccountMerge:
         """Give the target the source's Budget rows, unless it has rows of its own.
 
         Mixing the two would let the source's rows override the target's in
-        the months they start in.
+        the months they start in. Sent warnings follow the Budget rows.
         """
-        for rows in (Budget.objects.all(),):
-            target_has_own = rows.filter(account=self.target).exists()
-            for row in rows.filter(account=self.source):
+        target_has_own = Budget.objects.filter(account=self.target).exists()
+        for rows in (
+            Budget.objects.filter(account=self.source),
+            BudgetWarning.objects.filter(account=self.source),
+        ):
+            for row in rows:
                 if target_has_own:
                     with_reason(row, reason).delete()
                 else:

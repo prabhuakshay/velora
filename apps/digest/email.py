@@ -7,6 +7,7 @@ from django.core.mail import send_mail
 from django.db import transaction as db_transaction
 from django.template.loader import render_to_string
 
+from apps.budgets.warnings import record_budget_warnings
 from apps.digest.models import Digest
 from apps.digest.upcoming import Section, upcoming
 from apps.users.models import User
@@ -30,6 +31,7 @@ def send_digest(today: date) -> None:
             _, created = Digest.objects.get_or_create(sent_on=today, user=user)
             if created:
                 _send(user, today, sections)
+    record_budget_warnings(today)
 
 
 def _send(user: User, today: date, sections: list[Section]) -> None:

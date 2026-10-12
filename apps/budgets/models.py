@@ -83,3 +83,39 @@ def set_budget(account: Account | None, amount: Decimal | None, today: date) -> 
     Budget.objects.update_or_create(
         account=account, month=today.replace(day=1), defaults={"amount": amount}
     )
+
+
+class BudgetWarning(models.Model):
+    """A digest warning that a Budget became close or went over in a month.
+
+    Its existence keeps the same warning from being sent again that month.
+    With no Account it is about the Overall Budget.
+    """
+
+    class Level(models.TextChoices):
+        CLOSE = "close"
+        OVER = "over"
+
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="budget_warnings",
+    )
+    month = models.DateField(help_text="The first day of the month it is about.")
+    level = models.CharField(max_length=5, choices=Level)
+    sent_on = models.DateField()
+
+    class Meta:
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=("account", "month", "level"),
+                nulls_distinct=False,
+                name="budgets_budgetwarning_one_per_level_per_month",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        name = self.account or "Overall Budget"
+        return f"{name} {self.level} in {self.month:%b %Y}"
