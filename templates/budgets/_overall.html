@@ -15,9 +15,11 @@
         </div>
         <p class="shrink-0 font-semibold tabular-nums {% amount_color picture.overall.left %}">{% amount picture.overall.left %} left</p>
       </div>
-      <a href="{% url 'overall_budget_set' %}" class="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-900" aria-label="Change the Overall Budget">{% include "shell/icon.html" with name="pencil" class="size-4" %}</a>
+      {% if current %}
+        <a href="{% url 'overall_budget_set' %}" class="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-900" aria-label="Change the Overall Budget">{% include "shell/icon.html" with name="pencil" class="size-4" %}</a>
+      {% endif %}
     </div>
-  {% else %}
+  {% elif current %}
     <a href="{% url 'overall_budget_set' %}" class="flex items-center gap-2 px-4 py-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">{% include "shell/icon.html" with name="plus" class="size-4" %}Set an Overall Budget</a>
   {% endif %}
   <div class="flex items-center justify-between gap-3 px-4 py-3 text-sm">

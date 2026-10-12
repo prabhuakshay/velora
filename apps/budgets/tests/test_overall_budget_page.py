@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
@@ -7,8 +8,10 @@ from django.utils.html import strip_tags
 
 from apps.accounts.tests.conftest import make_account, page_text
 from apps.accounts.tests.test_balance import opening
+from apps.budgets.models import set_budget
 from apps.budgets.tests.conftest import move
 from apps.budgets.tests.test_budgets_page import budgets_text, set_on
+from apps.budgets.tests.test_past_months import last_month, month_url, this_month
 from apps.quick_add.tests.conftest import make_manual_draft
 from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 from apps.users.tests.test_privacy_mode import MASK
@@ -191,3 +194,35 @@ def test_overall_amounts_follow_the_number_format(
     text = budgets_text(signed_in)
     assert "Budget ₹120,000.00 · Spent ₹150,000.00 · Expected ₹160,000.00" in text
     assert "Unbudgeted ₹150,000.00" in text
+
+
+def test_the_overall_budget_form_sends_the_month_it_was_opened_in(
+    signed_in: Client,
+) -> None:
+    set_overall(signed_in, "50000")
+    sent = f'name="month" value="{this_month():%Y-%m}"'
+
+    page = signed_in.get(reverse("overall_budget_set")).content.decode()
+
+    assert page.count(sent) == 2
+
+
+def test_a_past_month_shows_its_overall_budget_without_edit_controls(
+    signed_in: Client,
+) -> None:
+    set_budget(None, Decimal(40000), last_month())
+    set_overall(signed_in, "50000")
+
+    page = signed_in.get(month_url(last_month())).content.decode()
+
+    assert "Overall Budget Budget ₹40,000.00" in page_text(page)
+    assert reverse("overall_budget_set") not in page
+
+
+def test_a_past_month_without_an_overall_budget_offers_none(
+    signed_in: Client,
+) -> None:
+    page = signed_in.get(month_url(last_month())).content.decode()
+
+    assert "Set an Overall Budget" not in page_text(page)
+    assert "Unbudgeted" in page_text(page)
