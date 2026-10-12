@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.urls import reverse
 
 from apps.accounts.forecast import Item, forecast
-from apps.budgets.warnings import budget_warnings
+from apps.budgets.warnings import due_warnings, warning_items
 from apps.cards.models import Statement
 from apps.quick_add.models import Draft
 from apps.schedules.models import Occurrence
@@ -16,6 +16,8 @@ from apps.schedules.models import Occurrence
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import date
+
+    from apps.budgets.picture import Row
 
 # Days before a card's Due Day it starts showing.
 CARD_REMINDER_DAYS = 3
@@ -152,18 +154,25 @@ def low_balances(today: date) -> list[Item]:
     ]
 
 
-# In the order they are shown; add a (title, finder) pair for a new section.
+# In the order they are shown, before Budgets; add a (title, finder) pair for a
+# new section.
 SECTIONS: tuple[tuple[str, Callable[[date], list[Item]]], ...] = (
     ("Coming up", reminders),
     ("Missed", missed),
     ("Card Due Days", card_due_days),
     ("Low balance", low_balances),
     (f"Drafts waiting {STALE_DRAFT_DAYS} days", stale_drafts),
-    ("Budgets", budget_warnings),
 )
 
 
-def upcoming(today: date) -> list[Section]:
-    """The sections with something in them."""
+def upcoming(today: date, warned: list[Row] | None = None) -> list[Section]:
+    """The sections with something in them.
+
+    Budgets shows the warned Budgets when given, else those due today, so the
+    digest can record exactly the warnings it sent.
+    """
+    if warned is None:
+        warned = due_warnings(today)
     sections = [Section(title, find(today)) for title, find in SECTIONS]
+    sections.append(Section("Budgets", warning_items(warned, today)))
     return [section for section in sections if section.items]

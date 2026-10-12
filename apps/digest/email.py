@@ -7,7 +7,7 @@ from django.core.mail import send_mail
 from django.db import transaction as db_transaction
 from django.template.loader import render_to_string
 
-from apps.budgets.warnings import record_budget_warnings
+from apps.budgets.warnings import due_warnings, record_budget_warnings
 from apps.digest.models import Digest
 from apps.digest.upcoming import Section, upcoming
 from apps.users.models import User
@@ -23,15 +23,19 @@ def send_digest(today: date) -> None:
     that user's record for the day, so running the job again that day sends
     it to them, and only them.
     """
-    sections = upcoming(today)
+    warned = due_warnings(today)
+    sections = upcoming(today, warned)
     if not sections:
         return
+    sent = False
     for user in User.objects.filter(is_active=True):
         with db_transaction.atomic():
             _, created = Digest.objects.get_or_create(sent_on=today, user=user)
             if created:
                 _send(user, today, sections)
-    record_budget_warnings(today)
+                sent = True
+    if sent:
+        record_budget_warnings(warned, today)
 
 
 def _send(user: User, today: date, sections: list[Section]) -> None:

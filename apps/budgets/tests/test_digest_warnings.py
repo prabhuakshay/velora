@@ -156,3 +156,18 @@ def test_deleting_an_expense_account_deletes_its_sent_warnings(
     signed_in.post(account_url("account_delete", fun))
 
     assert not Account.objects.filter(pk=fun.pk).exists()
+
+
+def test_a_same_day_rerun_leaves_a_new_warning_for_the_next_digest() -> None:
+    spender = bank()
+    fun = make_account("Fun", "expense")
+    groceries = make_account("Groceries", "expense")
+    set_budget(fun, Decimal(1000), TODAY)
+    set_budget(groceries, Decimal(10000), TODAY)
+    move(date(2026, 6, 10), spender, fun, "1200")
+    digest_on(TODAY)
+
+    move(TODAY, spender, groceries, "9000")
+    assert digest_on(TODAY) == ""
+
+    assert f"16 Jun 2026: {CLOSE}" in digest_on(date(2026, 6, 16))

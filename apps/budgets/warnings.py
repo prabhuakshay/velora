@@ -20,25 +20,8 @@ if TYPE_CHECKING:
 LABELS = {State.CLOSE: "close to", State.OVER: "over"}
 
 
-def budget_warnings(today: date) -> list[Item]:
-    """Each close or over Budget this month not warned about before today."""
-    url = reverse("budget_list")
-    return [Item(today, _label(row), row.spent, url) for row in _unsent(today)]
-
-
-def record_budget_warnings(today: date) -> None:
-    """Mark today's warnings as sent, so later digests this month leave them out."""
-    for row in _unsent(today):
-        BudgetWarning.objects.get_or_create(
-            account=row.account,
-            month=month_start(today),
-            level=row.state,
-            defaults={"sent_on": today},
-        )
-
-
-def _unsent(today: date) -> list[Row]:
-    """Close or over Budgets, leaving out those already sent this month.
+def due_warnings(today: date) -> list[Row]:
+    """Close or over Budgets this month not warned about before today.
 
     Once over has been sent, close is left out too: it would be old news.
     """
@@ -59,6 +42,23 @@ def _unsent(today: date) -> list[Row]:
         if row.state in LABELS
         and not {(row.account, row.state), (row.account, State.OVER)} & sent
     ]
+
+
+def warning_items(rows: list[Row], today: date) -> list[Item]:
+    """The warnings as Items dated today, linking to the Budgets page."""
+    url = reverse("budget_list")
+    return [Item(today, _label(row), row.spent, url) for row in rows]
+
+
+def record_budget_warnings(rows: list[Row], today: date) -> None:
+    """Mark the warnings as sent, so later digests this month leave them out."""
+    for row in rows:
+        BudgetWarning.objects.get_or_create(
+            account=row.account,
+            month=month_start(today),
+            level=row.state,
+            defaults={"sent_on": today},
+        )
 
 
 def _label(row: Row) -> str:
