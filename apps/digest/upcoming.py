@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.urls import reverse
 
 from apps.accounts.forecast import Item, forecast
+from apps.budgets.warnings import budget_warnings
 from apps.cards.models import Statement
 from apps.quick_add.models import Draft
 from apps.schedules.models import Occurrence
@@ -158,6 +159,7 @@ SECTIONS: tuple[tuple[str, Callable[[date], list[Item]]], ...] = (
     ("Card Due Days", card_due_days),
     ("Low balance", low_balances),
     (f"Drafts waiting {STALE_DRAFT_DAYS} days", stale_drafts),
+    ("Budgets", budget_warnings),
 )
 
 

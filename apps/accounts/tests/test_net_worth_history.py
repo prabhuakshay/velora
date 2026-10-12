@@ -128,5 +128,5 @@ def test_home_page_query_count_does_not_grow_with_accounts(
         record(signed_in, salary, account, "10.00")
     today(date(2026, 6, 15))
 
-    with django_assert_num_queries(34):
+    with django_assert_num_queries(41):
         signed_in.get(reverse("index"))
