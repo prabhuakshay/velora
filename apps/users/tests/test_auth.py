@@ -66,17 +66,21 @@ def test_sidebar_shows_profile_menu(client: Client, user: User) -> None:
 
     content = client.get(reverse("index")).content.decode()
 
-    menu = content.split("<details data-nav-profile", 1)[1].split("</summary>", 1)[0]
-    assert user.email in menu
-    assert "open" not in menu.split(">", 1)[0]
+    trigger = content.split('<button type="button" data-nav-profile', 1)[1]
+    trigger = trigger.split("</button>", 1)[0]
+    assert user.email in trigger
+    assert 'data-current="true"' not in trigger.split(">", 1)[0]
 
 
-def test_profile_menu_opens_on_password_change_page(client: Client, user: User) -> None:
+def test_profile_menu_is_current_on_password_change_page(
+    client: Client, user: User
+) -> None:
     client.force_login(user)
 
     content = client.get(reverse("password_change")).content.decode()
 
-    assert "open" in content.split("<details data-nav-profile", 1)[1].split(">", 1)[0]
+    trigger = content.split("data-nav-profile", 1)[1].split(">", 1)[0]
+    assert 'data-current="true"' in trigger
 
 
 def test_logout_signs_out(client: Client, user: User) -> None:

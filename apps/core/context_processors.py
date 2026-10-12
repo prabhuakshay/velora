@@ -43,8 +43,8 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
         | {"active": path.startswith(("/parties/", "/tags/"))},
     ]
     children = [
-        leaf("Preferences", reverse("preferences")),
-        leaf("Change password", reverse("password_change")),
+        leaf("Preferences", reverse("preferences")) | {"icon": "sliders"},
+        leaf("Change password", reverse("password_change")) | {"icon": "key"},
     ]
     profile = {
         "active": any(c["active"] for c in children),

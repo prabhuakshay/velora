@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def profile_group_tag(body: str) -> str:
-    return body.split("<details data-nav-profile", 1)[1].split(">", maxsplit=1)[0]
+def profile_trigger_tag(body: str) -> str:
+    return body.split("data-nav-profile", 1)[1].split(">", maxsplit=1)[0]
 
 
 def test_preferences_needs_sign_in(client: Client) -> None:
@@ -78,12 +78,12 @@ def test_number_format_change_is_in_user_history(signed_in: Client, user: User) 
 def test_sidebar_links_preferences_above_change_password(signed_in: Client) -> None:
     body = signed_in.get(reverse("index")).content.decode()
 
-    assert "open" not in profile_group_tag(body)
+    assert 'data-current="true"' not in profile_trigger_tag(body)
     assert body.index(reverse("preferences")) < body.index(reverse("password_change"))
 
 
-def test_profile_group_opens_on_preferences(signed_in: Client) -> None:
+def test_profile_menu_is_current_on_preferences(signed_in: Client) -> None:
     body = signed_in.get(reverse("preferences")).content.decode()
 
-    assert "open" in profile_group_tag(body)
+    assert 'data-current="true"' in profile_trigger_tag(body)
     assert f'href="{reverse("preferences")}" aria-current="page"' in body

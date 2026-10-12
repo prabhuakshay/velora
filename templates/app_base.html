@@ -35,22 +35,36 @@
         {% endfor %}
       </nav>
       <div class="border-t border-slate-200 p-2">
-        <details data-nav-profile class="group"{% if nav_profile.active %} open{% endif %}>
-          <summary class="flex cursor-pointer list-none items-center gap-2 rounded-md px-2.5 py-2 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
-            <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-medium text-white uppercase" aria-hidden="true">{{ user.email|slice:":1" }}</span>
-            <span class="min-w-0 flex-1 truncate text-xs text-slate-600">{{ user.email }}</span>
-            {% include "shell/icon.html" with name="chevron" class="size-3.5 text-slate-400 transition-transform group-open:rotate-180" %}
-          </summary>
-          <div class="mt-1 flex flex-col gap-0.5">
+        {% comment %}
+          A popover, so clicking away or Escape closes it without JS. Pinned to
+          the sidebar's foot, which always sits at the bottom of the screen.
+        {% endcomment %}
+        <button type="button" data-nav-profile popovertarget="account-menu"{% if nav_profile.active %} data-current="true"{% endif %} class="group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors outline-hidden hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-900 data-current:bg-slate-100">
+          <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-sm font-semibold text-white uppercase" aria-hidden="true">{{ user.full_name|default:user.email|slice:":1" }}</span>
+          <span class="min-w-0 flex-1 leading-tight">
+            <span class="block truncate font-medium text-slate-900">{{ user.full_name|default:"Account" }}</span>
+            <span class="block truncate text-xs text-slate-500">{{ user.email }}</span>
+          </span>
+          {% include "shell/icon.html" with name="selector" class="size-4 text-slate-400 group-hover:text-slate-600" %}
+        </button>
+        <div id="account-menu" popover class="inset-auto bottom-[4.25rem] left-2 m-0 w-56 translate-y-1 rounded-xl border-0 bg-white p-1 text-sm text-slate-900 opacity-0 shadow-lg ring-1 shadow-slate-900/10 ring-slate-200 transition-[opacity,translate,display,overlay] transition-discrete duration-150 ease-out open:translate-y-0 open:opacity-100 starting:open:translate-y-1 starting:open:opacity-0 motion-reduce:transition-none">
+          <div>
             {% for c in nav_profile.children %}
-              <a href="{{ c.url }}" {% if c.active %}aria-current="page"{% endif %} class="rounded-md px-2.5 py-1.5 font-medium {% if c.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">{{ c.label }}</a>
+              <a href="{{ c.url }}" {% if c.active %}aria-current="page"{% endif %} class="group/item flex items-center gap-2.5 rounded-md px-2.5 py-2 font-medium outline-hidden focus-visible:bg-slate-100 {% if c.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                {% include "shell/icon.html" with name=c.icon class="size-4 text-slate-400 group-hover/item:text-slate-600 group-aria-[current=page]/item:text-slate-900" %}
+                <span class="flex-1">{{ c.label }}</span>
+                {% if c.active %}{% include "shell/icon.html" with name="check" class="size-4 text-slate-900" %}{% endif %}
+              </a>
             {% endfor %}
-            <form method="post" action="{% url 'logout' %}">
-              {% csrf_token %}
-              <button type="submit" class="w-full rounded-md px-2.5 py-1.5 text-left font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900">Log out</button>
-            </form>
           </div>
-        </details>
+          <form method="post" action="{% url 'logout' %}" class="mt-1 border-t border-slate-100 pt-1">
+            {% csrf_token %}
+            <button type="submit" class="group/item flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left font-medium text-slate-600 outline-hidden hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700">
+              {% include "shell/icon.html" with name="logout" class="size-4 text-slate-400 group-hover/item:text-red-700 group-focus-visible/item:text-red-700" %}
+              Log out
+            </button>
+          </form>
+        </div>
       </div>
     </aside>
 
