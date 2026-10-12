@@ -61,3 +61,15 @@ def due_dates(schedule: Schedule, since: date, until: date) -> Iterator[date]:
             return
         if due >= since:
             yield due
+
+
+def first_open_due(schedule: Schedule, last_due: date | None, earliest: date) -> date:
+    """The earliest a not yet stored Occurrence can fall due.
+
+    Never on or before the last stored one, so dates dropped by an edit or a
+    pause stay dropped, nor before `earliest`.
+    """
+    after_last = last_due + timedelta(days=1) if last_due else None
+    return max(
+        filter(None, [schedule.start_date, schedule.resumed_on, earliest, after_last])
+    )

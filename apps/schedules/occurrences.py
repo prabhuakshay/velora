@@ -10,7 +10,7 @@ from apps.quick_add.posting import DraftNotPostableError, post_draft
 from apps.schedules.estimates import last_paid_amount
 from apps.schedules.matching import match_occurrence
 from apps.schedules.models import Occurrence, Schedule
-from apps.schedules.repeat import due_dates
+from apps.schedules.repeat import due_dates, first_open_due
 
 # Occurrences exist this far ahead, the length of the Forecast.
 DAYS_AHEAD = 30
@@ -19,23 +19,15 @@ DAYS_AHEAD = 30
 def materialise(schedule: Schedule, today: date) -> None:
     """Store the Occurrences due after the last stored one, up to DAYS_AHEAD.
 
-    Never fills in before the last stored Occurrence, so dates dropped by an
-    edit or a pause stay dropped, nor before the grace period, so a Schedule
-    started long ago doesn't draft or auto-post every past due date.
+    Never fills in before the grace period, so a Schedule started long ago
+    doesn't draft or auto-post every past due date.
     """
-    since = max(
-        filter(
-            None,
-            [
-                schedule.start_date,
-                schedule.resumed_on,
-                today - timedelta(days=schedule.grace_days),
-            ],
-        )
-    )
     last = schedule.occurrences.order_by("due_date").last()
-    if last:
-        since = max(since, last.due_date + timedelta(days=1))
+    since = first_open_due(
+        schedule,
+        last.due_date if last else None,
+        today - timedelta(days=schedule.grace_days),
+    )
     Occurrence.objects.bulk_create(
         Occurrence(schedule=schedule, due_date=due)
         for due in due_dates(schedule, since, today + timedelta(days=DAYS_AHEAD))

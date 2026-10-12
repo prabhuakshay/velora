@@ -49,6 +49,15 @@ def test_an_upcoming_occurrence_moves_the_balance_on_its_due_date() -> None:
     assert balance_on(result, savings, date(2026, 10, 30)) == Decimal(25000)
 
 
+def test_an_upcoming_occurrence_past_due_within_grace_is_still_forecast() -> None:
+    make_schedule((bank(), make_account("Rent", "expense"), "25000"))
+    materialise_occurrences(TODAY)
+
+    moves = forecast(date(2026, 10, 7)).moves
+
+    assert date(2026, 10, 5) in [move.when for move in moves]
+
+
 def test_a_waiting_draft_moves_the_balance_on_its_date() -> None:
     savings = bank()
     make_manual_draft((savings, make_account("Dentist", "expense"), "3000"))

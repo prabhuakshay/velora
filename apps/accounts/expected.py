@@ -4,22 +4,25 @@ The Forecast and Budgets both find what is coming up here, so they agree.
 """
 
 from collections import defaultdict
-from datetime import date, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from django.db.models import Max, QuerySet
 
 from apps.accounts.models import Account, AccountKind
 from apps.quick_add.models import Draft, DraftSplit
 from apps.schedules.models import Occurrence, Schedule, ScheduleSplit
-from apps.schedules.repeat import due_dates
+from apps.schedules.repeat import due_dates, first_open_due
+
+if TYPE_CHECKING:
+    from datetime import date
 
 
 def upcoming_due(start: date, end: date) -> list[tuple[date, Schedule]]:
     """Each active Schedule's Upcoming due dates by the end.
 
     Occurrences are only stored DAYS_AHEAD, so later due dates are worked out
-    from the Schedule, after its last stored Occurrence.
+    from the Schedule, never before where it would store the next one.
     """
     schedules = (
         Schedule.objects.filter(active=True)
@@ -37,11 +40,7 @@ def upcoming_due(start: date, end: date) -> list[tuple[date, Schedule]]:
         )
     ]
     for schedule in schedules:
-        since = (
-            schedule.last_due + timedelta(days=1)
-            if schedule.last_due
-            else max(filter(None, [schedule.start_date, schedule.resumed_on, start]))
-        )
+        since = first_open_due(schedule, schedule.last_due, start)
         found += [(when, schedule) for when in due_dates(schedule, since, end)]
     return found
 
