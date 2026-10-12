@@ -22,13 +22,13 @@
     <dl class="-mx-4 mt-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:gap-3 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
       <div class="w-44 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:w-auto md:p-4">
         <dt class="text-xs font-medium text-slate-500">{% if kind == "asset" %}Total{% elif kind == "liability" %}Total owed{% elif kind == "expense" %}Spent this month{% else %}Earned this month{% endif %}</dt>
-        <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums md:text-2xl {% amount_color total %}">{% amount total %}</dd>
+        <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums md:text-2xl {% amount_color total owes=owes %}">{% amount total %}</dd>
         <dd class="mt-0.5 truncate text-xs text-slate-500">{% if balances %}Across {{ accounts|length }} Account{{ accounts|length|pluralize }}{% else %}{{ today|date:"F Y" }}{% endif %}</dd>
       </div>
       <div class="w-44 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:w-auto md:p-4">
         <dt class="text-xs font-medium text-slate-500">{% if balances %}Change this month{% else %}Last month{% endif %}</dt>
-        <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums md:text-2xl">{% if balances %}{% if not user.privacy_mode and this_month_total > 0 %}+{% endif %}{% amount this_month_total %}{% else %}{% amount last_month_total %}{% endif %}</dd>
-        <dd class="mt-0.5 truncate text-xs text-slate-500">{% if balances %}{% if kind == "liability" %}More owed is positive{% else %}Money in less money out{% endif %}{% else %}{{ last_month|date:"F Y" }}{% endif %}</dd>
+        <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums md:text-2xl">{% if balances %}{% signed_amount this_month_total owes|yesno:"down,up" %}{% else %}{% amount last_month_total %}{% endif %}</dd>
+        <dd class="mt-0.5 truncate text-xs text-slate-500">{% if balances %}{% if owes %}More owed is positive{% else %}Money in less money out{% endif %}{% else %}{{ last_month|date:"F Y" }}{% endif %}</dd>
       </div>
       <div class="w-44 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:w-auto md:p-4">
         <dt class="text-xs font-medium text-slate-500">Accounts</dt>

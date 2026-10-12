@@ -52,7 +52,7 @@
               <div class="flex justify-between gap-3"><dt class="text-slate-500">Interest + GST not charged</dt> <dd class="text-right font-medium tabular-nums">{% amount outcome.saved %}</dd></div>
               <div class="flex justify-between gap-3 border-t border-slate-100 pt-2.5">
                 <dt class="font-medium">Net saving</dt>
-                <dd class="text-right font-semibold tabular-nums {% if outcome.net > 0 %}text-emerald-700{% else %}{% amount_color outcome.net %}{% endif %}">{% amount outcome.net %}</dd>
+                <dd class="text-right font-semibold tabular-nums">{% signed_amount outcome.net %}</dd>
               </div>
             </dl>
             <p class="mt-3 text-xs text-slate-500">{{ after.kept|length }} of {{ emi.months }} installments billed in all.</p>

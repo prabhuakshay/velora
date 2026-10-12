@@ -44,7 +44,7 @@ class AccountForm(forms.ModelForm[Account]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
-        if self.instance.kind != Account.Kind.LIABILITY:
+        if not self.instance.owes:
             for name in CARD_FIELDS:
                 del self.fields[name]
         if not self.instance.has_opening_balance:
@@ -55,7 +55,7 @@ class AccountForm(forms.ModelForm[Account]):
             self.fields[name].required = True
         threshold = self.fields["low_balance_threshold"]
         threshold.required = False
-        if self.instance.kind == Account.Kind.LIABILITY:
+        if self.instance.owes:
             threshold.label = "Warn when owing over"
             threshold.help_text = (
                 "Warn when the Forecast expects you to owe more than this; "
@@ -98,7 +98,7 @@ class AccountForm(forms.ModelForm[Account]):
         threshold: Decimal | None = self.cleaned_data["low_balance_threshold"]
         if threshold is None:
             return Decimal(0)
-        if threshold < 0 and self.instance.kind == Account.Kind.LIABILITY:
+        if threshold < 0 and self.instance.owes:
             raise forms.ValidationError(NEGATIVE_LIABILITY_THRESHOLD)
         return threshold
 

@@ -5,12 +5,8 @@
       <h2 id="net-worth-title" class="text-sm text-slate-500">Net Worth</h2>
       <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color net_worth.now.total %}">{% amount net_worth.now.total %}</p>
       <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500">
-        {% if user.privacy_mode %}
-          <span>{% amount net_worth.change %} since {{ net_worth.since|date:"j M" }}</span>
-        {% else %}
-          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums {% if net_worth.change > 0 %}bg-emerald-50 text-emerald-700{% elif net_worth.change < 0 %}bg-red-50 text-red-700{% else %}bg-slate-100 text-slate-600{% endif %}">{% if net_worth.change > 0 %}+{% endif %}{% amount net_worth.change %}{% if net_worth.change_percent is not None %} · {% if net_worth.change_percent > 0 %}+{% endif %}{{ net_worth.change_percent }}%{% endif %}</span>
-          <span>since {{ net_worth.since|date:"j M" }}</span>
-        {% endif %}
+        <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-600">{% signed_amount net_worth.change %}{% if net_worth.change_percent is not None and not user.privacy_mode %} · {% if net_worth.change_percent > 0 %}+{% endif %}{{ net_worth.change_percent }}%{% endif %}</span>
+        <span>since {{ net_worth.since|date:"j M" }}</span>
       </p>
     </div>
     <nav aria-label="Net Worth history range">

@@ -55,9 +55,10 @@ class Bar:
 class Row:
     """A Transaction as the Account sees it.
 
-    change is the money moved in for an Asset or Liability Account, and the
-    amount spent or earned for an Expense or Income one. balance_after is set
-    for Asset and Liability Accounts only.
+    change is how far it moves the Balance for an Asset or Liability Account,
+    so a payment off a Liability is negative, and the amount spent or earned
+    for an Expense or Income one. balance_after is set for Asset and Liability
+    Accounts only.
     """
 
     transaction: Transaction
@@ -118,8 +119,16 @@ def months(account: Account, today: date, count: int = MONTHS) -> list[Month]:
     return result
 
 
-def bars(starts: Sequence[date], values: Sequence[Decimal | None]) -> list[Bar]:
-    """Lay out one bar per month from each month's start and value, if any."""
+def bars(
+    starts: Sequence[date],
+    values: Sequence[Decimal | None],
+    *,
+    owes: bool = False,
+) -> list[Bar]:
+    """Lay out one bar per month from each month's start and value, if any.
+
+    For what is owed, below zero is in credit, so no bar is marked negative.
+    """
     known = [value for value in values if value is not None]
     high = max([Decimal(0), *known])
     low = min([Decimal(0), *known])
@@ -128,15 +137,15 @@ def bars(starts: Sequence[date], values: Sequence[Decimal | None]) -> list[Bar]:
     laid_out = []
     for index, (start, value) in enumerate(zip(starts, values, strict=True)):
         size = float(abs(value) / span * HEIGHT) if span and value else 0.0
-        negative = value is not None and value < 0
+        below = value is not None and value < 0
         laid_out.append(
             Bar(
                 start=start,
                 value=value,
-                y=baseline if negative else baseline - size,
+                y=baseline if below else baseline - size,
                 height=size,
                 baseline=baseline,
-                negative=negative,
+                negative=below and not owes,
                 current=index == len(starts) - 1,
             )
         )
@@ -169,15 +178,10 @@ def rows(account: Account, transactions: Sequence[Transaction]) -> list[Row]:
             ),
             Decimal(0),
         )
+        change = account.sign * moved_in
         result.append(
-            Row(
-                transaction=transaction,
-                change=moved_in
-                if account.has_opening_balance
-                else account.sign * moved_in,
-                balance_after=balance,
-            )
+            Row(transaction=transaction, change=change, balance_after=balance)
         )
         if balance is not None:
-            balance -= account.sign * moved_in
+            balance -= change
     return result

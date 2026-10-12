@@ -31,7 +31,7 @@ class Scope:
     @property
     def owes(self) -> bool:
         """Whether the Balance is what is owed, so going up is bad."""
-        return self.account is not None and self.account.kind == AccountKind.LIABILITY
+        return self.account is not None and self.account.owes
 
     @property
     def threshold(self) -> Decimal | None:
@@ -86,8 +86,6 @@ class Entry:
     accounts: list[str] = field(default_factory=list)
     overdue_since: date | None = None
 
-    good: bool = False
-
 
 @dataclass(frozen=True)
 class Day:
@@ -115,7 +113,6 @@ def _entries(scope: Scope, result: Forecast, names: dict[int, Account]) -> list[
             key, Entry(move.when, move.label, move.url, move.source, Decimal(0))
         )
         entry.change = (entry.change or Decimal(0)) + scope.change(move)
-        entry.good = entry.change < 0 if scope.owes else entry.change > 0
         entry.estimated |= move.estimated
         entry.accounts.append(_flow(move, names))
     return list(entries.values())

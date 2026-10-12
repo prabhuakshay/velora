@@ -1,4 +1,4 @@
-{% comment %}The Forecast line for a scope; takes chart, and height as a class, h-40 by default.{% endcomment %}
+{% comment %}The Forecast line for a scope; takes chart, height as a class, h-40 by default, and owes to show a Balance below zero as in credit.{% endcomment %}
 {% with last=chart.columns|last %}
 {% if user.privacy_mode %}
   <p class="mt-4 flex {{ height|default:"h-40" }} items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
@@ -18,7 +18,7 @@
           {% if column.busy %}<span class="absolute -bottom-2 left-1/2 size-1 -translate-x-1/2 rounded-full bg-slate-400"></span>{% endif %}
           <span class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-lg bg-slate-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg group-hover:block group-focus-visible:block {% if forloop.counter <= 3 %}left-0{% elif forloop.revcounter <= 3 %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %}">
             <span class="text-white/70">{{ column.day|date:"D j M" }}</span>
-            <span class="ml-1 font-semibold tabular-nums">{% amount column.balance %}</span>
+            <span class="ml-1 font-semibold tabular-nums">{% balance column.balance owes=owes %}</span>
           </span>
         </div>
       {% endfor %}
@@ -33,7 +33,7 @@
     <thead><tr><th scope="col">Date</th><th scope="col">Balance</th></tr></thead>
     <tbody>
       {% for column in chart.columns %}
-        <tr><td>{{ column.day|date:"j M Y" }}</td><td>{% amount column.balance %}</td></tr>
+        <tr><td>{{ column.day|date:"j M Y" }}</td><td>{% balance column.balance owes=owes %}</td></tr>
       {% endfor %}
     </tbody>
   </table></div>

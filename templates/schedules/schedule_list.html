@@ -30,7 +30,7 @@
           <dt class="text-xs font-medium text-slate-500">{{ label }}</dt>
           <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums md:text-2xl">{% amount flow.out %}</dd>
           <dd class="mt-0.5 truncate text-xs text-slate-500">
-            {% if flow.income %}<span class="{% if not user.privacy_mode %}text-emerald-600{% endif %} tabular-nums">{% if not user.privacy_mode %}+{% endif %}{% amount flow.income %}</span> in · {% endif %}{% if forloop.last %}{{ flow.due }} active{% else %}{{ flow.due }} due{% endif %}{% if flow.open %} · {{ flow.open }} open{% endif %}
+            {% if flow.income %}<span class="tabular-nums">{% signed_amount flow.income %}</span> in · {% endif %}{% if forloop.last %}{{ flow.due }} active{% else %}{{ flow.due }} due{% endif %}{% if flow.open %} · {{ flow.open }} open{% endif %}
           </dd>
         </div>
       {% endfor %}

@@ -37,7 +37,7 @@ What an Asset or Liability Account held on the day the user started recording it
 _Avoid_: Initial balance, starting amount
 
 **Balance**:
-What an Asset or Liability Account holds now: its Opening Balance moved by every Split into or out of it. For a Liability Account it is what the user owes.
+What an Asset or Liability Account holds now: its Opening Balance moved by every Split into or out of it. For a Liability Account it is what the user owes. Amounts shown for a Liability Account always read as what is owed: + is charged, − is paid off. A negative Balance is shown as in credit.
 _Avoid_: Total, net
 
 **Net Worth**:

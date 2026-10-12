@@ -132,3 +132,30 @@ def test_rows_for_an_expense_give_what_was_spent_and_no_balance() -> None:
         (Decimal(-20), None),
         (Decimal(300), None),
     ]
+
+
+def test_rows_read_a_liability_the_owed_way() -> None:
+    card = opening("Card", "liability", "5000")
+    bank = opening("Bank", "asset", "50000")
+    rent = make_account("Rent", "expense")
+    record(date(2026, 3, 1), card, rent, "2000", "Rent")
+    record(date(2026, 3, 2), bank, card, "10000", "Payment")
+    card = with_balance(card)
+
+    result = rows(card, newest_first(card))
+
+    assert [(r.change, r.balance_after) for r in result] == [
+        (Decimal(-10000), Decimal(-3000)),
+        (Decimal(2000), Decimal(7000)),
+    ]
+
+
+def test_bars_for_what_is_owed_never_show_below_zero_as_bad() -> None:
+    starts = [date(2026, 2, 1), date(2026, 3, 1)]
+
+    owed = bars(starts, [Decimal(100), Decimal(-50)], owes=True)
+    held = bars(starts, [Decimal(100), Decimal(-50)])
+
+    assert not owed[-1].negative
+    assert held[-1].negative
+    assert owed[-1].y == held[-1].y

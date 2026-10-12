@@ -10,7 +10,7 @@ from django.db import models
 from django.urls import reverse
 
 from apps.accounts.expected import upcoming_due, waiting_drafts
-from apps.accounts.models import BALANCE_KINDS, Account, AccountKind
+from apps.accounts.models import BALANCE_KINDS, Account
 from apps.cards.statements import (
     closing_dates,
     due_date,
@@ -67,7 +67,7 @@ class Breach:
     @property
     def owes(self) -> bool:
         """Whether it warns of owing too much rather than having too little."""
-        return self.account.kind == AccountKind.LIABILITY
+        return self.account.owes
 
 
 @dataclass(frozen=True)
@@ -235,7 +235,7 @@ def _breach(
     otherwise every card in debt would warn.
     """
     threshold = account.low_balance_threshold
-    owes = account.kind == AccountKind.LIABILITY
+    owes = account.owes
     if owes and not threshold:
         return None
     for day, balance in zip(days, balances, strict=True):
@@ -269,12 +269,10 @@ def forecast(start: date, length: int = DAYS) -> Forecast:
     rows = []
     breaches = []
     for account in accounts:
-        # A Liability's Balance is what is owed, so money moving in lowers it.
-        sign = -1 if account.kind == AccountKind.LIABILITY else 1
         balance = account.balance
         balances = []
         for day in days:
-            balance += sign * changes[account.pk][day]
+            balance += account.sign * changes[account.pk][day]
             balances.append(balance)
         rows.append(AccountForecast(account, balances))
         if breach := _breach(account, days, balances):

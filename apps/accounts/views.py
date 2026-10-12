@@ -153,6 +153,7 @@ def account_list(request: HttpRequest, kind: str) -> HttpResponse:
             "accounts": shown,
             "hidden": [account for account in listed if account.hidden],
             "balances": balances,
+            "owes": kind == Account.Kind.LIABILITY,
             "total": sum(
                 (a.balance if balances else a.this_month for a in shown), Decimal(0)
             ),
@@ -183,8 +184,7 @@ def _account_forecast(account: Account) -> dict[str, object] | None:
     row = next((r for r in result.accounts if r.account.pk == account.pk), None)
     if row is None:
         return None
-    owes = account.kind == Account.Kind.LIABILITY
-    worst = (max if owes else min)(
+    worst = (max if account.owes else min)(
         zip(result.days, row.balances, strict=True), key=lambda pair: pair[1]
     )
     return {
@@ -243,6 +243,7 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             else bars(
                 [m.start for m in history],
                 [m.balance if account.has_opening_balance else m.net for m in history],
+                owes=account.owes,
             ),
             "forecast": _account_forecast(account),
             "used_by": _used_by(account),

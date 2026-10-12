@@ -5,7 +5,7 @@
       <span class="flex items-baseline justify-between gap-3">
         <span class="truncate font-medium">{{ account.name }}</span>
         <span class="shrink-0 font-semibold tabular-nums">
-          {% if balances %}<span class="sr-only">Balance </span><span class="{% amount_color account.balance %}">{% amount account.balance %}</span>{% else %}{% amount account.this_month %}{% endif %}
+          {% if balances %}<span class="sr-only">Balance </span><span class="{% amount_color account.balance owes=account.owes %}">{% balance account.balance owes=account.owes %}</span>{% else %}{% amount account.this_month %}{% endif %}
         </span>
       </span>
       <span class="mt-0.5 flex items-center justify-between gap-3 text-xs text-slate-500">
@@ -14,7 +14,7 @@
         </span>
         <span class="shrink-0 tabular-nums">
           {% if balances %}
-            {% if account.this_month %}{% if not user.privacy_mode and account.this_month > 0 %}+{% endif %}{% amount account.this_month %} this month{% endif %}
+            {% if account.this_month %}{% signed_amount account.this_month account.owes|yesno:"down,up" %} this month{% endif %}
           {% elif account.last_month %}{% amount account.last_month %} last month{% endif %}
         </span>
       </span>
@@ -28,7 +28,7 @@
         <span class="mt-1.5 flex flex-wrap gap-1">
           {% if account.hidden %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Hidden</span>{% endif %}
           {% if balances and not account.include_in_net_worth %}<span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Excluded from Net Worth</span>{% endif %}
-          {% if balances and account.past_threshold %}<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">{% include "shell/icon.html" with name="alert" class="size-3" %}{% if account.kind == "liability" %}Owing over {% amount account.low_balance_threshold %}{% else %}Below {% amount account.low_balance_threshold %}{% endif %}</span>{% endif %}
+          {% if balances and account.past_threshold %}<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">{% include "shell/icon.html" with name="alert" class="size-3" %}{% if account.owes %}Owing over {% amount account.low_balance_threshold %}{% else %}Below {% amount account.low_balance_threshold %}{% endif %}</span>{% endif %}
         </span>
       {% endif %}
     </span>

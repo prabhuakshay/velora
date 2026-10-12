@@ -24,12 +24,12 @@
           <div class="mb-4 flex flex-wrap gap-1.5">
             {% if account.hidden %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Hidden</span>{% endif %}
             {% if balances and not account.include_in_net_worth %}<span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">Excluded from Net Worth</span>{% endif %}
-            {% if balances and account.past_threshold %}<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">{% include "shell/icon.html" with name="alert" class="size-3.5" %}{% if account.kind == "liability" %}Owing over {% amount account.low_balance_threshold %}{% else %}Below {% amount account.low_balance_threshold %}{% endif %}</span>{% endif %}
+            {% if balances and account.past_threshold %}<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">{% include "shell/icon.html" with name="alert" class="size-3.5" %}{% if account.owes %}Owing over {% amount account.low_balance_threshold %}{% else %}Below {% amount account.low_balance_threshold %}{% endif %}</span>{% endif %}
           </div>
         {% endif %}
         {% if balances %}
-          <p class="text-sm text-slate-500">Balance{% if account.kind == "liability" %} <span class="text-slate-400">· what you owe</span>{% endif %}</p>
-          <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color account.balance %}">{% amount account.balance %}</p>
+          <p class="text-sm text-slate-500">Balance{% if account.owes %} <span class="text-slate-400">· what you owe</span>{% endif %}</p>
+          <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color account.balance owes=account.owes %}">{% balance account.balance owes=account.owes %}</p>
           <p class="mt-2 text-sm text-slate-500">Opening Balance {% amount account.opening_balance %} on {{ account.opening_balance_date|date:"j M Y" }}</p>
         {% else %}
           <p class="text-sm text-slate-500">{% if kind == "expense" %}Spent{% else %}Earned{% endif %} in {{ this_month.start|date:"F" }}</p>
@@ -48,12 +48,12 @@
       <dl class="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:gap-3 [&::-webkit-scrollbar]:hidden">
         {% if balances %}
           <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
-            <dt class="truncate text-xs font-medium text-slate-500">{% if account.kind == "liability" %}Paid off{% else %}Money in{% endif %}</dt>
+            <dt class="truncate text-xs font-medium text-slate-500">{% if account.owes %}Paid off{% else %}Money in{% endif %}</dt>
             <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{% amount this_month.moved_in %}</dd>
             <dd class="text-xs text-slate-500">{{ this_month.start|date:"F" }}</dd>
           </div>
           <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
-            <dt class="truncate text-xs font-medium text-slate-500">{% if account.kind == "liability" %}Charged{% else %}Money out{% endif %}</dt>
+            <dt class="truncate text-xs font-medium text-slate-500">{% if account.owes %}Charged{% else %}Money out{% endif %}</dt>
             <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{% amount this_month.moved_out %}</dd>
             <dd class="text-xs text-slate-500">{{ this_month.start|date:"F" }}</dd>
           </div>
@@ -88,11 +88,11 @@
           <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div>
               <dt class="text-slate-500">By {{ forecast.end_day|date:"j M" }}</dt>
-              <dd class="mt-0.5 text-lg font-semibold tabular-nums {% amount_color forecast.end %}">{% amount forecast.end %}</dd>
+              <dd class="mt-0.5 text-lg font-semibold tabular-nums {% amount_color forecast.end owes=account.owes %}">{% balance forecast.end owes=account.owes %}</dd>
             </div>
             <div>
-              <dt class="text-slate-500">{% if account.kind == "liability" %}Most owed{% else %}Lowest{% endif %}</dt>
-              <dd class="mt-0.5 text-lg font-semibold tabular-nums {% amount_color forecast.worst %}">{% amount forecast.worst %} <span class="text-xs font-normal text-slate-500">{{ forecast.worst_day|date:"j M" }}</span></dd>
+              <dt class="text-slate-500">{% if account.owes %}Most owed{% else %}Lowest{% endif %}</dt>
+              <dd class="mt-0.5 text-lg font-semibold tabular-nums {% amount_color forecast.worst owes=account.owes %}">{% balance forecast.worst owes=account.owes %} <span class="text-xs font-normal text-slate-500">{{ forecast.worst_day|date:"j M" }}</span></dd>
             </div>
           </dl>
         </section>
@@ -106,7 +106,7 @@
         {% if user.privacy_mode %}
           <p class="mt-4 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
         {% else %}
-          {% include "accounts/_month_bars.html" with caption=balances|yesno:"Month-end balances,Totals by month" %}
+          {% include "accounts/_month_bars.html" with caption=balances|yesno:"Month-end balances,Totals by month" owes=account.owes %}
         {% endif %}
       </section>
 
@@ -127,13 +127,13 @@
                   <span class="min-w-0 flex-1">
                     <span class="flex items-baseline justify-between gap-3">
                       <span class="truncate font-medium"><span class="sr-only">{{ transaction.date|date:"j M Y" }} </span>{% include "transactions/_transaction_title.html" %}</span>
-                      <span class="shrink-0 font-semibold tabular-nums">{% if user.privacy_mode %}{% amount row.change %}{% elif balances and row.change > 0 %}<span class="text-emerald-600">+{% amount row.change %}</span>{% else %}{% amount row.change %}{% endif %}</span>
+                      <span class="shrink-0 font-semibold tabular-nums">{% if not balances %}{% amount row.change %}{% elif account.owes %}{% if not user.privacy_mode %}<span class="sr-only">{% if row.change > 0 %}Charged {% elif row.change < 0 %}Paid {% endif %}</span>{% endif %}{% signed_amount row.change "down" %}{% else %}{% signed_amount row.change %}{% endif %}</span>
                     </span>
                     <span class="mt-0.5 flex items-center justify-between gap-3 text-xs text-slate-500">
                       <span class="truncate">
                         {% for split in transaction.splits.all %}{% if not forloop.first %}, {% endif %}{% if split.from_account_id == account.pk %}to {{ split.to_account }}{% else %}from {{ split.from_account }}{% endif %}{% if transaction.splits.all|length > 1 %} <span class="tabular-nums">{% amount split.amount %}</span>{% endif %}{% endfor %}{% if transaction.party and transaction.description %} · {{ transaction.description }}{% endif %}
                       </span>
-                      {% if row.balance_after is not None %}<span class="shrink-0 tabular-nums {% amount_color row.balance_after %}">{% amount row.balance_after %}</span>{% endif %}
+                      {% if row.balance_after is not None %}<span class="shrink-0 tabular-nums {% amount_color row.balance_after owes=account.owes %}">{% balance row.balance_after owes=account.owes %}</span>{% endif %}
                     </span>
                   </span>
                 </a>
@@ -169,7 +169,7 @@
           {% if balances %}
             <div class="flex justify-between gap-3"><dt class="text-slate-500">Opened</dt> <dd class="text-right font-medium tabular-nums">{{ account.opening_balance_date|date:"j M Y" }}</dd></div>
             <div class="flex justify-between gap-3"><dt class="text-slate-500">Net Worth</dt> <dd class="text-right font-medium">{% if account.include_in_net_worth %}Included{% else %}Excluded{% endif %}</dd></div>
-            <div class="flex justify-between gap-3"><dt class="text-slate-500">{% if account.kind == "liability" %}Warn when owing over{% else %}Warn below{% endif %}</dt> <dd class="text-right font-medium tabular-nums">{% if account.kind == "liability" and not account.low_balance_threshold %}No warning{% else %}{% amount account.low_balance_threshold %}{% endif %}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-slate-500">{% if account.owes %}Warn when owing over{% else %}Warn below{% endif %}</dt> <dd class="text-right font-medium tabular-nums">{% if account.owes and not account.low_balance_threshold %}No warning{% else %}{% amount account.low_balance_threshold %}{% endif %}</dd></div>
           {% endif %}
           <div class="flex justify-between gap-3"><dt class="text-slate-500">Status</dt> <dd class="text-right font-medium">{% if account.hidden %}Hidden{% else %}In use{% endif %}</dd></div>
         </dl>

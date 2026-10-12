@@ -5,7 +5,7 @@
       <span class="flex items-baseline justify-between gap-3">
         <span class="truncate font-medium">{{ party.name }}</span>
         <span class="shrink-0 font-semibold tabular-nums">
-          {% if party.earned > party.spent %}<span class="sr-only">Received </span>{% if user.privacy_mode %}{% amount party.earned %}{% else %}<span class="text-emerald-600">+{% amount party.earned %}</span>{% endif %}{% elif party.spent %}<span class="sr-only">Spent </span>{% amount party.spent %}{% endif %}
+          {% if party.earned > party.spent %}<span class="sr-only">Received </span>{% signed_amount party.earned %}{% elif party.spent %}<span class="sr-only">Spent </span>{% amount party.spent %}{% endif %}
         </span>
       </span>
       <span class="mt-0.5 flex items-center justify-between gap-3 text-xs text-slate-500">

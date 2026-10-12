@@ -4,7 +4,7 @@
     <div class="mb-4 flex flex-wrap gap-1.5"><span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Hidden</span></div>
   {% endif %}
   <p class="text-sm text-slate-500">{% if activity.earns %}Received{% else %}Spent{% endif %} <span class="text-slate-400">· all time</span></p>
-  <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{% if activity.earns and not user.privacy_mode %}<span class="text-emerald-600">+{% amount activity.total %}</span>{% else %}{% amount activity.total %}{% endif %}</p>
+  <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{% if activity.earns %}{% signed_amount activity.total %}{% else %}{% amount activity.total %}{% endif %}</p>
   <p class="mt-2 text-sm text-slate-500">
     {% if activity.first %}Since {{ activity.first|date:"j M Y" }} · {% amount activity.this_month %} this month{% else %}Nothing recorded yet{% endif %}{% if activity.other > 0 %} · {% if activity.earns %}also spent{% else %}also received{% endif %} {% amount activity.other %}{% endif %}
   </p>

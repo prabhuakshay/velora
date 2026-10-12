@@ -1,2 +1,2 @@
 {% comment %}Income in green with a plus and Transfers muted, unless Privacy Mode hides which is which.{% endcomment %}
-{% if user.privacy_mode %}<span class="tabular-nums">{% amount transaction.total %}</span>{% elif transaction.is_income %}<span class="text-emerald-600 tabular-nums">+{% amount transaction.total %}</span>{% elif transaction.is_transfer %}<span class="text-slate-500 tabular-nums">{% amount transaction.total %}</span>{% else %}<span class="tabular-nums">{% amount transaction.total %}</span>{% endif %}
+<span class="tabular-nums">{% if transaction.is_income %}{% signed_amount transaction.total %}{% elif transaction.is_transfer %}{% signed_amount transaction.total "none" %}{% else %}{% amount transaction.total %}{% endif %}</span>

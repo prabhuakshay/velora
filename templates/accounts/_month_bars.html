@@ -1,6 +1,7 @@
 {% comment %}
   One column per month, each its own SVG so the month labels and tooltips stay
-  HTML. Bars are SVG attributes, as the CSP blocks inline styles.
+  HTML. Bars are SVG attributes, as the CSP blocks inline styles. owes shows a
+  Balance below zero as in credit.
 {% endcomment %}
 <div class="mt-4 flex h-40 items-stretch gap-1 sm:gap-1.5">
   {% for bar in bars %}
@@ -17,7 +18,7 @@
       <span class="mt-1.5 text-center text-[10px] leading-none {% if bar.current %}font-semibold text-slate-900{% else %}text-slate-500{% endif %}">{{ bar.start|date:"M"|slice:":1" }}<span class="hidden sm:inline">{{ bar.start|date:"M"|slice:"1:" }}</span></span>
       <span class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-lg bg-slate-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg group-hover:block group-focus-visible:block {% if forloop.counter <= 2 %}left-0{% elif forloop.revcounter <= 2 %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %}">
         <span class="text-white/70">{{ bar.start|date:"M Y" }}</span>
-        <span class="ml-1 font-semibold tabular-nums">{% if bar.value is None %}Not open{% else %}{% amount bar.value %}{% endif %}</span>
+        <span class="ml-1 font-semibold tabular-nums">{% if bar.value is None %}Not open{% else %}{% balance bar.value owes=owes %}{% endif %}</span>
       </span>
     </div>
   {% endfor %}
@@ -28,7 +29,7 @@
   <thead><tr><th scope="col">Month</th><th scope="col">Amount</th></tr></thead>
   <tbody>
     {% for bar in bars %}
-      <tr><td>{{ bar.start|date:"F Y" }}</td><td>{% if bar.value is None %}Not open{% else %}{% amount bar.value %}{% endif %}</td></tr>
+      <tr><td>{{ bar.start|date:"F Y" }}</td><td>{% if bar.value is None %}Not open{% else %}{% balance bar.value owes=owes %}{% endif %}</td></tr>
     {% endfor %}
   </tbody>
 </table></div>

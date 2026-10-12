@@ -220,6 +220,11 @@ class Account(models.Model):
         return self.kind in BALANCE_KINDS
 
     @property
+    def owes(self) -> bool:
+        """Whether its Balance is what is owed, so going up is bad."""
+        return self.kind == AccountKind.LIABILITY
+
+    @property
     def sign(self) -> int:
         """1 when money moving in grows this Account, -1 when it shrinks it."""
         return -1 if self.kind in OWING_KINDS else 1
@@ -232,7 +237,7 @@ class Account(models.Model):
         Needs the Balance from with_balance().
         """
         threshold = self.low_balance_threshold
-        if self.kind == AccountKind.LIABILITY:
+        if self.owes:
             return bool(threshold) and self.balance > threshold
         return self.kind == AccountKind.ASSET and self.balance < threshold
 

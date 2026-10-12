@@ -5,7 +5,7 @@
       <span class="flex items-baseline justify-between gap-3">
         <span class="truncate font-medium">{{ tag.name }}</span>
         <span class="shrink-0 font-semibold tabular-nums">
-          {% if tag.earned > tag.spent %}<span class="sr-only">Received </span>{% if user.privacy_mode %}{% amount tag.earned %}{% else %}<span class="text-emerald-600">+{% amount tag.earned %}</span>{% endif %}{% elif tag.spent %}<span class="sr-only">Spent </span>{% amount tag.spent %}{% endif %}
+          {% if tag.earned > tag.spent %}<span class="sr-only">Received </span>{% signed_amount tag.earned %}{% elif tag.spent %}<span class="sr-only">Spent </span>{% amount tag.spent %}{% endif %}
         </span>
       </span>
       <span class="mt-0.5 block truncate text-xs text-slate-500">{% if tag.split_count %}On {{ tag.split_count }} Split{{ tag.split_count|pluralize }} · last {{ tag.last_used|date:"j M Y" }}{% else %}Not on any Split yet{% endif %}</span>
