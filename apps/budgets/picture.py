@@ -1,4 +1,4 @@
-"""The month's budget picture: each Budget against what was Spent.
+"""The month's budget picture: each Budget against what was Spent and Expected.
 
 Every page, card and digest reads its Budget numbers from budget_picture, so
 nothing else recomputes them.
@@ -14,6 +14,7 @@ from django.db.models.functions import Lower
 from django.urls import reverse
 
 from apps.accounts.activity import month_end
+from apps.accounts.expected import expected_spending
 from apps.accounts.models import Account
 from apps.budgets.models import Budget
 
@@ -43,11 +44,12 @@ def state_of(budget: Decimal, spent: Decimal) -> State:
 
 @dataclass(frozen=True)
 class BudgetRow:
-    """One Expense Account's Budget for the month and what was Spent under it."""
+    """One Expense Account's Budget for the month, its Spent and its Expected."""
 
     account: Account
     budget: Decimal
     spent: Decimal
+    expected: Decimal
     # The month's Transactions under the Account, which make up the Spent.
     url: str
 
@@ -68,6 +70,8 @@ class BudgetPicture:
 
     month: date
     rows: list[BudgetRow]
+    # Across every Expense Account, Unbudgeted ones included.
+    total_expected: Decimal
 
 
 def budgets_in(month: date) -> dict[int, Decimal]:
@@ -85,6 +89,7 @@ def budget_picture(month: date) -> BudgetPicture:
     """The Budgets of the month starting on the given first day."""
     budgets = budgets_in(month)
     end = month_end(month)
+    expected = expected_spending(month, end)
     accounts = (
         Account.objects.filter(pk__in=budgets)
         .with_activity("spent", month, end)
@@ -98,9 +103,11 @@ def budget_picture(month: date) -> BudgetPicture:
                 account,
                 budgets[account.pk],
                 account.spent,
+                expected.get(account.pk, Decimal(0)),
                 f"{transactions}?"
                 + urlencode({"account": account.pk, "start": month, "end": end}),
             )
             for account in accounts
         ],
+        total_expected=sum(expected.values(), Decimal(0)),
     )

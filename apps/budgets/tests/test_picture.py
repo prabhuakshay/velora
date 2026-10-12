@@ -10,6 +10,8 @@ from apps.budgets.picture import State, budget_picture
 from apps.budgets.tests.conftest import JUNE, TODAY, move
 from apps.cards.tests.conftest import make_card, make_card_emi
 from apps.quick_add.tests.conftest import make_manual_draft
+from apps.schedules.occurrences import materialise_occurrences
+from apps.schedules.tests.conftest import make_schedule
 
 pytestmark = pytest.mark.django_db
 
@@ -166,3 +168,59 @@ def test_budgets_are_listed_by_name() -> None:
         set_budget(make_account(name, "expense"), Decimal(100), TODAY)
 
     assert list(budgets(JUNE)) == ["Fuel", "Groceries", "rent"]
+
+
+def test_expected_counts_whats_due_and_waiting_in_the_month() -> None:
+    bank = opening("Bank", "asset", "0")
+    rent = make_account("Rent", "expense")
+    set_budget(rent, Decimal(30000), TODAY)
+    make_schedule((bank, rent, "25000"), start_date=date(2026, 6, 28))
+    make_manual_draft((bank, rent, "400"), date=date(2026, 6, 2))
+    make_manual_draft((bank, rent, "900"), date=date(2026, 7, 1))
+    materialise_occurrences(TODAY)
+
+    (row,) = budget_picture(JUNE).rows
+
+    assert row.expected == Decimal(25400)
+
+
+def test_amountless_occurrences_and_drafts_add_nothing_to_expected() -> None:
+    bank = opening("Bank", "asset", "0")
+    power = make_account("Power", "expense")
+    set_budget(power, Decimal(3000), TODAY)
+    make_schedule((bank, power, None), start_date=date(2026, 6, 20))
+    make_manual_draft((bank, power, None), date=date(2026, 6, 18))
+    materialise_occurrences(TODAY)
+
+    (row,) = budget_picture(JUNE).rows
+
+    assert row.expected == Decimal(0)
+
+
+def test_expected_never_counts_as_spent_or_moves_the_state() -> None:
+    bank = opening("Bank", "asset", "0")
+    rent = make_account("Rent", "expense")
+    set_budget(rent, Decimal(1000), TODAY)
+    move(date(2026, 6, 3), bank, rent, "100")
+    make_manual_draft((bank, rent, "5000"), date=date(2026, 6, 20))
+
+    (row,) = budget_picture(JUNE).rows
+
+    assert (row.spent, row.expected, row.left) == (
+        Decimal(100),
+        Decimal(5000),
+        Decimal(900),
+    )
+    assert row.state == State.FINE
+
+
+def test_total_expected_includes_unbudgeted_accounts() -> None:
+    bank = opening("Bank", "asset", "0")
+    rent = make_account("Rent", "expense")
+    fun = make_account("Fun", "expense")
+    set_budget(rent, Decimal(30000), TODAY)
+    make_manual_draft((bank, rent, "25000"), date=date(2026, 6, 28))
+    make_manual_draft((bank, fun, "600"), date=date(2026, 6, 10))
+    make_manual_draft((bank, fun, "50"), date=date(2026, 5, 31))
+
+    assert budget_picture(JUNE).total_expected == Decimal(25600)
