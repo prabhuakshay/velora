@@ -99,7 +99,8 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
-addopts = ["--strict-markers", "--strict-config", "--cov"]
+# --cov first: its optional value would otherwise swallow the test path.
+addopts = ["--cov", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
     "error",
