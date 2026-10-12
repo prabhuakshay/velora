@@ -27,16 +27,16 @@ def test_an_occurrence_deleted_by_an_edit_gets_no_draft() -> None:
     occurrence.schedule.save()
     regenerate(occurrence.schedule, TODAY)
 
-    propose_draft(occurrence)
+    propose_draft(occurrence, TODAY)
 
     assert [draft.description for draft in Draft.objects.all()] == ["New rent"]
 
 
 def test_an_already_drafted_occurrence_gets_no_second_draft() -> None:
     occurrence = loaded_occurrence()
-    propose_draft(Occurrence.objects.get(pk=occurrence.pk))
+    propose_draft(Occurrence.objects.get(pk=occurrence.pk), TODAY)
 
-    propose_draft(occurrence)
+    propose_draft(occurrence, TODAY)
 
     assert Draft.objects.count() == 1
 
@@ -45,6 +45,6 @@ def test_an_occurrence_of_a_schedule_paused_since_loading_gets_no_draft() -> Non
     occurrence = loaded_occurrence()
     Schedule.objects.update(active=False)
 
-    propose_draft(occurrence)
+    propose_draft(occurrence, TODAY)
 
     assert not Draft.objects.exists()

@@ -56,7 +56,7 @@ def regenerate(schedule: Schedule, today: date) -> None:
     ).select_related("schedule")
     for occurrence in due:
         if not match_occurrence(occurrence):
-            propose_draft(occurrence)
+            propose_draft(occurrence, today)
 
 
 def materialise_occurrences(today: date) -> None:
@@ -69,11 +69,15 @@ def materialise_occurrences(today: date) -> None:
 
 
 @db_transaction.atomic
-def propose_draft(occurrence: Occurrence) -> None:
+def propose_draft(
+    occurrence: Occurrence, today: date, *, auto_post: bool = True
+) -> None:
     """Copy the Schedule into a Draft for the Occurrence, which is now Drafted.
 
-    An auto-post Schedule posts the Draft too, making the Occurrence Paid; if
-    posting is refused, the Draft waits for the user with the reason.
+    An auto-post Schedule posts the Draft too, making the Occurrence Paid,
+    but only while the due date is within grace; past it, or if posting is
+    refused, the Draft waits for the user. `auto_post=False` always leaves it
+    waiting.
     """
     # The Occurrence may have been loaded before a Schedule edit replaced it.
     current = (
@@ -115,7 +119,12 @@ def propose_draft(occurrence: Occurrence) -> None:
     )
     occurrence.status = Occurrence.Status.DRAFTED
     occurrence.save(update_fields=["status"])
-    if schedule.auto_post and schedule.amount is not None:
+    if (
+        auto_post
+        and schedule.auto_post
+        and schedule.amount is not None
+        and occurrence.due_date + timedelta(days=schedule.grace_days) >= today
+    ):
         try:
             post_draft(draft)
         except DraftNotPostableError as error:
@@ -130,4 +139,6 @@ def propose_due_drafts(today: date) -> None:
         due_date__lte=today,
         schedule__active=True,
     ).select_related("schedule")
-    run_each("propose_due_drafts", due, propose_draft)
+    run_each(
+        "propose_due_drafts", due, lambda occurrence: propose_draft(occurrence, today)
+    )

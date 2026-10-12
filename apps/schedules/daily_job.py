@@ -43,7 +43,10 @@ class DailyJobError(Exception):
 
 
 def run_daily_job(today: date) -> None:
-    """Run every step for `today`, catching up due dates still within grace.
+    """Run every step for `today`, catching up missed due dates.
+
+    Due dates still within grace are auto-posted; older ones get waiting
+    Drafts and are marked Missed.
 
     A failed step does not stop the later ones. The job raises afterwards, so
     it shows as failed; the next run catches up. The admins get one email
