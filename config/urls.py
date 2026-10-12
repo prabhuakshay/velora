@@ -33,5 +33,6 @@ urlpatterns = [
     path("", include("apps.quick_add.urls")),
     path("", include("apps.schedules.urls")),
     path("", include("apps.cards.urls")),
+    path("", include("apps.budgets.urls")),
     path(settings.ADMIN_URL, admin.site.urls),
 ]

@@ -138,6 +138,7 @@ module = [
     "apps.classification.admin",
     "apps.accounts.admin",
     "apps.transactions.admin",
+    "apps.budgets.admin",
     "config.storage",
 ]
 # SimpleHistoryAdmin and S3Storage are untyped.

@@ -167,6 +167,7 @@ class Account(models.Model):
     balance: Decimal
     this_month: Decimal
     last_month: Decimal
+    spent: Decimal
     last_used: date | None
 
     class Meta:

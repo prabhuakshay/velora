@@ -35,6 +35,7 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
         ),
         top("card", label="Subscriptions", url=reverse("subscription_list")),
         top("trend", label="Forecast", url=reverse("forecast")),
+        top("target", label="Budgets", url=reverse("budget_list")),
         top("wallet", label="Accounts", url=reverse("account_list", args=["asset"]))
         # The kind tabs on the page switch kinds, so any kind counts as here.
         | {"active": path.startswith("/accounts/")},

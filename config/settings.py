@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     "apps.quick_add",
     "apps.schedules",
     "apps.cards",
+    "apps.budgets",
     "apps.digest",
     "apps.home",
 ]
