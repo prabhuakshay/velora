@@ -40,8 +40,8 @@ def test_anonymous_is_redirected_to_login(
     assert response["Location"] == f"{reverse('login')}?next={url}"
 
 
-def test_sidebar_links_to_tags(signed_in: Client) -> None:
-    response = signed_in.get(reverse("index"))
+def test_parties_tab_bar_links_to_tags(signed_in: Client) -> None:
+    response = signed_in.get(reverse("party_list"))
 
     assert reverse("tag_list").encode() in response.content
 

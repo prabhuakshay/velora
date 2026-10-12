@@ -24,23 +24,7 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
     def top(
         icon: str, label: str, url: str, *, exact: bool = False, badge: str = ""
     ) -> dict[str, Any]:
-        item = leaf(label, url, exact=exact, badge=badge)
-        return item | {"icon": icon, "children": []}
-
-    # app_shell.js writes the sidebar sections the user expanded.
-    expanded = request.COOKIES.get("nav_expanded", "").split(".")
-
-    def group(icon: str, label: str, children: list[dict[str, Any]]) -> dict[str, Any]:
-        key = label.lower()
-        active = any(c["active"] for c in children)
-        return {
-            "icon": icon,
-            "key": key,
-            "label": label,
-            "active": active,
-            "open": active or key in expanded,
-            "children": children,
-        }
+        return leaf(label, url, exact=exact, badge=badge) | {"icon": icon}
 
     nav = [
         top("home", label="Home", url=reverse("index"), exact=True),
@@ -54,26 +38,22 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
         top("wallet", label="Accounts", url=reverse("account_list", args=["asset"]))
         # The kind tabs on the page switch kinds, so any kind counts as here.
         | {"active": path.startswith("/accounts/")},
-        group(
-            "tag",
-            "Classification",
-            [leaf("Parties", reverse("party_list")), leaf("Tags", reverse("tag_list"))],
-        ),
+        top("tag", label="Classification", url=reverse("party_list"))
+        # The Parties and Tags tabs on the page switch lists, so both count as here.
+        | {"active": path.startswith(("/parties/", "/tags/"))},
     ]
-    profile = group(
-        "user",
-        "Profile",
-        [
-            leaf("Preferences", reverse("preferences")),
-            leaf("Change password", reverse("password_change")),
-        ],
+    children = [
+        leaf("Preferences", reverse("preferences")),
+        leaf("Change password", reverse("password_change")),
+    ]
+    profile = {
+        "active": any(c["active"] for c in children),
+        "children": children,
+    }
+    title = next(
+        (item["label"] for item in nav if item["active"]),
+        "Profile" if profile["active"] else "Velora",
     )
-    title = "Profile" if profile["active"] else "Velora"
-    for item in nav:
-        if item["active"]:
-            title = next(
-                (c["label"] for c in item["children"] if c["active"]), item["label"]
-            )
     return {
         "nav_tabs": nav[:TAB_COUNT],
         "nav_more": nav[TAB_COUNT:],

@@ -55,37 +55,20 @@ def test_more_tab_is_active_on_a_page_that_lives_in_the_more_sheet(
     more_tab = body[: body.index("More\n")].rsplit("<button", 1)[1]
 
     assert "text-slate-900" in more_tab
-    assert f'href="{reverse("tag_list")}" aria-current="page"' in body
+    assert f'href="{reverse("party_list")}" aria-current="page"' in body
 
 
 def test_phone_title_names_the_current_page(signed_in: Client) -> None:
-    body = signed_in.get(reverse("tag_list")).content.decode()
+    body = signed_in.get(reverse("schedule_list")).content.decode()
 
-    assert '<p class="py-3 text-lg font-semibold tracking-tight">Tags</p>' in body
-
-
-def _classification_section(body: str) -> str:
-    return next(
-        line
-        for line in body.splitlines()
-        if 'data-nav-section="classification"' in line
-    )
+    assert '<p class="py-3 text-lg font-semibold tracking-tight">Schedules</p>' in body
 
 
-def test_sidebar_sections_start_collapsed(signed_in: Client) -> None:
-    body = signed_in.get(reverse("index")).content.decode()
+@pytest.mark.parametrize("name", ["party_list", "tag_list"])
+def test_classification_is_one_link_marked_on_parties_and_tags(
+    signed_in: Client, name: str
+) -> None:
+    body = signed_in.get(reverse(name)).content.decode()
 
-    assert not _classification_section(body).endswith(" open>")
-
-
-def test_sidebar_section_stays_expanded_from_cookie(signed_in: Client) -> None:
-    signed_in.cookies["nav_expanded"] = "classification"
-    body = signed_in.get(reverse("index")).content.decode()
-
-    assert _classification_section(body).endswith(" open>")
-
-
-def test_section_expands_when_it_holds_the_current_page(signed_in: Client) -> None:
-    body = signed_in.get(reverse("party_list")).content.decode()
-
-    assert _classification_section(body).endswith(" open>")
+    assert f'href="{reverse("party_list")}" aria-current="page"' in body
+    assert "Classification" in body
