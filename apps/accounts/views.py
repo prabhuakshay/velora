@@ -13,8 +13,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.accounts import forecast_view
 from apps.accounts.activity import bars, month_end, months, rows
-from apps.accounts.forecast import forecast
+from apps.accounts.forecast import DAYS, forecast
 from apps.accounts.forms import AccountForm
 from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
@@ -89,21 +90,38 @@ def home(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def forecast_page(request: HttpRequest) -> HttpResponse:
-    """Each Account's expected Balance for the coming days, and its warnings."""
-    result = forecast(timezone.localdate())
-    days = [
-        {
-            "day": day,
-            "balances": [row.balances[index] for row in result.accounts],
-            "amountless": [item for item in result.amountless if item.when == day],
-        }
-        for index, day in enumerate(result.days)
-    ]
+    """One Account's, or all Assets', expected Balance and what moves it."""
+    length = _choice(request.GET.get("days"), forecast_view.HORIZONS, DAYS)
+    result = forecast(timezone.localdate(), length)
+    account_pk = request.GET.get("account", "")
+    scope = forecast_view.scope_for(
+        result, int(account_pk) if account_pk.isdigit() else None
+    )
+    days = forecast_view.timeline(scope, result)
     return render(
         request,
         "accounts/forecast.html",
-        {"forecast": result, "days": days},
+        {
+            "forecast": result,
+            "length": length,
+            "scope": scope,
+            "days": days,
+            "totals": forecast_view.totals(days),
+            "worst": forecast_view.worst(scope, result),
+            "chart": forecast_view.chart(scope, result, days),
+            "rows": forecast_view.account_rows(result, scope.account, length),
+            "horizons": forecast_view.horizon_tabs(length, scope.account),
+            "all_url": f"{reverse('forecast')}?days={length}",
+            "unknown": sum(
+                entry.change is None for day in days for entry in day.entries
+            ),
+        },
     )
+
+
+def _choice(raw: str | None, choices: tuple[int, ...], default: int) -> int:
+    """The GET value when it is one of the choices, else the default."""
+    return int(raw) if raw and raw.isdigit() and int(raw) in choices else default
 
 
 KIND_TITLES = {

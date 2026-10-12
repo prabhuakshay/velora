@@ -2,49 +2,207 @@
 
 {% block title %}Forecast · Velora{% endblock %}
 
+{% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
+
 {% block main %}
-  <h1 class="text-2xl font-bold tracking-tight">Forecast</h1>
-  <p class="mt-1 text-sm text-slate-500">Expected Balances from upcoming Occurrences, waiting Drafts and card payments on their Due Days.</p>
+  {% with last=forecast.days|last first=forecast.days|first %}
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Forecast</h1>
+      <p class="mt-1 text-sm text-slate-500">Expected Balances from upcoming Occurrences, waiting Drafts and card bills.</p>
+    </div>
+    <nav aria-label="How far ahead">
+      <div class="inline-flex gap-1 rounded-xl bg-slate-200/60 p-1">
+        {% for tab in horizons %}
+          <a href="{{ tab.url }}" {% if tab.active %}aria-current="page"{% endif %} class="rounded-lg px-3 py-1.5 text-sm font-medium tabular-nums transition-colors {% if tab.active %}bg-white text-slate-900 shadow-sm{% else %}text-slate-600 hover:text-slate-900 active:bg-slate-200{% endif %}">{{ tab.days }} days</a>
+        {% endfor %}
+      </div>
+    </nav>
+  </div>
+
+  {% if not forecast.accounts %}
+    <div class="mt-6 flex flex-col items-center rounded-2xl bg-white px-6 py-12 text-center shadow-sm ring-1 ring-slate-200">
+      <span class="flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="trend" class="size-6" %}</span>
+      <p class="mt-4 font-semibold">No Asset or Liability Accounts to forecast yet</p>
+      <p class="mt-1 text-sm text-slate-500">Add a bank account or credit card to see where its Balance is heading.</p>
+      <a href="{% url 'account_create' 'asset' %}" class="btn-primary mt-5 inline-flex items-center gap-1.5 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Asset Account</a>
+    </div>
+  {% else %}
+
+  <nav class="-mx-4 mt-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden" aria-label="Accounts">
+    <div class="flex gap-1.5">
+      <a href="{{ all_url }}" {% if not scope.account %}aria-current="page"{% endif %} class="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium ring-1 transition-colors {% if not scope.account %}bg-slate-900 text-white ring-slate-900{% else %}bg-white text-slate-600 ring-slate-200 hover:text-slate-900{% endif %}">All Assets</a>
+      {% for row in rows %}
+        <a href="{{ row.url }}" {% if row.selected %}aria-current="page"{% endif %} class="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap ring-1 transition-colors {% if row.selected %}bg-slate-900 text-white ring-slate-900{% else %}bg-white text-slate-600 ring-slate-200 hover:text-slate-900{% endif %}">{% if row.breach %}<span class="size-1.5 rounded-full bg-red-500" aria-label="Warning"></span>{% endif %}{{ row.account }}</a>
+      {% endfor %}
+    </div>
+  </nav>
+
   {% if forecast.breaches %}
-    <section class="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-red-200" aria-labelledby="low-balance-heading">
-      <h2 id="low-balance-heading" class="font-semibold text-red-700">Low balance</h2>
-      <ul class="mt-2 space-y-1 text-sm">
+    <section class="mt-4 rounded-2xl bg-red-50 p-4 ring-1 ring-red-200" aria-labelledby="warnings-title">
+      <h2 id="warnings-title" class="flex items-center gap-2 font-semibold text-red-800">{% include "shell/icon.html" with name="alert" class="size-4" %}{{ forecast.breaches|length }} warning{{ forecast.breaches|length|pluralize }}</h2>
+      <ul class="mt-2 space-y-1.5 text-sm text-red-900">
         {% for breach in forecast.breaches %}
-          <li>{{ breach.account }} is expected {% if breach.owes %}to owe over{% else %}under{% endif %} {% amount breach.account.low_balance_threshold %} from {{ breach.on|date:"j M Y" }}: <span class="tabular-nums">{% amount breach.balance %}</span></li>
+          <li class="flex flex-wrap items-baseline justify-between gap-x-3">
+            <span>{{ breach.account }} is expected {% if breach.owes %}to owe over{% else %}under{% endif %} {% amount breach.account.low_balance_threshold %} from {{ breach.on|date:"j M Y" }}: <span class="font-semibold tabular-nums">{% amount breach.balance %}</span></span>
+            <a href="{% url 'forecast' %}?days={{ length }}&amp;account={{ breach.account.pk }}" class="shrink-0 font-medium text-red-700 hover:underline">See why</a>
+          </li>
         {% endfor %}
       </ul>
     </section>
   {% endif %}
-  {% if forecast.accounts %}
-    <div class="mt-4 overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-      <table class="w-full text-sm">
-        <thead class="text-left text-slate-600">
-          <tr>
-            <th scope="col" class="px-3 py-2 font-medium">Date</th>
-            {% for row in forecast.accounts %}
-              <th scope="col" class="px-3 py-2 text-right font-medium whitespace-nowrap">{{ row.account }}</th>
-            {% endfor %}
-            <th scope="col" class="px-3 py-2 font-medium">Amount unknown</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          {% for day in days %}
-            <tr>
-              <th scope="row" class="px-3 py-2 text-left font-normal whitespace-nowrap text-slate-600">{{ day.day|date:"j M Y" }}</th>
-              {% for balance in day.balances %}
-                <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap {% amount_color balance %}">{% amount balance %}</td>
+
+  <div class="mt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
+    <div class="space-y-4">
+      <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
+        <p class="text-sm text-slate-500">{% if scope.account %}{{ scope.account }}{% if scope.owes %} <span class="text-slate-400">· what you owe</span>{% endif %}{% else %}All Assets <span class="text-slate-400">· cash on hand</span>{% endif %}</p>
+        <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p class="text-4xl font-semibold tracking-tight tabular-nums {% amount_color scope.now %}">{% amount scope.now %}</p>
+          {% with end=scope.balances|last %}
+            <p class="flex items-center gap-1.5 text-lg font-medium tabular-nums text-slate-500">{% include "shell/icon.html" with name="arrow-right" class="size-4" %}<span class="{% amount_color end %}">{% amount end %}</span></p>
+          {% endwith %}
+        </div>
+        <p class="mt-2 text-sm text-slate-500">Today, and expected by {{ last|date:"j M Y" }}</p>
+        <div class="mt-5 flex flex-wrap gap-2">
+          {% if scope.account %}
+            <a href="{% url 'account_transactions' scope.account.kind scope.account.pk %}" class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name="wallet" class="size-4" %}Open Account</a>
+          {% endif %}
+          <a href="{% url 'schedule_create' %}" class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name="repeat" class="size-4" %}New Schedule</a>
+          <a href="{% url 'draft_create' %}" class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name="plus" class="size-4" %}Plan a one-off</a>
+        </div>
+      </section>
+
+      {% comment %}Swipes sideways on phones, where three tiles side by side would cut their amounts short.{% endcomment %}
+      <dl class="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:gap-3 [&::-webkit-scrollbar]:hidden">
+        <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+          <dt class="truncate text-xs font-medium text-slate-500">{% if scope.owes %}Charged{% else %}Money in{% endif %}</dt>
+          <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{% amount totals.up %}</dd>
+          <dd class="truncate text-xs text-slate-500">{% if scope.owes %}Paid off {% else %}Out {% endif %}{% amount totals.down %}</dd>
+        </div>
+        <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+          <dt class="truncate text-xs font-medium text-slate-500">{% if scope.owes %}Most owed{% else %}Lowest{% endif %}</dt>
+          <dd class="mt-1 truncate text-lg font-semibold tabular-nums {% amount_color worst.1 %}">{% amount worst.1 %}</dd>
+          <dd class="truncate text-xs text-slate-500">{{ worst.0|date:"D j M" }}</dd>
+        </div>
+        <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 {% if unknown %}ring-amber-200{% else %}ring-slate-200{% endif %} sm:w-auto">
+          <dt class="truncate text-xs font-medium text-slate-500">Amount unknown</dt>
+          <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{{ unknown }}</dd>
+          <dd class="truncate text-xs text-slate-500">{% if unknown %}Left out of the totals{% else %}Every amount counted{% endif %}</dd>
+        </div>
+      </dl>
+
+      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="chart-title">
+        <div class="flex items-baseline justify-between gap-3">
+          <h2 id="chart-title" class="font-semibold">Day by day</h2>
+          {% if chart.threshold is not None %}<span class="flex items-center gap-1.5 text-xs text-slate-500"><span class="h-0 w-4 border-t border-dashed border-red-400" aria-hidden="true"></span>{% if scope.owes %}Limit{% else %}Warn below{% endif %} {% amount scope.threshold %}</span>{% endif %}
+        </div>
+        {% if user.privacy_mode %}
+          <p class="mt-4 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
+        {% else %}
+          {% comment %}The line is one SVG; hover columns sit on top so each day's tooltip stays HTML. No inline styles, as the CSP blocks them.{% endcomment %}
+          <div class="relative mt-4 h-40">
+            <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+              <polygon points="{{ chart.area }}" class="fill-slate-100"/>
+              {% if chart.zero is not None %}<line x1="0" x2="{{ chart.width }}" y1="{{ chart.zero|stringformat:'.1f' }}" y2="{{ chart.zero|stringformat:'.1f' }}" class="stroke-slate-300" vector-effect="non-scaling-stroke"/>{% endif %}
+              {% if chart.threshold is not None %}<line x1="0" x2="{{ chart.width }}" y1="{{ chart.threshold|stringformat:'.1f' }}" y2="{{ chart.threshold|stringformat:'.1f' }}" class="stroke-red-400" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>{% endif %}
+              <polyline points="{{ chart.points }}" fill="none" class="stroke-slate-900" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+            </svg>
+            <div class="absolute inset-0 flex">
+              {% for column in chart.columns %}
+                <div tabindex="0" class="group relative flex-1 outline-hidden">
+                  <span class="absolute inset-y-0 left-1/2 w-px bg-slate-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"></span>
+                  {% if column.busy %}<span class="absolute -bottom-2 left-1/2 size-1 -translate-x-1/2 rounded-full bg-slate-400"></span>{% endif %}
+                  <span class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-lg bg-slate-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg group-hover:block group-focus-visible:block {% if forloop.counter <= 3 %}left-0{% elif forloop.revcounter <= 3 %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %}">
+                    <span class="text-white/70">{{ column.day|date:"D j M" }}</span>
+                    <span class="ml-1 font-semibold tabular-nums">{% amount column.balance %}</span>
+                  </span>
+                </div>
               {% endfor %}
-              <td class="px-3 py-2">
-                {% for item in day.amountless %}
-                  <a href="{{ item.url }}" class="block hover:underline">{{ item.label }} ₹?</a>
-                {% endfor %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+            </div>
+          </div>
+          <div class="mt-3 flex justify-between text-xs text-slate-500">
+            <span>{{ first|date:"j M" }}</span>
+            <span>{{ last|date:"j M" }}</span>
+          </div>
+          <div class="sr-only"><table>
+            <caption>Expected Balance each day</caption>
+            <thead><tr><th scope="col">Date</th><th scope="col">Balance</th></tr></thead>
+            <tbody>
+              {% for column in chart.columns %}
+                <tr><td>{{ column.day|date:"j M Y" }}</td><td>{% amount column.balance %}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table></div>
+        {% endif %}
+      </section>
+
+      <section class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="timeline-title">
+        <div class="flex items-baseline justify-between gap-3 px-4 pt-4 md:px-5">
+          <h2 id="timeline-title" class="font-semibold">What's coming</h2>
+          {% if days %}<span class="text-xs text-slate-500">Balance at day's end</span>{% endif %}
+        </div>
+        {% for day in days %}
+          <div class="mt-2 flex items-baseline justify-between gap-3 border-t border-slate-100 bg-slate-50 px-4 py-1.5 text-xs md:px-5">
+            <h3 class="font-semibold text-slate-700">{{ day.day|date:"D j M" }} <span class="font-normal text-slate-500">· {% if day.ahead == 0 %}Today{% elif day.ahead == 1 %}Tomorrow{% else %}in {{ day.ahead }} days{% endif %}</span></h3>
+            <span class="font-semibold tabular-nums {% amount_color day.balance %}">{% amount day.balance %}</span>
+          </div>
+          <ul class="divide-y divide-slate-100">
+            {% for entry in day.entries %}
+              <li>
+                <a href="{{ entry.url }}" class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50 active:bg-slate-100 md:px-5">
+                  <span class="flex size-9 shrink-0 items-center justify-center rounded-full {% if entry.change is None %}bg-amber-50 text-amber-700{% else %}bg-slate-100 text-slate-500{% endif %}" aria-hidden="true">
+                    {% if entry.source == "schedule" %}{% include "shell/icon.html" with name="repeat" class="size-4" %}{% elif entry.source == "card" %}{% include "shell/icon.html" with name="card" class="size-4" %}{% elif entry.change is None %}{% include "shell/icon.html" with name="alert" class="size-4" %}{% else %}{% include "shell/icon.html" with name="inbox" class="size-4" %}{% endif %}
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="flex items-baseline justify-between gap-3">
+                      <span class="truncate font-medium">{{ entry.label }}</span>
+                      <span class="shrink-0 font-semibold tabular-nums">{% if entry.change is None %}<span class="text-amber-700">₹?</span>{% elif entry.good and not user.privacy_mode %}<span class="text-emerald-600">{% if entry.change > 0 %}+{% endif %}{% amount entry.change %}</span>{% elif not entry.change %}<span class="text-slate-400">{% amount entry.change %}</span>{% else %}{% amount entry.change %}{% endif %}</span>
+                    </span>
+                    <span class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-500">
+                      {% if entry.overdue_since %}<span class="rounded-full bg-red-50 px-1.5 py-0.5 font-medium text-red-700">Overdue since {{ entry.overdue_since|date:"j M" }}</span>{% endif %}
+                      {% if entry.change is None %}<span class="rounded-full bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">Set its amount</span>{% elif entry.estimated %}<span class="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600">Estimate</span>{% endif %}
+                      {% if entry.change == 0 %}<span>Transfer</span> ·{% endif %}
+                      <span class="truncate">{% if entry.accounts|length == 1 %}{{ entry.accounts.0 }}{% elif entry.accounts %}{{ entry.accounts|length }} parts{% endif %}</span>
+                    </span>
+                  </span>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% empty %}
+          <div class="flex flex-col items-center px-6 py-12 text-center">
+            <span class="flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="calendar" class="size-6" %}</span>
+            <p class="mt-4 font-semibold">Nothing expected in the next {{ length }} days</p>
+            <p class="mt-1 text-sm text-slate-500">Add a Schedule for rent, bills or salary to see them here.</p>
+          </div>
+        {% endfor %}
+      </section>
     </div>
-  {% else %}
-    <p class="mt-4 text-slate-500">No Asset or Liability Accounts to forecast yet.</p>
+
+    <aside class="mt-4 lg:sticky lg:top-0 lg:mt-0">
+      <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="accounts-title">
+        <h2 id="accounts-title" class="px-4 pt-4 text-xs font-semibold tracking-wide text-slate-500 uppercase md:px-5">Accounts by {{ last|date:"j M" }}</h2>
+        <ul class="mt-2 divide-y divide-slate-100">
+          {% for row in rows %}
+            <li>
+              <a href="{{ row.url }}" {% if row.selected %}aria-current="true"{% endif %} class="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 md:px-5 {% if row.selected %}bg-slate-50{% endif %}">
+                {% include "accounts/_avatar.html" with account=row.account size="size-8" %}
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-medium">{{ row.account }}</span>
+                  <span class="block truncate text-xs tabular-nums text-slate-500">{% amount row.now %} now</span>
+                </span>
+                <span class="shrink-0 text-right">
+                  <span class="block font-semibold tabular-nums {% amount_color row.end %}">{% amount row.end %}</span>
+                  {% if row.breach %}<span class="block text-xs font-medium text-red-700">{% if row.breach.owes %}Over limit{% else %}Low{% endif %} {{ row.breach.on|date:"j M" }}</span>{% endif %}
+                </span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="px-4 pt-1 pb-3 text-xs text-slate-400 md:px-5">Tap one to follow just that Account.</p>
+      </section>
+    </aside>
+  </div>
   {% endif %}
+  {% endwith %}
 {% endblock %}

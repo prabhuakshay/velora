@@ -322,3 +322,26 @@ def test_a_statement_is_still_estimated_from_recorded_activity_only() -> None:
     create_statements(date(2026, 10, 16))
 
     assert card.statements.get().estimated_amount == Decimal(12000)
+
+
+def test_a_schedule_is_forecast_past_its_stored_occurrences() -> None:
+    savings = bank()
+    make_schedule(
+        (savings, make_account("Prime", "expense"), "1500"),
+        start_date=date(2026, 10, 20),
+        description="Prime",
+    )
+    materialise_occurrences(TODAY)
+
+    result = forecast(TODAY, 90)
+
+    prime = [move.when for move in result.moves if move.label == "Prime"]
+    assert prime == [date(2026, 10, 20), date(2026, 11, 20), date(2026, 12, 20)]
+    assert balance_on(result, savings, date(2026, 12, 29)) == Decimal(45500)
+
+
+def test_a_paused_schedule_is_not_forecast() -> None:
+    savings = bank()
+    make_schedule((savings, make_account("Prime", "expense"), "1500"), active=False)
+
+    assert forecast(TODAY, 90).moves == []

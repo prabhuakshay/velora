@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.db import models
+from django.db.models import Max
 from django.urls import reverse
 
 from apps.accounts.models import BALANCE_KINDS, Account, AccountKind
@@ -14,11 +16,20 @@ from apps.cards.statements import (
     estimate_statement_amount,
     previous_closing,
 )
-from apps.quick_add.models import Draft
+from apps.quick_add.models import Draft, DraftSplit
 from apps.schedules.estimates import last_paid_amount
-from apps.schedules.models import Occurrence
+from apps.schedules.models import Occurrence, Schedule, ScheduleSplit
+from apps.schedules.repeat import due_dates
 
 DAYS = 30
+
+
+class Source(models.TextChoices):
+    """Where an expected Move comes from."""
+
+    SCHEDULE = "schedule", "Schedule"
+    DRAFT = "draft", "Draft"
+    CARD = "card", "Card bill"
 
 
 @dataclass(frozen=True)
@@ -40,6 +51,7 @@ class Item:
     label: str
     amount: Decimal | None
     url: str
+    account_ids: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -57,6 +69,28 @@ class Breach:
 
 
 @dataclass(frozen=True)
+class Move:
+    """Money expected to move on a date, and where to act on it.
+
+    Estimated when the amount is a guess: an open amount's last paid amount,
+    or a card's Statement Amount so far.
+    """
+
+    when: date
+    from_account_id: int | None
+    to_account_id: int | None
+    amount: Decimal
+    label: str
+    url: str
+    source: Source
+    estimated: bool = False
+    # Left out of a Statement Amount, like their recorded Transactions: a
+    # Statement's payment pays an earlier period and a Card EMI's charges are
+    # already billed with its installment.
+    off_statement: bool = False
+
+
+@dataclass(frozen=True)
 class Forecast:
     """Each Account's expected Balances over the days from the start date."""
 
@@ -64,39 +98,50 @@ class Forecast:
     accounts: list[AccountForecast]
     amountless: list[Item]
     breaches: list[Breach]
+    moves: list[Move]
 
 
-@dataclass(frozen=True)
-class _Move:
-    when: date
-    from_account_id: int | None
-    to_account_id: int | None
-    amount: Decimal
-    # Left out of a Statement Amount, like their recorded Transactions: a
-    # Statement's payment pays an earlier period and a Card EMI's charges are
-    # already billed with its installment.
-    off_statement: bool = False
+def _due(start: date, end: date) -> list[tuple[date, Schedule]]:
+    """Each active Schedule's Upcoming due dates by the end.
+
+    Occurrences are only stored DAYS_AHEAD, so later due dates are worked out
+    from the Schedule, after its last stored Occurrence.
+    """
+    schedules = (
+        Schedule.objects.filter(active=True)
+        .select_related("party")
+        .prefetch_related("splits")
+        .annotate(last_due=Max("occurrences__due_date"))
+    )
+    by_pk = {schedule.pk: schedule for schedule in schedules}
+    due: list[tuple[date, Schedule]] = [
+        (occurrence.due_date, by_pk[occurrence.schedule_id])
+        for occurrence in Occurrence.objects.filter(
+            status=Occurrence.Status.UPCOMING,
+            schedule__in=by_pk,
+            due_date__lte=end,
+        )
+    ]
+    for schedule in schedules:
+        since = (
+            schedule.last_due + timedelta(days=1)
+            if schedule.last_due
+            else max(filter(None, [schedule.start_date, schedule.resumed_on, start]))
+        )
+        due += [(when, schedule) for when in due_dates(schedule, since, end)]
+    return due
 
 
-def _occurrence_moves(start: date, end: date, amountless: list[Item]) -> list[_Move]:
+def _occurrence_moves(start: date, end: date, amountless: list[Item]) -> list[Move]:
     """Upcoming Occurrences; a Drafted one is counted by its Draft instead.
 
     An open amount is estimated from the last amount paid by the start.
     """
-    occurrences = (
-        Occurrence.objects.filter(
-            status=Occurrence.Status.UPCOMING,
-            schedule__active=True,
-            due_date__lte=end,
-        )
-        .select_related("schedule__party")
-        .prefetch_related("schedule__splits")
-    )
     estimates: dict[int, Decimal | None] = {}
     moves = []
-    for occurrence in occurrences:
-        schedule = occurrence.schedule
-        unknown = False
+    for due, schedule in _due(start, end):
+        url = reverse("schedule_detail", args=[schedule.pk])
+        unknown: set[int] = set()
         for split in schedule.splits.all():
             amount = split.amount
             if amount is None:
@@ -104,29 +149,31 @@ def _occurrence_moves(start: date, end: date, amountless: list[Item]) -> list[_M
                     estimates[split.pk] = last_paid_amount(split, start)
                 amount = estimates[split.pk]
             if amount is None:
-                unknown = True
+                unknown |= _account_ids(split)
                 continue
             moves.append(
-                _Move(
-                    occurrence.due_date,
+                Move(
+                    due,
                     split.from_account_id,
                     split.to_account_id,
                     amount,
+                    str(schedule),
+                    url,
+                    Source.SCHEDULE,
+                    estimated=split.amount is None,
                 )
             )
         if unknown:
-            amountless.append(
-                Item(
-                    occurrence.due_date,
-                    str(schedule),
-                    None,
-                    reverse("schedule_detail", args=[schedule.pk]),
-                )
-            )
+            amountless.append(Item(due, str(schedule), None, url, frozenset(unknown)))
     return moves
 
 
-def _draft_moves(end: date, amountless: list[Item]) -> list[_Move]:
+def _account_ids(split: ScheduleSplit | DraftSplit) -> set[int]:
+    ends = (split.from_account_id, split.to_account_id)
+    return {pk for pk in ends if pk is not None}
+
+
+def _draft_moves(end: date, amountless: list[Item]) -> list[Move]:
     drafts = (
         Draft.objects.waiting()
         .filter(date__lte=end)
@@ -136,23 +183,24 @@ def _draft_moves(end: date, amountless: list[Item]) -> list[_Move]:
     moves = []
     for draft in drafts:
         splits = list(draft.splits.all())
-        if any(split.amount is None for split in splits):
+        url = reverse("draft_edit", args=[draft.pk])
+        if unknown := {
+            pk for split in splits if split.amount is None for pk in _account_ids(split)
+        }:
             amountless.append(
-                Item(
-                    draft.date,
-                    draft.label,
-                    None,
-                    reverse("draft_edit", args=[draft.pk]),
-                )
+                Item(draft.date, draft.label, None, url, frozenset(unknown))
             )
         off_statement = draft.source in (Draft.Source.STATEMENT, Draft.Source.CARD_EMI)
         moves += [
-            _Move(
+            Move(
                 draft.date,
                 split.from_account_id,
                 split.to_account_id,
                 split.amount,
-                off_statement,
+                draft.label,
+                url,
+                Source.DRAFT,
+                off_statement=off_statement,
             )
             for split in splits
             if split.amount is not None
@@ -161,7 +209,7 @@ def _draft_moves(end: date, amountless: list[Item]) -> list[_Move]:
 
 
 def _expected_on_card(
-    card: Account, start: date, end: date, moves: list[_Move]
+    card: Account, start: date, end: date, moves: list[Move]
 ) -> Decimal:
     """What the expected moves add to the card's Statement Amount for the period."""
     total = Decimal(0)
@@ -175,7 +223,7 @@ def _expected_on_card(
     return total
 
 
-def _card_moves(start: date, end: date, expected: list[_Move]) -> list[_Move]:
+def _card_moves(start: date, end: date, expected: list[Move]) -> list[Move]:
     """Payments of the Statements not stored yet whose Due Day falls by the end.
 
     A stored Statement's payment is counted by its Draft, or already recorded.
@@ -197,7 +245,18 @@ def _card_moves(start: date, end: date, expected: list[_Move]) -> list[_Move]:
                 card, period_start, closing
             ) + _expected_on_card(card, period_start, closing, expected)
             if amount > 0:
-                moves.append(_Move(due, card.pays_from_id, card.pk, amount))
+                moves.append(
+                    Move(
+                        due,
+                        card.pays_from_id,
+                        card.pk,
+                        amount,
+                        f"{card} bill",
+                        reverse("account_transactions", args=[card.kind, card.pk]),
+                        Source.CARD,
+                        estimated=True,
+                    )
+                )
             previous = closing
     return moves
 
@@ -220,9 +279,9 @@ def _breach(
     return None
 
 
-def forecast(start: date) -> Forecast:
-    """Each visible Asset and Liability Account's Balance from start for DAYS days."""
-    days = [start + timedelta(days=offset) for offset in range(DAYS)]
+def forecast(start: date, length: int = DAYS) -> Forecast:
+    """Each visible Asset and Liability Account's Balance from start for length days."""
+    days = [start + timedelta(days=offset) for offset in range(length)]
     accounts = list(
         Account.objects.filter(kind__in=BALANCE_KINDS, hidden=False)
         .with_balance(start)
@@ -257,4 +316,5 @@ def forecast(start: date) -> Forecast:
             breaches.append(breach)
     amountless.sort(key=lambda item: item.when)
     breaches.sort(key=lambda breach: breach.on)
-    return Forecast(days, rows, amountless, breaches)
+    moves.sort(key=lambda move: move.when)
+    return Forecast(days, rows, amountless, breaches, moves)

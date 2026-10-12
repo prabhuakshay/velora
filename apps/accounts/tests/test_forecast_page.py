@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def page_text(signed_in: Client) -> str:
-    response = signed_in.get(reverse("forecast"))
+def page_text(signed_in: Client, query: str = "") -> str:
+    response = signed_in.get(reverse("forecast") + query)
     return " ".join(strip_tags(response.content.decode()).split())
 
 
@@ -33,10 +33,14 @@ def bank(opening: str = "1250000", threshold: str = "0") -> Account:
 
 
 def dentist_in_three_days(source: Account, amount: str | None) -> None:
+    dentist_in(3, source, amount)
+
+
+def dentist_in(days: int, source: Account, amount: str | None = "300000") -> None:
     make_manual_draft(
         (source, make_account("Dentist", "expense"), amount),
         description="Dentist",
-        date=timezone.localdate() + timedelta(days=3),
+        date=timezone.localdate() + timedelta(days=days),
     )
 
 
@@ -98,3 +102,77 @@ def test_a_card_warns_it_is_expected_to_owe_over_its_limit(
     text = page_text(signed_in)
 
     assert f"Card is expected to owe over ₹50,000.00 from {when:%-d %b %Y}" in text
+
+
+def test_the_timeline_lists_what_moves_the_balance_and_where(
+    signed_in: Client,
+) -> None:
+    dentist_in_three_days(bank(), "300000")
+
+    text = page_text(signed_in)
+
+    assert "₹12,50,000.00 ₹9,50,000.00" in text
+    assert "Dentist -₹3,00,000.00 Bank → Dentist" in text
+    assert "Money in ₹0.00 Out ₹3,00,000.00" in text
+
+
+def test_a_longer_horizon_reaches_further(signed_in: Client) -> None:
+    dentist_in(60, bank())
+
+    assert "Dentist" not in page_text(signed_in)
+    assert "Dentist" in page_text(signed_in, "?days=90")
+    assert "Dentist" not in page_text(signed_in, "?days=45")
+
+
+def test_choosing_an_account_follows_only_its_moves(signed_in: Client) -> None:
+    savings = bank()
+    card = make_account("Card", "liability")
+    dentist_in(3, card, "5000")
+    make_manual_draft(
+        (savings, make_account("Gym", "expense"), "7000"),
+        date=timezone.localdate() + timedelta(days=4),
+    )
+
+    text = page_text(signed_in, f"?account={card.pk}")
+
+    assert "Card · what you owe" in text
+    assert "₹5,000.00 Card → Dentist" in text
+    assert "Bank → Gym" not in text
+    assert "Charged ₹5,000.00 Paid off ₹0.00" in text
+
+
+def test_an_overdue_draft_lands_on_today(signed_in: Client) -> None:
+    dentist_in(-2, bank())
+    since = timezone.localdate() - timedelta(days=2)
+
+    text = page_text(signed_in)
+
+    assert f"Overdue since {since:%-d %b}" in text
+    assert "· Today" in text
+
+
+def test_an_amountless_draft_asks_for_its_amount(signed_in: Client) -> None:
+    dentist_in_three_days(bank(), None)
+
+    text = page_text(signed_in)
+
+    assert "Amount unknown 1 Left out of the totals" in text
+    assert "Dentist ₹? Set its amount" in text
+
+
+def test_with_nothing_expected_the_timeline_says_so(signed_in: Client) -> None:
+    bank()
+
+    assert "Nothing expected in the next 30 days" in page_text(signed_in)
+
+
+def test_without_accounts_it_offers_to_add_one(signed_in: Client) -> None:
+    assert "No Asset or Liability Accounts to forecast yet" in page_text(signed_in)
+
+
+def test_privacy_mode_hides_the_chart(signed_in: Client, user: User) -> None:
+    bank()
+    user.privacy_mode = True
+    user.save()
+
+    assert "Hidden in Privacy Mode" in page_text(signed_in)
