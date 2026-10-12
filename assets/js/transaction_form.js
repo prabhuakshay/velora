@@ -56,6 +56,9 @@
   });
   // Page loads, boosted page swaps and added Split rows.
   document.addEventListener("htmx:load", updateTotal);
+  // Only form pages load this script, and a boosted visit adds it after that
+  // page's htmx:load has fired.
+  updateTotal();
 
   for (const [type, dragging] of [["dragenter", true], ["dragleave", false], ["drop", false]]) {
     document.addEventListener(type, (e) => {

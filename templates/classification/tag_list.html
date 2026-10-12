@@ -2,6 +2,10 @@
 
 {% block title %}Tags · Velora{% endblock %}
 
+{% block scripts %}
+    <script src="{% static 'js/list_filter.js' %}" defer hx-preserve="true"></script>
+{% endblock %}
+
 {% block main %}
   <div class="flex items-end justify-between gap-3">
     <div class="min-w-0">

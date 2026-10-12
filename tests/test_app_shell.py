@@ -1,8 +1,12 @@
+import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.messages.storage.base import Message
+from django.contrib.staticfiles import finders
 from django.template.loader import render_to_string
 from django.test import RequestFactory
 from django.urls import reverse
@@ -72,3 +76,47 @@ def test_classification_is_one_link_marked_on_parties_and_tags(
 
     assert f'href="{reverse("party_list")}" aria-current="page"' in body
     assert "Classification" in body
+
+
+PAGE_SCRIPTS = [
+    "attachment_limit.js",
+    "transaction_list.js",
+    "transaction_form.js",
+    "list_filter.js",
+    "budget_sheet.js",
+]
+
+
+def test_no_page_loads_alpine(signed_in: Client) -> None:
+    body = signed_in.get(reverse("index")).content.decode()
+
+    assert "alpine" not in body.lower()
+
+
+def test_every_script_a_template_names_exists() -> None:
+    templates = Path(settings.BASE_DIR, "templates").rglob("*.html")
+    named = {
+        name
+        for template in templates
+        for name in re.findall(r"{% static 'js/([^']+\.js)' %}", template.read_text())
+    }
+
+    assert set(PAGE_SCRIPTS) <= named
+    # Vendored by npm, which CI doesn't run.
+    assert [
+        name for name in named - {"htmx.min.js"} if not finders.find(f"js/{name}")
+    ] == []
+
+
+def test_home_loads_only_shared_scripts(signed_in: Client) -> None:
+    body = signed_in.get(reverse("index")).content.decode()
+
+    assert "js/app_shell.js" in body
+    assert [name for name in PAGE_SCRIPTS if f"js/{name}" in body] == []
+
+
+def test_budgets_page_loads_budget_sheet(signed_in: Client) -> None:
+    body = signed_in.get(reverse("budget_list")).content.decode()
+
+    tag = next(line for line in body.splitlines() if "js/budget_sheet.js" in line)
+    assert 'hx-preserve="true"' in tag

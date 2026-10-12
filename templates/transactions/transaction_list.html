@@ -8,6 +8,10 @@
 
 {% block title %}Transactions · Velora{% endblock %}
 
+{% block scripts %}
+    <script src="{% static 'js/transaction_list.js' %}" defer hx-preserve="true"></script>
+{% endblock %}
+
 {% block main_width %}{% endblock %}
 
 {% block main %}

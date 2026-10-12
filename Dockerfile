@@ -113,6 +113,8 @@ COPY config/ config/
 COPY apps/ apps/
 COPY templates/ templates/
 COPY --from=assets /app/static/ static/
+COPY assets/js/ assets/js/
+COPY assets/icons/ assets/icons/
 COPY docker/gunicorn.conf.py docker/
 
 # Settings require these at import time; they exist for this command only and

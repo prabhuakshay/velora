@@ -2,6 +2,10 @@
 
 {% block title %}Budgets · Velora{% endblock %}
 
+{% block scripts %}
+    <script src="{% static 'js/budget_sheet.js' %}" defer hx-preserve="true"></script>
+{% endblock %}
+
 {% block main_width %}max-w-2xl lg:max-w-6xl{% endblock %}
 
 {% block main %}

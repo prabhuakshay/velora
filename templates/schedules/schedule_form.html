@@ -2,6 +2,10 @@
 
 {% block title %}{% if suggestion %}Confirm Suggested Schedule{% elif schedule %}Edit Schedule{% else %}New Schedule{% endif %} · Velora{% endblock %}
 
+{% block scripts %}
+    <script src="{% static 'js/transaction_form.js' %}" defer hx-preserve="true"></script>
+{% endblock %}
+
 {% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
 
 {% block main %}

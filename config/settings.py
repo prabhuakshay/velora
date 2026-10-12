@@ -241,8 +241,14 @@ USE_TZ = True
 # Static files are served by WhiteNoise; run `collectstatic` before deploying.
 STATIC_URL = env.str("STATIC_URL", default="static/")
 STATIC_ROOT = env.path("STATIC_ROOT", default=BASE_DIR / "staticfiles")
-# Built by the tailwind container (npm run build/watch); not in git.
-STATICFILES_DIRS = [BASE_DIR / "static"]
+# Page scripts and icons are served straight from assets/, so edits show up
+# without a rebuild. static/ holds the built CSS and vendored htmx from the
+# tailwind container (npm run build/watch); not in git.
+STATICFILES_DIRS = [
+    ("js", BASE_DIR / "assets/js"),
+    ("icons", BASE_DIR / "assets/icons"),
+    BASE_DIR / "static",
+]
 
 # Attachments live in a private Cloudflare R2 bucket, in dev (a separate test
 # bucket) as in production (ADR 0004). Blank values only fail when storage is
