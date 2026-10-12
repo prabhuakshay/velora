@@ -9,6 +9,7 @@ from apps.accounts.tests.conftest import make_account, page_text
 from apps.accounts.tests.test_balance import opening
 from apps.budgets.tests.conftest import move
 from apps.budgets.tests.test_budgets_page import budgets_text, set_on
+from apps.quick_add.tests.conftest import make_manual_draft
 from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 from apps.users.tests.test_privacy_mode import MASK
 
@@ -47,8 +48,24 @@ def test_the_overall_budget_shows_budget_spent_and_left(signed_in: Client) -> No
 
     text = budgets_text(signed_in)
     assert "Saved the Overall Budget." in text
-    assert "Overall Budget Budget ₹50,000.00 · Spent ₹4,000.00 ₹46,000.00 left" in text
+    assert "Overall Budget Budget ₹50,000.00 · Spent ₹4,000.00" in text
+    assert "₹46,000.00 left" in text
     assert "Unbudgeted ₹1,500.00" in text
+
+
+def test_the_overall_budget_shows_all_that_is_expected(signed_in: Client) -> None:
+    today = timezone.localdate()
+    bank = opening("Bank", "asset", "0")
+    rent = make_account("Rent", "expense")
+    set_on(signed_in, rent, "30000")
+    make_manual_draft((bank, rent, "25000"), date=today)
+    make_manual_draft((bank, make_account("Fun", "expense"), "700"), date=today)
+
+    set_overall(signed_in, "50000")
+
+    assert "Spent ₹0.00 · Expected ₹25,700.00 ₹50,000.00 left" in budgets_text(
+        signed_in
+    )
 
 
 def test_the_overall_budget_shows_its_state(signed_in: Client) -> None:
@@ -131,16 +148,21 @@ def test_no_note_while_the_budgets_fit(signed_in: Client) -> None:
 def test_privacy_mode_masks_the_overall_budget(signed_in: Client) -> None:
     today = timezone.localdate()
     set_overall(signed_in, "12000")
-    move(today, opening("Bank", "asset", "0"), make_account("Fun", "expense"), "13000")
+    bank = opening("Bank", "asset", "0")
+    fun = make_account("Fun", "expense")
+    move(today, bank, fun, "13000")
+    make_manual_draft((bank, fun, "14000"), date=today)
     turn_on(signed_in)
 
     page = signed_in.get(reverse("budget_list")).content.decode()
 
     text = page_text(page)
     assert f"Overall Budget Over Budget {strip_tags(MASK)}" in text
+    assert f"Expected {strip_tags(MASK)}" in text
     assert f"Unbudgeted {strip_tags(MASK)}" in text
     assert "12,000" not in page
     assert "13,000" not in page
+    assert "14,000" not in page
     assert "1,000" not in page
     assert "text-red-600" not in page
 
@@ -159,14 +181,13 @@ def test_overall_amounts_follow_the_number_format(
 ) -> None:
     user.number_format = "international"
     user.save()
-    move(
-        timezone.localdate(),
-        opening("Bank", "asset", "0"),
-        make_account("Fun", "expense"),
-        "150000",
-    )
+    today = timezone.localdate()
+    bank = opening("Bank", "asset", "0")
+    fun = make_account("Fun", "expense")
+    move(today, bank, fun, "150000")
+    make_manual_draft((bank, fun, "160000"), date=today)
     set_overall(signed_in, "120000")
 
     text = budgets_text(signed_in)
-    assert "Budget ₹120,000.00 · Spent ₹150,000.00" in text
+    assert "Budget ₹120,000.00 · Spent ₹150,000.00 · Expected ₹160,000.00" in text
     assert "Unbudgeted ₹150,000.00" in text

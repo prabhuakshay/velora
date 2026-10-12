@@ -11,7 +11,7 @@
               <span class="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">Close</span>
             {% endif %}
           </p>
-          <p class="mt-0.5 text-xs text-slate-500 tabular-nums">Budget {% amount picture.overall.budget %} · Spent {% amount picture.overall.spent %}</p>
+          <p class="mt-0.5 text-xs text-slate-500 tabular-nums">Budget {% amount picture.overall.budget %} · Spent {% amount picture.overall.spent %} · Expected {% amount picture.total_expected %}</p>
         </div>
         <p class="shrink-0 font-semibold tabular-nums {% amount_color picture.overall.left %}">{% amount picture.overall.left %} left</p>
       </div>
