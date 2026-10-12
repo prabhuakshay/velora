@@ -148,6 +148,26 @@ _Avoid_: Bill, outstanding, total due
 A Split from an Expense Account back to an Asset or Liability Account, which reduces what was spent under that Expense Account.
 _Avoid_: Return, reversal, income
 
+**Budget**:
+The most the user plans to spend under one Expense Account in a calendar month. It holds every month until the user changes it; a change reaches back to the start of the current month, never earlier.
+_Avoid_: Limit, cap, envelope, allowance
+
+**Overall Budget**:
+The most the user plans to spend across all Expense Accounts in a calendar month, Unbudgeted spending included. It is optional and set apart from the Budgets, which may add up to more than it.
+_Avoid_: Total budget, monthly budget, spending limit
+
+**Spent**:
+What went out under an Expense Account in a calendar month through posted Transactions, less Refunds dated that month. It can fall below zero.
+_Avoid_: Spending, used, actual
+
+**Expected**:
+What Upcoming Occurrences and waiting Drafts dated in the month are set to add to Spent once posted. It never counts as Spent.
+_Avoid_: Committed, pending, planned
+
+**Unbudgeted**:
+Spent under Expense Accounts that have no Budget.
+_Avoid_: Uncategorised, other
+
 **Merge**:
 Folding one Party into another, one Tag into another, or one Account into another of the same kind. The source disappears and everything that pointed at it points at the target.
 _Avoid_: Transfer, combine, consolidate

@@ -1,0 +1,3 @@
+# Budgets are spending limits, not envelopes
+
+A Budget is a standing monthly limit on one Expense Account, compared against what was Spent, rather than an envelope that income is assigned to and whose leftover rolls into next month. One person wanting to see where their money goes needs "Groceries ₹12,000 a month, how am I doing?", not the bookkeeping of assigning every rupee of income and covering overspending from another envelope. Limits leave income, Transfers and past months untouched, and unspent or overspent money never carries over. Moving to envelopes later means adding money assigned to each Expense Account every month and a rollover that runs through every month since the user began, so it is a new model on top of this one, not a change to it.
