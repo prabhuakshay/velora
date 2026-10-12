@@ -1,20 +1,24 @@
 {% extends "app_base.html" %}
 
-{% block title %}{% if party %}Edit party{% else %}New party{% endif %} · Velora{% endblock %}
+{% block title %}{% if party %}Edit Party{% else %}New Party{% endif %} · Velora{% endblock %}
 
-{% block card %}
-  <h1 class="text-xl font-semibold">{% if party %}Edit party{% else %}New party{% endif %}</h1>
-  <form method="post" class="mt-6 space-y-4">
+{% block main_width %}max-w-2xl{% endblock %}
+
+{% block main %}
+  {% if party %}{% url 'party_transactions' party.pk as cancel_url %}{% else %}{% url 'party_list' as cancel_url %}{% endif %}
+  {% include "classification/_form_header.html" with object=party title=party|yesno:"Edit Party,New Party" %}
+
+  <form method="post" class="mt-4 space-y-4 md:mt-6">
     {% csrf_token %}
-    {% include "partials/form_errors.html" %}
-    {% include "partials/field.html" with field=form.name %}
-    {% include "partials/field.html" with field=form.notes %}
-    <label class="flex items-center gap-2 text-sm text-slate-700">
-      {{ form.hidden }} Hidden
-    </label>
-    {% include "partials/submit.html" with label="Save" %}
+    {% if form.non_field_errors %}{% include "partials/form_errors.html" %}{% endif %}
+
+    <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="details-title">
+      <h2 id="details-title" class="font-semibold">Details</h2>
+      {% include "partials/field.html" with field=form.name %}
+      {% include "partials/field.html" with field=form.notes %}
+      {% include "classification/_hidden_field.html" with on="Transactions" %}
+    </section>
+
+    {% include "classification/_save_bar.html" with label=party|yesno:"Save,Add Party" %}
   </form>
-  <p class="mt-4 text-center text-sm">
-    <a href="{% url 'party_list' %}" class="link">Cancel</a>
-  </p>
 {% endblock %}

@@ -53,8 +53,8 @@ def test_create_tag_with_color(signed_in: Client) -> None:
         reverse("tag_create"), {"name": "goa-trip-2026", "color": "green"}
     )
 
-    assert response["Location"] == reverse("tag_list")
     tag = Tag.objects.get()
+    assert response["Location"] == reverse("tag_transactions", args=[tag.pk])
     assert (tag.name, tag.color, tag.hidden) == ("goa-trip-2026", "green", False)
     assert "bg-green-600" in list_page(signed_in)
 
@@ -84,7 +84,7 @@ def test_edit_changes_name_and_color(signed_in: Client) -> None:
         reverse("tag_edit", args=[tag.pk]), {"name": "Reimbursable", "color": "blue"}
     )
 
-    assert response["Location"] == reverse("tag_list")
+    assert response["Location"] == reverse("tag_transactions", args=[tag.pk])
     tag.refresh_from_db()
     assert (tag.name, tag.color) == ("Reimbursable", "blue")
 
@@ -92,15 +92,19 @@ def test_edit_changes_name_and_color(signed_in: Client) -> None:
 def test_hide_and_unhide(signed_in: Client) -> None:
     tag = Tag.objects.create(name="Reimbursable")
 
-    signed_in.post(reverse("tag_hide", args=[tag.pk]))
+    response = signed_in.post(reverse("tag_hide", args=[tag.pk]), follow=True)
 
-    assert "Reimbursable" not in list_page(signed_in)
-    assert reverse("tag_unhide", args=[tag.pk]) in list_page(
-        signed_in, "?show_hidden=1"
-    )
+    assert response.redirect_chain == [
+        (reverse("tag_transactions", args=[tag.pk]), 302)
+    ]
+    assert reverse("tag_unhide", args=[tag.pk]) in response.content.decode()
+    shown, folded = list_page(signed_in).split("data-filter-folded")
+    assert "Reimbursable" not in shown
+    assert "Reimbursable" in folded
 
     signed_in.post(reverse("tag_unhide", args=[tag.pk]))
 
+    assert "data-filter-folded" not in list_page(signed_in)
     assert "Reimbursable" in list_page(signed_in)
 
 
@@ -146,16 +150,11 @@ def test_admin_shows_tags_with_history(client: Client, superuser: User) -> None:
     assert client.get(history).status_code == 200
 
 
-def test_list_is_paginated_keeping_show_hidden(signed_in: Client) -> None:
+def test_list_shows_every_tag_on_one_page(signed_in: Client) -> None:
     for number in range(26):
         Tag.objects.create(name=f"Tag {number:02}")
 
-    first, second = (
-        list_page(signed_in, "?show_hidden=1"),
-        list_page(signed_in, "?page=2"),
-    )
+    body = list_page(signed_in)
 
-    assert "Tag 24" in first
-    assert "Tag 25" not in first
-    assert "Tag 25" in second
-    assert "?page=2&amp;show_hidden=1" in first
+    assert "Tag 00" in body
+    assert "Tag 25" in body

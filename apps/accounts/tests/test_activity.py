@@ -92,7 +92,8 @@ def test_bars_sit_on_a_zero_line_that_rises_for_negative_values() -> None:
     rent = make_account("Rent", "expense")
     record(date(2026, 3, 1), bank, rent, "400", "Rent")
 
-    laid_out = bars(months(bank, TODAY), balances=True)
+    history = months(bank, TODAY)
+    laid_out = bars([m.start for m in history], [m.balance for m in history])
 
     february, march = laid_out[-2], laid_out[-1]
     assert february.baseline == march.baseline == 75

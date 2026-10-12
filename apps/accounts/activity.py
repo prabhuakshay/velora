@@ -42,7 +42,7 @@ class Month:
 class Bar:
     """One month's bar, in viewBox units, with the zero line at baseline."""
 
-    month: Month
+    start: date
     value: Decimal | None
     y: float
     height: float
@@ -118,27 +118,26 @@ def months(account: Account, today: date, count: int = MONTHS) -> list[Month]:
     return result
 
 
-def bars(history: Sequence[Month], *, balances: bool) -> list[Bar]:
-    """Lay out one bar per month: its month-end Balance, or else its net."""
-    values = [month.balance if balances else month.net for month in history]
+def bars(starts: Sequence[date], values: Sequence[Decimal | None]) -> list[Bar]:
+    """Lay out one bar per month from each month's start and value, if any."""
     known = [value for value in values if value is not None]
     high = max([Decimal(0), *known])
     low = min([Decimal(0), *known])
     span = high - low
     baseline = float(high / span * HEIGHT) if span else float(HEIGHT)
     laid_out = []
-    for index, (month, value) in enumerate(zip(history, values, strict=True)):
+    for index, (start, value) in enumerate(zip(starts, values, strict=True)):
         size = float(abs(value) / span * HEIGHT) if span and value else 0.0
         negative = value is not None and value < 0
         laid_out.append(
             Bar(
-                month=month,
+                start=start,
                 value=value,
                 y=baseline if negative else baseline - size,
                 height=size,
                 baseline=baseline,
                 negative=negative,
-                current=index == len(history) - 1,
+                current=index == len(starts) - 1,
             )
         )
     return laid_out

@@ -1,6 +1,6 @@
 """View helpers shared by apps that manage named, hideable records."""
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
 from django.core.paginator import Page, Paginator
@@ -17,15 +17,6 @@ if TYPE_CHECKING:
     from django.http.response import HttpResponseBase
 
 PAGE_SIZE = 25
-
-
-class Hideable(Protocol):
-    """A record that can be hidden from its default list."""
-
-    hidden: bool
-
-    def save(self) -> None:
-        """Persist the record."""
 
 
 def paginate(request: HttpRequest, items: QuerySet | Sequence[object]) -> Page:  # type: ignore[type-arg]
@@ -45,18 +36,6 @@ def save_unique_name(
         form.add_error("name", error)
         return False
     return True
-
-
-def set_hidden(
-    request: HttpRequest, obj: Hideable, list_url: str, *, hidden: bool
-) -> HttpResponseBase:
-    """Hide or unhide, then redirect to the list keeping the show-hidden view."""
-    obj.hidden = hidden
-    obj.save()
-    response = redirect(list_url)
-    if request.GET.get("show_hidden") == "1":
-        response["Location"] += "?show_hidden=1"
-    return response
 
 
 def redirect_in_use_to_merge(

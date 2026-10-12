@@ -1,0 +1,13 @@
+<div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+  <label class="relative min-w-0 flex-1">
+    <span class="sr-only">Filter {{ noun }}</span>
+    {% include "shell/icon.html" with name="search" class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" %}
+    <input type="search" data-list-filter placeholder="Filter {{ noun }}" enterkeyhint="go" autocomplete="off" class="h-10 w-full rounded-xl bg-slate-200/60 pr-3 pl-9 text-base placeholder:text-slate-500 focus:bg-white focus:ring-2 focus:ring-slate-900 focus:outline-hidden md:h-9 md:rounded-lg md:text-sm">
+  </label>
+  <div class="flex shrink-0 items-center gap-1 text-sm" role="group" aria-label="Sort by">
+    <span class="mr-1 text-xs text-slate-500">Sort</span>
+    {% for value, label in sorts %}
+      <a href="?sort={{ value }}" {% if value == sort %}aria-current="true"{% endif %} class="rounded-lg px-2.5 py-1.5 font-medium transition-colors {% if value == sort %}bg-slate-900 text-white{% else %}text-slate-600 hover:bg-slate-200/60 hover:text-slate-900{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>

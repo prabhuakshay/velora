@@ -20,7 +20,7 @@ pytestmark = pytest.mark.django_db
 
 def shown_part(client: Client, kind: str) -> str:
     """The list above its folded-away hidden Accounts."""
-    return list_page(client, kind).split("data-hidden-accounts")[0]
+    return list_page(client, kind).split("data-filter-folded")[0]
 
 
 @pytest.mark.parametrize("kind", KINDS)

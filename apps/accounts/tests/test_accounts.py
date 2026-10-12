@@ -173,7 +173,7 @@ def test_list_shows_every_account_with_hidden_ones_folded_apart(
         Account.objects.create(name=f"Account {number:02}", kind="expense")
     Account.objects.create(name="Old", kind="expense", hidden=True)
 
-    shown, folded = list_page(signed_in, "expense").split("data-hidden-accounts")
+    shown, folded = list_page(signed_in, "expense").split("data-filter-folded")
 
     assert "Account 00" in shown
     assert "Account 29" in shown

@@ -1,0 +1,16 @@
+{% comment %}The all-time total, measured the way the money mostly went, and what to do next. Takes query (party or tag), object and new_query.{% endcomment %}
+<section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
+  {% if object.hidden %}
+    <div class="mb-4 flex flex-wrap gap-1.5"><span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Hidden</span></div>
+  {% endif %}
+  <p class="text-sm text-slate-500">{% if activity.earns %}Received{% else %}Spent{% endif %} <span class="text-slate-400">· all time</span></p>
+  <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{% if activity.earns and not user.privacy_mode %}<span class="text-emerald-600">+{% amount activity.total %}</span>{% else %}{% amount activity.total %}{% endif %}</p>
+  <p class="mt-2 text-sm text-slate-500">
+    {% if activity.first %}Since {{ activity.first|date:"j M Y" }} · {% amount activity.this_month %} this month{% else %}Nothing recorded yet{% endif %}{% if activity.other > 0 %} · {% if activity.earns %}also spent{% else %}also received{% endif %} {% amount activity.other %}{% endif %}
+  </p>
+  <div class="mt-5 flex flex-wrap gap-2">
+    <a href="{% url 'transaction_create' %}?{{ query }}={{ object.pk }}&amp;next={{ here|urlencode }}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Transaction</a>
+    <a href="{% url 'transaction_list' %}?{{ query }}={{ object.pk }}" class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name="search" class="size-4" %}Search its Transactions</a>
+    {% if not user.privacy_mode %}<a href="{% url 'transaction_export' %}?{{ query }}={{ object.pk }}" hx-boost="false" download class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name="download" class="size-4" %}CSV</a>{% endif %}
+  </div>
+</section>

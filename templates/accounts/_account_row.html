@@ -1,4 +1,4 @@
-<li data-account-name="{{ account.name|lower }}">
+<li data-filter-name="{{ account.name|lower }}">
   <a href="{% url 'account_transactions' kind account.pk %}" class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-hidden active:bg-slate-100{% if account.hidden %} opacity-60{% endif %}">
     {% include "accounts/_avatar.html" %}
     <span class="min-w-0 flex-1">

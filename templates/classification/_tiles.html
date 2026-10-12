@@ -1,0 +1,18 @@
+{% comment %}Swipes sideways on phones, where three tiles side by side would cut their amounts short. Takes count and count_label.{% endcomment %}
+<dl class="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:gap-3 [&::-webkit-scrollbar]:hidden">
+  <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+    <dt class="truncate text-xs font-medium text-slate-500">Last 12 months</dt>
+    <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{% amount activity.year %}</dd>
+    <dd class="text-xs text-slate-500">{% amount activity.last_month %} last month</dd>
+  </div>
+  <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+    <dt class="truncate text-xs font-medium text-slate-500">Monthly average</dt>
+    <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{% amount activity.average %}</dd>
+    <dd class="text-xs text-slate-500">Last 12 months</dd>
+  </div>
+  <div class="w-40 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:w-auto">
+    <dt class="truncate text-xs font-medium text-slate-500">{{ count_label }}</dt>
+    <dd class="mt-1 truncate text-lg font-semibold tabular-nums">{{ count }}</dd>
+    <dd class="truncate text-xs text-slate-500">{% if activity.last %}Last {{ activity.last|date:"j M Y" }}{% else %}None yet{% endif %}</dd>
+  </div>
+</dl>

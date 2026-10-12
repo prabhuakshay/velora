@@ -45,10 +45,10 @@ def trips() -> tuple[Tag, Tag]:
     return goa, travel
 
 
-def test_every_tag_row_offers_merge(signed_in: Client) -> None:
+def test_tag_page_offers_merge(signed_in: Client) -> None:
     tag = Tag.objects.create(name="Trip", hidden=True)
 
-    body = signed_in.get(reverse("tag_list") + "?show_hidden=1").content.decode()
+    body = signed_in.get(reverse("tag_transactions", args=[tag.pk])).content.decode()
 
     assert reverse("tag_merge", args=[tag.pk]) in body
 
@@ -95,7 +95,9 @@ def test_merge_moves_splits_to_the_target_once_and_removes_the_source(
         reverse("tag_merge", args=[goa.pk]), {"target": travel.pk}, follow=True
     )
 
-    assert response.redirect_chain == [(reverse("tag_list"), 302)]
+    assert response.redirect_chain == [
+        (reverse("tag_transactions", args=[travel.pk]), 302)
+    ]
     assert "Merged Goa trip into Travel." in response.content.decode()
     assert not Tag.objects.filter(pk=goa.pk).exists()
     assert [list(s.tags.all()) for s in Split.objects.order_by("pk")] == [

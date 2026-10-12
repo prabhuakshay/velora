@@ -277,7 +277,10 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             ),
             "bars": []
             if privacy_mode
-            else bars(history, balances=account.has_opening_balance),
+            else bars(
+                [m.start for m in history],
+                [m.balance if account.has_opening_balance else m.net for m in history],
+            ),
             "forecast": _account_forecast(account),
             "used_by": _used_by(account),
             "today": today,

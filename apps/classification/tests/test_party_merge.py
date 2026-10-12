@@ -32,16 +32,14 @@ def merge_url(party: Party) -> str:
     return reverse("party_merge", args=[party.pk])
 
 
-def test_every_party_row_links_to_merge(signed_in: Client) -> None:
-    parties = [
-        Party.objects.create(name="Big Bazar"),
-        Party.objects.create(name="Old shop", hidden=True),
-    ]
+@pytest.mark.parametrize("hidden", [False, True])
+def test_party_page_links_to_merge(signed_in: Client, *, hidden: bool) -> None:
+    party = Party.objects.create(name="Big Bazar", hidden=hidden)
 
-    body = signed_in.get(reverse("party_list") + "?show_hidden=1").content.decode()
+    url = reverse("party_transactions", args=[party.pk])
+    body = signed_in.get(url).content.decode()
 
-    for party in parties:
-        assert f'href="{merge_url(party)}"' in body
+    assert f'href="{merge_url(party)}"' in body
 
 
 def test_merge_page_shows_transaction_count_and_other_parties(
@@ -69,7 +67,9 @@ def test_merge_points_transactions_at_target_and_removes_source(
 
     response = signed_in.post(merge_url(source), {"target": target.pk}, follow=True)
 
-    assert response.redirect_chain == [(reverse("party_list"), 302)]
+    assert response.redirect_chain == [
+        (reverse("party_transactions", args=[target.pk]), 302)
+    ]
     assert "Merged Big Bazar into Big Bazaar." in response.content.decode()
     assert list(Party.objects.all()) == [target]
     assert set(target.transactions.all()) == set(moved)

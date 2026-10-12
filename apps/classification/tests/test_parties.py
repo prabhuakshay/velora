@@ -55,8 +55,8 @@ def test_create_party_with_notes(signed_in: Client) -> None:
         reverse("party_create"), {"name": "Big Bazaar", "notes": "Local store"}
     )
 
-    assert response["Location"] == reverse("party_list")
     party = Party.objects.get()
+    assert response["Location"] == reverse("party_transactions", args=[party.pk])
     assert (party.name, party.notes, party.hidden) == (
         "Big Bazaar",
         "Local store",
@@ -90,7 +90,7 @@ def test_edit_renames_and_updates_notes(signed_in: Client) -> None:
         reverse("party_edit", args=[party.pk]), {"name": "Walmart", "notes": "new"}
     )
 
-    assert response["Location"] == reverse("party_list")
+    assert response["Location"] == reverse("party_transactions", args=[party.pk])
     party.refresh_from_db()
     assert (party.name, party.notes) == ("Walmart", "new")
 
@@ -105,26 +105,29 @@ def test_edit_keeping_own_name_in_other_case_is_allowed(signed_in: Client) -> No
     assert response.status_code == 302
 
 
-def test_hide_and_show_hidden(signed_in: Client) -> None:
+def test_hide_folds_the_party_away_and_its_page_offers_unhide(
+    signed_in: Client,
+) -> None:
     party = Party.objects.create(name="Walmart")
 
-    response = signed_in.post(reverse("party_hide", args=[party.pk]))
+    response = signed_in.post(reverse("party_hide", args=[party.pk]), follow=True)
 
-    assert response["Location"] == reverse("party_list")
-    assert "Walmart" not in list_page(signed_in)
-    content = list_page(signed_in, "?show_hidden=1")
-    assert "opacity-50" in content
-    assert reverse("party_unhide", args=[party.pk]) + "?show_hidden=1" in content
+    assert response.redirect_chain == [
+        (reverse("party_transactions", args=[party.pk]), 302)
+    ]
+    assert reverse("party_unhide", args=[party.pk]) in response.content.decode()
+    shown, folded = list_page(signed_in).split("data-filter-folded")
+    assert "Walmart" not in shown
+    assert "Walmart" in folded
 
 
-def test_unhide_keeps_show_hidden(signed_in: Client) -> None:
+def test_unhide_puts_the_party_back_in_the_list(signed_in: Client) -> None:
     party = Party.objects.create(name="Walmart", hidden=True)
 
-    response = signed_in.post(
-        reverse("party_unhide", args=[party.pk]) + "?show_hidden=1"
-    )
+    response = signed_in.post(reverse("party_unhide", args=[party.pk]))
 
-    assert response["Location"] == reverse("party_list") + "?show_hidden=1"
+    assert response["Location"] == reverse("party_transactions", args=[party.pk])
+    assert "data-filter-folded" not in list_page(signed_in)
     assert "Walmart" in list_page(signed_in)
 
 
@@ -187,16 +190,11 @@ def test_concurrent_duplicate_name_shows_error(
     assert b"already exists" in response.content
 
 
-def test_list_is_paginated_keeping_show_hidden(signed_in: Client) -> None:
+def test_list_shows_every_party_on_one_page(signed_in: Client) -> None:
     for number in range(26):
         Party.objects.create(name=f"Party {number:02}")
 
-    first, second = (
-        list_page(signed_in, "?show_hidden=1"),
-        list_page(signed_in, "?page=2"),
-    )
+    body = list_page(signed_in)
 
-    assert "Party 24" in first
-    assert "Party 25" not in first
-    assert "Party 25" in second
-    assert "?page=2&amp;show_hidden=1" in first
+    assert "Party 00" in body
+    assert "Party 25" in body

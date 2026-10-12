@@ -32,6 +32,11 @@ def view_page(client: Client, party: Party, query: str = "") -> str:
     return client.get(url).content.decode()
 
 
+def transactions_section(client: Client, party: Party, query: str = "") -> str:
+    body = view_page(client, party, query)
+    return body.split('id="transactions-title"')[1].split("<aside")[0]
+
+
 def test_list_links_to_each_party_view(signed_in: Client) -> None:
     shop = Party.objects.create(name="Big Bazaar")
 
@@ -60,7 +65,8 @@ def test_view_is_paginated_newest_first(signed_in: Client) -> None:
     for day in range(1, 27):
         record(date(2026, 3, day), shop, f"Day {day:02}")
 
-    first, second = view_page(signed_in, shop), view_page(signed_in, shop, "?page=2")
+    first = transactions_section(signed_in, shop)
+    second = transactions_section(signed_in, shop, "?page=2")
 
     assert "Day 26" in first
     assert "Day 01" not in first

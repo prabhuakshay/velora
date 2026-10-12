@@ -14,6 +14,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
+from apps.classification.models import Party, Tag
 from apps.core.views import blank_split_row, paginate
 from apps.transactions import cloudflare
 from apps.transactions.attachments import (
@@ -144,19 +145,32 @@ def _save_transaction_forms(
 @db_transaction.non_atomic_requests
 @login_required
 def transaction_create(request: HttpRequest) -> HttpResponseBase:
-    """Record a new Transaction, its first Split starting at the Account in the URL.
+    """Record a new Transaction, starting from the Account, Party or Tag in the URL.
 
-    Or ending there, for an Expense Account, which money only goes to.
+    The first Split starts at the Account, or ends there for an Expense Account,
+    which money only goes to, and carries the Tag.
     """
-    raw = request.GET.get("account", "")
-    account = Account.objects.filter(pk=raw).first() if raw.isdecimal() else None
+    account = _from_query(request, "account", Account)
+    party = _from_query(request, "party", Party)
+    tag = _from_query(request, "tag", Tag)
     side = (
         "to_account"
         if account and account.kind == Account.Kind.EXPENSE
         else "from_account"
     )
-    initial = [{side: account.pk}] if account else None
-    return _save_transaction_forms(request, Transaction(), initial)
+    first: dict[str, Any] = {side: account.pk} if account else {}
+    if tag:
+        first["tags"] = [tag.pk]
+    return _save_transaction_forms(
+        request, Transaction(party=party), [first] if first else None
+    )
+
+
+def _from_query[M: (Account, Party, Tag)](
+    request: HttpRequest, name: str, model: type[M]
+) -> M | None:
+    raw = request.GET.get(name, "")
+    return model.objects.filter(pk=raw).first() if raw.isdecimal() else None
 
 
 @db_transaction.non_atomic_requests

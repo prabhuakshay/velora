@@ -1,0 +1,11 @@
+{% comment %}Back, avatar, name and the Edit and More buttons. Takes object, noun, back_url, back_label, avatar and subtitle.{% endcomment %}
+<div class="flex items-center gap-2">
+  <a href="{{ back_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to {{ back_label }}">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+  {% include avatar with size="size-9" %}
+  <div class="min-w-0 flex-1">
+    <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{{ object.name }}</h1>
+    <p class="truncate text-sm text-slate-500">{{ subtitle }}</p>
+  </div>
+  <a href="{% url noun|add:'_edit' object.pk %}" class="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
+  <button type="button" data-dialog-open="{{ noun }}-actions" class="-mr-2 flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="More actions" title="More actions">{% include "shell/icon.html" with name="dots" class="size-5" stroke="stroke-[3]" %}</button>
+</div>

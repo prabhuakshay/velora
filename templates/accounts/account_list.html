@@ -11,7 +11,7 @@
     <a href="{% url 'account_create' kind %}" class="btn-primary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}<span>New<span class="hidden sm:inline"> {{ kind.label }} Account</span></span></a>
   </div>
 
-  <div class="mt-4">{% include "accounts/_kind_tabs.html" %}</div>
+  <div class="mt-4">{% include "partials/tabs.html" with label="Account kinds" %}</div>
 
   {% if accounts %}
     {% comment %}Swipes sideways on phones, where three tiles side by side would be too narrow.{% endcomment %}
@@ -39,7 +39,7 @@
       <label class="relative min-w-0 flex-1">
         <span class="sr-only">Filter {{ title|lower }}</span>
         {% include "shell/icon.html" with name="search" class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" %}
-        <input type="search" data-account-filter placeholder="Filter {{ title|lower }}" enterkeyhint="go" autocomplete="off" class="h-10 w-full rounded-xl bg-slate-200/60 pr-3 pl-9 text-base placeholder:text-slate-500 focus:bg-white focus:ring-2 focus:ring-slate-900 focus:outline-hidden md:h-9 md:rounded-lg md:text-sm">
+        <input type="search" data-list-filter placeholder="Filter {{ title|lower }}" enterkeyhint="go" autocomplete="off" class="h-10 w-full rounded-xl bg-slate-200/60 pr-3 pl-9 text-base placeholder:text-slate-500 focus:bg-white focus:ring-2 focus:ring-slate-900 focus:outline-hidden md:h-9 md:rounded-lg md:text-sm">
       </label>
       <div class="flex shrink-0 items-center gap-1 text-sm" role="group" aria-label="Sort by">
         <span class="mr-1 text-xs text-slate-500">Sort</span>
@@ -66,10 +66,10 @@
   {% else %}
     <p class="mt-3 rounded-2xl bg-white px-4 py-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">Every {{ kind.label }} Account is hidden.</p>
   {% endif %}
-  <p data-account-none hidden class="mt-3 rounded-2xl bg-white px-4 py-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">No {{ kind.label }} Account matches.</p>
+  <p data-filter-none hidden class="mt-3 rounded-2xl bg-white px-4 py-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">No {{ kind.label }} Account matches.</p>
 
   {% if hidden %}
-    <details data-hidden-accounts class="group mt-6"{% if not accounts %} open{% endif %}>
+    <details data-filter-folded class="group mt-6"{% if not accounts %} open{% endif %}>
       <summary class="flex cursor-pointer list-none items-center gap-1 text-sm font-semibold text-slate-600 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
         {% include "shell/icon.html" with name="chevron-right" class="size-4 transition-transform group-open:rotate-90" %}Hidden <span class="font-normal text-slate-400 tabular-nums">{{ hidden|length }}</span>
       </summary>

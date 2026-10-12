@@ -1,31 +1,31 @@
-// Filters the Account list as you type; every Account is already in the page.
+// Filters a list page (Accounts, Parties, Tags) as you type; every row is already in the page.
 // A block, as app_shell.js declares names at the top level.
 {
-  const rows = () => [...document.querySelectorAll("[data-account-name]")];
+  const rows = () => [...document.querySelectorAll("[data-filter-name]")];
 
   document.addEventListener("input", (e) => {
-    const box = e.target.closest?.("[data-account-filter]");
+    const box = e.target.closest?.("[data-list-filter]");
     if (!box) return;
     const words = box.value.trim().toLowerCase().split(/\s+/);
     let shown = 0;
     for (const row of rows()) {
-      row.hidden = !words.every((word) => row.dataset.accountName.includes(word));
+      row.hidden = !words.every((word) => row.dataset.filterName.includes(word));
       if (!row.hidden) shown++;
     }
-    // A match among the hidden Accounts is no use folded away.
-    const folded = document.querySelector("[data-hidden-accounts]");
+    // A match among the hidden rows is no use folded away.
+    const folded = document.querySelector("[data-filter-folded]");
     if (folded && box.value.trim()) {
-      folded.open = [...folded.querySelectorAll("[data-account-name]")].some((row) => !row.hidden);
+      folded.open = [...folded.querySelectorAll("[data-filter-name]")].some((row) => !row.hidden);
     }
-    for (const list of document.querySelectorAll("ul:has(> [data-account-name])")) {
-      list.hidden = !list.querySelector("[data-account-name]:not([hidden])");
+    for (const list of document.querySelectorAll("ul:has(> [data-filter-name])")) {
+      list.hidden = !list.querySelector("[data-filter-name]:not([hidden])");
     }
-    document.querySelector("[data-account-none]").hidden = shown > 0;
+    document.querySelector("[data-filter-none]").hidden = shown > 0;
   });
 
   // Enter opens the first match.
   document.addEventListener("keydown", (e) => {
-    const box = e.target.closest?.("[data-account-filter]");
+    const box = e.target.closest?.("[data-list-filter]");
     if (!box || e.key !== "Enter") return;
     e.preventDefault();
     rows().find((row) => !row.hidden)?.querySelector("a")?.click();
@@ -35,7 +35,7 @@
   document.addEventListener("keydown", (e) => {
     if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.target.closest?.("input, textarea, select, [contenteditable]")) return;
-    const box = document.querySelector("[data-account-filter]");
+    const box = document.querySelector("[data-list-filter]");
     if (!box) return;
     e.preventDefault();
     box.focus();

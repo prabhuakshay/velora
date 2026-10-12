@@ -1,0 +1,5 @@
+{% comment %}-bottom-4 and -mb-4 offset main's padding, so the bar stays flush on the tab bar even at the end of the scroll.{% endcomment %}
+<div class="sticky -bottom-4 z-10 -mx-4 -mb-4 flex items-center gap-3 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-4 backdrop-blur md:static md:mx-0 md:mb-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+  <a href="{{ cancel_url }}" class="btn-secondary flex flex-1 items-center justify-center py-2.5 md:flex-none">Cancel</a>
+  <div class="flex-1 md:w-40 md:flex-none">{% include "partials/submit.html" %}</div>
+</div>

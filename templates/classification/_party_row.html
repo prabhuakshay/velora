@@ -1,0 +1,27 @@
+<li data-filter-name="{{ party.name|lower }}">
+  <a href="{% url 'party_transactions' party.pk %}" class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-hidden active:bg-slate-100{% if party.hidden %} opacity-60{% endif %}">
+    {% include "classification/_party_avatar.html" %}
+    <span class="min-w-0 flex-1">
+      <span class="flex items-baseline justify-between gap-3">
+        <span class="truncate font-medium">{{ party.name }}</span>
+        <span class="shrink-0 font-semibold tabular-nums">
+          {% if party.earned > party.spent %}<span class="sr-only">Received </span>{% if user.privacy_mode %}{% amount party.earned %}{% else %}<span class="text-emerald-600">+{% amount party.earned %}</span>{% endif %}{% elif party.spent %}<span class="sr-only">Spent </span>{% amount party.spent %}{% endif %}
+        </span>
+      </span>
+      <span class="mt-0.5 flex items-center justify-between gap-3 text-xs text-slate-500">
+        <span class="truncate">{% if party.transaction_count %}{{ party.transaction_count }} Transaction{{ party.transaction_count|pluralize }} · last {{ party.last_used|date:"j M Y" }}{% else %}No Transactions yet{% endif %}</span>
+        {% if party.spent or party.earned %}<span class="shrink-0">12 months</span>{% endif %}
+      </span>
+      {% if share_of and party.spent > 0 and party.spent >= party.earned and not user.privacy_mode %}
+        <svg viewBox="0 0 100 4" preserveAspectRatio="none" class="mt-2 h-1 w-full overflow-hidden rounded-full" role="img" aria-label="{% widthratio party.spent share_of 100 %}% of spending with Parties">
+          <rect width="100" height="4" class="fill-slate-100"/>
+          <rect width="{% widthratio party.spent share_of 100 %}" height="4" class="fill-slate-700"/>
+        </svg>
+      {% endif %}
+      {% if party.hidden %}
+        <span class="mt-1.5 flex flex-wrap gap-1"><span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Hidden</span></span>
+      {% endif %}
+    </span>
+    {% include "shell/icon.html" with name="chevron-right" class="size-4 text-slate-300" %}
+  </a>
+</li>

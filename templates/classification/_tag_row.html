@@ -1,0 +1,18 @@
+<li data-filter-name="{{ tag.name|lower }}">
+  <a href="{% url 'tag_transactions' tag.pk %}" class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-hidden active:bg-slate-100{% if tag.hidden %} opacity-60{% endif %}">
+    {% include "classification/_tag_avatar.html" %}
+    <span class="min-w-0 flex-1">
+      <span class="flex items-baseline justify-between gap-3">
+        <span class="truncate font-medium">{{ tag.name }}</span>
+        <span class="shrink-0 font-semibold tabular-nums">
+          {% if tag.earned > tag.spent %}<span class="sr-only">Received </span>{% if user.privacy_mode %}{% amount tag.earned %}{% else %}<span class="text-emerald-600">+{% amount tag.earned %}</span>{% endif %}{% elif tag.spent %}<span class="sr-only">Spent </span>{% amount tag.spent %}{% endif %}
+        </span>
+      </span>
+      <span class="mt-0.5 block truncate text-xs text-slate-500">{% if tag.split_count %}On {{ tag.split_count }} Split{{ tag.split_count|pluralize }} · last {{ tag.last_used|date:"j M Y" }}{% else %}Not on any Split yet{% endif %}</span>
+      {% if tag.hidden %}
+        <span class="mt-1.5 flex flex-wrap gap-1"><span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Hidden</span></span>
+      {% endif %}
+    </span>
+    {% include "shell/icon.html" with name="chevron-right" class="size-4 text-slate-300" %}
+  </a>
+</li>

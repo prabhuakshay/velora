@@ -1,0 +1,11 @@
+<section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="months-title">
+  <div class="flex items-baseline justify-between gap-3">
+    <h2 id="months-title" class="font-semibold">{% if activity.earns %}Received{% else %}Spent{% endif %} by month</h2>
+    <span class="text-xs text-slate-500">Last 12 months</span>
+  </div>
+  {% if user.privacy_mode %}
+    <p class="mt-4 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
+  {% else %}
+    {% include "accounts/_month_bars.html" with caption="Totals by month" %}
+  {% endif %}
+</section>

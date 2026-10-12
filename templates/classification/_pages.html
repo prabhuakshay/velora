@@ -1,0 +1,7 @@
+{% if page.paginator.num_pages > 1 %}
+  <nav class="flex items-center justify-between border-t border-slate-100 px-3 py-2 text-sm" aria-label="Pages">
+    {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-slate-100">{% include "shell/icon.html" with name="chevron-left" class="size-4" %}Newer</a>{% else %}<span></span>{% endif %}
+    <span class="text-xs text-slate-400 tabular-nums">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a href="?page={{ page.next_page_number }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-slate-100">Older{% include "shell/icon.html" with name="chevron-right" class="size-4" %}</a>{% else %}<span></span>{% endif %}
+  </nav>
+{% endif %}

@@ -1,0 +1,6 @@
+{% with field=form.hidden %}
+  <label class="flex cursor-pointer items-start gap-3 text-sm [&_input]:mt-0.5 [&_input]:size-4 [&_input]:shrink-0 [&_input]:accent-slate-900">
+    {{ field }}
+    <span><span class="block font-medium text-slate-700">Hidden</span><span class="block text-slate-500">Keep it off the list and new {{ on }}. Past ones keep it.</span></span>
+  </label>
+{% endwith %}
