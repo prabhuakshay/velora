@@ -88,3 +88,11 @@ def test_export_is_blocked_in_privacy_mode(signed_in: Client) -> None:
     response = signed_in.get(url)
 
     assert response["Location"] == privacy_mode_off_url(url)
+
+
+def test_privacy_mode_offers_no_export_link(signed_in: Client) -> None:
+    turn_on(signed_in)
+
+    response = signed_in.get(reverse("transaction_list"), {"q": "rent"})
+
+    assert reverse("transaction_export") not in response.content.decode()

@@ -1,7 +1,7 @@
 """Views for recording and reviewing Transactions."""
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
+
+    from apps.users.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,9 @@ def _listed_transactions() -> QuerySet[Transaction]:
 @login_required
 def transaction_list(request: HttpRequest) -> HttpResponse:
     """List the Transactions matching the filters, newest first, a page at a time."""
-    filters = TransactionFilterForm(request.GET)
+    filters = TransactionFilterForm(
+        request.GET, privacy_mode=cast("User", request.user).privacy_mode
+    )
     query = request.GET.copy()
     query.pop("page", None)
     return render(

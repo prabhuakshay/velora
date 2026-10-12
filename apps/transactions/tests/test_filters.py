@@ -8,6 +8,7 @@ from django.urls import reverse
 from apps.accounts.tests.conftest import make_account
 from apps.classification.models import Party, Tag
 from apps.transactions.models import Transaction
+from apps.users.tests.conftest import turn_on
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -195,3 +196,45 @@ def test_invalid_filter_gets_no_chip(signed_in: Client) -> None:
 
     assert response.context["chips"] == []
     assert "A filter was invalid and ignored." in response.content.decode()
+
+
+def test_privacy_mode_ignores_the_amount_range(
+    signed_in: Client, accounts: dict[str, Account]
+) -> None:
+    bank = accounts["bank"]
+    record("Small", bank, accounts["groceries"], "50")
+    record("Large", bank, accounts["rent"], "900")
+    turn_on(signed_in)
+
+    response = signed_in.get(
+        reverse("transaction_list"), {"min_total": "600", "max_total": "800"}
+    )
+
+    assert {t.description for t in response.context["page"]} == {"Small", "Large"}
+    assert response.context["chips"] == []
+    assert response.context["filters"].narrowing == 0
+
+
+def test_privacy_mode_still_narrows_by_other_filters(
+    signed_in: Client, accounts: dict[str, Account]
+) -> None:
+    record("Weekly shop", accounts["bank"], accounts["groceries"])
+    record("April", accounts["bank"], accounts["rent"], date=date(2026, 4, 1))
+    turn_on(signed_in)
+
+    assert shown(signed_in, q="shop") == {"Weekly shop"}
+    assert shown(signed_in, start="2026-03-15") == {"April"}
+
+
+def test_amount_fields_are_offered_only_outside_privacy_mode(
+    signed_in: Client,
+) -> None:
+    url = reverse("transaction_list")
+
+    shown_before = signed_in.get(url).content.decode()
+    turn_on(signed_in)
+    shown_after = signed_in.get(url, {"min_total": "1"}).content.decode()
+
+    for name in ("min_total", "max_total"):
+        assert f'name="{name}"' in shown_before
+        assert f'name="{name}"' not in shown_after

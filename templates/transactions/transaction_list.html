@@ -21,7 +21,7 @@
         <div class="mb-3 hidden items-center justify-between md:flex">
           <h1 class="text-lg font-semibold tracking-tight">Transactions <span class="ml-1 text-sm font-normal text-slate-400 tabular-nums">{{ page.paginator.count }}</span></h1>
           <div class="flex gap-1">
-            <a href="{% url 'transaction_export' %}{{ export_query }}" hx-boost="false" download class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Export CSV" title="Export CSV">{% include "shell/icon.html" with name="download" class="size-4" %}</a>
+            {% if not user.privacy_mode %}<a href="{% url 'transaction_export' %}{{ export_query }}" hx-boost="false" download class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Export CSV" title="Export CSV">{% include "shell/icon.html" with name="download" class="size-4" %}</a>{% endif %}
             <a href="{% url 'transaction_create' %}" class="rounded-lg bg-slate-900 p-2 text-white hover:bg-slate-700" aria-label="New Transaction" title="New Transaction">{% include "shell/icon.html" with name="plus" class="size-4" %}</a>
           </div>
         </div>

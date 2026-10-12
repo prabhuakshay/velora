@@ -71,8 +71,16 @@ class TransactionFilterForm(forms.Form):
     min_total = forms.DecimalField(required=False, label="Min amount", min_value=0)
     max_total = forms.DecimalField(required=False, label="Max amount", min_value=0)
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+    def __init__(
+        self,
+        *args: Any,  # noqa: ANN401
+        privacy_mode: bool = False,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> None:
         super().__init__(*args, **kwargs)
+        if privacy_mode:
+            # Narrowing by amount would reveal the totals Privacy Mode masks.
+            del self.fields["min_total"], self.fields["max_total"]
         account = cast("forms.ModelChoiceField[Account]", self.fields["account"])
         account.choices = grouped_by_kind(Account.objects.all())
 
