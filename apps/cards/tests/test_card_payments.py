@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.cards.models import Statement
+from apps.cards.statements import enter_actual_amount
 from apps.cards.tests.conftest import record
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
@@ -253,3 +254,19 @@ def test_deleting_the_payment_of_nothing_to_pay_proposes_no_draft(
     billed.refresh_from_db()
     assert billed.transaction is None
     assert not Draft.objects.exists()
+
+
+def test_a_payment_draft_is_estimated_until_the_actual_amount_is_entered(
+    billed: Statement,
+) -> None:
+    def draft() -> Draft:
+        return Draft.objects.get()
+
+    assert draft().estimated
+
+    enter_actual_amount(billed, Decimal(1450))
+    assert not draft().estimated
+    assert [split.amount for split in draft().splits.all()] == [Decimal(1450)]
+
+    enter_actual_amount(billed, None)
+    assert draft().estimated

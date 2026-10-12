@@ -61,7 +61,7 @@ A short line of free text the user writes about a money event, such as "lunch at
 _Avoid_: Prompt, quick entry, note
 
 **Draft**:
-A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, a credit card's Statement proposed as its payment, a Card EMI proposed for the interest, GST and fees billed with an installment, or the user started by hand as a placeholder. Every Draft shows which of these it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it. The user can edit it and save it still waiting, gaps and all, or save and post it in one go, which is refused while anything is missing; the user can also reject it. A Draft dated after today can be posted early, and is then recorded on today's date.
+A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, a credit card's Statement proposed as its payment, a Card EMI proposed for the interest, GST and fees billed with an installment, or the user started by hand as a placeholder. Every Draft shows which of these it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it. The user can edit it and save it still waiting, gaps and all, or save and post it in one go, which is refused while anything is missing; the user can also reject it. A Draft dated after today can be posted early on its own, and is then recorded on today's date; posting all ready Drafts at once leaves it waiting for its day.
 _Avoid_: Pending transaction, suggestion, draft entry
 
 **Processing**:

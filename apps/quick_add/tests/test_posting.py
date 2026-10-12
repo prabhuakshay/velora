@@ -1,16 +1,20 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.merge import AccountMerge
 from apps.accounts.models import Account
 from apps.accounts.tests.conftest import make_account
+from apps.cards.models import Statement
+from apps.cards.tests.conftest import make_card, record
 from apps.classification.models import Party
-from apps.quick_add.models import QuickAdd
-from apps.quick_add.tests.conftest import make_draft
+from apps.quick_add.models import Draft, QuickAdd
+from apps.quick_add.tests.conftest import make_draft, make_manual_draft
+from apps.schedules.daily_job import run_daily_job
 from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
@@ -243,3 +247,67 @@ def test_post_all_leaves_gaps_and_estimates_waiting(signed_in: Client) -> None:
         assert quick_add.status == QuickAdd.Status.DRAFT
         assert not quick_add.draft.posting_error
     assert "Posted 0 Drafts." in response.content.decode()
+
+
+def test_post_all_leaves_future_drafts_waiting(signed_in: Client) -> None:
+    card = make_account("HDFC Card", "liability")
+    dentist = make_account("Dentist", "expense")
+    food = make_account("Eating Out", "expense")
+    today = timezone.localdate()
+    planned = make_manual_draft(
+        (card, dentist, "3000"), date=today + timedelta(days=21)
+    )
+    lunch = make_draft((card, food, "850"), date=today)
+
+    response = signed_in.post(reverse("draft_post_all"), follow=True)
+
+    lunch.refresh_from_db()
+    planned.refresh_from_db()
+    assert lunch.status == QuickAdd.Status.POSTED
+    assert planned.status == Draft.Status.WAITING
+    assert Transaction.objects.count() == 1
+    assert "Posted 1 Draft. 1 dated later waits for its day." in (
+        response.content.decode()
+    )
+
+
+def billed() -> Statement:
+    """A card Statement of an estimated 1200, its payment proposed for 5 Nov."""
+    card = make_card()
+    record(card, make_account("Groceries", "expense"), "1200", date(2026, 9, 20))
+    run_daily_job(date(2026, 10, 16))
+    return Statement.objects.get()
+
+
+def test_post_all_leaves_an_estimated_card_payment_waiting(signed_in: Client) -> None:
+    statement = billed()
+    Draft.objects.update(date=timezone.localdate())
+
+    signed_in.post(reverse("draft_post_all"))
+
+    assert not Transaction.objects.filter(splits__to_account=statement.card).exists()
+    statement.refresh_from_db()
+    assert statement.transaction is None
+    assert Draft.objects.get().status == Draft.Status.WAITING
+
+
+def test_an_estimated_card_payment_links_to_its_statement(signed_in: Client) -> None:
+    statement = billed()
+
+    body = signed_in.get(reverse("draft_list")).content.decode()
+
+    assert "Estimated Statement Amount" in body
+    assert "Estimate from the last amount paid" not in body
+    assert reverse("statement_edit", args=[statement.pk]) in body
+
+
+def test_a_future_draft_says_it_posts_today(signed_in: Client) -> None:
+    card = make_account("HDFC Card", "liability")
+    dentist = make_account("Dentist", "expense")
+    make_manual_draft(
+        (card, dentist, "3000"), date=timezone.localdate() + timedelta(days=21)
+    )
+
+    body = signed_in.get(reverse("draft_list")).content.decode()
+
+    assert "Posts today, not" in body

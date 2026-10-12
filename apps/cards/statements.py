@@ -115,6 +115,7 @@ def propose_payment(statement: Statement) -> None:
         statement=statement,
         date=statement.due_date,
         description=str(statement),
+        estimated=statement.actual_amount is None,
     )
     DraftSplit.objects.create(
         draft=draft,
@@ -209,9 +210,10 @@ def match_card_payments(today: date) -> None:
 def sync_payment_draft(statement: Statement) -> None:
     """Bring the Statement's payment Draft in line with its Statement Amount.
 
-    A waiting Draft takes the amount, or is withdrawn when there is nothing to
-    pay; with none proposed yet, one is now if the Statement is unpaid and there
-    is something to pay. A posted or rejected Draft is left alone.
+    A waiting Draft takes the amount, an estimate until the actual amount is
+    entered, or is withdrawn when there is nothing to pay; with none proposed
+    yet, one is now if the Statement is unpaid and there is something to pay. A
+    posted or rejected Draft is left alone.
     """
     draft = Draft.objects.filter(statement=statement).first()
     if draft is None:
@@ -222,6 +224,8 @@ def sync_payment_draft(statement: Statement) -> None:
             draft.splits.filter(to_account=statement.card).update(
                 amount=statement.amount
             )
+            draft.estimated = statement.actual_amount is None
+            draft.save(update_fields=["estimated"])
         else:
             draft.delete()
 

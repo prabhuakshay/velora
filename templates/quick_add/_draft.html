@@ -40,7 +40,13 @@
       {% include "quick_add/_source.html" %}
       {% if draft.quick_add %}<span class="truncate text-slate-400">“{% if user.privacy_mode %}Hidden in Privacy Mode{% else %}{{ draft.quick_add.text }}{% endif %}”</span>{% endif %}
     </p>
-    {% if draft.estimated %}<p class="mt-1 text-sm text-amber-700">Estimate from the last amount paid</p>{% endif %}
+    {% if draft.estimated %}
+      {% if draft.source == 'statement' %}
+        <p class="mt-1 text-sm text-amber-700">Estimated Statement Amount; <a href="{% url 'statement_edit' draft.statement_id %}" class="underline hover:text-amber-900">enter the actual amount</a> from your statement</p>
+      {% else %}
+        <p class="mt-1 text-sm text-amber-700">Estimate from the last amount paid</p>
+      {% endif %}
+    {% endif %}
     {% if draft.posting_error %}<p class="mt-1 text-sm text-red-700">Couldn't post: {{ draft.posting_error }}</p>{% endif %}
     <div class="mt-3 flex items-center gap-2">
       <form method="post" action="{% url 'draft_post' draft.pk %}">
@@ -52,6 +58,7 @@
       <a href="{% url 'draft_edit' draft.pk %}" class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50">
         {% include "shell/icon.html" with name="pencil" class="size-4" %}Edit
       </a>
+      {% if draft.date > today %}<p class="text-xs text-slate-500">Posts today, not {{ draft.date|date:"j M" }}</p>{% endif %}
       <form method="post" action="{% url 'draft_reject' draft.pk %}" class="ml-auto">
         {% csrf_token %}
         <button type="submit" class="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:bg-red-50 hover:text-red-700">

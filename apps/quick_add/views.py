@@ -112,6 +112,7 @@ def draft_list(request: HttpRequest) -> HttpResponseBase:
             "page": page,
             # Drafts newer than this glow once as they arrive in the list.
             "fresh_since": timezone.now() - timedelta(seconds=10),
+            "today": timezone.localdate(),
             "quick_adds": quick_adds,
             "processing": any(quick_add.is_processing for quick_add in quick_adds),
             "stats": ai_stats() if enabled else None,
@@ -147,15 +148,28 @@ def draft_post(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG0
 @login_required
 @require_POST
 def draft_post_all(request: HttpRequest) -> HttpResponseBase:
-    """Post every waiting Draft that is complete and not an estimate."""
+    """Post every waiting Draft that is complete, not an estimate, and due.
+
+    A Draft dated after today waits for its day: posting it records it today,
+    which only its own Post button should do.
+    """
+    today = timezone.localdate()
+    due = Draft.objects.select_for_update().waiting().filter(date__lte=today)
     posted = 0
-    for draft in Draft.objects.select_for_update().waiting().filter(estimated=False):
+    for draft in due.filter(estimated=False):
         if posting_problems(draft):
             continue
         with db_transaction.atomic():
             post_draft(draft)
         posted += 1
-    messages.success(request, f"Posted {posted} Draft{pluralize(posted)}.")
+    message = f"Posted {posted} Draft{pluralize(posted)}."
+    if later := Draft.objects.waiting().filter(date__gt=today).count():
+        message += (
+            " 1 dated later waits for its day."
+            if later == 1
+            else f" {later} dated later wait for their day."
+        )
+    messages.success(request, message)
     return redirect("draft_list")
 
 
