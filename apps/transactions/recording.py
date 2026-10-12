@@ -64,7 +64,7 @@ class TransactionForms:
     def save(
         self, *, within: AbstractContextManager[object] | None = None
     ) -> Transaction:
-        """Save the valid Transaction, its Splits and its new Attachments.
+        """Save the valid Transaction, its Splits and its Attachment changes.
 
         Call outside any atomic block when there are Attachments: the block
         here must be the real commit, so a failed commit is seen and the new
@@ -78,6 +78,7 @@ class TransactionForms:
                 with within or nullcontext():
                     self.formset.instance = self.form.save()
                     self.formset.save()
+                    self.form.cleaned_data["remove_attachments"].delete()
                     saved = save_attachments(
                         self.formset.instance, self.form.cleaned_data["attachments"]
                     )

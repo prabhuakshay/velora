@@ -11,7 +11,6 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
 from apps.classification.models import Party, Tag
@@ -195,20 +194,6 @@ def split_row(request: HttpRequest) -> HttpResponse:
 def attachment_open(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa: ARG001
     """Send the browser to a short-lived storage link for the Attachment."""
     return redirect(get_object_or_404(Attachment, pk=pk).presigned_url())
-
-
-@login_required
-@require_POST
-def attachment_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Delete an Attachment and its stored file, then return to its Transaction."""
-    attachment = get_object_or_404(Attachment, pk=pk)
-    try:
-        with db_transaction.atomic():
-            attachment.delete()
-            delete_attachment_files([attachment])
-    except AttachmentDeleteError as error:
-        messages.error(request, str(error))
-    return redirect("transaction_edit", pk=attachment.transaction_id)
 
 
 @login_required

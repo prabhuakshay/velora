@@ -79,9 +79,10 @@
     <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6 lg:col-start-1" aria-labelledby="attachments-title">
       <h2 id="attachments-title" class="font-semibold">Attachments</h2>
       <div class="mt-4 space-y-3">
-        {% with attachments=transaction.attachments.all %}
-          {% if attachments %}{% include "transactions/attachment_list.html" %}{% endif %}
-        {% endwith %}
+        {% if form.remove_attachments.field.queryset %}{% include "transactions/attachment_list.html" with field=form.remove_attachments %}{% endif %}
+        {% for error in form.remove_attachments.errors %}
+          <p class="text-sm text-red-600">{{ error }}</p>
+        {% endfor %}
         {% include "transactions/_file_drop.html" with field=form.attachments %}
       </div>
     </section>
@@ -115,11 +116,6 @@
       {% csrf_token %}
     </form>
   {% endif %}
-  {% for attachment in transaction.attachments.all %}
-    <form id="delete-attachment-{{ attachment.pk }}" method="post" action="{% url 'attachment_delete' attachment.pk %}">
-      {% csrf_token %}
-    </form>
-  {% endfor %}
   {% if transaction and not editing_draft %}
     {% include "transactions/_delete_dialog.html" with next=return_url %}
   {% endif %}

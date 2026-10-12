@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
 from django.db.models import Count, Q, QuerySet, Sum
-from django.db.models.functions import Lower
+from django.db.models.functions import Coalesce, Lower
 from django.utils import timezone
 
 from apps.accounts.models import Account
@@ -15,7 +15,7 @@ from apps.transactions.attachment_rules import (
     MAX_TOTAL_MB,
     checked_content_type,
 )
-from apps.transactions.models import Split, Transaction
+from apps.transactions.models import Attachment, Split, Transaction
 from apps.transactions.split_rules import (
     direction_error,
     opening_balance_error,
@@ -95,13 +95,18 @@ class TransactionForm(forms.ModelForm[Transaction]):
     """The Transaction's own fields: date, Party and description.
 
     Also takes the files to add as Attachments, which the caller stores once
-    the Transaction is saved.
+    the Transaction is saved, and the Attachments to remove on saving.
     """
 
     attachments = MultipleFileField(
         required=False,
         help_text=f"Receipts, bills or photos. Up to {MAX_ATTACHMENTS} files, "
         f"{MAX_TOTAL_MB} MB in all.",
+    )
+    remove_attachments = forms.ModelMultipleChoiceField(
+        queryset=Attachment.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
     )
 
     class Meta:
@@ -119,17 +124,25 @@ class TransactionForm(forms.ModelForm[Transaction]):
         super().__init__(*args, **kwargs)
         if not self.instance.pk:
             self.initial["date"] = timezone.localdate()
-        self.existing = (
-            self.instance.attachments.aggregate(count=Count("pk"), size=Sum("size"))
+        attachments = (
+            self.instance.attachments.all()
             if self.instance.pk
-            else {"count": 0, "size": 0}
+            else Attachment.objects.none()
+        )
+        remove = cast(
+            "forms.ModelMultipleChoiceField[Attachment]",
+            self.fields["remove_attachments"],
+        )
+        remove.queryset = attachments
+        self.existing = attachments.aggregate(
+            count=Count("pk"), size=Coalesce(Sum("size"), 0)
         )
         # The browser checks the total before uploading; the server only refuses
         # once the whole request body has arrived.
         self.fields["attachments"].widget.attrs.update(
             {
                 "data-max-total-bytes": MAX_TOTAL_BYTES,
-                "data-existing-bytes": self.existing["size"] or 0,
+                "data-existing-bytes": self.existing["size"],
                 "data-too-large": TOO_LARGE,
             }
         )
@@ -152,19 +165,32 @@ class TransactionForm(forms.ModelForm[Transaction]):
                 checked.append((file, checked_content_type(file)))
             except forms.ValidationError as error:
                 errors.extend(error.messages)
-        if not files:
-            return checked
-        existing = self.existing
-        if existing["count"] + len(files) > MAX_ATTACHMENTS:
-            errors.append(
-                f"A Transaction can have at most {MAX_ATTACHMENTS} Attachments."
-            )
-        total = (existing["size"] or 0) + sum(file.size or 0 for file in files)
-        if total > MAX_TOTAL_BYTES:
-            errors.append(TOO_LARGE)
         if errors:
             raise forms.ValidationError(errors)
         return checked
+
+    def clean(self) -> dict[str, Any]:
+        """Keep the Attachments within the limits once the removals are made."""
+        super().clean()
+        cleaned = self.cleaned_data
+        files = [file for file, _ in cleaned.get("attachments", [])]
+        if not files or "remove_attachments" not in cleaned:
+            return cleaned
+        removed = cleaned["remove_attachments"]
+        count = self.existing["count"] - len(removed) + len(files)
+        if count > MAX_ATTACHMENTS:
+            self.add_error(
+                "attachments",
+                f"A Transaction can have at most {MAX_ATTACHMENTS} Attachments.",
+            )
+        total = (
+            self.existing["size"]
+            - sum(attachment.size for attachment in removed)
+            + sum(file.size or 0 for file in files)
+        )
+        if total > MAX_TOTAL_BYTES:
+            self.add_error("attachments", TOO_LARGE)
+        return cleaned
 
 
 class SplitForm(forms.ModelForm[Split]):

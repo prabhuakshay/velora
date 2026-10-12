@@ -1,20 +1,25 @@
 <ul class="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
-  {% for attachment in attachments %}
-    {% url 'attachment_open' attachment.pk as open_url %}
-    <li class="flex items-center gap-3 p-3">
-      <a href="{{ open_url }}" target="_blank" rel="noopener" class="shrink-0">
-        {% if attachment.is_image %}
-          <img src="{{ open_url }}" alt="" class="size-10 rounded-lg object-cover ring-1 ring-slate-200">
-        {% else %}
-          <span class="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="paperclip" class="size-4" %}</span>
-        {% endif %}
-      </a>
-      <div class="min-w-0 flex-1">
-        <a href="{{ open_url }}" target="_blank" rel="noopener" class="block truncate text-sm font-medium hover:underline">{{ attachment.original_name }}</a>
-        <p class="text-xs text-slate-500">{{ attachment.size|filesizeformat }}</p>
-      </div>
-      {# The edit page's form can't contain another, so the button submits a form placed after it. #}
-      <button type="submit" form="delete-attachment-{{ attachment.pk }}" class="-mr-1 flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600" aria-label="Delete {{ attachment.original_name }}" title="Delete">{% include "shell/icon.html" with name="trash" class="size-4" %}</button>
-    </li>
+  {% for choice in field %}
+    {% with attachment=choice.data.value.instance %}
+      {% url 'attachment_open' attachment.pk as open_url %}
+      <li class="group flex items-center gap-3 p-3">
+        <a href="{{ open_url }}" target="_blank" rel="noopener" class="shrink-0 transition-opacity group-has-checked:opacity-40">
+          {% if attachment.is_image %}
+            <img src="{{ open_url }}" alt="" class="size-10 rounded-lg object-cover ring-1 ring-slate-200">
+          {% else %}
+            <span class="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="paperclip" class="size-4" %}</span>
+          {% endif %}
+        </a>
+        <div class="min-w-0 flex-1">
+          <a href="{{ open_url }}" target="_blank" rel="noopener" class="block truncate text-sm font-medium hover:underline group-has-checked:text-slate-400 group-has-checked:line-through">{{ attachment.original_name }}</a>
+          <p class="text-xs text-slate-500"><span class="group-has-checked:hidden">{{ attachment.size|filesizeformat }}</span><span class="hidden text-red-600 group-has-checked:inline">Removed when you save</span></p>
+        </div>
+        <label class="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 has-checked:text-slate-700 has-checked:hover:bg-slate-100 has-focus-visible:ring-2 has-focus-visible:ring-slate-900">
+          <input type="checkbox" name="{{ choice.data.name }}" value="{{ attachment.pk }}"{% if choice.data.selected %} checked{% endif %} class="sr-only" aria-label="Remove {{ attachment.original_name }}" data-size="{{ attachment.size }}">
+          <span class="flex items-center gap-1.5 group-has-checked:hidden">{% include "shell/icon.html" with name="trash" class="size-4" %}Remove</span>
+          <span class="hidden group-has-checked:inline">Keep</span>
+        </label>
+      </li>
+    {% endwith %}
   {% endfor %}
 </ul>
