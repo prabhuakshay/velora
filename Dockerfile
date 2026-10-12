@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 #
 #   docker compose up                                  dev: runserver + tailwind watcher
-#   docker compose -f compose.prod.yaml up -d --build  prod: gunicorn, assets baked in
+#   docker compose -f compose.prod.yaml up -d          prod: pulls the GHCR release
+#   docker compose -f compose.prod.yaml up -d --build  prod fallback: builds from this checkout
 #
 # Dev stages hold a toolchain and no source (the tree is bind-mounted). The prod
 # stage holds source, venv and compiled assets, and no toolchain.

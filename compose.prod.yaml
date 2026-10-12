@@ -1,4 +1,9 @@
-# Prod stack: `docker compose -f compose.prod.yaml up -d --build`.
+# Prod stack: `docker compose -f compose.prod.yaml up -d` pulls the published
+# release image from GHCR. `up -d --build` is the fallback: it builds from a
+# checkout and tags the result with the same name.
+#
+# If the GHCR package is private, first run `docker login ghcr.io` with a token
+# that has the read:packages scope.
 #
 # No database service: DATABASE_URL in .env is used as-is. The app publishes
 # on loopback only; a reverse proxy on this host terminates TLS, sets
@@ -12,7 +17,9 @@
 name: velora-prod
 
 x-app: &app
-  image: velora:${DOCKER_IMAGE_TAG:-latest}
+  image: ghcr.io/prabhuakshay/velora:${DOCKER_IMAGE_TAG:-latest}
+  # always: a cached `latest` would otherwise go stale.
+  pull_policy: always
   env_file:
     # raw: compose would otherwise expand `$` and truncate secrets. It also
     # keeps quotes literally, so write .env values unquoted.
@@ -45,7 +52,7 @@ x-app: &app
 services:
   migrate:
     <<: *app
-    # The only service that builds: django runs the image this produces.
+    # The only service that builds: with --build, or when the pull fails.
     build:
       context: .
       target: prod
@@ -54,8 +61,6 @@ services:
 
   django:
     <<: *app
-    # Never pulled: the image only exists locally, built by migrate.
-    pull_policy: never
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -74,7 +79,6 @@ services:
   # Runs Procrastinate jobs (ADR 0005), one at a time.
   worker:
     <<: *app
-    pull_policy: never
     command: ["python", "manage.py", "procrastinate", "worker", "--concurrency", "1"]
     depends_on:
       migrate:
