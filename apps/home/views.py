@@ -8,7 +8,8 @@ from django.utils import timezone
 
 from apps.accounts import forecast_view
 from apps.accounts.forecast import DAYS, forecast
-from apps.core.dates import months_after
+from apps.budgets.picture import budget_picture
+from apps.core.dates import month_start, months_after
 from apps.home import dashboard
 from apps.schedules.subscriptions import subscription_costs, yearly_total
 
@@ -29,6 +30,7 @@ def home(request: HttpRequest) -> HttpResponse:
     outlook = forecast(today, DAYS)
     scope = forecast_view.scope_for(outlook, None)
     costs = subscription_costs(today)
+    budgets = budget_picture(month_start(today))
     return render(
         request,
         "index.html",
@@ -53,7 +55,8 @@ def home(request: HttpRequest) -> HttpResponse:
                 scope, outlook, forecast_view.timeline(scope, outlook)
             ),
             "cards": dashboard.cards(today),
-            "budgets": dashboard.budget_card(today),
+            "budgets": dashboard.budget_card(budgets),
+            "budget_picture": budgets,
             "subscriptions_monthly": yearly_total(costs) / 12,
             "subscriptions_count": sum(cost.counted for cost in costs),
             "recent": dashboard.recent_transactions(),

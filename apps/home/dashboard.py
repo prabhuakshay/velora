@@ -12,7 +12,7 @@ from django.urls import reverse
 from apps.accounts.activity import month_end
 from apps.accounts.models import Account, AccountKind
 from apps.accounts.net_worth import net_worth, net_worth_history
-from apps.budgets.picture import BudgetRow, Row, State, budget_picture
+from apps.budgets.picture import BudgetPicture, BudgetRow, Row, State
 from apps.cards.models import Statement
 from apps.classification.models import earned, spent
 from apps.core.dates import month_start, months_after
@@ -244,12 +244,11 @@ def _attention(row: BudgetRow) -> tuple[int, Decimal]:
     return ATTENTION[row.state], -share
 
 
-def budget_card(today: date) -> BudgetCard | None:
+def budget_card(picture: BudgetPicture) -> BudgetCard | None:
     """The Overall Budget, then Budgets over, close, then by share Spent.
 
-    None when no Budget or Overall Budget applies this month.
+    None when no Budget or Overall Budget applies that month.
     """
-    picture = budget_picture(month_start(today))
     if not picture.rows and picture.overall is None:
         return None
     rows = sorted(picture.rows, key=_attention)

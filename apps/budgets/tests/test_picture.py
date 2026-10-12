@@ -264,7 +264,7 @@ def test_expected_counts_whats_due_and_waiting_in_the_month() -> None:
     make_manual_draft((bank, rent, "900"), date=date(2026, 7, 1))
     materialise_occurrences(TODAY)
 
-    (row,) = budget_picture(JUNE).rows
+    (row,) = budget_picture(JUNE, expected=True).rows
 
     assert row.expected == Decimal(25400)
 
@@ -277,7 +277,7 @@ def test_amountless_occurrences_and_drafts_add_nothing_to_expected() -> None:
     make_manual_draft((bank, power, None), date=date(2026, 6, 18))
     materialise_occurrences(TODAY)
 
-    (row,) = budget_picture(JUNE).rows
+    (row,) = budget_picture(JUNE, expected=True).rows
 
     assert row.expected == Decimal(0)
 
@@ -289,7 +289,7 @@ def test_expected_never_counts_as_spent_or_moves_the_state() -> None:
     move(date(2026, 6, 3), bank, rent, "100")
     make_manual_draft((bank, rent, "5000"), date=date(2026, 6, 20))
 
-    (row,) = budget_picture(JUNE).rows
+    (row,) = budget_picture(JUNE, expected=True).rows
 
     assert (row.spent, row.expected, row.left) == (
         Decimal(100),
@@ -308,4 +308,4 @@ def test_total_expected_includes_unbudgeted_accounts() -> None:
     make_manual_draft((bank, fun, "600"), date=date(2026, 6, 10))
     make_manual_draft((bank, fun, "50"), date=date(2026, 5, 31))
 
-    assert budget_picture(JUNE).total_expected == Decimal(25600)
+    assert budget_picture(JUNE, expected=True).total_expected == Decimal(25600)

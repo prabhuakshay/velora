@@ -56,7 +56,7 @@ def waiting_drafts(end: date) -> QuerySet[Draft]:
     )
 
 
-def expected_spending(start: date, end: date) -> dict[int, Decimal]:
+def expected_by_account(start: date, end: date) -> dict[int, Decimal]:
     """What each Expense Account is set to receive from start to end, by pk.
 
     Counts Upcoming Occurrences due and waiting Drafts dated in the range. Unlike

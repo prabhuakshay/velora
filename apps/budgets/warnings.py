@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from apps.accounts.forecast import Item
 from apps.budgets.models import BudgetWarning
-from apps.budgets.picture import Row, State, budget_picture
+from apps.budgets.picture import BudgetPicture, Row, State, budget_picture
 from apps.core.dates import month_start
 
 if TYPE_CHECKING:
@@ -20,13 +20,14 @@ if TYPE_CHECKING:
 LABELS = {State.CLOSE: "close to", State.OVER: "over"}
 
 
-def due_warnings(today: date) -> list[Row]:
+def due_warnings(today: date, picture: BudgetPicture | None = None) -> list[Row]:
     """Close or over Budgets this month not warned about before today.
 
+    Reads this month's picture when given, rather than building it again.
     Once over has been sent, close is left out too: it would be old news.
     """
     month = month_start(today)
-    picture = budget_picture(month)
+    picture = picture or budget_picture(month)
     rows: list[Row] = [*picture.rows]
     if picture.overall:
         rows.append(picture.overall)

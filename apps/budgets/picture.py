@@ -14,7 +14,7 @@ from django.db.models.functions import Lower
 from django.urls import reverse
 
 from apps.accounts.activity import month_end
-from apps.accounts.expected import expected_spending
+from apps.accounts.expected import expected_by_account
 from apps.accounts.models import Account, AccountKind
 from apps.budgets.models import Budget
 
@@ -70,7 +70,7 @@ class BudgetRow(Row):
     """One Expense Account's Budget for the month, its Spent and its Expected."""
 
     account: Account
-    expected: Decimal
+    expected: Decimal | None
     transactions_url: str
 
 
@@ -81,7 +81,7 @@ class BudgetPicture:
     month: date
     rows: list[BudgetRow]
     # Across every Expense Account, Unbudgeted ones included.
-    total_expected: Decimal
+    total_expected: Decimal | None
     overall: Row | None
     unbudgeted: Decimal
     # Allowed so editing is never blocked, but worth a note on the page.
@@ -107,11 +107,14 @@ def overall_budget_in(month: date) -> Decimal | None:
     return newest.amount if newest else None
 
 
-def budget_picture(month: date) -> BudgetPicture:
-    """The Budgets of the month starting on the given first day."""
+def budget_picture(month: date, *, expected: bool = False) -> BudgetPicture:
+    """The Budgets of the month starting on the given first day.
+
+    Expected is None unless asked for, as finding it takes several queries.
+    """
     budgets = budgets_in(month)
     end = month_end(month)
-    expected = expected_spending(month, end)
+    by_account = expected_by_account(month, end) if expected else None
     accounts = (
         Account.objects.filter(kind=AccountKind.EXPENSE)
         .with_activity("spent", month, end)
@@ -123,7 +126,7 @@ def budget_picture(month: date) -> BudgetPicture:
             account,
             budgets[account.pk],
             account.spent,
-            expected.get(account.pk, Decimal(0)),
+            None if by_account is None else by_account.get(account.pk, Decimal(0)),
             f"{transactions}?"
             + urlencode({"account": account.pk, "start": month, "end": end}),
         )
@@ -138,7 +141,9 @@ def budget_picture(month: date) -> BudgetPicture:
     return BudgetPicture(
         month=month,
         rows=rows,
-        total_expected=sum(expected.values(), Decimal(0)),
+        total_expected=None
+        if by_account is None
+        else sum(by_account.values(), Decimal(0)),
         overall=None
         if overall is None
         else Row(None, overall, sum((row.spent for row in rows), unbudgeted)),

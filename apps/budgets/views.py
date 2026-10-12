@@ -75,7 +75,7 @@ def budget_list(request: HttpRequest) -> HttpResponseBase:
         request,
         "budgets/budget_list.html",
         {
-            "picture": budget_picture(month),
+            "picture": budget_picture(month, expected=True),
             "previous": months_after(month, -1),
             "next": None if current else months_after(month, 1),
             "current": current,
