@@ -11,7 +11,11 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.users.client_ip import get_client_ip
-from apps.users.forms import PreferencesForm, PrivacyModeOffForm
+from apps.users.forms import (
+    AxesPasswordChangeForm,
+    PreferencesForm,
+    PrivacyModeOffForm,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -30,6 +34,16 @@ class LoginView(auth_views.LoginView):
         return super().get_context_data(**kwargs) | {
             "client_ip": get_client_ip(self.request)
         }
+
+
+class PasswordChangeView(auth_views.PasswordChangeView):
+    """Change password, checking the old one the way login does."""
+
+    form_class = AxesPasswordChangeForm
+
+    @override
+    def get_form_kwargs(self) -> dict[str, Any]:
+        return super().get_form_kwargs() | {"request": self.request}
 
 
 @login_required

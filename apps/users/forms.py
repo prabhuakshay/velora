@@ -9,9 +9,11 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import (
     AdminUserCreationForm,
+    PasswordChangeForm,
     PasswordResetForm,
     UserChangeForm,
 )
+from django.views.decorators.debug import sensitive_variables
 
 from apps.users.client_ip import get_client_ip
 from apps.users.models import User
@@ -44,6 +46,19 @@ class PreferencesForm(forms.ModelForm[User]):
         fields = ("number_format",)
 
 
+def password_is_correct(request: HttpRequest, password: str) -> bool:
+    """Check the signed-in user's password the way login does."""
+    email = cast("User", request.user).email
+    # authenticate, not check_password, so axes counts a wrong password
+    # and refuses a locked-out user exactly as it does at login.
+    if not authenticate(request, username=email, password=password):
+        return False
+    # authenticate doesn't log in, so axes never sees the success that
+    # would clear this user's failures (AXES_RESET_ON_SUCCESS) at login.
+    reset(ip=get_client_ip(request), username=email)
+    return True
+
+
 class PrivacyModeOffForm(forms.Form):
     """The user's password, needed to turn Privacy Mode off."""
 
@@ -62,18 +77,30 @@ class PrivacyModeOffForm(forms.Form):
     def clean(self) -> dict[str, object]:
         """Reject a wrong password."""
         cleaned = super().clean() or {}
-        # authenticate, not check_password, so axes counts a wrong password
-        # and refuses a locked-out user exactly as it does at login.
-        if "password" not in cleaned:
-            return cleaned
-        email = cast("User", self.request.user).email
-        if not authenticate(self.request, username=email, password=cleaned["password"]):
+        if "password" in cleaned and not password_is_correct(
+            self.request, cleaned["password"]
+        ):
             msg = "Wrong password."
             raise forms.ValidationError(msg)
-        # authenticate doesn't log in, so axes never sees the success that
-        # would clear this user's failures (AXES_RESET_ON_SUCCESS) at login.
-        reset(ip=get_client_ip(self.request), username=email)
         return cleaned
+
+
+class AxesPasswordChangeForm(PasswordChangeForm):
+    """Change password, counting wrong old passwords toward the axes lockout."""
+
+    def __init__(self, *args: Any, request: HttpRequest, **kwargs: Any) -> None:  # noqa: ANN401
+        super().__init__(*args, **kwargs)
+        self.request = request
+
+    @override
+    @sensitive_variables("old_password")
+    def clean_old_password(self) -> str:
+        old_password = str(self.cleaned_data["old_password"])
+        if not password_is_correct(self.request, old_password):
+            raise forms.ValidationError(
+                self.error_messages["password_incorrect"], code="password_incorrect"
+            )
+        return old_password
 
 
 class SiteURLPasswordResetForm(PasswordResetForm):

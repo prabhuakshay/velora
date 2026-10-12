@@ -3,7 +3,13 @@ from django.urls import path
 
 from apps.users.forms import SiteURLPasswordResetForm
 from apps.users.throttle import throttle
-from apps.users.views import LoginView, preferences, privacy_mode_off, privacy_mode_on
+from apps.users.views import (
+    LoginView,
+    PasswordChangeView,
+    preferences,
+    privacy_mode_off,
+    privacy_mode_on,
+)
 
 limit_login = throttle("LOGIN_RATE_LIMIT")
 limit_password_reset = throttle("PASSWORD_RESET_RATE_LIMIT")
@@ -20,7 +26,7 @@ urlpatterns = [
     path("privacy-mode/off/", privacy_mode_off, name="privacy_mode_off"),
     path(
         "password-change/",
-        auth_views.PasswordChangeView.as_view(),
+        limit_login(PasswordChangeView.as_view()),
         name="password_change",
     ),
     path(
