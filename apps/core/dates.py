@@ -17,3 +17,8 @@ def day_of(year: int, month: int, day: int) -> date:
 def months_after(start: date, months: int) -> date:
     """The same day `months` later, or the month's last day if it is shorter."""
     return day_of(start.year, start.month + months, start.day)
+
+
+def month_start(day: date) -> date:
+    """The first day of the day's month."""
+    return day.replace(day=1)

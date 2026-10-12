@@ -5,11 +5,7 @@
         <div class="min-w-0">
           <p class="flex min-w-0 items-center gap-2">
             <span class="truncate font-medium">Overall Budget</span>
-            {% if picture.overall.state == "over" %}
-              <span class="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Over</span>
-            {% elif picture.overall.state == "close" %}
-              <span class="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">Close</span>
-            {% endif %}
+            {% include "budgets/_state_badge.html" with state=picture.overall.state %}
           </p>
           <p class="mt-0.5 text-xs text-slate-500 tabular-nums">Budget {% amount picture.overall.budget %} · Spent {% amount picture.overall.spent %} · Expected {% amount picture.total_expected %}</p>
         </div>

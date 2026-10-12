@@ -12,10 +12,10 @@ from django.urls import reverse
 from apps.accounts.activity import month_end
 from apps.accounts.models import Account, AccountKind
 from apps.accounts.net_worth import net_worth, net_worth_history
-from apps.budgets.picture import BudgetRow, OverallRow, State, budget_picture
+from apps.budgets.picture import BudgetRow, Row, State, budget_picture
 from apps.cards.models import Statement
 from apps.classification.models import earned, spent
-from apps.core.dates import months_after
+from apps.core.dates import month_start, months_after
 from apps.home.charts import Bar, Line, bar, line
 from apps.transactions.models import Split, Transaction
 
@@ -62,7 +62,7 @@ class NetWorthCard:
 
 def net_worth_card(today: date, months: int | None, *, charted: bool) -> NetWorthCard:
     """Net Worth with its history over the last months, uncharted in Privacy Mode."""
-    since = today.replace(day=1) - timedelta(days=1)
+    since = month_start(today) - timedelta(days=1)
     now = net_worth(today)
     history: list[tuple[date, Decimal]] = []
     if charted:
@@ -98,11 +98,11 @@ class MonthFlow:
 
 def cash_flow(today: date, count: int = CASH_FLOW_MONTHS) -> list[MonthFlow]:
     """The last count months up to today's, oldest first."""
-    first = months_after(today.replace(day=1), 1 - count)
+    first = months_after(month_start(today), 1 - count)
     totals = {
         month: (money_in, money_out)
         for month, money_in, money_out in Split.objects.filter(
-            transaction__date__range=(first, month_end(today.replace(day=1)))
+            transaction__date__range=(first, month_end(month_start(today)))
         )
         .annotate(month=TruncMonth("transaction__date"))
         .order_by()
@@ -130,7 +130,7 @@ def spent_between(start: date, end: date) -> Decimal:
 
 def spent_by_now_last_month(today: date) -> Decimal:
     """What last month had spent by the same day of the month as today."""
-    start = months_after(today.replace(day=1), -1)
+    start = months_after(month_start(today), -1)
     return spent_between(start, months_after(today, -1))
 
 
@@ -149,7 +149,7 @@ class Slice:
 
 def spending(today: date) -> list[Slice]:
     """This month's biggest Expense Accounts, then the rest as Other."""
-    this_month = today.replace(day=1)
+    this_month = month_start(today)
     last_month = months_after(this_month, -1)
     accounts = sorted(
         (
@@ -228,7 +228,7 @@ def cards(today: date) -> list[CardRow]:
 class BudgetCard:
     """This month's Budgets, what needs attention first."""
 
-    overall: OverallRow | None
+    overall: Row | None
     rows: list[BudgetRow]
     more: int
 
@@ -246,7 +246,7 @@ def budget_card(today: date) -> BudgetCard | None:
 
     None when no Budget or Overall Budget applies this month.
     """
-    picture = budget_picture(today.replace(day=1))
+    picture = budget_picture(month_start(today))
     if not picture.rows and picture.overall is None:
         return None
     rows = sorted(picture.rows, key=_attention)

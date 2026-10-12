@@ -15,6 +15,7 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Account, AccountKind
+from apps.core.dates import month_start
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -81,7 +82,7 @@ def set_budget(account: Account | None, amount: Decimal | None, today: date) -> 
     With no Account it is the Overall Budget.
     """
     Budget.objects.update_or_create(
-        account=account, month=today.replace(day=1), defaults={"amount": amount}
+        account=account, month=month_start(today), defaults={"amount": amount}
     )
 
 

@@ -15,7 +15,7 @@ from apps.accounts.models import Account, AccountKind
 from apps.budgets.forms import BudgetForm, OverallBudgetForm
 from apps.budgets.models import set_budget
 from apps.budgets.picture import budget_picture, budgets_in, overall_budget_in
-from apps.core.dates import months_after
+from apps.core.dates import month_start, months_after
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 def _this_month() -> date:
-    return timezone.localdate().replace(day=1)
+    return month_start(timezone.localdate())
 
 
 def _month(request: HttpRequest) -> date:
@@ -89,7 +89,7 @@ def budget_list(request: HttpRequest) -> HttpResponseBase:
 def budget_set(request: HttpRequest) -> HttpResponseBase:
     """Set or change a Budget from the start of this month."""
     today = timezone.localdate()
-    budgets = budgets_in(today.replace(day=1))
+    budgets = budgets_in(month_start(today))
     chosen = request.GET.get("account", "")
     current = budgets.get(int(chosen)) if chosen.isdigit() else None
     form = BudgetForm(
@@ -105,7 +105,7 @@ def budget_set(request: HttpRequest) -> HttpResponseBase:
     return render(
         request,
         "budgets/budget_form.html",
-        {"form": form, "removable": int(chosen) if current is not None else None},
+        {"form": form, "has_budget": current is not None, "account_pk": chosen},
     )
 
 
@@ -126,7 +126,7 @@ def budget_remove(request: HttpRequest, pk: int) -> HttpResponseBase:
 def overall_budget_set(request: HttpRequest) -> HttpResponseBase:
     """Set or change the Overall Budget from the start of this month."""
     today = timezone.localdate()
-    current = overall_budget_in(today.replace(day=1))
+    current = overall_budget_in(month_start(today))
     form = OverallBudgetForm(request.POST or None, initial={"amount": current})
     if form.is_valid():
         set_budget(None, form.cleaned_data["amount"], today)
@@ -135,7 +135,7 @@ def overall_budget_set(request: HttpRequest) -> HttpResponseBase:
     return render(
         request,
         "budgets/overall_budget_form.html",
-        {"form": form, "removable": current is not None},
+        {"form": form, "has_budget": current is not None},
     )
 
 

@@ -43,15 +43,16 @@ def state_of(budget: Decimal, spent: Decimal) -> State:
 
 
 @dataclass(frozen=True)
-class BudgetRow:
-    """One Expense Account's Budget for the month, its Spent and its Expected."""
+class Row:
+    """A Budget for the month against what was Spent.
 
-    account: Account
+    With no Account it is the Overall Budget, against all Spent, Unbudgeted
+    included.
+    """
+
+    account: Account | None
     budget: Decimal
     spent: Decimal
-    expected: Decimal
-    # The month's Transactions under the Account, which make up the Spent.
-    url: str
 
     @property
     def left(self) -> Decimal:
@@ -65,21 +66,12 @@ class BudgetRow:
 
 
 @dataclass(frozen=True)
-class OverallRow:
-    """The Overall Budget for the month against all Spent, Unbudgeted included."""
+class BudgetRow(Row):
+    """One Expense Account's Budget for the month, its Spent and its Expected."""
 
-    budget: Decimal
-    spent: Decimal
-
-    @property
-    def left(self) -> Decimal:
-        """What can still be spent; negative once over."""
-        return self.budget - self.spent
-
-    @property
-    def state(self) -> State:
-        """Whether Spent is fine, close to or over the Overall Budget."""
-        return state_of(self.budget, self.spent)
+    account: Account
+    expected: Decimal
+    transactions_url: str
 
 
 @dataclass(frozen=True)
@@ -90,7 +82,7 @@ class BudgetPicture:
     rows: list[BudgetRow]
     # Across every Expense Account, Unbudgeted ones included.
     total_expected: Decimal
-    overall: OverallRow | None
+    overall: Row | None
     unbudgeted: Decimal
     # Allowed so editing is never blocked, but worth a note on the page.
     budgets_add_up_to_more: bool
@@ -149,7 +141,7 @@ def budget_picture(month: date) -> BudgetPicture:
         total_expected=sum(expected.values(), Decimal(0)),
         overall=None
         if overall is None
-        else OverallRow(overall, sum((row.spent for row in rows), unbudgeted)),
+        else Row(None, overall, sum((row.spent for row in rows), unbudgeted)),
         unbudgeted=unbudgeted,
         budgets_add_up_to_more=overall is not None and sum(budgets.values()) > overall,
     )

@@ -10,7 +10,7 @@
       <li>{% include "home/_budget_row.html" with name="Overall Budget" row=budgets.overall url=budgets_url %}</li>
     {% endif %}
     {% for row in budgets.rows %}
-      <li>{% include "home/_budget_row.html" with name=row.account.name url=row.url %}</li>
+      <li>{% include "home/_budget_row.html" with name=row.account.name url=row.transactions_url %}</li>
     {% endfor %}
     {% if budgets.more %}
       <li><a href="{% url 'budget_list' %}" class="block px-4 py-3 text-sm font-medium text-slate-500 hover:bg-slate-50 md:px-5">{{ budgets.more }} more</a></li>

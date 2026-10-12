@@ -127,16 +127,17 @@ class AccountMerge:
         the months they start in. Sent warnings follow the Budget rows.
         """
         target_has_own = Budget.objects.filter(account=self.target).exists()
-        for rows in (
-            Budget.objects.filter(account=self.source),
-            BudgetWarning.objects.filter(account=self.source),
-        ):
-            for row in rows:
-                if target_has_own:
-                    with_reason(row, reason).delete()
-                else:
-                    row.account = self.target
-                    with_reason(row, reason).save()
+        warnings = BudgetWarning.objects.filter(account=self.source)
+        if target_has_own:
+            warnings.delete()
+        else:
+            warnings.update(account=self.target)
+        for budget in Budget.objects.filter(account=self.source):
+            if target_has_own:
+                with_reason(budget, reason).delete()
+            else:
+                budget.account = self.target
+                with_reason(budget, reason).save()
 
     def _repoint_suggested_schedules(self) -> None:
         """Point Suggested Schedules at the target, dropping any it would loop to."""
