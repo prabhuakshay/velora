@@ -41,7 +41,7 @@ services:
   django:
     <<: *dev-app
     ports:
-      - "127.0.0.1:${DOCKER_HOST_PORT:-8000}:8000"
+      - "${DOCKER_HOST_IP:-127.0.0.1}:${DOCKER_HOST_PORT:-8000}:8000"
     # `docker compose attach django` for breakpoint().
     stdin_open: true
     tty: true
