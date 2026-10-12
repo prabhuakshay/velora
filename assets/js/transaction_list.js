@@ -1,8 +1,9 @@
 // The Transaction list's detail: beside the list on desktop, a sheet on
-// phones. Every row's detail is already in the page; this only shows one.
+// phones and tablets. Every row's detail is already in the page; this only
+// shows one.
 // A block, as app_shell.js declares the same names at the top level.
 {
-  const wide = () => matchMedia("(min-width: 48rem)").matches;
+  const wide = () => matchMedia("(min-width: 64rem)").matches;
 
   function select(row) {
     for (const r of document.querySelectorAll("[data-transaction][aria-current]")) r.removeAttribute("aria-current");
