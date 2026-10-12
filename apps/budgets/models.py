@@ -75,8 +75,11 @@ class Budget(models.Model):
             raise ValidationError({"account": "Choose an Expense Account."})
 
 
-def set_budget(account: Account, amount: Decimal | None, today: date) -> None:
-    """Set, change or, with no amount, remove a Budget from today's month on."""
+def set_budget(account: Account | None, amount: Decimal | None, today: date) -> None:
+    """Set, change or, with no amount, remove a Budget from today's month on.
+
+    With no Account it is the Overall Budget.
+    """
     Budget.objects.update_or_create(
         account=account, month=today.replace(day=1), defaults={"amount": amount}
     )

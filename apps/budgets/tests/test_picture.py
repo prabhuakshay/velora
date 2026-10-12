@@ -166,3 +166,88 @@ def test_budgets_are_listed_by_name() -> None:
         set_budget(make_account(name, "expense"), Decimal(100), TODAY)
 
     assert list(budgets(JUNE)) == ["Fuel", "Groceries", "rent"]
+
+
+def test_the_overall_budget_counts_all_spent_including_unbudgeted() -> None:
+    bank = opening("Bank", "asset", "0")
+    groceries = make_account("Groceries", "expense")
+    fun = make_account("Fun", "expense")
+    set_budget(groceries, Decimal(1000), TODAY)
+    set_budget(None, Decimal(5000), TODAY)
+    move(date(2026, 6, 3), bank, groceries, "1200")
+    move(date(2026, 6, 4), bank, fun, "3000")
+    move(date(2026, 6, 5), fun, bank, "500")
+
+    picture = budget_picture(JUNE)
+
+    assert picture.unbudgeted == Decimal(2500)
+    assert picture.overall
+    assert (picture.overall.budget, picture.overall.spent, picture.overall.left) == (
+        Decimal(5000),
+        Decimal(3700),
+        Decimal(1300),
+    )
+
+
+def overall_budget(month: date) -> Decimal | None:
+    overall = budget_picture(month).overall
+    return overall.budget if overall else None
+
+
+def test_the_overall_budget_follows_the_same_month_rules() -> None:
+    set_budget(None, Decimal(40000), date(2026, 4, 20))
+    set_budget(None, Decimal(50000), TODAY)
+    set_budget(None, None, date(2026, 8, 3))
+
+    assert overall_budget(date(2026, 3, 1)) is None
+    assert overall_budget(date(2026, 5, 1)) == Decimal(40000)
+    assert overall_budget(JUNE) == Decimal(50000)
+    assert overall_budget(date(2026, 7, 1)) == Decimal(50000)
+    assert overall_budget(date(2026, 8, 1)) is None
+
+
+def test_the_overall_budget_is_not_listed_with_the_budgets() -> None:
+    set_budget(None, Decimal(50000), TODAY)
+
+    assert budget_picture(JUNE).rows == []
+
+
+@pytest.mark.parametrize(
+    ("budget", "spent_amount", "state"),
+    [
+        ("1000", "899.99", State.FINE),
+        ("1000", "900", State.CLOSE),
+        ("1000", "1000.01", State.OVER),
+        ("0", "0", State.FINE),
+        ("0", "0.01", State.OVER),
+    ],
+)
+def test_the_overall_budget_is_close_and_over_like_a_budget(
+    budget: str, spent_amount: str, state: State
+) -> None:
+    bank = opening("Bank", "asset", "0")
+    set_budget(None, Decimal(budget), TODAY)
+    if Decimal(spent_amount):
+        move(date(2026, 6, 10), bank, make_account("Fun", "expense"), spent_amount)
+
+    overall = budget_picture(JUNE).overall
+
+    assert overall
+    assert overall.state == state
+
+
+def test_budgets_may_add_up_to_more_than_the_overall_budget() -> None:
+    set_budget(make_account("Rent", "expense"), Decimal(30000), TODAY)
+    set_budget(make_account("Groceries", "expense"), Decimal(12000), TODAY)
+
+    set_budget(None, Decimal(42000), TODAY)
+    assert budget_picture(JUNE).budgets_add_up_to_more is False
+
+    set_budget(None, Decimal("41999.99"), TODAY)
+    assert budget_picture(JUNE).budgets_add_up_to_more is True
+
+
+def test_budgets_add_up_to_more_only_against_an_overall_budget() -> None:
+    set_budget(make_account("Rent", "expense"), Decimal(30000), TODAY)
+
+    assert budget_picture(JUNE).budgets_add_up_to_more is False

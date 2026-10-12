@@ -14,7 +14,7 @@ from django.db.models.functions import Lower
 from django.urls import reverse
 
 from apps.accounts.activity import month_end
-from apps.accounts.models import Account
+from apps.accounts.models import Account, AccountKind
 from apps.budgets.models import Budget
 
 if TYPE_CHECKING:
@@ -63,11 +63,33 @@ class BudgetRow:
 
 
 @dataclass(frozen=True)
+class OverallRow:
+    """The Overall Budget for the month against all Spent, Unbudgeted included."""
+
+    budget: Decimal
+    spent: Decimal
+
+    @property
+    def left(self) -> Decimal:
+        """What can still be spent; negative once over."""
+        return self.budget - self.spent
+
+    @property
+    def state(self) -> State:
+        """Whether Spent is fine, close to or over the Overall Budget."""
+        return state_of(self.budget, self.spent)
+
+
+@dataclass(frozen=True)
 class BudgetPicture:
     """A calendar month's Budgets."""
 
     month: date
     rows: list[BudgetRow]
+    overall: OverallRow | None
+    unbudgeted: Decimal
+    # Allowed so editing is never blocked, but worth a note on the page.
+    budgets_add_up_to_more: bool
 
 
 def budgets_in(month: date) -> dict[int, Decimal]:
@@ -81,26 +103,46 @@ def budgets_in(month: date) -> dict[int, Decimal]:
     return {pk: amount for pk, amount in newest if amount is not None}
 
 
+def overall_budget_in(month: date) -> Decimal | None:
+    """The Overall Budget that applies in the month, if any."""
+    newest = (
+        Budget.objects.filter(account=None, month__lte=month).order_by("-month").first()
+    )
+    return newest.amount if newest else None
+
+
 def budget_picture(month: date) -> BudgetPicture:
     """The Budgets of the month starting on the given first day."""
     budgets = budgets_in(month)
     end = month_end(month)
     accounts = (
-        Account.objects.filter(pk__in=budgets)
+        Account.objects.filter(kind=AccountKind.EXPENSE)
         .with_activity("spent", month, end)
         .order_by(Lower("name"))
     )
     transactions = reverse("transaction_list")
+    rows = [
+        BudgetRow(
+            account,
+            budgets[account.pk],
+            account.spent,
+            f"{transactions}?"
+            + urlencode({"account": account.pk, "start": month, "end": end}),
+        )
+        for account in accounts
+        if account.pk in budgets
+    ]
+    unbudgeted = sum(
+        (account.spent for account in accounts if account.pk not in budgets),
+        Decimal(0),
+    )
+    overall = overall_budget_in(month)
     return BudgetPicture(
         month=month,
-        rows=[
-            BudgetRow(
-                account,
-                budgets[account.pk],
-                account.spent,
-                f"{transactions}?"
-                + urlencode({"account": account.pk, "start": month, "end": end}),
-            )
-            for account in accounts
-        ],
+        rows=rows,
+        overall=None
+        if overall is None
+        else OverallRow(overall, sum((row.spent for row in rows), unbudgeted)),
+        unbudgeted=unbudgeted,
+        budgets_add_up_to_more=overall is not None and sum(budgets.values()) > overall,
     )
