@@ -11,7 +11,8 @@ from django.utils import timezone
 
 from apps.accounts.models import Account, AccountKind
 from apps.classification.models import Party, Tag
-from apps.transactions.models import Split, Transaction
+from apps.transactions.models import Attachment, Split, Transaction
+from apps.transactions.tasks import delete_stored_file
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser
@@ -67,6 +68,7 @@ PARTIES = [
 TAGS = {"Work": "blue", "Family": "green", "Trip": "amber", "Reimbursable": "violet"}
 
 # Wiped by --reset; CASCADE also clears Attachment rows and history.
+# TRUNCATE sends no delete signals, so Attachments' files are queued first.
 RESET_TABLES = [
     "transactions_transaction",
     "transactions_split",
@@ -108,6 +110,10 @@ class Command(BaseCommand):
     ) -> None:
         """Create the data, after wiping old data when --reset is passed."""
         if reset:
+            for name in Attachment.objects.exclude(file="").values_list(
+                "file", flat=True
+            ):
+                delete_stored_file.defer(name=name)
             with connection.cursor() as cursor:
                 # TRUNCATE refuses while deferred FK checks from this transaction pend.
                 cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")

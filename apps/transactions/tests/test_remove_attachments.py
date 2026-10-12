@@ -6,7 +6,10 @@ from django.urls import NoReverseMatch, reverse
 from apps.transactions.tests.conftest import (
     attach,
     form_data,
+    queued_deletes,
     recorded,
+    run_queued_deletes,
+    stored_names,
     transaction_url,
     upload,
 )
@@ -54,6 +57,21 @@ def test_save_removes_the_ticked_attachments_with_the_other_edits(
     assert list(transaction.attachments.all()) == [kept]
     transaction.refresh_from_db()
     assert transaction.description == "Changed"
+    run_queued_deletes()
+    assert stored_names() == [kept.file.name]
+
+
+@pytest.mark.usefixtures("delete_fails")
+def test_storage_failure_doesnt_block_removing(signed_in: Client) -> None:
+    transaction = recorded()
+    attachment = attach(transaction)
+    name = attachment.file.name
+
+    response = edit(signed_in, transaction, remove_attachments=[attachment.pk])
+
+    assert response.status_code == 302
+    assert not transaction.attachments.exists()
+    assert queued_deletes() == [name]
 
 
 def test_failed_save_removes_nothing_and_keeps_the_box_ticked(

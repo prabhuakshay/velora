@@ -3,7 +3,6 @@
 import logging
 from typing import TYPE_CHECKING, Any
 
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
 from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
@@ -16,10 +15,6 @@ from apps.accounts.models import Account
 from apps.classification.models import Party, Tag
 from apps.core.views import blank_split_row, paginate
 from apps.transactions import cloudflare
-from apps.transactions.attachments import (
-    AttachmentDeleteError,
-    delete_attachment_files,
-)
 from apps.transactions.bucket_stats import bucket_stats
 from apps.transactions.export import transactions_csv
 from apps.transactions.filters import TransactionFilterForm
@@ -201,13 +196,7 @@ def transaction_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Confirm, then delete a Transaction, its Splits and its Attachments."""
     transaction = get_object_or_404(_listed_transactions(), pk=pk)
     if request.method == "POST":
-        try:
-            with db_transaction.atomic():
-                delete_attachment_files(transaction.attachments.all())
-                transaction.delete()
-        except AttachmentDeleteError as error:
-            messages.error(request, str(error))
-            return redirect(request.get_full_path())
+        transaction.delete()
         return redirect(_return_url(request))
     return render(
         request,

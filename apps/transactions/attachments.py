@@ -44,29 +44,3 @@ def remove_files(attachments: Iterable[Attachment]) -> None:
     """Delete the stored files of Attachments whose rows were rolled back."""
     for attachment in attachments:
         attachment.file.delete(save=False)
-
-
-class AttachmentDeleteError(Exception):
-    """Storage couldn't delete an Attachment's file; roll the delete back."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            "Couldn't remove Attachments from storage; nothing was deleted. Try again."
-        )
-
-
-def delete_attachment_files(attachments: Iterable[Attachment]) -> None:
-    """Delete each Attachment's stored file.
-
-    Call inside the database transaction that deletes the rows, and roll it
-    back on AttachmentDeleteError so the rows and storage keep agreeing. A
-    file already gone counts as deleted, so a delete that failed partway can
-    be retried.
-    """
-    for attachment in attachments:
-        try:
-            attachment.file.delete(save=False)
-        except FileNotFoundError:
-            pass
-        except Exception as error:
-            raise AttachmentDeleteError from error

@@ -167,24 +167,6 @@ def missing_raises(settings: Settings) -> None:
     use_storage(settings, f"{__name__}.MissingRaisesStorage")
 
 
-class SecondDeleteFailsStorage(MissingRaisesStorage):
-    """Deletes one file, fails once, then recovers."""
-
-    deletes = 0
-
-    def delete(self, name: str) -> None:
-        self.deletes += 1
-        if self.deletes == 2:
-            msg = "storage unavailable"
-            raise OSError(msg)
-        super().delete(name)
-
-
-@pytest.fixture
-def second_delete_fails(settings: Settings) -> None:
-    use_storage(settings, f"{__name__}.SecondDeleteFailsStorage")
-
-
 def fail_next_commit(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the next database commit fail, like a connection lost at the end.
 
@@ -214,3 +196,21 @@ def r2_storage(settings: Settings) -> None:
         access_key="test-key",
         secret_key="test-secret",
     )
+
+
+def queued_deletes() -> list[str]:
+    """The stored file names waiting in delete jobs, oldest first."""
+    from procrastinate.contrib.django.models import ProcrastinateJob  # noqa: PLC0415
+
+    jobs = ProcrastinateJob.objects.filter(
+        task_name="transactions.delete_stored_file"
+    ).order_by("id")
+    return [job.args["name"] for job in jobs]
+
+
+def run_queued_deletes() -> None:
+    """Run each queued delete job once, as the worker would."""
+    from apps.transactions.tasks import delete_stored_file  # noqa: PLC0415
+
+    for name in queued_deletes():
+        delete_stored_file(name=name)
