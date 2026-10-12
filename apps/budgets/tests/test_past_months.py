@@ -10,8 +10,13 @@ from apps.accounts.tests.conftest import make_account, page_text
 from apps.accounts.tests.test_balance import opening
 from apps.budgets.models import set_budget
 from apps.budgets.picture import budget_picture
-from apps.budgets.tests.conftest import move
-from apps.budgets.tests.test_budgets_page import budgets_text
+from apps.budgets.tests.conftest import cell, move
+from apps.budgets.tests.test_budgets_page import (
+    budgets_page,
+    budgets_text,
+    edit_url,
+    set_on,
+)
 from apps.budgets.urls import urlpatterns
 
 if TYPE_CHECKING:
@@ -44,7 +49,7 @@ def test_a_past_month_shows_the_budget_it_had_against_its_spent(
     text = page_text(signed_in.get(month_url(last_month())).content.decode())
 
     assert f"{last_month():%B %Y}" in text
-    assert "Budget ₹10,000.00 · Spent ₹2,500.00" in text
+    assert "Groceries Budget ₹10,000.00 Spent ₹2,500.00" in text
     assert "₹12,000.00" not in text
 
 
@@ -96,26 +101,26 @@ def test_a_past_month_links_both_ways(signed_in: Client) -> None:
     assert f'href="{month_url(this_month())}"' in page
 
 
-def test_a_budget_removed_this_month_shows_in_the_past_without_edit_controls(
-    signed_in: Client,
-) -> None:
+def test_a_past_month_lists_only_its_budgets_read_only(signed_in: Client) -> None:
     groceries = make_account("Groceries", "expense")
+    make_account("Fuel", "expense")
     set_budget(groceries, Decimal(10000), last_month())
-    signed_in.post(reverse("budget_remove", args=[groceries.pk]))
+    set_on(signed_in, groceries, "")
 
     page = signed_in.get(month_url(last_month())).content.decode()
 
-    assert "Budget ₹10,000.00" in page_text(page)
-    assert reverse("budget_set") not in page
-    assert reverse("budget_remove", args=[groceries.pk]) not in page
+    assert "Groceries Budget ₹10,000.00" in page_text(page)
+    assert "Fuel" not in page_text(page)
+    assert cell(page, "Budget for Groceries") is None
+    assert edit_url(groceries) not in page
 
 
-def test_this_month_offers_the_edit_controls(signed_in: Client) -> None:
+def test_this_month_offers_the_cells(signed_in: Client) -> None:
     set_budget(make_account("Groceries", "expense"), Decimal(100), this_month())
 
     page = signed_in.get(reverse("budget_list")).content.decode()
 
-    assert reverse("budget_set") in page
+    assert cell(page, "Budget for Groceries") == "100"
 
 
 # Every Budgets route but the page itself edits, so each must refuse a past month.
@@ -139,32 +144,41 @@ def test_an_edit_sent_for_a_past_month_is_refused(
     )
 
     assert response["Location"] == reverse("budget_list")
+    page = signed_in.get(reverse("budget_list")).content.decode()
+    assert "Budgets can be changed only for this month." in page_text(page)
+    assert cell(page, "Budget for Groceries") == "100"
+
+
+def test_a_cell_saved_for_a_past_month_reloads_the_page(signed_in: Client) -> None:
+    groceries = make_account("Groceries", "expense")
+
+    response = signed_in.post(
+        edit_url(groceries),
+        {"amount": "500", "month": f"{last_month():%Y-%m}"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response["HX-Redirect"] == reverse("budget_list")
     text = budgets_text(signed_in)
     assert "Budgets can be changed only for this month." in text
-    assert "Budget ₹100.00" in text
+    assert cell(budgets_page(signed_in), "Budget for Groceries") == ""
 
 
 def test_an_edit_sent_for_this_month_goes_through(signed_in: Client) -> None:
     groceries = make_account("Groceries", "expense")
 
     signed_in.post(
-        reverse("budget_set"),
-        {"account": groceries.pk, "amount": "500", "month": f"{this_month():%Y-%m}"},
+        edit_url(groceries), {"amount": "500", "month": f"{this_month():%Y-%m}"}
     )
 
-    assert "Budget ₹500.00" in budgets_text(signed_in)
+    assert cell(budgets_page(signed_in), "Budget for Groceries") == "500"
 
 
-def test_the_budget_forms_send_the_month_they_were_opened_in(
-    signed_in: Client,
-) -> None:
-    groceries = make_account("Groceries", "expense")
-    set_budget(groceries, Decimal(100), this_month())
-    sent = f'name="month" value="{this_month():%Y-%m}"'
+def test_each_cell_sends_the_month_it_was_opened_in(signed_in: Client) -> None:
+    make_account("Groceries", "expense")
+    sent = f'?month={this_month():%Y-%m}"'
 
-    page = signed_in.get(
-        reverse("budget_set"), {"account": groceries.pk}
-    ).content.decode()
+    page = signed_in.get(reverse("budget_list")).content.decode()
 
     assert page.count(sent) == 2
 

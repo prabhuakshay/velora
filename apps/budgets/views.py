@@ -1,20 +1,21 @@
-"""The Budgets page and setting, changing and removing a Budget."""
+"""The Budgets page: a table of every Budget, each cell saved as it changes."""
 
 from datetime import date
 from functools import wraps
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account, AccountKind
-from apps.budgets.forms import BudgetForm, OverallBudgetForm
+from apps.budgets.forms import BudgetAmountForm
 from apps.budgets.models import set_budget
-from apps.budgets.picture import budget_picture, budgets_in, overall_budget_in
+from apps.budgets.picture import BudgetRow, UnbudgetedRow, budget_picture
 from apps.core.dates import month_start, months_after
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
@@ -23,6 +24,8 @@ if TYPE_CHECKING:
 
     from django.http import HttpRequest
     from django.http.response import HttpResponseBase
+
+    from apps.users.models import User
 
     type View = Callable[..., HttpResponseBase]
 
@@ -49,7 +52,7 @@ def _month(request: HttpRequest) -> date:
 def this_month_only(view: View) -> View:
     """Refuse an edit sent for any month but this one; past months are read-only.
 
-    Forms send the month they were opened in, so one opened before the month
+    Cells send the month they were opened in, so a page left open as the month
     turned can't change the new month by mistake.
     """
 
@@ -60,6 +63,9 @@ def this_month_only(view: View) -> View:
         sent = request.POST.get("month") or request.GET.get("month")
         if sent is not None and sent != f"{_this_month():%Y-%m}":
             messages.error(request, "Budgets can be changed only for this month.")
+            if request.headers.get("HX-Request"):
+                # htmx would follow a redirect unseen, so ask it to load the page.
+                return HttpResponse(headers={"HX-Redirect": reverse("budget_list")})
             return redirect("budget_list")
         return view(request, *args, **kwargs)
 
@@ -71,14 +77,17 @@ def budget_list(request: HttpRequest) -> HttpResponseBase:
     """A month's Budgets against what was Spent, this month by default."""
     month = _month(request)
     current = month == _this_month()
+    picture = budget_picture(month, expected=True)
     return render(
         request,
         "budgets/budget_list.html",
         {
-            "picture": budget_picture(month, expected=True),
+            "picture": picture,
+            "sheet": picture.sheet if current else picture.rows,
             "previous": months_after(month, -1),
             "next": None if current else months_after(month, 1),
             "current": current,
+            "editable": current and not cast("User", request.user).privacy_mode,
         },
     )
 
@@ -86,64 +95,30 @@ def budget_list(request: HttpRequest) -> HttpResponseBase:
 @login_required
 @this_month_only
 @blocked_in_privacy_mode
-def budget_set(request: HttpRequest) -> HttpResponseBase:
-    """Set or change a Budget from the start of this month."""
-    today = timezone.localdate()
-    budgets = budgets_in(month_start(today))
-    chosen = request.GET.get("account", "")
-    current = budgets.get(int(chosen)) if chosen.isdigit() else None
-    form = BudgetForm(
-        budgets,
-        request.POST or None,
-        initial={"account": chosen, "amount": current},
+@require_POST
+def budget_edit(request: HttpRequest, pk: int | None = None) -> HttpResponseBase:
+    """Save one cell of the Budgets table and send back what it changed.
+
+    With no Account it is the Overall Budget's cell.
+    """
+    account = (
+        None
+        if pk is None
+        else get_object_or_404(Account, pk=pk, kind=AccountKind.EXPENSE)
     )
+    form = BudgetAmountForm(request.POST)
     if form.is_valid():
-        account = form.cleaned_data["account"]
-        set_budget(account, form.cleaned_data["amount"], today)
-        messages.success(request, f"Saved the Budget for {account}.")
-        return redirect("budget_list")
+        set_budget(account, form.cleaned_data["amount"], timezone.localdate())
+    picture = budget_picture(_this_month(), expected=True)
+    rows: list[BudgetRow | UnbudgetedRow] = [*picture.rows, *picture.unbudgeted_rows]
+    row = next((row for row in rows if row.account == account), None)
     return render(
         request,
-        "budgets/budget_form.html",
-        {"form": form, "has_budget": current is not None, "account_pk": chosen},
+        "budgets/_saved.html",
+        {
+            "picture": picture,
+            "row": row,
+            "fid": "overall" if account is None else f"budget-{account.pk}",
+            "errors": form["amount"].errors,
+        },
     )
-
-
-@login_required
-@this_month_only
-@require_POST
-def budget_remove(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Remove a Budget from the start of this month; earlier months keep it."""
-    account = get_object_or_404(Account, pk=pk, kind=AccountKind.EXPENSE)
-    set_budget(account, None, timezone.localdate())
-    messages.success(request, f"Removed the Budget for {account} from this month on.")
-    return redirect("budget_list")
-
-
-@login_required
-@this_month_only
-@blocked_in_privacy_mode
-def overall_budget_set(request: HttpRequest) -> HttpResponseBase:
-    """Set or change the Overall Budget from the start of this month."""
-    today = timezone.localdate()
-    current = overall_budget_in(month_start(today))
-    form = OverallBudgetForm(request.POST or None, initial={"amount": current})
-    if form.is_valid():
-        set_budget(None, form.cleaned_data["amount"], today)
-        messages.success(request, "Saved the Overall Budget.")
-        return redirect("budget_list")
-    return render(
-        request,
-        "budgets/overall_budget_form.html",
-        {"form": form, "has_budget": current is not None},
-    )
-
-
-@login_required
-@this_month_only
-@require_POST
-def overall_budget_remove(request: HttpRequest) -> HttpResponseBase:
-    """Remove the Overall Budget from the start of this month."""
-    set_budget(None, None, timezone.localdate())
-    messages.success(request, "Removed the Overall Budget from this month on.")
-    return redirect("budget_list")

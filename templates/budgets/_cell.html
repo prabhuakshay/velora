@@ -1,0 +1,10 @@
+<div class="min-w-0">
+  {% if editable %}
+    <div class="relative before:pointer-events-none before:absolute before:inset-y-0 before:left-2.5 before:flex before:items-center before:text-sm before:text-slate-400 before:content-['₹'] has-[input:placeholder-shown]:before:hidden">
+      <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" name="amount" value="{% if value is not None %}{{ value|floatformat:"-2u" }}{% endif %}" placeholder="No Budget" aria-label="{{ label }}" aria-describedby="{{ fid }}-error" data-budget-cell hx-post="{{ edit_url }}?month={{ picture.month|date:'Y-m' }}" hx-trigger="change" hx-swap="none" class="w-full rounded-lg border border-slate-200 bg-white py-1.5 pr-2.5 pl-6 text-right text-base tabular-nums placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900 focus:outline-hidden xl:text-sm [&.htmx-request]:text-slate-400">
+    </div>
+    {% include "budgets/_error.html" %}
+  {% else %}
+    <p class="text-right font-medium tabular-nums"><span class="sr-only">Budget </span>{% if value is not None %}{% amount value %}{% else %}<span class="text-slate-400">–</span>{% endif %}</p>
+  {% endif %}
+</div>

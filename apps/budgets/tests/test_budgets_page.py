@@ -13,30 +13,39 @@ from apps.accounts.activity import month_end
 from apps.accounts.tests.conftest import make_account, page_text
 from apps.accounts.tests.test_balance import opening
 from apps.budgets.models import Budget, set_budget
-from apps.budgets.tests.conftest import move
+from apps.budgets.tests.conftest import cell, move, swapped
 from apps.quick_add.tests.conftest import make_manual_draft
 from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 from apps.users.tests.test_privacy_mode import MASK
 
 if TYPE_CHECKING:
+    from django.test.client import _MonkeyPatchedWSGIResponse as Response
+
     from apps.accounts.models import Account
     from apps.users.models import User
 
 pytestmark = pytest.mark.django_db
 
 
+def budgets_page(client: Client) -> str:
+    return client.get(reverse("budget_list")).content.decode()
+
+
 def budgets_text(client: Client) -> str:
-    return page_text(client.get(reverse("budget_list")).content.decode())
+    return page_text(budgets_page(client))
 
 
-def set_on(client: Client, account: Account, amount: str) -> str:
-    response = client.post(
-        reverse("budget_set"), {"account": account.pk, "amount": amount}
+def edit_url(account: Account | None) -> str:
+    if account is None:
+        return reverse("overall_budget_edit")
+    return reverse("budget_edit", args=[account.pk])
+
+
+def set_on(client: Client, account: Account | None, amount: str) -> Response:
+    """Type the amount into the Account's Budget cell, or the Overall one's."""
+    return client.post(
+        edit_url(account), {"amount": amount}, headers={"HX-Request": "true"}
     )
-    if response.status_code == 302:
-        assert response["Location"] == reverse("budget_list")
-        return ""
-    return page_text(response.content.decode())
 
 
 def test_the_budgets_page_is_in_the_navigation(signed_in: Client) -> None:
@@ -45,121 +54,197 @@ def test_the_budgets_page_is_in_the_navigation(signed_in: Client) -> None:
     assert f'href="{reverse("budget_list")}"' in page
 
 
-def test_each_budget_shows_budget_spent_and_left(signed_in: Client) -> None:
+def test_every_visible_expense_account_has_a_budget_cell(signed_in: Client) -> None:
+    today = timezone.localdate()
+    groceries = make_account("Groceries", "expense")
+    make_account("Fuel", "expense")
+    make_account("Old", "expense", hidden=True)
+    gym = make_account("Gym", "expense", hidden=True)
+    make_account("Salary", "income")
+    set_budget(groceries, Decimal(12000), today)
+    set_budget(gym, Decimal(500), today)
+
+    page = budgets_page(signed_in)
+
+    assert cell(page, "Budget for Groceries") == "12000"
+    assert cell(page, "Budget for Fuel") == ""
+    assert cell(page, "Budget for Gym") == "500"
+    assert cell(page, "Budget for Old") is None
+    assert cell(page, "Budget for Salary") is None
+
+
+def test_each_budget_shows_spent_expected_and_left(signed_in: Client) -> None:
     today = timezone.localdate()
     bank = opening("Bank", "asset", "0")
     groceries = make_account("Groceries", "expense")
     move(today, bank, groceries, "2500")
-    set_on(signed_in, groceries, "12000")
+    make_manual_draft((bank, groceries, "400"), date=today)
+    set_budget(groceries, Decimal(12000), today)
 
     text = budgets_text(signed_in)
 
-    assert "Groceries" in text
-    assert "Budget ₹12,000.00" in text
-    assert "Spent ₹2,500.00" in text
-    assert "₹9,500.00 left" in text
+    assert "Groceries Spent ₹2,500.00 Expected ₹400.00 ₹9,500.00 left" in text
 
 
-def test_each_budget_shows_what_is_expected(signed_in: Client) -> None:
+def test_an_account_without_a_budget_shows_its_spent_and_expected(
+    signed_in: Client,
+) -> None:
     today = timezone.localdate()
-    rent = make_account("Rent", "expense")
-    make_manual_draft((opening("Bank", "asset", "0"), rent, "25000"), date=today)
-    set_on(signed_in, rent, "30000")
+    bank = opening("Bank", "asset", "0")
+    fuel = make_account("Fuel", "expense")
+    move(today, bank, fuel, "300")
+    make_manual_draft((bank, fuel, "700"), date=today)
 
-    assert "Expected ₹25,000.00" in budgets_text(signed_in)
+    text = budgets_text(signed_in)
+
+    assert "Fuel Spent ₹300.00 Expected ₹700.00" in text
+    assert "left" not in text
 
 
 def test_each_row_links_to_the_months_transactions(signed_in: Client) -> None:
     today = timezone.localdate()
     groceries = make_account("Groceries", "expense")
-    set_budget(groceries, Decimal(100), today)
     start = today.replace(day=1)
     query = urlencode(
         {"account": groceries.pk, "start": start, "end": month_end(start)}
     )
 
-    page = signed_in.get(reverse("budget_list")).content.decode()
+    page = budgets_page(signed_in)
 
     assert escape(f"{reverse('transaction_list')}?{query}") in page
 
 
-def test_changing_a_budget_replaces_it(signed_in: Client) -> None:
+def test_each_cell_saves_to_its_own_account_as_it_changes(signed_in: Client) -> None:
+    groceries = make_account("Groceries", "expense")
+
+    page = budgets_page(signed_in)
+
+    assert f'hx-post="{edit_url(groceries)}' in page
+    assert 'hx-trigger="change"' in page
+
+
+def test_typing_an_amount_sets_the_budget(signed_in: Client) -> None:
+    groceries = make_account("Groceries", "expense")
+
+    response = set_on(signed_in, groceries, "12000")
+
+    assert response.status_code == 200
+    assert cell(budgets_page(signed_in), "Budget for Groceries") == "12000"
+
+
+def test_typing_a_new_amount_changes_the_budget(signed_in: Client) -> None:
     groceries = make_account("Groceries", "expense")
     set_on(signed_in, groceries, "12000")
 
     set_on(signed_in, groceries, "15000")
 
-    text = budgets_text(signed_in)
-    assert "Budget ₹15,000.00" in text
-    assert "₹12,000.00" not in text
+    assert cell(budgets_page(signed_in), "Budget for Groceries") == "15000"
+    assert Budget.objects.count() == 1
 
 
-def test_the_change_form_starts_from_the_current_budget(signed_in: Client) -> None:
+def test_emptying_a_cell_removes_the_budget(signed_in: Client) -> None:
     groceries = make_account("Groceries", "expense")
+    move(timezone.localdate(), opening("Bank", "asset", "0"), groceries, "2500")
     set_on(signed_in, groceries, "12000")
 
-    page = signed_in.get(
-        reverse("budget_set") + f"?account={groceries.pk}"
-    ).content.decode()
+    set_on(signed_in, groceries, "")
 
-    assert 'value="12000.00"' in page
-    assert reverse("budget_remove", args=[groceries.pk]) in page
-
-
-def test_removing_a_budget_drops_it_from_the_page(signed_in: Client) -> None:
-    groceries = make_account("Groceries", "expense")
-    set_on(signed_in, groceries, "12000")
-
-    response = signed_in.post(reverse("budget_remove", args=[groceries.pk]))
-
-    assert response["Location"] == reverse("budget_list")
-    text = budgets_text(signed_in)
-    assert "Removed the Budget for Groceries from this month on." in text
-    assert "No Budgets yet" in text
+    page = budgets_page(signed_in)
+    assert cell(page, "Budget for Groceries") == ""
+    assert "left" not in page_text(page)
+    assert "Unbudgeted ₹2,500.00" in page_text(page)
 
 
 def test_a_zero_budget_is_over_at_any_spent(signed_in: Client) -> None:
-    today = timezone.localdate()
     takeaway = make_account("Takeaway", "expense")
     set_on(signed_in, takeaway, "0")
-    move(today, opening("Bank", "asset", "0"), takeaway, "1")
+    move(timezone.localdate(), opening("Bank", "asset", "0"), takeaway, "1")
 
-    text = budgets_text(signed_in)
+    page = budgets_page(signed_in)
 
-    assert "Budget ₹0.00" in text
-    assert "Over" in text
+    assert cell(page, "Budget for Takeaway") == "0"
+    assert "Takeaway Spent ₹1.00 Expected ₹0.00 Over -₹1.00 left" in page_text(page)
 
 
 def test_a_budget_close_to_its_limit_is_marked_close(signed_in: Client) -> None:
-    today = timezone.localdate()
     groceries = make_account("Groceries", "expense")
     set_on(signed_in, groceries, "1000")
-    move(today, opening("Bank", "asset", "0"), groceries, "950")
+    move(timezone.localdate(), opening("Bank", "asset", "0"), groceries, "950")
 
-    assert "Close" in budgets_text(signed_in)
+    assert "Close ₹50.00 left" in budgets_text(signed_in)
 
 
-def test_a_negative_amount_is_refused(signed_in: Client) -> None:
+@pytest.mark.parametrize(
+    ("amount", "error"), [("-1", "Enter 0 or more."), ("lots", "Enter a number.")]
+)
+def test_an_amount_that_is_not_a_budget_is_refused_beside_its_cell(
+    signed_in: Client, amount: str, error: str
+) -> None:
     groceries = make_account("Groceries", "expense")
+    set_on(signed_in, groceries, "12000")
 
-    text = set_on(signed_in, groceries, "-1")
+    response = set_on(signed_in, groceries, amount)
 
-    assert "Enter 0 or more." in text
-    assert "Groceries" not in budgets_text(signed_in)
+    assert swapped(response)[f"budget-{groceries.pk}-error"] == error
+    assert cell(budgets_page(signed_in), "Budget for Groceries") == "12000"
+
+
+def test_a_good_amount_clears_the_error(signed_in: Client) -> None:
+    groceries = make_account("Groceries", "expense")
+    set_on(signed_in, groceries, "-1")
+
+    response = set_on(signed_in, groceries, "100")
+
+    assert swapped(response)[f"budget-{groceries.pk}-error"] == ""
+
+
+def test_a_save_sends_back_everything_it_changed(signed_in: Client) -> None:
+    today = timezone.localdate()
+    bank = opening("Bank", "asset", "0")
+    groceries = make_account("Groceries", "expense")
+    move(today, bank, groceries, "2500")
+    move(today, bank, make_account("Fun", "expense"), "1500")
+    set_budget(None, Decimal(10000), today)
+
+    response = set_on(signed_in, groceries, "12000")
+
+    assert swapped(response) == {
+        f"budget-{groceries.pk}": "Spent ₹2,500.00 Expected ₹0.00 ₹9,500.00 left",
+        f"budget-{groceries.pk}-error": "",
+        "overall": "Spent ₹4,000.00 Expected ₹0.00 ₹6,000.00 left",
+        "unbudgeted": "₹1,500.00",
+        "budgets-note": "The Budgets add up to more than the Overall Budget.",
+    }
+
+
+def test_removing_a_budget_sends_back_a_row_without_one(signed_in: Client) -> None:
+    groceries = make_account("Groceries", "expense")
+    move(timezone.localdate(), opening("Bank", "asset", "0"), groceries, "2500")
+    set_on(signed_in, groceries, "12000")
+
+    parts = swapped(set_on(signed_in, groceries, ""))
+
+    assert parts[f"budget-{groceries.pk}"] == "Spent ₹2,500.00 Expected ₹0.00"
+    assert parts["unbudgeted"] == "₹2,500.00"
 
 
 @pytest.mark.parametrize("kind", ["asset", "liability", "income"])
-def test_only_expense_accounts_are_offered(signed_in: Client, kind: str) -> None:
+def test_only_expense_accounts_take_a_budget(signed_in: Client, kind: str) -> None:
     other = make_account("Elsewhere", kind)
-    make_account("Groceries", "expense")
 
-    page = page_text(signed_in.get(reverse("budget_set")).content.decode())
-    text = set_on(signed_in, other, "100")
+    response = set_on(signed_in, other, "100")
 
-    assert "Groceries" in page
-    assert "Elsewhere" not in page
-    assert "Select a valid choice." in text
-    assert "Elsewhere" not in budgets_text(signed_in)
+    assert response.status_code == 404
+    assert not Budget.objects.exists()
+
+
+def test_only_a_post_saves(signed_in: Client) -> None:
+    groceries = make_account("Groceries", "expense")
+
+    response = signed_in.get(edit_url(groceries), {"amount": "100"})
+
+    assert response.status_code == 405
+    assert not Budget.objects.exists()
 
 
 def test_the_database_refuses_a_negative_budget() -> None:
@@ -172,37 +257,47 @@ def test_the_database_refuses_a_negative_budget() -> None:
 def test_amounts_follow_the_number_format(signed_in: Client, user: User) -> None:
     user.number_format = "international"
     user.save()
-    set_on(signed_in, make_account("Rent", "expense"), "120000")
+    rent = make_account("Rent", "expense")
+    move(timezone.localdate(), opening("Bank", "asset", "0"), rent, "150000")
 
-    assert "Budget ₹120,000.00" in budgets_text(signed_in)
+    set_on(signed_in, rent, "120000")
+
+    assert "Rent Spent ₹150,000.00" in budgets_text(signed_in)
 
 
-def test_privacy_mode_masks_every_amount(signed_in: Client) -> None:
-    today = timezone.localdate()
+def test_privacy_mode_masks_every_amount_and_locks_the_cells(
+    signed_in: Client,
+) -> None:
     groceries = make_account("Groceries", "expense")
     set_on(signed_in, groceries, "12000")
-    move(today, opening("Bank", "asset", "0"), groceries, "13000")
+    move(timezone.localdate(), opening("Bank", "asset", "0"), groceries, "13000")
     turn_on(signed_in)
 
-    page = signed_in.get(reverse("budget_list")).content.decode()
+    page = budgets_page(signed_in)
 
-    text = page_text(page)
-    assert f"Budget {strip_tags(MASK)}" in text
-    assert f"Spent {strip_tags(MASK)}" in text
-    assert f"Expected {strip_tags(MASK)}" in text
+    mask = strip_tags(MASK)
+    assert (
+        f"Groceries Budget {mask} Spent {mask} Expected {mask} Over {mask} left"
+        in page_text(page)
+    )
+    assert cell(page, "Budget for Groceries") is None
+    assert cell(page, "Overall Budget") is None
     assert "12,000" not in page
+    assert "12000" not in page
     assert "13,000" not in page
     assert "1,000" not in page
     assert "text-red-600" not in page
 
 
-def test_privacy_mode_blocks_the_budget_form(signed_in: Client) -> None:
+def test_privacy_mode_refuses_a_save(signed_in: Client) -> None:
+    groceries = make_account("Groceries", "expense")
     turn_on(signed_in)
-    url = reverse("budget_set")
+    url = edit_url(groceries)
 
-    response = signed_in.get(url)
+    response = signed_in.post(url, {"amount": "100"})
 
     assert response["Location"] == privacy_mode_off_url(url)
+    assert not Budget.objects.exists()
 
 
 def test_change_history_records_budget_changes(superuser: User) -> None:
@@ -217,3 +312,11 @@ def test_change_history_records_budget_changes(superuser: User) -> None:
 
     text = page_text(page.content.decode())
     assert text.count(superuser.email) >= 2
+
+
+def test_a_cell_shows_paise_only_when_there_are_some(signed_in: Client) -> None:
+    groceries = make_account("Groceries", "expense")
+
+    set_on(signed_in, groceries, "1250.5")
+
+    assert cell(budgets_page(signed_in), "Budget for Groceries") == "1250.50"

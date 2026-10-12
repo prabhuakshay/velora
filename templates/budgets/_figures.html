@@ -1,0 +1,8 @@
+{% comment %}Swapped in after each save; htmx-added flashes it so the change is seen.{% endcomment %}
+<div id="{{ fid }}"{% if oob %} hx-swap-oob="true"{% endif %} class="col-span-2 flex flex-wrap items-center gap-x-3 text-xs text-slate-500 tabular-nums transition-colors duration-700 xl:col-span-3 xl:grid xl:grid-cols-subgrid xl:text-right xl:text-sm [&.htmx-added]:bg-emerald-50">
+  <span><span class="xl:sr-only">Spent </span>{% amount spent %}</span>
+  <span><span class="xl:sr-only">Expected </span>{% amount expected %}</span>
+  {% if row.budget is not None %}
+    <span class="ml-auto flex items-center justify-end gap-2 text-sm font-semibold text-slate-900 xl:ml-0">{% include "budgets/_state_badge.html" with state=row.state %}<span class="{% amount_color row.left %}">{% amount row.left %}<span class="xl:sr-only"> left</span></span></span>
+  {% endif %}
+</div>

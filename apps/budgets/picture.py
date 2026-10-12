@@ -75,17 +75,37 @@ class BudgetRow(Row):
 
 
 @dataclass(frozen=True)
+class UnbudgetedRow:
+    """An Expense Account with no Budget for the month: its Spent and Expected."""
+
+    account: Account
+    spent: Decimal
+    expected: Decimal | None
+    transactions_url: str
+    budget: None = None
+
+
+@dataclass(frozen=True)
 class BudgetPicture:
     """A calendar month's Budgets."""
 
     month: date
     rows: list[BudgetRow]
+    unbudgeted_rows: list[UnbudgetedRow]
     # Across every Expense Account, Unbudgeted ones included.
     total_expected: Decimal | None
     overall: Row | None
+    # Across every Expense Account, like total_expected.
+    total_spent: Decimal
     unbudgeted: Decimal
     # Allowed so editing is never blocked, but worth a note on the page.
     budgets_add_up_to_more: bool
+
+    @property
+    def sheet(self) -> list[BudgetRow | UnbudgetedRow]:
+        """Every Budget, and every visible Expense Account that could have one."""
+        shown = [row for row in self.unbudgeted_rows if not row.account.hidden]
+        return sorted([*self.rows, *shown], key=lambda row: row.account.name.lower())
 
 
 def budgets_in(month: date) -> dict[int, Decimal]:
@@ -121,32 +141,33 @@ def budget_picture(month: date, *, expected: bool = False) -> BudgetPicture:
         .order_by(Lower("name"))
     )
     transactions = reverse("transaction_list")
-    rows = [
-        BudgetRow(
-            account,
-            budgets[account.pk],
-            account.spent,
-            None if by_account is None else by_account.get(account.pk, Decimal(0)),
-            f"{transactions}?"
-            + urlencode({"account": account.pk, "start": month, "end": end}),
+
+    def row_for(account: Account) -> BudgetRow | UnbudgetedRow:
+        expected = (
+            None if by_account is None else by_account.get(account.pk, Decimal(0))
         )
-        for account in accounts
-        if account.pk in budgets
-    ]
-    unbudgeted = sum(
-        (account.spent for account in accounts if account.pk not in budgets),
-        Decimal(0),
-    )
+        url = f"{transactions}?" + urlencode(
+            {"account": account.pk, "start": month, "end": end}
+        )
+        if account.pk in budgets:
+            return BudgetRow(account, budgets[account.pk], account.spent, expected, url)
+        return UnbudgetedRow(account, account.spent, expected, url)
+
+    every_row = [row_for(account) for account in accounts]
+    rows = [row for row in every_row if isinstance(row, BudgetRow)]
+    unbudgeted_rows = [row for row in every_row if isinstance(row, UnbudgetedRow)]
+    unbudgeted = sum((row.spent for row in unbudgeted_rows), Decimal(0))
+    total_spent = sum((row.spent for row in rows), unbudgeted)
     overall = overall_budget_in(month)
     return BudgetPicture(
         month=month,
         rows=rows,
+        unbudgeted_rows=unbudgeted_rows,
         total_expected=None
         if by_account is None
         else sum(by_account.values(), Decimal(0)),
-        overall=None
-        if overall is None
-        else Row(None, overall, sum((row.spent for row in rows), unbudgeted)),
+        overall=None if overall is None else Row(None, overall, total_spent),
+        total_spent=total_spent,
         unbudgeted=unbudgeted,
         budgets_add_up_to_more=overall is not None and sum(budgets.values()) > overall,
     )
