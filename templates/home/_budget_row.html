@@ -1,0 +1,14 @@
+<a href="{{ url }}" class="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-slate-50 md:px-5">
+  <span class="min-w-0">
+    <span class="flex min-w-0 items-center gap-2">
+      <span class="truncate font-medium">{{ name }}</span>
+      {% if row.state == "over" %}
+        <span class="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Over</span>
+      {% elif row.state == "close" %}
+        <span class="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">Close</span>
+      {% endif %}
+    </span>
+    <span class="mt-0.5 block truncate text-xs text-slate-500 tabular-nums">Spent {% amount row.spent %} of {% amount row.budget %}</span>
+  </span>
+  <span class="shrink-0 font-semibold tabular-nums {% amount_color row.left %}">{% amount row.left %} left</span>
+</a>

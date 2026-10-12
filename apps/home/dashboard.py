@@ -12,6 +12,7 @@ from django.urls import reverse
 from apps.accounts.activity import month_end
 from apps.accounts.models import Account, AccountKind
 from apps.accounts.net_worth import net_worth, net_worth_history
+from apps.budgets.picture import BudgetRow, OverallRow, State, budget_picture
 from apps.cards.models import Statement
 from apps.classification.models import earned, spent
 from apps.core.dates import months_after
@@ -27,6 +28,7 @@ DEFAULT_RANGE = "1y"
 CASH_FLOW_MONTHS = 12
 SPENDING_SHOWN = 5
 RECENT_SHOWN = 6
+BUDGETS_SHOWN = 5
 # Categorical slots in a fixed order, so an Expense Account keeps its colour
 # only within one month's ranking; Other is always the neutral last slot.
 SLOT_CLASSES = (
@@ -220,6 +222,35 @@ def cards(today: date) -> list[CardRow]:
     ).order_by("period_end"):
         latest[statement.card_id] = statement
     return [CardRow(card, latest.get(card.pk)) for card in accounts]
+
+
+@dataclass(frozen=True)
+class BudgetCard:
+    """This month's Budgets, what needs attention first."""
+
+    overall: OverallRow | None
+    rows: list[BudgetRow]
+    more: int
+
+
+ATTENTION = {State.OVER: 0, State.CLOSE: 1, State.FINE: 2}
+
+
+def _attention(row: BudgetRow) -> tuple[int, Decimal]:
+    share = row.spent / row.budget if row.budget else Decimal(0)
+    return ATTENTION[row.state], -share
+
+
+def budget_card(today: date) -> BudgetCard | None:
+    """The Overall Budget, then Budgets over, close, then by share Spent.
+
+    None when no Budget or Overall Budget applies this month.
+    """
+    picture = budget_picture(today.replace(day=1))
+    if not picture.rows and picture.overall is None:
+        return None
+    rows = sorted(picture.rows, key=_attention)
+    return BudgetCard(picture.overall, rows[:BUDGETS_SHOWN], len(rows[BUDGETS_SHOWN:]))
 
 
 def recent_transactions(count: int = RECENT_SHOWN) -> list[Transaction]:

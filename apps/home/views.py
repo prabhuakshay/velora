@@ -53,6 +53,7 @@ def home(request: HttpRequest) -> HttpResponse:
                 scope, outlook, forecast_view.timeline(scope, outlook)
             ),
             "cards": dashboard.cards(today),
+            "budgets": dashboard.budget_card(today),
             "subscriptions_monthly": yearly_total(costs) / 12,
             "subscriptions_count": sum(cost.counted for cost in costs),
             "recent": dashboard.recent_transactions(),
