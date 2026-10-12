@@ -1,5 +1,5 @@
 # Publishes the prod image to GHCR for every version tag that passes CI.
-# Releases must be tagged on main: a tag on any other commit fails the guard.
+# Releases must be semver tags on main: anything else fails the guard.
 name: Release image
 
 on:
@@ -15,6 +15,17 @@ jobs:
       contents: read
 
     steps:
+      # metadata-action emits no tags for a non-semver ref, which fails the push
+      # with a cryptic buildx error. The regex is the one from semver.org.
+      - env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$'
+          if [[ ! "${REF_NAME#v}" =~ $semver ]]; then
+            echo "::error::Tag $REF_NAME is not a valid version. Expected vX.Y.Z or vX.Y.Z-pre."
+            exit 1
+          fi
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
