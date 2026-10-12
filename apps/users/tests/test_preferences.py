@@ -4,7 +4,7 @@ import pytest
 from django.urls import reverse
 
 from apps.accounts.tests.test_balance import opening
-from apps.accounts.tests.test_net_worth import home_page
+from apps.accounts.tests.test_net_worth import home_text
 from apps.users.tests.test_number_format import use_format
 
 if TYPE_CHECKING:
@@ -49,7 +49,7 @@ def test_saving_preferences_stays_on_page_and_applies(
     assert "Preferences saved." in response.content.decode()
     user.refresh_from_db()
     assert user.number_format == "international"
-    assert "Net Worth ₹1,234,567.00" in home_page(signed_in)
+    assert "Net Worth ₹1,234,567.00" in home_text(signed_in)
 
 
 def test_switching_back_to_indian(signed_in: Client, user: User) -> None:
@@ -58,7 +58,7 @@ def test_switching_back_to_indian(signed_in: Client, user: User) -> None:
 
     signed_in.post(reverse("preferences"), {"number_format": "indian"})
 
-    assert "Net Worth ₹12,34,567.00" in home_page(signed_in)
+    assert "Net Worth ₹12,34,567.00" in home_text(signed_in)
 
 
 def test_invalid_number_format_is_rejected(signed_in: Client, user: User) -> None:

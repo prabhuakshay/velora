@@ -5,7 +5,7 @@ from django.urls import reverse
 
 from apps.accounts.tests.conftest import account_url, edit_account, list_page
 from apps.accounts.tests.test_balance import opening
-from apps.accounts.tests.test_net_worth import home_page
+from apps.accounts.tests.test_net_worth import home_text
 from apps.accounts.tests.test_opening_balance import (
     KINDS_WITH_BALANCE,
     KINDS_WITHOUT_BALANCE,
@@ -52,7 +52,7 @@ def test_excluded_accounts_drop_out_of_net_worth(signed_in: Client) -> None:
     exclude(signed_in, car)
     exclude(signed_in, covered_by_parent)
 
-    page = home_page(signed_in)
+    page = home_text(signed_in)
 
     assert "Assets ₹1,000.00" in page
     assert "Liabilities ₹200.00" in page
@@ -76,10 +76,10 @@ def test_hiding_and_unhiding_keep_the_include_setting(signed_in: Client) -> None
     exclude(signed_in, car)
 
     signed_in.post(account_url("account_hide", car))
-    assert "Net Worth ₹1,000.00" in home_page(signed_in)
+    assert "Net Worth ₹1,000.00" in home_text(signed_in)
 
     signed_in.post(account_url("account_unhide", car))
-    assert "Net Worth ₹1,000.00" in home_page(signed_in)
+    assert "Net Worth ₹1,000.00" in home_text(signed_in)
 
 
 @pytest.mark.parametrize(
@@ -95,4 +95,4 @@ def test_merge_keeps_the_targets_include_setting(
 
     signed_in.post(account_url("account_merge", source), {"target": target.pk})
 
-    assert net_worth in home_page(signed_in)
+    assert net_worth in home_text(signed_in)

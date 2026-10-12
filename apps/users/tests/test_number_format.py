@@ -12,7 +12,7 @@ from apps.accounts.tests.conftest import (
 )
 from apps.accounts.tests.test_account_transactions import record, view_page
 from apps.accounts.tests.test_balance import opening
-from apps.accounts.tests.test_net_worth import home_page
+from apps.accounts.tests.test_net_worth import home_page, home_text
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -47,7 +47,7 @@ def test_net_worth_follows_number_format(
     use_format(user, number_format)
     opening("Bank", "asset", amount)
 
-    assert f"Net Worth {expected}" in home_page(signed_in)
+    assert f"Net Worth {expected}" in home_text(signed_in)
 
 
 @pytest.mark.parametrize(
@@ -62,7 +62,7 @@ def test_negative_net_worth_shows_sign_before_rupee_in_red(
 
     page = home_page(signed_in)
 
-    assert f'text-red-600">Net Worth {expected}' in page
+    assert f'text-red-600">{expected}</p>' in page
 
 
 def test_default_number_format_is_indian(signed_in: Client) -> None:
@@ -70,8 +70,8 @@ def test_default_number_format_is_indian(signed_in: Client) -> None:
 
     page = home_page(signed_in)
 
-    assert "Assets ₹1,00,000.00" in page
-    assert "Liabilities ₹0.00" in page
+    assert "Assets ₹1,00,000.00" in page_text(page)
+    assert "Liabilities ₹0.00" in page_text(page)
     assert "<td>₹1,00,000.00</td>" in page
 
 

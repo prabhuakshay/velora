@@ -1,46 +1,45 @@
 {% extends "app_base.html" %}
 {% load upcoming %}
 
+{% block main_width %}max-w-2xl lg:max-w-6xl{% endblock %}
+
 {% block main %}
-  <h1 class="text-2xl font-bold tracking-tight">Net Worth</h1>
-  <form method="get" class="mt-4 flex items-end gap-2">
-    <label class="field-control">
-      <span class="block text-sm font-medium">As of</span>
-      <input type="date" name="as_of" value="{{ as_of|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
-    </label>
-    <button type="submit" class="btn-secondary">Show</button>
-  </form>
-  <div class="mt-4 space-y-1">
-    <p class="text-sm text-slate-600">Assets {% amount net_worth.assets %}</p>
-    <p class="text-sm text-slate-600">Liabilities {% amount net_worth.liabilities %}</p>
-    <p class="text-lg font-semibold {% amount_color net_worth.total %}">Net Worth {% amount net_worth.total %}</p>
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <p class="text-sm text-slate-500">{{ today|date:"l, j F" }}</p>
+      <h1 class="text-2xl font-bold tracking-tight">Good {% if hour < 12 %}morning{% elif hour < 17 %}afternoon{% else %}evening{% endif %}{% if user.full_name %}, {{ user.full_name }}{% endif %}</h1>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'transaction_create' %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}<span>New<span class="hidden sm:inline"> Transaction</span></span></a>
+      <a href="{% url 'draft_list' %}" class="btn-secondary relative flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="inbox" class="size-4" %}Drafts{% with count=draft_count %}{% if count %} <span class="rounded-full bg-slate-900 px-1.5 text-xs text-white tabular-nums">{{ count }}</span>{% endif %}{% endwith %}</a>
+    </div>
   </div>
-  <div class="mt-8">{% upcoming_panel %}</div>
-  <section class="mt-8" aria-labelledby="history-heading">
-    <h2 id="history-heading" class="text-lg font-semibold">Net Worth history</h2>
-    {% if user.privacy_mode %}
-      <p class="mt-2 flex h-48 items-center justify-center rounded-lg bg-slate-100 text-sm text-slate-600">Hidden in Privacy Mode</p>
-    {% elif history %}
-      {% with first=history|first last=history|last %}
-        <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" role="img" aria-label="Net Worth history from {{ first.0|date:'j M Y' }} to {{ last.0|date:'j M Y' }}" class="mt-2 h-48 w-full overflow-visible text-slate-900">
-          <polyline points="{{ chart.points }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
-        </svg>
-        <div class="mt-1 flex justify-between text-xs text-slate-600">
-          <span>{{ first.0|date:"j M Y" }}</span>
-          <span>{{ last.0|date:"j M Y" }}</span>
-        </div>
-      {% endwith %}
-      <div class="sr-only"><table>
-        <caption>Net Worth at each month-end and today</caption>
-        <thead><tr><th scope="col">Date</th><th scope="col">Net Worth</th></tr></thead>
-        <tbody>
-          {% for when, value in history %}
-            <tr><td>{{ when|date:"j M Y" }}</td><td>{% amount value %}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table></div>
-    {% else %}
-      <p class="mt-2 text-sm text-slate-600">No Net Worth history yet. Add an Asset or Liability Account to see it.</p>
-    {% endif %}
-  </section>
+
+  {% if outlook.breaches %}
+    <a href="{% url 'forecast' %}" class="mt-4 flex items-center gap-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-900 ring-1 ring-red-200 hover:bg-red-100">
+      {% include "shell/icon.html" with name="alert" class="size-5 shrink-0 text-red-700" %}
+      <span class="min-w-0 flex-1">{% with breach=outlook.breaches.0 %}<span class="font-semibold">{{ breach.account }}</span> is expected {% if breach.owes %}to owe over its limit{% else %}to run low{% endif %} on {{ breach.on|date:"j M" }}{% endwith %}{% if outlook.breaches|length > 1 %}, and {{ outlook.breaches|length|add:"-1" }} more warning{{ outlook.breaches|length|add:"-1"|pluralize }}{% endif %}.</span>
+      {% include "shell/icon.html" with name="chevron-right" class="size-4 shrink-0 text-red-400" %}
+    </a>
+  {% endif %}
+
+  {% comment %}
+    On phones the column wrappers are display: contents, so every card joins
+    one flex column and order-first lifts Net Worth and Upcoming to the top.
+  {% endcomment %}
+  <div class="mt-4 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
+    <div class="contents lg:block lg:space-y-4">
+      <div class="order-first">{% include "home/_net_worth.html" %}</div>
+      {% include "home/_this_month.html" %}
+      {% include "home/_cash_flow.html" %}
+      {% include "home/_spending.html" %}
+      {% include "home/_recent.html" %}
+    </div>
+    <aside class="contents lg:block lg:space-y-4">
+      <div class="order-first">{% upcoming_panel %}</div>
+      {% include "home/_outlook.html" %}
+      {% include "home/_cards.html" %}
+      {% include "home/_subscriptions.html" %}
+    </aside>
+  </div>
 {% endblock %}

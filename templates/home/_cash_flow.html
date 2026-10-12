@@ -1,0 +1,45 @@
+<section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="flow-title">
+  <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+    <h2 id="flow-title" class="font-semibold">Earned and spent</h2>
+    <div class="flex items-center gap-3 text-xs text-slate-500">
+      <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-emerald-500" aria-hidden="true"></span>Earned</span>
+      <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-slate-800" aria-hidden="true"></span>Spent</span>
+      <span>Last 12 months</span>
+    </div>
+  </div>
+  {% if user.privacy_mode %}
+    <p class="mt-4 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
+  {% else %}
+    {% comment %}One column per month, each its own SVG so the labels and tooltips stay HTML.{% endcomment %}
+    <div class="mt-4 flex h-40 items-stretch gap-1 sm:gap-2">
+      {% for column in flow_columns %}
+        <div tabindex="0" class="group relative flex min-w-0 flex-1 flex-col outline-hidden">
+          <div class="relative min-h-0 flex-1">
+            <svg viewBox="0 0 10 100" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+              <rect x="0" y="0" width="10" height="100" class="fill-transparent group-hover:fill-slate-50 group-focus-visible:fill-slate-100"/>
+              {% if column.earned.height %}<rect x="0.5" y="{{ column.earned.y|stringformat:'.2f' }}" width="4.25" height="{{ column.earned.height|stringformat:'.2f' }}" class="fill-emerald-500"/>{% endif %}
+              {% if column.spent.height %}<rect x="5.25" y="{{ column.spent.y|stringformat:'.2f' }}" width="4.25" height="{{ column.spent.height|stringformat:'.2f' }}" class="fill-slate-800"/>{% endif %}
+              <line x1="0" x2="10" y1="100" y2="100" class="stroke-slate-200" vector-effect="non-scaling-stroke"/>
+            </svg>
+          </div>
+          <span class="mt-1.5 text-center text-[10px] leading-none {% if column.current %}font-semibold text-slate-900{% else %}text-slate-500{% endif %}">{{ column.month.start|date:"M"|slice:":1" }}<span class="hidden sm:inline">{{ column.month.start|date:"M"|slice:"1:" }}</span></span>
+          <span class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs whitespace-nowrap text-white shadow-lg group-hover:block group-focus-visible:block {% if forloop.counter <= 2 %}left-0{% elif forloop.revcounter <= 2 %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %}">
+            <span class="block text-white/70">{{ column.month.start|date:"F Y" }}</span>
+            <span class="mt-0.5 flex justify-between gap-3"><span>Earned</span><span class="font-semibold tabular-nums">{% amount column.month.earned %}</span></span>
+            <span class="flex justify-between gap-3"><span>Spent</span><span class="font-semibold tabular-nums">{% amount column.month.spent %}</span></span>
+            <span class="mt-0.5 flex justify-between gap-3 border-t border-white/20 pt-0.5"><span>Saved</span><span class="font-semibold tabular-nums">{% amount column.month.saved %}</span></span>
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="sr-only"><table>
+      <caption>Money earned and spent each month</caption>
+      <thead><tr><th scope="col">Month</th><th scope="col">Earned</th><th scope="col">Spent</th><th scope="col">Saved</th></tr></thead>
+      <tbody>
+        {% for column in flow_columns %}
+          <tr><td>{{ column.month.start|date:"F Y" }}</td><td>{% amount column.month.earned %}</td><td>{% amount column.month.spent %}</td><td>{% amount column.month.saved %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% endif %}
+</section>

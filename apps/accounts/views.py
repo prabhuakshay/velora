@@ -1,6 +1,5 @@
 """Views for managing Accounts, one set shared by every kind."""
 
-from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, cast
 
@@ -19,7 +18,6 @@ from apps.accounts.forecast import DAYS, forecast
 from apps.accounts.forms import AccountForm
 from apps.accounts.merge import AccountMerge
 from apps.accounts.models import BALANCE_KINDS, Account
-from apps.accounts.net_worth import net_worth, net_worth_history
 from apps.core.dates import months_after
 from apps.core.forms import MergeForm
 from apps.core.views import paginate, redirect_in_use_to_merge, save_unique_name
@@ -32,60 +30,7 @@ if TYPE_CHECKING:
 
     from apps.users.models import User
 
-CHART_WIDTH = 600
-CHART_HEIGHT = 200
 STATEMENTS_SHOWN = 6
-
-
-def _as_of_date(raw: str | None) -> date:
-    """The as-of date from a GET value; today when missing, invalid or future."""
-    today = timezone.localdate()
-    try:
-        when = date.fromisoformat(raw or "")
-    except ValueError:
-        return today
-    return min(when, today)
-
-
-def _chart_points(values: list[Decimal]) -> str:
-    """SVG polyline points scaling the values to fill the chart; flat mid-height."""
-    if not values:
-        return ""
-    low, high = min(values), max(values)
-    if len(values) == 1:
-        values = values * 2
-    step = CHART_WIDTH / (len(values) - 1)
-
-    def y(value: Decimal) -> float:
-        if high == low:
-            return CHART_HEIGHT / 2
-        return float(CHART_HEIGHT - (value - low) / (high - low) * CHART_HEIGHT)
-
-    return " ".join(f"{step * i:.1f},{y(value):.1f}" for i, value in enumerate(values))
-
-
-@login_required
-def home(request: HttpRequest) -> HttpResponse:
-    """Show Net Worth with the Assets and Liabilities totals behind it."""
-    as_of = _as_of_date(request.GET.get("as_of"))
-    today = timezone.localdate()
-    privacy_mode = cast("User", request.user).privacy_mode
-    history = [] if privacy_mode else net_worth_history(today)
-    return render(
-        request,
-        "index.html",
-        {
-            "as_of": as_of,
-            "today": today,
-            "net_worth": net_worth(as_of),
-            "history": history,
-            "chart": {
-                "width": CHART_WIDTH,
-                "height": CHART_HEIGHT,
-                "points": _chart_points([value for _, value in history]),
-            },
-        },
-    )
 
 
 @login_required

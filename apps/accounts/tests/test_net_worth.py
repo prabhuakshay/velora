@@ -1,11 +1,17 @@
 from datetime import date
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
-from django.utils import timezone
 
-from apps.accounts.tests.conftest import account_url, edit_account, make_account
+from apps.accounts.net_worth import net_worth
+from apps.accounts.tests.conftest import (
+    account_url,
+    edit_account,
+    make_account,
+    page_text,
+)
 from apps.accounts.tests.test_balance import opening, record
 from apps.transactions.tests.conftest import form_data
 
@@ -19,8 +25,12 @@ def home_page(client: Client, **params: str) -> str:
     return client.get(reverse("index"), params).content.decode()
 
 
+def home_text(client: Client) -> str:
+    return page_text(home_page(client))
+
+
 def test_no_balance_accounts_shows_zero(signed_in: Client) -> None:
-    page = home_page(signed_in)
+    page = home_text(signed_in)
 
     assert "Assets ₹0.00" in page
     assert "Liabilities ₹0.00" in page
@@ -33,7 +43,7 @@ def test_net_worth_is_asset_balances(signed_in: Client) -> None:
     salary = make_account("Salary", "income")
     record(signed_in, salary, bank, "200.00")
 
-    page = home_page(signed_in)
+    page = home_text(signed_in)
 
     assert "Assets ₹1,250.50" in page
     assert "Net Worth ₹1,250.50" in page
@@ -45,7 +55,7 @@ def test_liability_balances_reduce_net_worth(signed_in: Client) -> None:
     fuel = make_account("Fuel", "expense")
     record(signed_in, card, fuel, "1200.00")
 
-    page = home_page(signed_in)
+    page = home_text(signed_in)
 
     assert "Assets ₹3,000.00" in page
     assert "Liabilities ₹1,700.00" in page
@@ -56,7 +66,7 @@ def test_liabilities_above_assets_show_negative_net_worth(signed_in: Client) -> 
     opening("Bank", "asset", "100.00")
     opening("Loan", "liability", "400.00")
 
-    assert "Net Worth -₹300.00" in home_page(signed_in)
+    assert "Net Worth -₹300.00" in home_text(signed_in)
 
 
 def test_income_and_expense_accounts_never_count(signed_in: Client) -> None:
@@ -66,7 +76,7 @@ def test_income_and_expense_accounts_never_count(signed_in: Client) -> None:
     record(signed_in, salary, bank, "900.00")
     record(signed_in, bank, rent, "600.00")
 
-    page = home_page(signed_in)
+    page = home_text(signed_in)
 
     assert "Assets ₹400.00" in page
     assert "Liabilities ₹0.00" in page
@@ -81,7 +91,7 @@ def test_hidden_accounts_still_count(signed_in: Client) -> None:
         response = signed_in.post(account_url("account_hide", account))
         assert response.status_code == 302
 
-    page = home_page(signed_in)
+    page = home_text(signed_in)
 
     assert "Assets ₹800.00" in page
     assert "Liabilities ₹300.00" in page
@@ -98,8 +108,8 @@ def test_transactions_after_as_of_date_dont_count(signed_in: Client) -> None:
     )
     assert response.status_code == 302
 
-    assert "Net Worth ₹1,200.00" in home_page(signed_in, as_of="2026-03-31")
-    assert "Net Worth ₹1,250.00" in home_page(signed_in, as_of="2026-04-01")
+    assert net_worth(date(2026, 3, 31)).total == Decimal("1200.00")
+    assert net_worth(date(2026, 4, 1)).total == Decimal("1250.00")
 
 
 def test_account_opening_after_as_of_date_counts_as_zero(signed_in: Client) -> None:
@@ -107,34 +117,10 @@ def test_account_opening_after_as_of_date_counts_as_zero(signed_in: Client) -> N
     card = opening("Card", "liability", "300.00")
     edit_account(signed_in, card, opening_balance_date=date(2026, 5, 1))
 
-    before = home_page(signed_in, as_of="2026-04-30")
-    assert "Liabilities ₹0.00" in before
-    assert "Net Worth ₹1,000.00" in before
-    assert "Net Worth ₹700.00" in home_page(signed_in, as_of="2026-05-01")
-
-
-def test_date_input_defaults_to_today(signed_in: Client) -> None:
-    today = timezone.localdate().isoformat()
-
-    page = home_page(signed_in)
-
-    assert 'type="date"' in page
-    assert f'name="as_of" value="{today}"' in page
-    assert f'max="{today}"' in page
-
-
-@pytest.mark.parametrize("as_of", ["not-a-date", "2026-02-30", "9999-12-31", ""])
-def test_invalid_or_future_as_of_date_falls_back_to_today(
-    signed_in: Client, as_of: str
-) -> None:
-    opening("Bank", "asset", "1000.00")
-
-    response = signed_in.get(reverse("index"), {"as_of": as_of})
-
-    assert response.status_code == 200
-    page = response.content.decode()
-    assert f'value="{timezone.localdate().isoformat()}"' in page
-    assert "Net Worth ₹1,000.00" in page
+    before = net_worth(date(2026, 4, 30))
+    assert before.liabilities == 0
+    assert before.total == Decimal("1000.00")
+    assert net_worth(date(2026, 5, 1)).total == Decimal("700.00")
 
 
 def test_home_page_charts_net_worth_history(signed_in: Client) -> None:
@@ -143,7 +129,7 @@ def test_home_page_charts_net_worth_history(signed_in: Client) -> None:
     page = home_page(signed_in)
 
     assert "<svg" in page
-    assert "Net Worth history" in page
+    assert "Net Worth at each month-end" in page
     assert "31 Jan 2026" in page
 
 

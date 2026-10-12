@@ -1,0 +1,75 @@
+{% with first=net_worth.history|first last=net_worth.history|last %}
+<section id="net-worth" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="net-worth-title">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h2 id="net-worth-title" class="text-sm text-slate-500">Net Worth</h2>
+      <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color net_worth.now.total %}">{% amount net_worth.now.total %}</p>
+      <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500">
+        {% if user.privacy_mode %}
+          <span>{% amount net_worth.change %} since {{ net_worth.since|date:"j M" }}</span>
+        {% else %}
+          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums {% if net_worth.change > 0 %}bg-emerald-50 text-emerald-700{% elif net_worth.change < 0 %}bg-red-50 text-red-700{% else %}bg-slate-100 text-slate-600{% endif %}">{% if net_worth.change > 0 %}+{% endif %}{% amount net_worth.change %}{% if net_worth.change_percent is not None %} · {% if net_worth.change_percent > 0 %}+{% endif %}{{ net_worth.change_percent }}%{% endif %}</span>
+          <span>since {{ net_worth.since|date:"j M" }}</span>
+        {% endif %}
+      </p>
+    </div>
+    <nav aria-label="Net Worth history range">
+      <div class="inline-flex gap-1 rounded-xl bg-slate-200/60 p-1">
+        {% for key, months in ranges.items %}
+          <a href="?range={{ key }}" {% if key == range %}aria-current="page"{% endif %} class="rounded-lg px-3 py-1 text-sm font-medium uppercase transition-colors {% if key == range %}bg-white text-slate-900 shadow-sm{% else %}text-slate-600 hover:text-slate-900 active:bg-slate-200{% endif %}">{{ key }}</a>
+        {% endfor %}
+      </div>
+    </nav>
+  </div>
+
+  {% if user.privacy_mode %}
+    <p class="mt-5 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
+  {% elif net_worth.chart %}
+    {% comment %}One SVG line; a hover column per point keeps each tooltip HTML. The end columns are half width, so every column centres on its point.{% endcomment %}
+    <div class="relative mt-5 h-40">
+      <svg viewBox="0 0 {{ net_worth.chart.width }} {{ net_worth.chart.height }}" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+        <polygon points="{{ net_worth.chart.area }}" class="fill-slate-100"/>
+        {% if net_worth.chart.zero is not None %}<line x1="0" x2="{{ net_worth.chart.width }}" y1="{{ net_worth.chart.zero|stringformat:'.1f' }}" y2="{{ net_worth.chart.zero|stringformat:'.1f' }}" class="stroke-slate-300" vector-effect="non-scaling-stroke"/>{% endif %}
+        <polyline points="{{ net_worth.chart.points }}" fill="none" class="stroke-slate-900" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+      </svg>
+      <div class="absolute inset-0 flex">
+        {% for when, value in net_worth.history %}
+          <div tabindex="0" class="group relative outline-hidden {% if forloop.first or forloop.last %}flex-1{% else %}flex-[2]{% endif %}">
+            <span class="absolute inset-y-0 w-px bg-slate-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 {% if forloop.first %}left-0{% elif forloop.last %}right-0{% else %}left-1/2{% endif %}"></span>
+            <span class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-lg bg-slate-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg group-hover:block group-focus-visible:block {% if forloop.counter <= 2 %}left-0{% elif forloop.revcounter <= 2 %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %}">
+              <span class="text-white/70">{% if forloop.last %}Today{% else %}{{ when|date:"j M Y" }}{% endif %}</span>
+              <span class="ml-1 font-semibold tabular-nums">{% amount value %}</span>
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="mt-2 flex justify-between text-xs text-slate-500">
+      <span>{{ first.0|date:"M Y" }}</span>
+      <span>Today</span>
+    </div>
+    <div class="sr-only"><table>
+      <caption>Net Worth at each month-end and today</caption>
+      <thead><tr><th scope="col">Date</th><th scope="col">Net Worth</th></tr></thead>
+      <tbody>
+        {% for when, value in net_worth.history %}
+          <tr><td>{{ when|date:"j M Y" }}</td><td>{% amount value %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% elif not net_worth.history %}
+    <p class="mt-5 flex h-24 items-center justify-center rounded-xl bg-slate-50 px-4 text-center text-sm text-slate-500">No Net Worth history yet. Add an Asset or Liability Account to see it.</p>
+  {% endif %}
+
+  <dl class="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+    <div>
+      <dt class="text-xs font-medium text-slate-500">Assets</dt>
+      <dd class="mt-0.5 truncate font-semibold tabular-nums">{% amount net_worth.now.assets %}</dd>
+    </div>
+    <div>
+      <dt class="text-xs font-medium text-slate-500">Liabilities</dt>
+      <dd class="mt-0.5 truncate font-semibold tabular-nums">{% amount net_worth.now.liabilities %}</dd>
+    </div>
+  </dl>
+</section>
+{% endwith %}

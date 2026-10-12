@@ -41,14 +41,19 @@ def _month_end(when: date) -> date:
     return next_month - timedelta(days=1)
 
 
-def net_worth_history(today: date) -> list[tuple[date, Decimal]]:
+def net_worth_history(
+    today: date, since: date | None = None
+) -> list[tuple[date, Decimal]]:
     """Net Worth at each month-end from the earliest Opening Balance, then today.
 
-    Every point uses today's include settings; one query per point.
+    With since, month-ends before it are left out. Every point uses today's
+    include settings; one query per point.
     """
     start = _included().aggregate(start=Min("opening_balance_date"))["start"]
     if start is None:
         return []
+    if since is not None:
+        start = max(start, since)
     points = []
     when = _month_end(start)
     while when < today:

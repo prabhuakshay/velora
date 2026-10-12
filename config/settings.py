@@ -92,6 +92,7 @@ INSTALLED_APPS = [
     "apps.schedules",
     "apps.cards",
     "apps.digest",
+    "apps.home",
 ]
 
 

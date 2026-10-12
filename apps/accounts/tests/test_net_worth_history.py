@@ -6,6 +6,7 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.accounts.net_worth import net_worth
 from apps.accounts.tests.conftest import edit_account, make_account
 from apps.accounts.tests.test_balance import opening, record
 from apps.accounts.tests.test_net_worth import home_page
@@ -33,7 +34,11 @@ def today(monkeypatch: pytest.MonkeyPatch) -> SetToday:
 
 
 def history(client: Client) -> list[tuple[str, str]]:
-    return POINT_ROW.findall(home_page(client))
+    page = home_page(client)
+    start = page.find("Net Worth at each month-end")
+    if start == -1:
+        return []
+    return POINT_ROW.findall(page[start : page.index("</table>", start)])
 
 
 def test_one_point_per_month_end_then_today(signed_in: Client, today: SetToday) -> None:
@@ -70,8 +75,8 @@ def test_points_match_net_worth_as_of_each_date(
         "1,100.00",
     ]
     for when, value in points:
-        as_of = datetime.strptime(when, "%d %b %Y").date().isoformat()  # noqa: DTZ007
-        assert f"Net Worth ₹{value}" in home_page(signed_in, as_of=as_of)
+        as_of = datetime.strptime(when, "%d %b %Y").date()  # noqa: DTZ007
+        assert f"{net_worth(as_of).total:,.2f}" == value
 
 
 def test_excluded_accounts_are_left_out_of_every_point(
@@ -123,5 +128,5 @@ def test_home_page_query_count_does_not_grow_with_accounts(
         record(signed_in, salary, account, "10.00")
     today(date(2026, 6, 15))
 
-    with django_assert_num_queries(22):
+    with django_assert_num_queries(34):
         signed_in.get(reverse("index"))

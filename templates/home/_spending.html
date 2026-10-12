@@ -1,0 +1,34 @@
+<section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="spending-title">
+  <div class="flex items-baseline justify-between gap-3 px-4 pt-4 md:px-5">
+    <h2 id="spending-title" class="font-semibold">Where it went in {{ today|date:"F" }}</h2>
+    <a href="{% url 'account_list' 'expense' %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">Expense Accounts</a>
+  </div>
+  {% if spending %}
+    {% if not user.privacy_mode %}
+      <div class="px-4 md:px-5">
+        <svg viewBox="0 0 100 4" preserveAspectRatio="none" class="mt-4 h-3 w-full overflow-hidden rounded-full" role="img" aria-label="Share of this month's spending by Expense Account">
+          {% for slice in spending %}
+            <rect x="{{ slice.x|stringformat:'.2f' }}" width="{{ slice.percent|stringformat:'.2f' }}" height="4" class="{{ slice.fill }} stroke-white" stroke-width="2" vector-effect="non-scaling-stroke"/>
+          {% endfor %}
+        </svg>
+      </div>
+    {% endif %}
+    <ul class="mt-2 pb-2">
+      {% for slice in spending %}
+        <li>
+          {% if slice.url %}<a href="{{ slice.url }}" class="flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50 md:px-5">{% else %}<div class="flex items-center gap-3 px-4 py-2 text-sm md:px-5">{% endif %}
+            <svg viewBox="0 0 10 10" class="size-2.5 shrink-0 rounded-sm" aria-hidden="true"><rect width="10" height="10" class="{{ slice.fill }}"/></svg>
+            <span class="min-w-0 flex-1 truncate font-medium">{{ slice.name }}</span>
+            {% if not user.privacy_mode %}
+              <span class="hidden w-28 shrink-0 text-right text-xs text-slate-500 sm:block">{% if slice.last_month > 0 %}{% amount slice.last_month %} in {{ last_month.start|date:"M" }}{% else %}New this month{% endif %}</span>
+              <span class="w-10 shrink-0 text-right text-xs text-slate-500 tabular-nums">{% if slice.percent < 1 %}&lt;1{% else %}{{ slice.percent|floatformat:0 }}{% endif %}%</span>
+            {% endif %}
+            <span class="w-28 shrink-0 text-right font-semibold tabular-nums">{% amount slice.total %}</span>
+          {% if slice.url %}</a>{% else %}</div>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="px-4 pt-2 pb-5 text-sm text-slate-500 md:px-5">Nothing spent yet this month.</p>
+  {% endif %}
+</section>

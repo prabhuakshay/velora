@@ -88,9 +88,10 @@ def test_home_page_masks_net_worth_without_sign_or_red(signed_in: Client) -> Non
 
     page = home_page(signed_in)
 
-    assert f"Net Worth {MASK}" in page
-    assert f"Assets {MASK}" in page
-    assert f"Liabilities {MASK}" in page
+    text = page_text(page)
+    assert f"Net Worth {strip_tags(MASK)}" in text
+    assert f"Assets {strip_tags(MASK)}" in text
+    assert f"Liabilities {strip_tags(MASK)}" in text
     assert "₹1,000.00" not in page
     assert "1,22,456.00" not in page
     assert "-₹" not in page
@@ -137,10 +138,10 @@ def test_home_page_replaces_chart_with_placeholder(signed_in: Client) -> None:
 def test_home_page_skips_net_worth_history(
     signed_in: Client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def fail(_today: date) -> None:
+    def fail(_today: date, _since: date | None = None) -> None:
         pytest.fail("net_worth_history was called in Privacy Mode")
 
-    monkeypatch.setattr("apps.accounts.views.net_worth_history", fail)
+    monkeypatch.setattr("apps.home.dashboard.net_worth_history", fail)
     turn_on(signed_in)
 
     assert "Hidden in Privacy Mode" in home_page(signed_in)

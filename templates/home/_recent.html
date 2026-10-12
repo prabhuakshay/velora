@@ -1,0 +1,27 @@
+<section class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="recent-title">
+  <div class="flex items-baseline justify-between gap-3 px-4 pt-4 md:px-5">
+    <h2 id="recent-title" class="font-semibold">Recent Transactions</h2>
+    <a href="{% url 'transaction_list' %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">See all</a>
+  </div>
+  <ul class="mt-2 divide-y divide-slate-100">
+    {% for transaction in recent %}
+      <li>
+        <a href="{% url 'transaction_edit' transaction.pk %}" class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50 active:bg-slate-100 md:px-5">
+          <span class="min-w-0 flex-1">
+            <span class="flex items-baseline justify-between gap-3">
+              <span class="truncate font-medium">{% include "transactions/_transaction_title.html" %}</span>
+              <span class="shrink-0 text-sm font-semibold">{% include "transactions/_transaction_total.html" %}</span>
+            </span>
+            <span class="mt-0.5 block truncate text-xs text-slate-500">{{ transaction.date|date:"j M" }} · {% with split=transaction.splits.all.0 count=transaction.splits.all|length %}{{ split.from_account }} → {{ split.to_account }}{% if count > 1 %} +{{ count|add:"-1" }}{% endif %}{% endwith %}</span>
+          </span>
+        </a>
+      </li>
+    {% empty %}
+      <li class="flex flex-col items-center px-6 py-10 text-center">
+        <span class="flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="receipt" class="size-6" %}</span>
+        <p class="mt-4 font-semibold">No Transactions yet</p>
+        <a href="{% url 'transaction_create' %}" class="btn-primary mt-4">New Transaction</a>
+      </li>
+    {% endfor %}
+  </ul>
+</section>

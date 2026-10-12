@@ -1,0 +1,41 @@
+{% comment %}The Forecast line for a scope; takes chart, and height as a class, h-40 by default.{% endcomment %}
+{% with last=chart.columns|last %}
+{% if user.privacy_mode %}
+  <p class="mt-4 flex {{ height|default:"h-40" }} items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
+{% else %}
+  {% comment %}The line is one SVG; hover columns sit on top so each day's tooltip stays HTML. No inline styles, as the CSP blocks them.{% endcomment %}
+  <div class="relative mt-4 {{ height|default:"h-40" }}">
+    <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+      <polygon points="{{ chart.area }}" class="fill-slate-100"/>
+      {% if chart.zero is not None %}<line x1="0" x2="{{ chart.width }}" y1="{{ chart.zero|stringformat:'.1f' }}" y2="{{ chart.zero|stringformat:'.1f' }}" class="stroke-slate-300" vector-effect="non-scaling-stroke"/>{% endif %}
+      {% if chart.threshold is not None %}<line x1="0" x2="{{ chart.width }}" y1="{{ chart.threshold|stringformat:'.1f' }}" y2="{{ chart.threshold|stringformat:'.1f' }}" class="stroke-red-400" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>{% endif %}
+      <polyline points="{{ chart.points }}" fill="none" class="stroke-slate-900" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="absolute inset-0 flex">
+      {% for column in chart.columns %}
+        <div tabindex="0" class="group relative flex-1 outline-hidden">
+          <span class="absolute inset-y-0 left-1/2 w-px bg-slate-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"></span>
+          {% if column.busy %}<span class="absolute -bottom-2 left-1/2 size-1 -translate-x-1/2 rounded-full bg-slate-400"></span>{% endif %}
+          <span class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-lg bg-slate-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg group-hover:block group-focus-visible:block {% if forloop.counter <= 3 %}left-0{% elif forloop.revcounter <= 3 %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %}">
+            <span class="text-white/70">{{ column.day|date:"D j M" }}</span>
+            <span class="ml-1 font-semibold tabular-nums">{% amount column.balance %}</span>
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="mt-3 flex justify-between text-xs text-slate-500">
+    <span>{{ chart.columns.0.day|date:"j M" }}</span>
+    <span>{{ last.day|date:"j M" }}</span>
+  </div>
+  <div class="sr-only"><table>
+    <caption>Expected Balance each day</caption>
+    <thead><tr><th scope="col">Date</th><th scope="col">Balance</th></tr></thead>
+    <tbody>
+      {% for column in chart.columns %}
+        <tr><td>{{ column.day|date:"j M Y" }}</td><td>{% amount column.balance %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+{% endif %}
+{% endwith %}
