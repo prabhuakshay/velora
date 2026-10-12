@@ -6,9 +6,17 @@
   <div class="flex items-end justify-between gap-3">
     <div class="min-w-0">
       <h1 class="text-2xl font-bold tracking-tight">Budgets</h1>
-      <p class="mt-0.5 text-sm text-slate-500">{{ picture.month|date:"F Y" }}</p>
+      <nav class="mt-0.5 -ml-1.5 flex items-center gap-1 text-sm text-slate-500" aria-label="Month">
+        <a href="{% url 'budget_list' %}?month={{ previous|date:'Y-m' }}" class="flex size-7 items-center justify-center rounded-full hover:bg-slate-100 hover:text-slate-900" aria-label="{{ previous|date:'F Y' }}">{% include "shell/icon.html" with name="chevron-left" class="size-4" %}</a>
+        <span class="font-medium text-slate-700">{{ picture.month|date:"F Y" }}</span>
+        {% if next %}
+          <a href="{% url 'budget_list' %}?month={{ next|date:'Y-m' }}" class="flex size-7 items-center justify-center rounded-full hover:bg-slate-100 hover:text-slate-900" aria-label="{{ next|date:'F Y' }}">{% include "shell/icon.html" with name="chevron-right" class="size-4" %}</a>
+        {% endif %}
+      </nav>
     </div>
-    <a href="{% url 'budget_set' %}" class="btn-secondary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Set a Budget</a>
+    {% if current %}
+      <a href="{% url 'budget_set' %}" class="btn-secondary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Set a Budget</a>
+    {% endif %}
   </div>
 
   <ul class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -28,14 +36,20 @@
           </div>
           <p class="shrink-0 font-semibold tabular-nums {% amount_color row.left %}">{% amount row.left %} left</p>
         </a>
-        <a href="{% url 'budget_set' %}?account={{ row.account.pk }}" class="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-900" aria-label="Change the Budget for {{ row.account.name }}">{% include "shell/icon.html" with name="pencil" class="size-4" %}</a>
+        {% if current %}
+          <a href="{% url 'budget_set' %}?account={{ row.account.pk }}" class="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-900" aria-label="Change the Budget for {{ row.account.name }}">{% include "shell/icon.html" with name="pencil" class="size-4" %}</a>
+        {% endif %}
       </li>
     {% empty %}
       <li class="flex flex-col items-center px-6 py-12 text-center">
         <span class="flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="target" class="size-6" %}</span>
-        <p class="mt-4 font-semibold">No Budgets yet</p>
-        <p class="mt-1 max-w-sm text-sm text-slate-500">Set a Budget on an Expense Account to see each month what was Spent against it.</p>
-        <a href="{% url 'budget_set' %}" class="btn-secondary mt-5">Set a Budget</a>
+        {% if current %}
+          <p class="mt-4 font-semibold">No Budgets yet</p>
+          <p class="mt-1 max-w-sm text-sm text-slate-500">Set a Budget on an Expense Account to see each month what was Spent against it.</p>
+          <a href="{% url 'budget_set' %}" class="btn-secondary mt-5">Set a Budget</a>
+        {% else %}
+          <p class="mt-4 font-semibold">No Budgets in {{ picture.month|date:"F Y" }}</p>
+        {% endif %}
       </li>
     {% endfor %}
   </ul>

@@ -16,6 +16,7 @@
 
   <form method="post" class="mt-4 space-y-4 md:mt-6">
     {% csrf_token %}
+    <input type="hidden" name="month" value="{% now 'Y-m' %}">
     {% if form.non_field_errors %}{% include "partials/form_errors.html" %}{% endif %}
 
     <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Budget">
@@ -32,6 +33,7 @@
   {% if removable %}
     <form method="post" action="{% url 'budget_remove' removable %}" class="mt-6 border-t border-slate-200 pt-4">
       {% csrf_token %}
+      <input type="hidden" name="month" value="{% now 'Y-m' %}">
       <button type="submit" class="flex items-center gap-1.5 text-sm font-medium text-red-700 hover:text-red-900">{% include "shell/icon.html" with name="trash" class="size-4" %}Remove this Budget from this month on</button>
     </form>
   {% endif %}
