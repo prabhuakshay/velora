@@ -51,19 +51,9 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
         ),
         top("card", label="Subscriptions", url=reverse("subscription_list")),
         top("trend", label="Forecast", url=reverse("forecast")),
-        group(
-            "wallet",
-            "Accounts",
-            [
-                leaf(label, reverse("account_list", args=[kind]))
-                for kind, label in (
-                    ("asset", "Assets"),
-                    ("liability", "Liabilities"),
-                    ("expense", "Expenses"),
-                    ("income", "Income"),
-                )
-            ],
-        ),
+        top("wallet", label="Accounts", url=reverse("account_list", args=["asset"]))
+        # The kind tabs on the page switch kinds, so any kind counts as here.
+        | {"active": path.startswith("/accounts/")},
         group(
             "tag",
             "Classification",

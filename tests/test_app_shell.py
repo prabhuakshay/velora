@@ -59,33 +59,33 @@ def test_more_tab_is_active_on_a_page_that_lives_in_the_more_sheet(
 
 
 def test_phone_title_names_the_current_page(signed_in: Client) -> None:
-    body = signed_in.get(reverse("account_list", args=["liability"])).content.decode()
+    body = signed_in.get(reverse("tag_list")).content.decode()
 
-    assert (
-        '<p class="py-3 text-lg font-semibold tracking-tight">Liabilities</p>' in body
-    )
+    assert '<p class="py-3 text-lg font-semibold tracking-tight">Tags</p>' in body
 
 
-def _accounts_section(body: str) -> str:
+def _classification_section(body: str) -> str:
     return next(
-        line for line in body.splitlines() if 'data-nav-section="accounts"' in line
+        line
+        for line in body.splitlines()
+        if 'data-nav-section="classification"' in line
     )
 
 
 def test_sidebar_sections_start_collapsed(signed_in: Client) -> None:
     body = signed_in.get(reverse("index")).content.decode()
 
-    assert not _accounts_section(body).endswith(" open>")
+    assert not _classification_section(body).endswith(" open>")
 
 
 def test_sidebar_section_stays_expanded_from_cookie(signed_in: Client) -> None:
-    signed_in.cookies["nav_expanded"] = "accounts.classification"
+    signed_in.cookies["nav_expanded"] = "classification"
     body = signed_in.get(reverse("index")).content.decode()
 
-    assert _accounts_section(body).endswith(" open>")
+    assert _classification_section(body).endswith(" open>")
 
 
 def test_section_expands_when_it_holds_the_current_page(signed_in: Client) -> None:
-    body = signed_in.get(reverse("account_list", args=["asset"])).content.decode()
+    body = signed_in.get(reverse("party_list")).content.decode()
 
-    assert _accounts_section(body).endswith(" open>")
+    assert _classification_section(body).endswith(" open>")

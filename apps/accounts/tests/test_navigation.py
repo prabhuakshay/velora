@@ -36,16 +36,17 @@ def test_anonymous_is_redirected_to_login(
     assert response["Location"] == f"{reverse('login')}?next={url}"
 
 
-def test_sidebar_links_to_every_account_kind(signed_in: Client) -> None:
+def test_sidebar_links_to_accounts(signed_in: Client) -> None:
     body = signed_in.get(reverse("index")).content.decode()
 
-    for kind in KINDS:
-        assert list_url(kind) in body
+    assert f'href="{list_url("asset")}"' in body
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_sidebar_marks_the_current_account_kind(signed_in: Client, kind: str) -> None:
-    assert f'href="{list_url(kind)}" aria-current="page"' in list_page(signed_in, kind)
+def test_sidebar_marks_accounts_on_every_kind(signed_in: Client, kind: str) -> None:
+    current = f'href="{list_url("asset")}" aria-current="page"'
+
+    assert current in list_page(signed_in, kind)
 
 
 @pytest.mark.parametrize("path", ["/accounts/savings/", "/accounts/savings/new/"])
