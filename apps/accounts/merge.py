@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import Account
+from apps.budgets.models import Budget
 from apps.core.history import with_reason
 from apps.quick_add.models import DraftSplit
 from apps.schedules.models import Schedule, ScheduleSplit, SuggestedSchedule
@@ -69,7 +70,7 @@ class AccountMerge:
         """Repoint everything on the source at the target, then remove the source.
 
         That is every Split, Draft, Schedule Split, Suggested Schedule, card
-        and Card EMI.
+        and Card EMI. Budgets go over only when the target has none.
         Saves and deletes row by row so change history records each one.
         """
         if self.refusal:
@@ -93,6 +94,7 @@ class AccountMerge:
             self._repoint_schedule_splits(reason)
             self._move_card(reason)
             self._repoint_suggested_schedules()
+            self._hand_over_budgets(reason)
             if target.has_opening_balance:
                 # Both are set for these kinds, by a constraint mypy cannot see.
                 target.opening_balance += source.opening_balance  # type: ignore[operator]
@@ -117,6 +119,21 @@ class AccountMerge:
             target.due_day = source.due_day
             target.pays_from = source.pays_from
             with_reason(target, reason).save()
+
+    def _hand_over_budgets(self, reason: str) -> None:
+        """Give the target the source's Budget rows, unless it has rows of its own.
+
+        Mixing the two would let the source's rows override the target's in
+        the months they start in.
+        """
+        for rows in (Budget.objects.all(),):
+            target_has_own = rows.filter(account=self.target).exists()
+            for row in rows.filter(account=self.source):
+                if target_has_own:
+                    with_reason(row, reason).delete()
+                else:
+                    row.account = self.target
+                    with_reason(row, reason).save()
 
     def _repoint_suggested_schedules(self) -> None:
         """Point Suggested Schedules at the target, dropping any it would loop to."""
