@@ -82,13 +82,17 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ steps.latest.outputs.enable }}
 
-      # Buildx is required for the GHA layer cache.
+      # QEMU runs the arm64 Python stages; the venv holds native wheels.
+      - uses: docker/setup-qemu-action@v4
+
+      # Buildx is required for the GHA layer cache and multi-platform builds.
       - uses: docker/setup-buildx-action@v4
 
       - uses: docker/build-push-action@v7
         with:
           context: .
           target: prod
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

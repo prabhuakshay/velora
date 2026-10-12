@@ -58,7 +58,8 @@ ENTRYPOINT ["dev-entrypoint"]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
 
-FROM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS assets
+# The output is plain CSS, so npm runs natively even when cross-building.
+FROM --platform=$BUILDPLATFORM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS assets
 
 WORKDIR /app
 
