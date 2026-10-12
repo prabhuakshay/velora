@@ -1,8 +1,8 @@
 {% comment %}The answer to a saved Budget cell: everything the save changed, swapped in place by id.{% endcomment %}
 {% if row %}
-  {% include "budgets/_figures.html" with spent=row.spent expected=row.expected oob=True %}
+  {% include "budgets/_figures.html" with oob=True %}
 {% endif %}
 {% include "budgets/_error.html" with oob=True %}
-{% include "budgets/_figures.html" with fid="overall" row=picture.overall spent=picture.total_spent expected=picture.total_expected oob=True %}
+{% include "budgets/_overall_figures.html" with oob=True %}
 {% include "budgets/_unbudgeted.html" with oob=True %}
 {% include "budgets/_note.html" with oob=True %}

@@ -36,8 +36,11 @@ def cell(page: str, label: str) -> str | None:
 
 def swapped(response: Response) -> dict[str, str]:
     """The text of each part a save sends back to swap in place, by its id."""
+    # Each part runs to its closing tag just before the next part or the end,
+    # so parts may nest elements of their own tag.
     parts = re.findall(
-        r'<(\w+) id="([^"]+)" hx-swap-oob="true"[^>]*>(.*?)</\1>',
+        r'<(\w+) id="([^"]+)" hx-swap-oob="true"[^>]*>(.*?)</\1>\s*'
+        r'(?=<\w+ id="[^"]+" hx-swap-oob|$)',
         response.content.decode(),
         re.DOTALL,
     )

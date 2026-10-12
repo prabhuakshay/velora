@@ -1,0 +1,22 @@
+{% load budget_bars %}
+{% comment %}The month's totals against the Overall Budget, swapped in after every save.{% endcomment %}
+<div id="overall"{% if oob %} hx-swap-oob="true"{% endif %} class="-mx-2 rounded-xl px-2 pt-1 pb-2 transition-colors duration-700 [&.htmx-added]:bg-emerald-50">
+  <div class="flex items-end justify-between gap-4">
+    <div class="min-w-0">
+      <p class="text-sm text-slate-500">Spent</p>
+      <p class="truncate text-3xl font-semibold tracking-tight tabular-nums">{% amount picture.total_spent %}</p>
+      {% if picture.total_expected or user.privacy_mode %}
+        <p class="mt-1 text-sm text-slate-500 tabular-nums">Expected {% amount picture.total_expected %}</p>
+      {% endif %}
+    </div>
+    {% if picture.overall %}
+      <div class="min-w-0 shrink-0 pb-1 text-right">
+        {% include "budgets/_state_badge.html" with state=picture.overall.state %}
+        <p class="mt-1.5 truncate text-lg font-semibold tracking-tight tabular-nums"><span class="{% amount_color picture.overall.left %}">{% amount picture.overall.left %} left</span></p>
+      </div>
+    {% endif %}
+  </div>
+  {% if picture.overall %}
+    <div class="mt-4">{% budget_bar picture.overall.budget picture.overall.spent picture.total_expected picture.overall.state thick=True %}</div>
+  {% endif %}
+</div>

@@ -1,0 +1,15 @@
+{% if not user.privacy_mode %}
+  <div class="relative {% if thick %}h-2.5{% else %}h-1.5{% endif %}">
+    <svg viewBox="0 0 100 4" preserveAspectRatio="none" class="block size-full overflow-hidden rounded-full" aria-hidden="true">
+      <rect width="100" height="4" class="fill-slate-100"/>
+      <rect width="{{ spent|stringformat:'.2f' }}" height="4" class="{% if state == 'over' %}fill-red-500{% elif state == 'close' %}fill-amber-500{% else %}fill-slate-800{% endif %}"/>
+      {% if expected %}<rect x="{{ spent|stringformat:'.2f' }}" width="{{ expected|stringformat:'.2f' }}" height="4" class="{% if state == 'close' %}fill-amber-200{% else %}fill-slate-300{% endif %}"/>{% endif %}
+    </svg>
+    {% if pace is not None %}
+      {% comment %}Today's mark reaches past the bar, so Spent running ahead of the month shows.{% endcomment %}
+      <svg viewBox="0 0 100 1" preserveAspectRatio="none" class="absolute left-0 block w-full overflow-visible {% if thick %}-top-1.5 h-[calc(100%+0.75rem)]{% else %}-top-1 h-[calc(100%+0.5rem)]{% endif %}" aria-hidden="true">
+        <line x1="{{ pace|stringformat:'.2f' }}" x2="{{ pace|stringformat:'.2f' }}" y1="0" y2="1" class="{% if thick %}stroke-slate-900{% else %}stroke-slate-400{% endif %}" stroke-width="{% if thick %}2{% else %}1.5{% endif %}" vector-effect="non-scaling-stroke"/>
+      </svg>
+    {% endif %}
+  </div>
+{% endif %}

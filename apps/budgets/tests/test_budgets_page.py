@@ -163,7 +163,7 @@ def test_a_zero_budget_is_over_at_any_spent(signed_in: Client) -> None:
     page = budgets_page(signed_in)
 
     assert cell(page, "Budget for Takeaway") == "0"
-    assert "Takeaway Spent ₹1.00 Expected ₹0.00 Over -₹1.00 left" in page_text(page)
+    assert "Takeaway Spent ₹1.00 Over -₹1.00 left" in page_text(page)
 
 
 def test_a_budget_close_to_its_limit_is_marked_close(signed_in: Client) -> None:
@@ -209,9 +209,9 @@ def test_a_save_sends_back_everything_it_changed(signed_in: Client) -> None:
     response = set_on(signed_in, groceries, "12000")
 
     assert swapped(response) == {
-        f"budget-{groceries.pk}": "Spent ₹2,500.00 Expected ₹0.00 ₹9,500.00 left",
+        f"budget-{groceries.pk}": "Spent ₹2,500.00 ₹9,500.00 left",
         f"budget-{groceries.pk}-error": "",
-        "overall": "Spent ₹4,000.00 Expected ₹0.00 ₹6,000.00 left",
+        "overall": "Spent ₹4,000.00 ₹6,000.00 left",
         "unbudgeted": "₹1,500.00",
         "budgets-note": "The Budgets add up to more than the Overall Budget.",
     }
@@ -224,7 +224,7 @@ def test_removing_a_budget_sends_back_a_row_without_one(signed_in: Client) -> No
 
     parts = swapped(set_on(signed_in, groceries, ""))
 
-    assert parts[f"budget-{groceries.pk}"] == "Spent ₹2,500.00 Expected ₹0.00"
+    assert parts[f"budget-{groceries.pk}"] == "Spent ₹2,500.00"
     assert parts["unbudgeted"] == "₹2,500.00"
 
 
@@ -320,3 +320,34 @@ def test_a_cell_shows_paise_only_when_there_are_some(signed_in: Client) -> None:
     set_on(signed_in, groceries, "1250.5")
 
     assert cell(budgets_page(signed_in), "Budget for Groceries") == "1250.50"
+
+
+def test_budgets_needing_attention_come_first(signed_in: Client) -> None:
+    today = timezone.localdate()
+    bank = opening("Bank", "asset", "0")
+    for name, budget, spent in [
+        ("Books", 1000, 100),
+        ("Fuel", 1000, 950),
+        ("Groceries", 1000, 1200),
+        ("Rent", 1000, 920),
+    ]:
+        account = make_account(name, "expense")
+        set_budget(account, Decimal(budget), today)
+        move(today, bank, account, str(spent))
+
+    text = budgets_text(signed_in)
+
+    order = sorted(["Books", "Fuel", "Groceries", "Rent"], key=text.index)
+    assert order == ["Groceries", "Fuel", "Rent", "Books"]
+
+
+def test_accounts_without_a_budget_wait_under_add_a_budget(signed_in: Client) -> None:
+    set_budget(make_account("Rent", "expense"), Decimal(1000), timezone.localdate())
+    make_account("Books", "expense")
+
+    page = budgets_page(signed_in)
+
+    text = page_text(page)
+    assert text.index("Rent") < text.index("Add a Budget") < text.index("Books")
+    assert cell(page, "Budget for Books") == ""
+    assert "<details" in page

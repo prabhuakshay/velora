@@ -1,0 +1,11 @@
+{% url 'budget_edit' row.account.pk as edit_url %}
+{% with pk=row.account.pk|stringformat:"s" %}{% with fid="budget-"|add:pk %}
+<li class="px-4 py-3 md:px-5">
+  <div class="flex items-center justify-between gap-3">
+    <a href="{{ row.transactions_url }}" class="min-w-0 truncate font-medium hover:underline">{{ row.account.name }}</a>
+    {% include "budgets/_cell.html" with label="Budget for "|add:row.account.name value=row.budget %}
+  </div>
+  {% include "budgets/_error.html" %}
+  {% include "budgets/_figures.html" %}
+</li>
+{% endwith %}{% endwith %}

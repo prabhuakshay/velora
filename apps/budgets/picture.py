@@ -102,10 +102,25 @@ class BudgetPicture:
     budgets_add_up_to_more: bool
 
     @property
-    def sheet(self) -> list[BudgetRow | UnbudgetedRow]:
-        """Every Budget, and every visible Expense Account that could have one."""
-        shown = [row for row in self.unbudgeted_rows if not row.account.hidden]
-        return sorted([*self.rows, *shown], key=lambda row: row.account.name.lower())
+    def by_attention(self) -> list[BudgetRow]:
+        """The Budgets over first, then close, each by share Spent."""
+        return sorted(self.rows, key=_attention)
+
+    @property
+    def to_add(self) -> list[UnbudgetedRow]:
+        """The visible Expense Accounts that could have a Budget but don't."""
+        return [row for row in self.unbudgeted_rows if not row.account.hidden]
+
+
+ATTENTION = {State.OVER: 0, State.CLOSE: 1, State.FINE: 2}
+
+
+def _attention(row: BudgetRow) -> tuple[int, Decimal]:
+    if row.budget:
+        share = row.spent / row.budget
+    else:
+        share = Decimal("Infinity") if row.spent > 0 else Decimal(0)
+    return ATTENTION[row.state], -share
 
 
 def budgets_in(month: date) -> dict[int, Decimal]:

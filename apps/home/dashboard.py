@@ -12,7 +12,6 @@ from django.urls import reverse
 from apps.accounts.activity import month_end
 from apps.accounts.models import Account, AccountKind
 from apps.accounts.net_worth import net_worth, net_worth_history
-from apps.budgets.picture import BudgetPicture, BudgetRow, Row, State
 from apps.cards.models import Statement
 from apps.classification.models import earned, spent
 from apps.core.dates import month_start, months_after
@@ -21,6 +20,7 @@ from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
     from apps.accounts.net_worth import NetWorth
+    from apps.budgets.picture import BudgetPicture, BudgetRow, Row
 
 # Months of history each Net Worth range shows; None is all of it.
 RANGES = {"6m": 6, "1y": 12, "all": None}
@@ -233,17 +233,6 @@ class BudgetCard:
     more: int
 
 
-ATTENTION = {State.OVER: 0, State.CLOSE: 1, State.FINE: 2}
-
-
-def _attention(row: BudgetRow) -> tuple[int, Decimal]:
-    if row.budget:
-        share = row.spent / row.budget
-    else:
-        share = Decimal("Infinity") if row.spent > 0 else Decimal(0)
-    return ATTENTION[row.state], -share
-
-
 def budget_card(picture: BudgetPicture) -> BudgetCard | None:
     """The Overall Budget, then Budgets over, close, then by share Spent.
 
@@ -251,7 +240,7 @@ def budget_card(picture: BudgetPicture) -> BudgetCard | None:
     """
     if not picture.rows and picture.overall is None:
         return None
-    rows = sorted(picture.rows, key=_attention)
+    rows = picture.by_attention
     return BudgetCard(picture.overall, rows[:BUDGETS_SHOWN], len(rows[BUDGETS_SHOWN:]))
 
 

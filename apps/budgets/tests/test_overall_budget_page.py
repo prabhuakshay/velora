@@ -63,7 +63,7 @@ def test_the_overall_budget_shows_its_state(signed_in: Client) -> None:
         "950",
     )
 
-    assert "Close ₹50.00 left Fun" in budgets_text(signed_in)
+    assert "Overall Budget Spent ₹950.00 Close ₹50.00 left" in budgets_text(signed_in)
 
 
 def test_typing_a_new_amount_changes_the_overall_budget(signed_in: Client) -> None:
@@ -94,9 +94,7 @@ def test_a_zero_overall_budget_is_over_at_any_spent(signed_in: Client) -> None:
         "1",
     )
 
-    assert "Overall Budget Spent ₹1.00 Expected ₹0.00 Over -₹1.00 left" in (
-        budgets_text(signed_in)
-    )
+    assert "Overall Budget Spent ₹1.00 Over -₹1.00 left" in (budgets_text(signed_in))
 
 
 def test_a_negative_overall_budget_is_refused_beside_its_cell(
@@ -120,7 +118,7 @@ def test_saving_the_overall_budget_sends_back_what_it_changed(
 
     assert swapped(response) == {
         "overall-error": "",
-        "overall": "Spent ₹1,500.00 Expected ₹0.00 ₹500.00 left",
+        "overall": "Spent ₹1,500.00 ₹500.00 left",
         "unbudgeted": "₹0.00",
         "budgets-note": "The Budgets add up to more than the Overall Budget.",
     }
