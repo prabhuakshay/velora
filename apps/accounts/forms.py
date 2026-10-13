@@ -13,6 +13,7 @@ from apps.accounts.models import (
     Account,
     Reconciliation,
 )
+from apps.accounts.reconciling import checked_on
 from apps.core.forms import clean_unique_name
 from apps.transactions.models import Split
 
@@ -186,6 +187,8 @@ class ReconcileForm(forms.Form):
         self.account = account
         self.difference = Decimal(0)
         self.initial.setdefault("date", timezone.localdate())
+        if account.reconciles_cash:
+            self.fields["balance"].label = "Cash"
         if account.owes:
             self.fields["balance"].label = "What you owed"
             self.fields[
@@ -211,9 +214,10 @@ class ReconcileForm(forms.Form):
         when, balance = cleaned.get("date"), cleaned.get("balance")
         if when is None or balance is None:
             return cleaned
-        self.difference = balance - self.account.balance_on(when)
+        self.difference = balance - checked_on(self.account, when)
         if self.difference:
-            message = f"That doesn't match Velora's Balance on {when:%-d %b %Y}."
+            what = "Cash" if self.account.reconciles_cash else "Balance"
+            message = f"That doesn't match Velora's {what} on {when:%-d %b %Y}."
             raise forms.ValidationError(message)
         return cleaned
 
