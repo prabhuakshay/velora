@@ -23,9 +23,15 @@ class Line:
     height: int = HEIGHT
 
 
-def line(values: list[Decimal]) -> Line:
-    """Lay the values out left to right across the chart."""
-    low, high = min(values), max(values)
+def line(
+    values: list[Decimal], low: Decimal | None = None, high: Decimal | None = None
+) -> Line:
+    """Lay the values out left to right across the chart.
+
+    Give low and high to draw several lines on one scale.
+    """
+    low = min(values) if low is None else low
+    high = max(values) if high is None else high
     step = WIDTH / max(len(values) - 1, 1)
 
     def y(value: Decimal) -> float:

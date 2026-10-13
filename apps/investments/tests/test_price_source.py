@@ -2,7 +2,12 @@ from datetime import date
 from decimal import Decimal
 
 from apps.investments.models import Instrument
-from apps.investments.price_source import PriceRow, parse_amfi, parse_nse
+from apps.investments.price_source import (
+    PriceRow,
+    parse_amfi,
+    parse_amfi_history,
+    parse_nse,
+)
 
 NAV_ALL = """\
 Scheme Code;ISIN Div Payout/ ISIN Growth;ISIN Div Reinvestment;Scheme Name;Net Asset Value;Date
@@ -15,6 +20,17 @@ Aditya Birla Sun Life Mutual Fund
 119552;INF209K01YM2;-;ABSL Banking PSU Debt - Growth;350.1;10-Oct-2026
 119553;-;-;Unpriced scheme;N.A.;10-Oct-2026
 119554;INF209K01ZZ9;;Bad date scheme;12.5;sometime
+"""  # noqa: E501
+
+NAV_HISTORY = """\
+Scheme Code;Scheme Name;ISIN Div Payout/ISIN Growth;ISIN Div Reinvestment;Net Asset Value;Repurchase Price;Sale Price;Date
+
+Open Ended Schemes(Debt Scheme - Banking and PSU Fund)
+
+119551;ABSL Banking PSU Debt - IDCW;INF209KA12Z1;-;101.41925;;;02-Mar-2026
+119551;ABSL Banking PSU Debt - IDCW;INF209KA12Z1;-;101.5;;;03-Mar-2026
+119553;Unpriced scheme;INF209K01ZZ9;-;N.A.;;;03-Mar-2026
+119554;Bad date scheme;INF209K01ZZ9;;12.5;;;sometime
 """  # noqa: E501
 
 BHAVCOPY = """\
@@ -57,6 +73,16 @@ def test_amfi_gives_a_mutual_fund_row_per_isin() -> None:
             Decimal("350.1"),
             day,
         ),
+    ]
+
+
+def test_amfi_history_gives_a_row_per_isin_and_day() -> None:
+    fund = Instrument.Kind.MUTUAL_FUND
+    name = "ABSL Banking PSU Debt - IDCW"
+
+    assert parse_amfi_history(NAV_HISTORY) == [
+        PriceRow("INF209KA12Z1", name, fund, Decimal("101.4193"), date(2026, 3, 2)),
+        PriceRow("INF209KA12Z1", name, fund, Decimal("101.5"), date(2026, 3, 3)),
     ]
 
 
