@@ -1,7 +1,7 @@
 """Dividends: Income Transactions into the account that receives them (ADR 0012)."""
 
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from apps.accounts.models import Account, InvestmentMode
 from apps.investments.replay import DIVIDEND
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 # Where each investment mode's Dividends are paid.
 RECEIVER: dict[str, Callable[[Account], Account]] = {
     InvestmentMode.HOLDS_CASH: lambda account: account,
+    InvestmentMode.DIRECT: lambda account: cast("Account", account.invests_into),
 }
 
 

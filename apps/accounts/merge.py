@@ -102,6 +102,7 @@ class AccountMerge:
             DraftSplit.objects.filter(to_account=source).update(to_account=target)
             self._repoint_schedule_splits(reason)
             self._move_card(reason)
+            self._repoint_direct_investments(reason)
             self._repoint_suggested_schedules()
             self._hand_over_budgets(reason)
             for reconciliation in source.reconciliations.all():
@@ -121,6 +122,18 @@ class AccountMerge:
                 source.opening_balance_date,
             )
             with_reason(target, reason).save()
+
+    def _repoint_direct_investments(self, reason: str) -> None:
+        """Pay the source's Direct Investment Accounts from and into the target."""
+        source, target = self.source, self.target
+        for account in Account.objects.filter(
+            Q(invests_from=source) | Q(invests_into=source)
+        ):
+            if account.invests_from_id == source.pk:
+                account.invests_from = target
+            if account.invests_into_id == source.pk:
+                account.invests_into = target
+            with_reason(account, reason).save()
 
     def _move_card(self, reason: str) -> None:
         """Hand the source's card settings, Statements and Card EMIs to the target."""
