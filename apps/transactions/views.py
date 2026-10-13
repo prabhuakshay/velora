@@ -3,6 +3,7 @@
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
 from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 def _listed_transactions() -> QuerySet[Transaction]:
     """Every Transaction with its Splits and totals, newest first."""
     return (
-        Transaction.objects.select_related("party")
+        Transaction.objects.select_related("party", "investment_event__account")
         .prefetch_related(
             Prefetch(
                 "splits",
@@ -195,9 +196,28 @@ def _from_query[M: (Account, Party, Tag)](
 def transaction_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Edit a Transaction and its Splits."""
     # Listed, so the delete dialog has the total like the list's does.
-    return _save_transaction_forms(
-        request, get_object_or_404(_listed_transactions(), pk=pk)
+    transaction = get_object_or_404(_listed_transactions(), pk=pk)
+    if refused := _refused_as_investment(request, transaction):
+        return refused
+    return _save_transaction_forms(request, transaction)
+
+
+def _refused_as_investment(
+    request: HttpRequest, transaction: Transaction
+) -> HttpResponseBase | None:
+    """Send an Investment Event's Transaction to its Holdings, where it is changed.
+
+    Editing it here would leave the event and its Transaction disagreeing.
+    """
+    event = getattr(transaction, "investment_event", None)
+    if event is None:
+        return None
+    messages.error(
+        request,
+        f"This Transaction is the {event.get_kind_display()} of "
+        f"{event.instrument}; change it on {event.account}'s Holdings.",
     )
+    return redirect("account_holdings", pk=event.account_id)
 
 
 @login_required
@@ -217,6 +237,8 @@ def attachment_open(request: HttpRequest, pk: int) -> HttpResponseBase:  # noqa:
 def transaction_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Confirm, then delete a Transaction, its Splits and its Attachments."""
     transaction = get_object_or_404(_listed_transactions(), pk=pk)
+    if refused := _refused_as_investment(request, transaction):
+        return refused
     if request.method == "POST":
         transaction.delete()
         return redirect(_return_url(request))
