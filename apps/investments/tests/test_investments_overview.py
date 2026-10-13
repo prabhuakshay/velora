@@ -110,8 +110,21 @@ def test_the_overview_follows_the_number_format(signed_in: Client, user: User) -
 
     text = page_text(overview(signed_in))
 
-    assert "Market Value ₹150,140.00" in text
+    assert "Market Value ₹1,59,500.00" not in text
+    assert "Market Value ₹159,500.00" in text
     assert "Nifty Fund Zerodha 10 ₹100.0000 ₹1,000.00 ₹150,000.00" in text
+
+
+def test_the_overview_market_value_includes_uninvested_cash(
+    signed_in: Client,
+) -> None:
+    three_holdings(signed_in)
+
+    text = page_text(overview(signed_in))
+
+    assert ("Market Value ₹11,000.00 Holdings ₹1,640.00 Cash ₹9,360.00") in text
+    assert "Groww ₹500.00" in text
+    assert "Zerodha ₹10,500.00" in text
 
 
 def test_the_overview_totals_every_holding_across_investment_accounts(
@@ -122,8 +135,7 @@ def test_the_overview_totals_every_holding_across_investment_accounts(
     text = page_text(overview(signed_in))
 
     assert (
-        "Invested ₹1,150.00 Market Value ₹1,640.00 "
-        "Unrealized Gain +₹490.00 +42.61% Realized Gain +₹10.00"
+        "Invested ₹1,150.00 Unrealized Gain +₹490.00 +42.61% Realized Gain +₹10.00"
     ) in text
 
 
@@ -138,7 +150,8 @@ def test_the_overview_splits_the_totals_by_mutual_funds_stocks_and_etfs(
         "Mutual funds ₹1,000.00 ₹1,500.00 +₹500.00 +50.00% ₹0.00 "
         "Stocks ₹50.00 ₹40.00 -₹10.00 -20.00% +₹10.00 "
         "ETFs ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
-        "Total ₹1,150.00 ₹1,640.00 +₹490.00 +42.61% +₹10.00"
+        "Cash — ₹9,360.00 — — — "
+        "Total ₹1,150.00 ₹11,000.00 +₹490.00 +42.61% +₹10.00"
     ) in text
 
 
