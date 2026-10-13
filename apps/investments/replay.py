@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
     from datetime import date
 
+    from apps.investments.xirr import Flow
+
 BUY = "buy"
 BONUS = "bonus"
 STOCK_SPLIT = "stock_split"
@@ -78,6 +80,8 @@ class Holding:
     # Realized Gain of every Sell, whatever its date.
     realized: Decimal = Decimal(0)
     dividends: Decimal = Decimal(0)
+    # Money out to Buys (negative) and in from Sells and Dividends, for XIRR.
+    flows: list[Flow] = field(default_factory=list)
 
     @property
     def units(self) -> Decimal:
@@ -158,14 +162,18 @@ def _apply(book: Book, event: Event) -> None:
 
 
 def _buy(_book: Book, holding: Holding, event: Event) -> None:
-    holding.lots.append(Lot(event.date, _units(event), _amount(event) + event.charges))
+    cost = _amount(event) + event.charges
+    holding.lots.append(Lot(event.date, _units(event), cost))
+    holding.flows.append((event.date, -cost))
 
 
 def _sell(book: Book, holding: Holding, event: Event) -> None:
     held, units = holding.units, _units(event)
     if units > held:
         raise OversoldError(event, held)
-    gain = _amount(event) - event.charges - holding.take(units)
+    proceeds = _amount(event) - event.charges
+    gain = proceeds - holding.take(units)
+    holding.flows.append((event.date, proceeds))
     holding.realized += gain
     book.realizations.append(Realization(event.date, event.instrument_id, gain))
 
@@ -185,10 +193,13 @@ def _merger(book: Book, holding: Holding, event: Event) -> None:
     into = book.holding(cast("int", event.new_instrument_id))
     into.lots = sorted([*into.lots, *holding.lots], key=lambda lot: lot.date)
     holding.lots = []
+    into.flows = sorted([*into.flows, *holding.flows])
+    holding.flows = []
 
 
 def _dividend(_book: Book, holding: Holding, event: Event) -> None:
     holding.dividends += _amount(event)
+    holding.flows.append((event.date, _amount(event)))
 
 
 def _units(event: Event) -> Decimal:
