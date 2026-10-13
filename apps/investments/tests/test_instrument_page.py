@@ -137,3 +137,44 @@ def test_the_page_needs_a_sign_in(client: Client) -> None:
     make_instrument(manual_price=False)
 
     assert client.get(instrument_url(ISIN)).status_code == 302
+
+
+def price_history(client: Client) -> str:
+    html = client.get(instrument_url(ISIN)).content.decode()
+    return page_text(html.split("<caption>Price at each month-end", 1)[1])
+
+
+def test_the_page_charts_the_price_history(signed_in: Client) -> None:
+    instrument = make_instrument(manual_price=False)
+    for day, price in [
+        ("2026-01-12", "10"),
+        ("2026-01-30", "11"),
+        ("2026-02-04", "12.5"),
+    ]:
+        Price.objects.create(instrument=instrument, date=day, price=Decimal(price))
+
+    history = price_history(signed_in)
+
+    assert "30 Jan 2026₹11.0000 4 Feb 2026₹12.5000" in history
+    assert "12 Jan 2026" not in history
+    assert "<polyline" in signed_in.get(instrument_url(ISIN)).content.decode()
+
+
+def test_a_single_price_draws_no_chart(signed_in: Client) -> None:
+    instrument = make_instrument(manual_price=False)
+    Price.objects.create(instrument=instrument, date="2026-01-12", price=Decimal(10))
+
+    assert "<polyline" not in signed_in.get(instrument_url(ISIN)).content.decode()
+
+
+def test_privacy_mode_hides_the_price_chart(signed_in: Client, user: User) -> None:
+    instrument = make_instrument(manual_price=False)
+    Price.objects.create(instrument=instrument, date="2026-01-12", price=Decimal(10))
+    Price.objects.create(instrument=instrument, date="2026-02-12", price=Decimal(11))
+    user.privacy_mode = True
+    user.save()
+
+    html = signed_in.get(instrument_url(ISIN)).content.decode()
+
+    assert "<polyline" not in html
+    assert "Hidden in Privacy Mode" in page_text(html)

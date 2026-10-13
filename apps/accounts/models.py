@@ -89,7 +89,7 @@ def _balance(as_of: date | str | None, account: str = "") -> models.Expression:
     )
 
 
-def _reconciliation_difference() -> models.Expression:
+def reconciliation_difference() -> models.Expression:
     """A Reconciliation's balance less its Account's Balance on its date now."""
     return models.F("balance") - _balance("date", account="account")
 
@@ -133,15 +133,27 @@ class AccountQuerySet(models.QuerySet["Account"]):
         )
         return self.annotate(last_used=models.Subquery(newest))
 
+    def with_used(self, since: date, until: date) -> Self:
+        """Annotate whether each Account has a Split after since, up to until."""
+        split = apps.get_model("transactions", "Split")
+        used = split.objects.filter(
+            models.Q(from_account=models.OuterRef("pk"))
+            | models.Q(to_account=models.OuterRef("pk")),
+            transaction__date__gt=since,
+            transaction__date__lte=until,
+        )
+        return self.annotate(used=models.Exists(used))
+
     def with_latest_reconciliation(self) -> Self:
         """Annotate the date of each Account's latest Reconciliation, if any.
 
         off_by is how far that Reconciliation is off now; zero when it matches.
         """
+        reconciliation = apps.get_model("accounts", "Reconciliation")
         latest = (
-            Reconciliation.objects.filter(account=models.OuterRef("pk"))
+            reconciliation.objects.filter(account=models.OuterRef("pk"))
             .order_by("-date")
-            .annotate(off=_reconciliation_difference())
+            .annotate(off=reconciliation_difference())
         )
         return self.annotate(
             reconciled_on=models.Subquery(latest.values("date")[:1]),
@@ -239,6 +251,8 @@ class Account(models.Model):
     # Set only on Accounts fetched through with_latest_reconciliation().
     reconciled_on: date | None
     off_by: Decimal | None
+    # Set only on Accounts fetched through with_used().
+    used: bool
 
     class Meta:
         constraints: ClassVar = [
@@ -336,6 +350,16 @@ class Account(models.Model):
         return bool(self.investment_mode)
 
     @property
+    def offers_reconciliation(self) -> bool:
+        """Whether it can be reconciled; a Direct account has nothing to check."""
+        return self.has_opening_balance and not self.is_direct
+
+    @property
+    def reconciles_cash(self) -> bool:
+        """Whether its Reconciliations check its Cash rather than its Balance."""
+        return self.investment_mode == InvestmentMode.HOLDS_CASH
+
+    @property
     def is_direct(self) -> bool:
         """Whether it is a Direct Investment Account, paid from and into banks."""
         return self.investment_mode == InvestmentMode.DIRECT
@@ -355,46 +379,10 @@ class Account(models.Model):
         return Account.objects.with_balance(when).get(pk=self.pk).balance
 
 
-class ReconciliationQuerySet(models.QuerySet["Reconciliation"]):
-    """Queries over Reconciliations."""
+# Re-exported: Django finds the model here, and callers import it from here.
+from apps.accounts.reconciliations import (  # noqa: E402
+    Reconciliation,
+    ReconciliationQuerySet,
+)
 
-    def with_difference(self) -> Self:
-        """Annotate its balance less the Account's Balance on its date now.
-
-        Zero means it still matches; nothing about matching is stored (ADR 0011).
-        """
-        return self.annotate(difference=_reconciliation_difference())
-
-    def matching(self) -> Self:
-        """Those whose balance still equals the Account's Balance on their date."""
-        return self.with_difference().filter(difference=0)
-
-
-class Reconciliation(models.Model):
-    """The balance the bank said an Account held on a day, matched when recorded.
-
-    Checked against the Balance whenever shown, never locked (ADR 0011). A
-    Liability's balance reads as what is owed, like its Balance.
-    """
-
-    account = models.ForeignKey(
-        Account, on_delete=models.CASCADE, related_name="reconciliations"
-    )
-    date = models.DateField()
-    balance = models.DecimalField(max_digits=15, decimal_places=2)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    objects = ReconciliationQuerySet.as_manager()
-    # Set only on Reconciliations fetched through with_difference().
-    difference: Decimal
-
-    class Meta:
-        constraints: ClassVar = [
-            models.UniqueConstraint(
-                fields=("account", "date"),
-                name="accounts_reconciliation_account_date_unique",
-            ),
-        ]
-
-    def __str__(self) -> str:
-        return f"{self.account} on {self.date}"
+__all__ = ["Reconciliation", "ReconciliationQuerySet"]
