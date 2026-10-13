@@ -14,8 +14,8 @@ from apps.home.charts import line
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
 from apps.investments.history import last_each_month, value_chart, value_history
 from apps.investments.models import Instrument, InvestmentEvent
+from apps.investments.overselling import oversell_refusal
 from apps.investments.portfolio import COLUMNS, Column, portfolio, sorting
-from apps.investments.replay import OversoldError, replay
 from apps.investments.tasks import queue_backfill
 from apps.investments.valuation import account_value
 from apps.users.privacy_mode import blocked_in_privacy_mode
@@ -155,21 +155,14 @@ def investment_event_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     event = get_object_or_404(
         InvestmentEvent.objects.select_related("transaction"), pk=pk
     )
-    rest = event.account.investment_events.exclude(pk=pk).select_related("instrument")
-    try:
-        replay(rest)
-    except OversoldError as error:
-        messages.error(request, f"Can't delete it: {_sell_refusal(error)}")
+    if refusal := oversell_refusal(event.account, leaving_out=pk):
+        messages.error(request, f"Can't delete it: {refusal}")
     else:
         event.delete()
         if event.transaction is not None:
             event.transaction.delete()
         messages.success(request, f"Deleted the {event.get_kind_display()}.")
     return redirect("account_holdings", pk=event.account_id)
-
-
-def _sell_refusal(error: OversoldError) -> str:
-    return f"the Sell on {error.event.date:%-d %b %Y} would sell units not held."
 
 
 def _headers(current: Column, *, descending: bool) -> list[dict[str, object]]:

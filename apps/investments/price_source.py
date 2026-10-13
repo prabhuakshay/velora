@@ -30,7 +30,7 @@ NSE_ETF_URL = "https://nsearchives.nseindia.com/content/equities/eq_etfseclist.c
 TIMEOUT_SECONDS = 60
 # NSE refuses requests without a browser-like User-Agent.
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Velora"}
-# Series that trade as ordinary shares; ETFs trade under EQ too.
+# Series of ordinary shares; ETFs are listed under EQ too.
 EQUITY_SERIES = {"EQ", "BE"}
 PLACES = Decimal("0.0001")
 

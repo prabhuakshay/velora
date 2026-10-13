@@ -74,8 +74,9 @@ class InvestmentEvent(models.Model):
     """One dated thing that happened to the units of an Instrument in an account.
 
     Lots are never stored: they come from replaying these (apps.investments.replay).
-    Which fields a kind needs is kept to its form and import; units, amount and
-    price stay optional here because a Dividend or Stock Split has no use for some.
+    Which fields a kind needs is in NEEDS, checked by its form and Drafts; units,
+    amount and price stay optional here because a Dividend or Stock Split has no
+    use for some.
     A Stock Split keeps its ratio in units.
     """
 
@@ -131,7 +132,7 @@ class InvestmentEvent(models.Model):
             models.CheckConstraint(
                 condition=~models.Q(kind__in=(replay.BUY, replay.SELL))
                 | models.Q(units__gt=0, price__gt=0, amount__gt=0),
-                name="investments_investmentevent_trade_parts",
+                name="investments_investmentevent_buy_sell_parts",
                 violation_error_message=(
                     "A Buy or Sell needs units, a Price and an amount above 0."
                 ),
@@ -172,6 +173,17 @@ class InvestmentEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_kind_display()} {self.instrument} on {self.date}"
+
+
+# What each kind of Investment Event needs; its other optional parts stay blank.
+NEEDS: dict[str, tuple[str, ...]] = {
+    InvestmentEvent.Kind.BUY: ("units", "price", "amount"),
+    InvestmentEvent.Kind.SELL: ("units", "price", "amount"),
+    InvestmentEvent.Kind.DIVIDEND: ("amount", "income_account"),
+    InvestmentEvent.Kind.STOCK_SPLIT: ("units",),
+    InvestmentEvent.Kind.BONUS: ("units",),
+    InvestmentEvent.Kind.MERGER: ("new_isin",),
+}
 
 
 class DraftInvestment(models.Model):

@@ -1,23 +1,21 @@
 """Forms for hand-entered Prices and Investment Events."""
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
 from django.utils import timezone
 
 from apps.accounts.models import Account, AccountKind
 from apps.investments.dividends import (
-    income_account_of,
+    income_account,
     linking,
-    posts_transaction,
+    posts_dividend,
     save_unlinked,
-    transaction_forms,
 )
-from apps.investments.ledger import transaction_forms as trade_forms
-from apps.investments.models import Instrument, InvestmentEvent, Price
-from apps.investments.replay import OversoldError, replay
-from apps.quick_add.models import Draft
+from apps.investments.ledger import transaction_forms
+from apps.investments.models import NEEDS, Instrument, InvestmentEvent, Price
+from apps.investments.overselling import oversell_refusal
 
 if TYPE_CHECKING:
     import datetime
@@ -67,39 +65,6 @@ def _future_refused(when: datetime.date) -> datetime.date:
     return when
 
 
-def units_text(units: Decimal) -> str:
-    """Units as plain digits, without trailing zeros."""
-    return f"{units.normalize():f}"
-
-
-def oversold_message(error: OversoldError) -> str:
-    """Why a Sell can't take the units it asks for."""
-    instrument = cast("InvestmentEvent", error.event).instrument
-    return (
-        f"Only {units_text(error.held)} units of {instrument} were held on "
-        f"{error.event.date:%-d %b %Y}."
-    )
-
-
-def _waiting_drafts(account: Account) -> list[InvestmentEvent]:
-    """The Buys and Sells the account's waiting Drafts will record once posted."""
-    return [
-        detail.event_on(detail.draft.date)
-        for detail in account.investment_drafts.filter(
-            draft__status=Draft.Status.WAITING, units__isnull=False
-        ).select_related("draft", "instrument")
-    ]
-
-
-# What each kind of Investment Event needs; the other optional parts stay blank.
-NEEDS = {
-    InvestmentEvent.Kind.BUY: ("units", "price", "amount"),
-    InvestmentEvent.Kind.SELL: ("units", "price", "amount"),
-    InvestmentEvent.Kind.DIVIDEND: ("amount", "income_account"),
-    InvestmentEvent.Kind.STOCK_SPLIT: ("units",),
-    InvestmentEvent.Kind.BONUS: ("units",),
-    InvestmentEvent.Kind.MERGER: ("new_isin",),
-}
 OPTIONAL = ("units", "price", "amount", "income_account", "new_isin")
 REQUIRED = "This field is required."
 
@@ -169,7 +134,7 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
             self.fields[name].widget.attrs["min"] = "0"
         if self.instance.pk:
             self.initial["isin"] = self.instance.instrument.isin
-            self.initial["income_account"] = income_account_of(self.instance)
+            self.initial["income_account"] = income_account(self.instance.transaction)
             if self.instance.new_instrument is not None:
                 self.initial["new_isin"] = self.instance.new_instrument.isin
         else:
@@ -224,7 +189,7 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
             self.matched is None
             and not self.drafting
             and when is not None
-            and posts_transaction(
+            and posts_dividend(
                 InvestmentEvent(
                     account=self.account,
                     kind=self.cleaned_data.get("kind", ""),
@@ -271,27 +236,21 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         )
 
     def _refuse_overselling(self, instrument: Instrument) -> None:
-        others = [
-            *self.account.investment_events.exclude(pk=self.instance.pk).select_related(
-                "instrument"
-            ),
-        ]
-        if self.drafting:
-            others += _waiting_drafts(self.account)
-        try:
-            replay([*others, self._candidate(instrument)])
-        except OversoldError as error:
-            raise forms.ValidationError(oversold_message(error)) from error
+        if refusal := oversell_refusal(
+            self.account,
+            adding=self._candidate(instrument),
+            leaving_out=self.instance.pk,
+            with_drafts=self.drafting,
+        ):
+            raise forms.ValidationError(refusal)
 
     def _check_ledger(self, instrument: Instrument) -> None:
-        candidate = self._candidate(instrument)
         if self.matched is not None:
             self.ledger = None
-        elif posts_transaction(candidate):
-            income = self.cleaned_data["income_account"]
-            self.ledger = transaction_forms(candidate, income)
         else:
-            self.ledger = trade_forms(candidate)
+            self.ledger = transaction_forms(
+                self._candidate(instrument), self.cleaned_data["income_account"]
+            )
         if self.ledger is not None and not self.ledger.is_valid():
             for error in self.ledger.errors():
                 self.add_error(None, error)

@@ -292,7 +292,7 @@ def test_deleting_a_buy_a_later_sell_needs_is_refused(signed_in: Client) -> None
     )
 
     assert (
-        "Can&#x27;t delete it: the Sell on 5 Feb 2026 would sell units not held."
+        "Can&#x27;t delete it: Only 0 units of Nifty Fund were held on 5 Feb 2026."
         in (page_text(response.content.decode()))
     )
     assert InvestmentEvent.objects.filter(pk=buy.pk).exists()

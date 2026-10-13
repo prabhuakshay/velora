@@ -8,7 +8,8 @@ from django.db import transaction as db_transaction
 from django.shortcuts import redirect, render
 
 from apps.accounts.models import Account, AccountKind
-from apps.investments.drafts import income_of, save_investment
+from apps.investments.dividends import income_account
+from apps.investments.drafts import save_investment
 from apps.investments.models import DraftInvestment
 from apps.quick_add.forms import DraftEditForm
 from apps.quick_add.models import Draft
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest
     from django.http.response import HttpResponseBase
 
-TRADE_FIELDS = ("units", "price", "charges")
+BUY_SELL_FIELDS = ("units", "price", "charges")
 
 
 class DraftInvestmentForm(forms.ModelForm[DraftInvestment]):
@@ -41,9 +42,9 @@ class DraftInvestmentForm(forms.ModelForm[DraftInvestment]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
         if self.instance.kind == DraftInvestment.Kind.DIVIDEND:
-            for name in TRADE_FIELDS:
+            for name in BUY_SELL_FIELDS:
                 del self.fields[name]
-            self.initial["income_account"] = income_of(self.instance.draft)
+            self.initial["income_account"] = income_account(self.instance.draft)
         else:
             del self.fields["income_account"]
 

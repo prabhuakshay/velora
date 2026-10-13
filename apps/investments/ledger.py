@@ -1,7 +1,8 @@
-"""The Transaction a Direct Investment Account's Buy or Sell posts (ADR 0012).
+"""The Transaction a Direct Buy or Sell, or a Dividend, posts (ADR 0012).
 
 A Buy is paid from the account's Pays from, for its amount plus charges; a
-Sell pays its net proceeds into its Pays into. Events on or before the
+Sell pays its net proceeds into its Pays into; a Dividend is paid from its
+Income Account into the account that receives it. Events on or before the
 Opening Balance date post nothing: they are inside the Opening Balance.
 """
 
@@ -19,8 +20,8 @@ if TYPE_CHECKING:
     from apps.investments.models import InvestmentEvent
 
 
-def posts_transaction(event: InvestmentEvent) -> bool:
-    """Whether the event moves money in the ledger."""
+def posts_direct_buy_or_sell(event: InvestmentEvent) -> bool:
+    """Whether the event is a Direct account's Buy or Sell that moves money."""
     account = event.account
     opened = account.opening_balance_date
     return (
@@ -31,17 +32,17 @@ def posts_transaction(event: InvestmentEvent) -> bool:
     )
 
 
+def moves_ledger_money(event: InvestmentEvent) -> bool:
+    """Whether the event has a Transaction: a later Direct Buy/Sell or Dividend."""
+    return posts_direct_buy_or_sell(event) or dividends.posts_dividend(event)
+
+
 def money_moved(event: InvestmentEvent) -> Decimal:
     """What a Buy cost with its charges, or what a Sell brought in after them."""
     amount = event.amount or 0
     if event.kind == BUY:
         return amount + event.charges
     return amount - event.charges
-
-
-def moves_money(event: InvestmentEvent) -> bool:
-    """Whether the event posts a Transaction: a Direct trade or a Dividend."""
-    return posts_transaction(event) or dividends.posts_transaction(event)
 
 
 def route(
@@ -61,21 +62,29 @@ def route(
     return account.pk, account.invests_into_id, amount
 
 
-def transaction_forms(event: InvestmentEvent) -> TransactionForms | None:
+def transaction_forms(
+    event: InvestmentEvent, income: Account | None = None
+) -> TransactionForms | None:
     """The event's linked Transaction as it should now be, or None for none.
 
-    The existing linked Transaction, if any, is edited in place: its Splits
-    are replaced, and its Party, Attachments and Statement stay.
+    A Dividend's comes from the given Income Account. The existing linked
+    Transaction, if any, is edited in place: its Splits are replaced, and its
+    Party, Attachments and Statement stay.
     """
-    if not posts_transaction(event):
+    if not moves_ledger_money(event):
         return None
     linked = event.transaction or Transaction()
     old = list(linked.splits.all()) if linked.pk else []
-    source, destination, amount = route(event)
+    source, destination, amount = route(event, income)
+    description = (
+        f"Dividend from {event.instrument}"
+        if event.kind == DIVIDEND
+        else f"{event.get_kind_display()} {event.instrument}"
+    )
     data: dict[str, Any] = {
         "date": event.date.isoformat(),
         "party": linked.party_id or "",
-        "description": f"{event.get_kind_display()} {event.instrument}",
+        "description": description,
         "splits-TOTAL_FORMS": len(old) + 1,
         "splits-INITIAL_FORMS": len(old),
     }

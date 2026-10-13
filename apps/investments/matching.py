@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any
 from django.db.models import Count
 
 from apps.accounts.models import AccountKind
-from apps.investments import dividends, ledger
-from apps.investments.replay import BUY, DIVIDEND
+from apps.investments import ledger
+from apps.investments.replay import DIVIDEND
 from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
@@ -16,29 +16,15 @@ if TYPE_CHECKING:
 TOLERANCE = timedelta(days=3)
 
 
-def moves_ledger_money(event: InvestmentEvent) -> bool:
-    """Whether the event has a Transaction: a later Direct Buy/Sell or Dividend."""
-    return ledger.posts_transaction(event) or dividends.posts_transaction(event)
-
-
 def _split(event: InvestmentEvent) -> dict[str, Any]:
-    account = event.account
+    source, destination, amount = ledger.route(event)
     if event.kind == DIVIDEND:
         return {
             "from_account__kind": AccountKind.INCOME,
-            "to_account": dividends.receiving_account(account),
-            "amount": event.amount,
+            "to_account_id": destination,
+            "amount": amount,
         }
-    source, destination = (
-        (account.invests_from_id, account.pk)
-        if event.kind == BUY
-        else (account.pk, account.invests_into_id)
-    )
-    return {
-        "from_account_id": source,
-        "to_account_id": destination,
-        "amount": ledger.money_moved(event),
-    }
+    return {"from_account_id": source, "to_account_id": destination, "amount": amount}
 
 
 def matching_transaction(event: InvestmentEvent) -> Transaction | None:

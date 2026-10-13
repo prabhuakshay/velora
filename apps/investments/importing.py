@@ -21,7 +21,8 @@ from apps.accounts.models import Account
 from apps.investments.drafts import save_investment
 from apps.investments.export import COLUMNS
 from apps.investments.forms import InvestmentEventForm
-from apps.investments.matching import matching_transaction, moves_ledger_money
+from apps.investments.ledger import moves_ledger_money
+from apps.investments.matching import matching_transaction
 from apps.investments.models import DraftInvestment, Instrument, InvestmentEvent
 from apps.investments.replay import DAY_ORDER, MERGER
 from apps.quick_add.models import Draft
