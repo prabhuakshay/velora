@@ -1,5 +1,6 @@
 """Schedules: Transactions the user expects to repeat, and their Occurrences."""
 
+from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, ClassVar
 
@@ -55,6 +56,23 @@ class Schedule(models.Model):
     trial_ends_on = models.DateField(null=True, blank=True)
     plan = models.CharField(max_length=100, blank=True)
     how_to_cancel = models.TextField(blank=True)
+    # A SIP is a flagged Schedule too: it buys one Instrument in a Direct
+    # Investment Account on each due date.
+    sip_account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="sips",
+        limit_choices_to={"investment_mode": Account.InvestmentMode.DIRECT},
+    )
+    sip_instrument = models.ForeignKey(
+        "investments.Instrument",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="sips",
+    )
 
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
@@ -68,6 +86,17 @@ class Schedule(models.Model):
                 name="schedules_schedule_interval_or_cron",
                 violation_error_message=(
                     "A Schedule repeats on an interval or a cron expression, not both."
+                ),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    sip_account__isnull=True,
+                    sip_instrument__isnull=True,
+                )
+                | models.Q(sip_account__isnull=False, sip_instrument__isnull=False),
+                name="schedules_schedule_sip_account_and_instrument",
+                violation_error_message=(
+                    "A SIP needs both an Instrument and an Investment Account."
                 ),
             ),
         ]
@@ -95,6 +124,11 @@ class Schedule(models.Model):
             and split.to_account.kind in BALANCE_KINDS
             for split in self.splits.all()
         )
+
+    @property
+    def is_sip(self) -> bool:
+        """Whether it buys an Instrument on each due date."""
+        return self.sip_account_id is not None
 
     def has_ended(self, today: date) -> bool:
         """Whether it was ended before today."""
@@ -167,6 +201,15 @@ class Occurrence(models.Model):
 
     def __str__(self) -> str:
         return f"{self.schedule} due {self.due_date}"
+
+    def auto_posts_on(self, today: date) -> bool:
+        """Whether its Draft is posted for the user: auto-post, within grace."""
+        schedule = self.schedule
+        return (
+            schedule.auto_post
+            and schedule.amount is not None
+            and self.due_date + timedelta(days=schedule.grace_days) >= today
+        )
 
     def settle(self, transaction: Transaction | None) -> None:
         """Mark it Paid by the Transaction, or Skipped when there is none."""

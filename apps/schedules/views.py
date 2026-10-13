@@ -15,7 +15,7 @@ from apps.core.views import blank_split_row, paginate
 from apps.schedules.forms import (
     ScheduleForm,
     ScheduleSplitFormSet,
-    has_open_amount,
+    splits_fit,
 )
 from apps.schedules.models import (
     Occurrence,
@@ -86,10 +86,11 @@ def _save_schedule(
     # The formset shows one blank row by default; make room for each copied one.
     formset.extra = max(len(initial[1]) - formset.min_num, 0)
     # Validate both so errors show on the Schedule and its Splits at once.
-    valid = data is not None and all([form.is_valid(), formset.is_valid()])
-    if valid and form.cleaned_data["auto_post"] and has_open_amount(formset):
-        form.add_error("auto_post", "Auto-post needs an amount on every Split.")
-        valid = False
+    valid = (
+        data is not None
+        and all([form.is_valid(), formset.is_valid()])
+        and splits_fit(form, formset)
+    )
     if valid:
         with db_transaction.atomic():
             formset.instance = form.save()

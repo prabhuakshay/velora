@@ -24,6 +24,7 @@
           {% else %}<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"><span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>Active</span>{% endif %}
           {% if schedule.auto_post %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600" title="Records the Transaction on each due date without a Draft">Auto-post</span>{% endif %}
           {% if schedule.is_subscription %}<span class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700">Subscription</span>{% endif %}
+          {% if schedule.is_sip %}<span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">SIP · {{ schedule.sip_instrument }}</span>{% endif %}
           {% if not user.privacy_mode %}
             {% if schedule.is_income %}<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Income</span>
             {% elif schedule.is_transfer %}<span class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">Transfer</span>{% endif %}

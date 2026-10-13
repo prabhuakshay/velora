@@ -131,3 +131,8 @@ section:has(#id_party option:checked:not([value=""])) [data-new-party] {
 section:has(#id_is_subscription:not(:checked)) [data-subscription-fields] {
   display: none;
 }
+
+/* Likewise its SIP fields. */
+section:has(#id_is_sip:not(:checked)) [data-sip-fields] {
+  display: none;
+}
