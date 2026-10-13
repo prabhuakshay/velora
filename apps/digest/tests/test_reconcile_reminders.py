@@ -78,6 +78,16 @@ def test_an_account_reconciled_over_thirty_days_ago_is_listed() -> None:
     assert item.url == account_url("account_reconcile", card)
 
 
+def test_a_liability_in_credit_is_listed_as_in_credit() -> None:
+    card = make_account("Card", "liability")
+    record(days_ago(5), make_account("Refunds", "income"), card, "300", "Refund")
+
+    [item] = section().items
+
+    assert item.label == "Card, never reconciled, in credit"
+    assert item.amount == Decimal(300)
+
+
 def test_an_account_reconciled_within_thirty_days_is_not_listed() -> None:
     bank = make_account("Bank", "asset")
     paid_in(bank, days_ago(10))

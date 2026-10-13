@@ -99,16 +99,23 @@ class AccountMerge:
             self._move_card(reason)
             self._repoint_suggested_schedules()
             self._hand_over_budgets(reason)
-            if target.has_opening_balance:
-                # Both are set for these kinds, by a constraint mypy cannot see.
-                target.opening_balance += source.opening_balance  # type: ignore[operator]
-                target.opening_balance_date = min(
-                    target.opening_balance_date,  # type: ignore[type-var]
-                    source.opening_balance_date,
-                )
-                with_reason(target, reason).save()
+            for reconciliation in source.reconciliations.all():
+                with_reason(reconciliation, reason).delete()
+            self._fold_opening_balance(reason)
             with_reason(source, reason).delete()
             refresh_estimates(target)
+
+    def _fold_opening_balance(self, reason: str) -> None:
+        """Add the source's Opening Balance to the target's, from the earlier date."""
+        source, target = self.source, self.target
+        if target.has_opening_balance:
+            # Both are set for these kinds, by a constraint mypy cannot see.
+            target.opening_balance += source.opening_balance  # type: ignore[operator]
+            target.opening_balance_date = min(
+                target.opening_balance_date,  # type: ignore[type-var]
+                source.opening_balance_date,
+            )
+            with_reason(target, reason).save()
 
     def _move_card(self, reason: str) -> None:
         """Hand the source's card settings, Statements and Card EMIs to the target."""

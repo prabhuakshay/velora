@@ -28,6 +28,7 @@ BALANCE_KINDS = (AccountKind.ASSET, AccountKind.LIABILITY)
 OWING_KINDS = (AccountKind.LIABILITY, AccountKind.INCOME)
 # Clamped to the last day of shorter months.
 DAY_OF_MONTH = [MinValueValidator(1), MaxValueValidator(31)]
+MONEY = models.DecimalField(max_digits=15, decimal_places=2)
 
 
 def _split_total(
@@ -48,8 +49,42 @@ def _split_total(
         .annotate(total=models.Sum("amount"))
         .values("total")
     )
-    money = models.DecimalField(max_digits=15, decimal_places=2)
-    return Coalesce(models.Subquery(totals), models.Value(0), output_field=money)
+    return Coalesce(models.Subquery(totals), models.Value(0), output_field=MONEY)
+
+
+def _balance(as_of: date | str | None, account: str = "") -> models.Expression:
+    """An Account's Balance at the end of as_of; a Liability's is what is owed.
+
+    account is the path from the annotated row to its Account, blank for an
+    Account itself; a str as_of names the row's date field.
+    """
+    path = f"{account}__" if account else ""
+    # The Splits' subquery reaches the row's date through OuterRef.
+    on, day = (
+        (models.OuterRef(as_of), models.F(as_of))
+        if isinstance(as_of, str)
+        else (as_of, as_of)
+    )
+    moved_in = _split_total("to_account", on, account=account or "pk") - (
+        _split_total("from_account", on, account=account or "pk")
+    )
+    signed = models.Case(
+        models.When(**{f"{path}kind": AccountKind.LIABILITY}, then=-moved_in),
+        default=moved_in,
+    )
+    balance = models.F(f"{path}opening_balance") + signed
+    if as_of is None:
+        return balance
+    return models.Case(
+        models.When(**{f"{path}opening_balance_date__gt": day}, then=models.Value(0)),
+        default=balance,
+        output_field=MONEY,
+    )
+
+
+def _reconciliation_difference() -> models.Expression:
+    """A Reconciliation's balance less its Account's Balance on its date now."""
+    return models.F("balance") - _balance("date", account="account")
 
 
 class AccountQuerySet(models.QuerySet["Account"]):
@@ -61,21 +96,7 @@ class AccountQuerySet(models.QuerySet["Account"]):
         With as_of, only Splits dated on or before it count, and an Account
         opening after it counts as 0.
         """
-        moved_in = _split_total("to_account", as_of) - _split_total(
-            "from_account", as_of
-        )
-        signed = models.Case(
-            models.When(kind=AccountKind.LIABILITY, then=-moved_in),
-            default=moved_in,
-        )
-        balance: models.Expression = models.F("opening_balance") + signed
-        if as_of is not None:
-            balance = models.Case(
-                models.When(opening_balance_date__gt=as_of, then=models.Value(0)),
-                default=balance,
-                output_field=self.model._meta.get_field("opening_balance"),
-            )
-        return self.annotate(balance=balance)
+        return self.annotate(balance=_balance(as_of))
 
     def with_activity(self, name: str, since: date, until: date) -> Self:
         """Annotate how far each Account moved between the dates, inclusive.
@@ -104,6 +125,21 @@ class AccountQuerySet(models.QuerySet["Account"]):
             .values("transaction__date")[:1]
         )
         return self.annotate(last_used=models.Subquery(newest))
+
+    def with_latest_reconciliation(self) -> Self:
+        """Annotate the date of each Account's latest Reconciliation, if any.
+
+        off_by is how far that Reconciliation is off now; zero when it matches.
+        """
+        latest = (
+            Reconciliation.objects.filter(account=models.OuterRef("pk"))
+            .order_by("-date")
+            .annotate(off=_reconciliation_difference())
+        )
+        return self.annotate(
+            reconciled_on=models.Subquery(latest.values("date")[:1]),
+            off_by=models.Subquery(latest.values("off")[:1]),
+        )
 
 
 CARD_SETTINGS_TOGETHER = (
@@ -172,6 +208,9 @@ class Account(models.Model):
     last_month: Decimal
     spent: Decimal
     last_used: date | None
+    # Set only on Accounts fetched through with_latest_reconciliation().
+    reconciled_on: date | None
+    off_by: Decimal | None
 
     class Meta:
         constraints: ClassVar = [
@@ -267,23 +306,7 @@ class ReconciliationQuerySet(models.QuerySet["Reconciliation"]):
 
         Zero means it still matches; nothing about matching is stored (ADR 0011).
         """
-        when = models.OuterRef("date")
-        moved_in = _split_total("to_account", when, account="account") - (
-            _split_total("from_account", when, account="account")
-        )
-        signed = models.Case(
-            models.When(account__kind=AccountKind.LIABILITY, then=-moved_in),
-            default=moved_in,
-        )
-        current = models.Case(
-            models.When(
-                account__opening_balance_date__gt=models.F("date"),
-                then=models.Value(0),
-            ),
-            default=models.F("account__opening_balance") + signed,
-            output_field=self.model._meta.get_field("balance"),
-        )
-        return self.annotate(difference=models.F("balance") - current)
+        return self.annotate(difference=_reconciliation_difference())
 
     def matching(self) -> Self:
         """Those whose balance still equals the Account's Balance on their date."""

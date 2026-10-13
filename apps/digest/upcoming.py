@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from django.db.models import Exists, OuterRef, Q, Subquery
+from django.db.models import Exists, OuterRef, Q
 from django.urls import reverse
 
 from apps.accounts.forecast import Forecast, Item, forecast
-from apps.accounts.models import BALANCE_KINDS, Account, Reconciliation
+from apps.accounts.models import BALANCE_KINDS, Account
 from apps.budgets.warnings import due_warnings, warning_items
 from apps.cards.models import Statement
 from apps.quick_add.models import Draft
@@ -169,11 +169,6 @@ def reconcile_due(today: date) -> list[Item]:
     in them, or whenever its latest Reconciliation no longer matches.
     """
     since = today - timedelta(days=RECONCILE_DAYS)
-    latest = (
-        Reconciliation.objects.with_difference()
-        .filter(account=OuterRef("pk"))
-        .order_by("-date")
-    )
     used = Split.objects.filter(
         Q(from_account=OuterRef("pk")) | Q(to_account=OuterRef("pk")),
         transaction__date__gt=since,
@@ -182,16 +177,15 @@ def reconcile_due(today: date) -> list[Item]:
     accounts = (
         Account.objects.filter(kind__in=BALANCE_KINDS, hidden=False)
         .with_balance()
-        .annotate(
-            reconciled_on=Subquery(latest.values("date")[:1]),
-            off_by=Subquery(latest.values("difference")[:1]),  # type: ignore[misc]
-            used=Exists(used),
-        )
+        .with_latest_reconciliation()
+        .annotate(used=Exists(used))
         .filter(
             Q(off_by__lt=0)
             | Q(off_by__gt=0)
-            | Q(used=True)
-            & (Q(reconciled_on__isnull=True) | Q(reconciled_on__lte=since))
+            | (
+                Q(used=True)
+                & (Q(reconciled_on__isnull=True) | Q(reconciled_on__lte=since))
+            )
         )
         .order_by("name")
     )
@@ -201,12 +195,12 @@ def reconcile_due(today: date) -> list[Item]:
 def _reconcile_item(account: Account, today: date) -> Item:
     """The Account's broken Reconciliation and how far off, else its Balance."""
     url = reverse("account_reconcile", kwargs={"kind": account.kind, "pk": account.pk})
-    reconciled_on = account.reconciled_on  # type: ignore[attr-defined]
-    if account.off_by:  # type: ignore[attr-defined]
+    reconciled_on = account.reconciled_on
+    if reconciled_on and account.off_by:
         return Item(
             reconciled_on,
             f"{account}: Reconciliation on {reconciled_on:%-d %b %Y} is off by",
-            account.off_by,  # type: ignore[attr-defined]
+            account.off_by,
             url,
         )
     since = (
@@ -214,7 +208,11 @@ def _reconcile_item(account: Account, today: date) -> Item:
         if reconciled_on
         else "never reconciled"
     )
-    return Item(today, f"{account}, {since}", account.balance, url)
+    label, shown = f"{account}, {since}", account.balance
+    # ADR 0009: below zero owed is in credit, shown unsigned like the Balance.
+    if account.owes and shown < 0:
+        label, shown = f"{label}, in credit", -shown
+    return Item(today, label, shown, url)
 
 
 # In the order they are shown, before Budgets; add a (title, finder) pair for a

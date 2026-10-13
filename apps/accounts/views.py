@@ -207,7 +207,6 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
         accounts = accounts.with_balance()
     account = get_object_or_404(accounts.select_related("pays_from"), pk=pk)
     today = timezone.localdate()
-    touching = Split.objects.filter(Q(from_account=account) | Q(to_account=account))
     page = paginate(request, _touching_transactions(account))
     history = months(account, today)
     privacy_mode = cast("User", request.user).privacy_mode
@@ -252,7 +251,7 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             ],
             # Purchases off the card that can still become a Card EMI.
             "emi_candidates": set(
-                touching.filter(
+                Split.objects.filter(
                     from_account=account,
                     from_account__statement_day__isnull=False,
                     transaction__card_emi__isnull=True,
@@ -270,7 +269,7 @@ def _reconciliation_status(
     latest = reconciliations[0] if reconciliations else None
     return {
         "reconciliations": reconciliations,
-        "off": latest if latest and latest.difference else None,
+        "latest_off": latest if latest and latest.difference else None,
         "reconciled_through": next(
             (r for r in reconciliations if not r.difference), None
         ),
@@ -301,7 +300,8 @@ def account_reconcile(request: HttpRequest, kind: str, pk: int) -> HttpResponseB
     """Record a Reconciliation if the bank's balance matches Velora's that day.
 
     On a mismatch, nothing is saved and the page shows the difference and the
-    Transactions since the previous Reconciliation, or the Opening Balance date.
+    Transactions since the latest Reconciliation still matching, or the Opening
+    Balance date.
     """
     accounts = Account.objects.filter(kind__in=BALANCE_KINDS).with_balance()
     account = get_object_or_404(accounts, pk=pk, kind=kind)
@@ -316,7 +316,10 @@ def account_reconcile(request: HttpRequest, kind: str, pk: int) -> HttpResponseB
     if form.difference:
         when = form.cleaned_data["date"]
         previous = (
-            account.reconciliations.filter(date__lt=when).order_by("-date").first()
+            account.reconciliations.matching()
+            .filter(date__lt=when)
+            .order_by("-date")
+            .first()
         )
         transactions = _touching_transactions(account).filter(date__lte=when)
         if previous:

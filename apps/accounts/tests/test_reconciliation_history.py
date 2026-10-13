@@ -126,3 +126,12 @@ def test_history_hides_amounts_in_privacy_mode(signed_in: Client, user: User) ->
     assert "5 Mar 2026 ₹•••• Off by ₹••••" in page
     assert "8,250" not in page
     assert "40.00" not in page
+
+
+def test_history_shows_a_liability_in_credit_as_in_credit(signed_in: Client) -> None:
+    card = opening("Card", "liability", "-500")
+    reconcile(signed_in, card, date(2026, 3, 3), "-500")
+
+    page = page_text(view_page(signed_in, card))
+
+    assert "Reconciliations 3 Mar 2026 ₹500.00 in credit Matches" in page

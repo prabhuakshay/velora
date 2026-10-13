@@ -170,6 +170,21 @@ def test_mismatch_lists_transactions_since_the_previous_reconciliation(
     assert "Weekly shop" not in page
 
 
+def test_mismatch_lists_transactions_since_the_last_reconciliation_still_matching(
+    signed_in: Client,
+) -> None:
+    bank = bank_with_spending()
+    reconcile(signed_in, bank, date(2026, 3, 3), "8500")
+    reconcile(signed_in, bank, date(2026, 3, 5), "8250")
+    record(date(2026, 3, 4), bank, make_account("Fruit", "expense"), "40", "Apples")
+
+    page = page_text(reconcile(signed_in, bank, date(2026, 3, 6), "8000"))
+
+    assert "Since the Reconciliation on 3 Mar 2026" in page
+    assert "Apples" in page
+    assert "Snacks" in page
+
+
 def test_mismatch_follows_number_format(signed_in: Client, user: User) -> None:
     user.number_format = NumberFormat.INTERNATIONAL
     user.save()
