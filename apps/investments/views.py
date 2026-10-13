@@ -11,7 +11,6 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
-from apps.investments.ledger import delete_event
 from apps.investments.models import Instrument, InvestmentEvent
 from apps.investments.portfolio import COLUMNS, Column, portfolio, sorting
 from apps.investments.replay import OversoldError, replay
@@ -96,7 +95,9 @@ def account_holdings(request: HttpRequest, pk: int) -> HttpResponseBase:
         {
             "account": account,
             "value": account_value(account, account.balance),
-            "events": account.investment_events.select_related("instrument"),
+            "events": account.investment_events.select_related(
+                "instrument", "new_instrument"
+            ),
             "tabs": investment_tabs(account, "account_holdings"),
             "today": timezone.localdate(),
         },
@@ -135,15 +136,19 @@ def investment_event_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 @require_POST
 def investment_event_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Delete an Investment Event, unless a later Sell needs its units."""
-    event = get_object_or_404(InvestmentEvent, pk=pk)
+    """Delete an Investment Event and its Transaction, unless a Sell needs its units."""
+    event = get_object_or_404(
+        InvestmentEvent.objects.select_related("transaction"), pk=pk
+    )
     rest = event.account.investment_events.exclude(pk=pk).select_related("instrument")
     try:
         replay(rest)
     except OversoldError as error:
         messages.error(request, f"Can't delete it: {_sell_refusal(error)}")
     else:
-        delete_event(event)
+        event.delete()
+        if event.transaction is not None:
+            event.transaction.delete()
         messages.success(request, f"Deleted the {event.get_kind_display()}.")
     return redirect("account_holdings", pk=event.account_id)
 

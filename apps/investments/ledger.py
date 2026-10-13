@@ -74,11 +74,3 @@ def transaction_forms(event: InvestmentEvent) -> TransactionForms | None:
         f"splits-{len(old)}-amount": money_moved(event),
     }
     return TransactionForms(data, instance=linked)
-
-
-def delete_event(event: InvestmentEvent) -> None:
-    """Delete the event and the Transaction it posted."""
-    linked = event.transaction
-    event.delete()
-    if linked is not None:
-        linked.delete()

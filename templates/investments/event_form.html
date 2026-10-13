@@ -1,6 +1,6 @@
 {% extends "app_base.html" %}
 
-{% block title %}{% if event %}Edit {{ event.get_kind_display }}{% else %}Record a Buy or Sell{% endif %} · {{ account.name }} · Velora{% endblock %}
+{% block title %}{% if event %}Edit {{ event.get_kind_display }}{% else %}Record an Investment Event{% endif %} · {{ account.name }} · Velora{% endblock %}
 
 {% block quick_add_button %}{% endblock %}
 
@@ -11,8 +11,8 @@
   <div class="flex items-center gap-2">
     <a href="{{ cancel_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
     <div class="min-w-0 flex-1">
-      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{% if event %}Edit {{ event.get_kind_display }}{% else %}Record a Buy or Sell{% endif %}</h1>
-      <p class="truncate text-sm text-slate-500">{{ account.name }} · moves only its Cash, not its Balance</p>
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{% if event %}Edit {{ event.get_kind_display }}{% else %}Record an Investment Event{% endif %}</h1>
+      <p class="truncate text-sm text-slate-500">{{ account.name }}</p>
     </div>
   </div>
 
@@ -35,6 +35,10 @@
         {% include "partials/field.html" with field=form.price %}
         {% include "partials/field.html" with field=form.amount %}
         {% include "partials/field.html" with field=form.charges %}
+      </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {% include "partials/field.html" with field=form.income_account %}
+        {% include "partials/field.html" with field=form.new_isin %}
       </div>
       {% include "partials/field.html" with field=form.note %}
     </section>

@@ -5,7 +5,7 @@ import pytest
 from django.urls import reverse
 
 from apps.accounts.models import Account
-from apps.accounts.tests.conftest import account_url, page_text
+from apps.accounts.tests.conftest import account_url, make_account, page_text
 from apps.accounts.tests.test_balance import opening
 from apps.investments.models import Instrument, InvestmentEvent
 from apps.investments.tests.conftest import event_data, make_direct, record_event
@@ -227,7 +227,7 @@ def test_a_buy_its_bank_cant_pay_for_yet_is_refused(signed_in: Client) -> None:
         signed_in, kuvera, "buy", FUND, expect=200, units="1", price="1", amount="1"
     )
 
-    assert "Its Transaction can&#x27;t be posted" in response.content.decode()
+    assert "before the Opening Balance date of HDFC" in response.content.decode()
     assert not InvestmentEvent.objects.exists()
 
 
@@ -267,6 +267,26 @@ def test_cash_stays_zero_through_any_mix_of_buys_and_sells(
     last_sell = InvestmentEvent.objects.filter(kind="sell").latest("date")
     signed_in.post(reverse("investment_event_delete", args=[last_sell.pk]))
     assert "Cash ₹0.00" in account_text(signed_in, kuvera)
+
+
+def test_a_dividend_is_paid_into_pays_into(signed_in: Client) -> None:
+    bank = opening("HDFC", "asset", "10000")
+    savings = opening("SBI", "asset", "0")
+    dividends = make_account("Dividends", "income")
+    kuvera = make_direct(bank, savings)
+    buy(signed_in, kuvera)
+
+    post_event(
+        signed_in,
+        kuvera,
+        "dividend",
+        {"amount": "250", "income_account": str(dividends.pk)},
+    )
+
+    assert "Balance ₹250.00" in account_text(signed_in, savings)
+    page = account_text(signed_in, kuvera)
+    assert "Balance ₹1,000.00" in page
+    assert "Cash ₹0.00" in page
 
 
 def test_deleting_a_bank_a_direct_account_uses_sends_the_user_to_merge(
