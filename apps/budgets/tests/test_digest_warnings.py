@@ -93,7 +93,7 @@ def test_there_is_no_section_when_no_budget_is_close_or_over() -> None:
     set_budget(None, Decimal(20000), TODAY)
     move(date(2026, 6, 10), bank(), groceries, "8000")
 
-    assert digest_on(TODAY) == ""
+    assert "Budgets" not in digest_on(TODAY)
 
 
 def test_the_overall_budget_is_warned_about_once() -> None:

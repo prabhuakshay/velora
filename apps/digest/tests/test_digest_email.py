@@ -156,7 +156,8 @@ def test_the_digest_shows_a_card_due_day_with_its_statement_amount() -> None:
     card = make_card(pays_from=bank)
     record(card, make_account("Groceries", "expense"), "1200", date(2026, 9, 20))
     run_daily_job(date(2026, 10, 15))
-    assert mail.outbox == []
+    assert all("Card Due Days" not in sent.body for sent in mail.outbox)
+    mail.outbox.clear()
 
     run_daily_job(date(2026, 11, 2))
 

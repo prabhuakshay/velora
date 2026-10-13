@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 # What GET / costs, whatever the history or Account count.
-NUM_QUERIES = 28
+NUM_QUERIES = 29
 POINT_ROW = re.compile(r"<tr><td>([^<]+)</td><td>₹([^<]+)</td></tr>")
 
 

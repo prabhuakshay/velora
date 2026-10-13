@@ -4,14 +4,16 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q, Subquery
 from django.urls import reverse
 
 from apps.accounts.forecast import Forecast, Item, forecast
+from apps.accounts.models import BALANCE_KINDS, Account, Reconciliation
 from apps.budgets.warnings import due_warnings, warning_items
 from apps.cards.models import Statement
 from apps.quick_add.models import Draft
 from apps.schedules.models import Occurrence
+from apps.transactions.models import Split
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -22,6 +24,8 @@ if TYPE_CHECKING:
 # Days before a card's Due Day it starts showing.
 CARD_REMINDER_DAYS = 3
 STALE_DRAFT_DAYS = 7
+# Days an Account in use may go without a Reconciliation.
+RECONCILE_DAYS = 30
 
 
 @dataclass(frozen=True)
@@ -158,6 +162,61 @@ def low_balances(today: date, outlook: Forecast | None = None) -> list[Item]:
     ]
 
 
+def reconcile_due(today: date) -> list[Item]:
+    """Each shown Account to reconcile, linking to its Reconcile form.
+
+    Due when it has a Split in the last RECONCILE_DAYS but no Reconciliation
+    in them, or whenever its latest Reconciliation no longer matches.
+    """
+    since = today - timedelta(days=RECONCILE_DAYS)
+    latest = (
+        Reconciliation.objects.with_difference()
+        .filter(account=OuterRef("pk"))
+        .order_by("-date")
+    )
+    used = Split.objects.filter(
+        Q(from_account=OuterRef("pk")) | Q(to_account=OuterRef("pk")),
+        transaction__date__gt=since,
+        transaction__date__lte=today,
+    )
+    accounts = (
+        Account.objects.filter(kind__in=BALANCE_KINDS, hidden=False)
+        .with_balance()
+        .annotate(
+            reconciled_on=Subquery(latest.values("date")[:1]),
+            off_by=Subquery(latest.values("difference")[:1]),  # type: ignore[misc]
+            used=Exists(used),
+        )
+        .filter(
+            Q(off_by__lt=0)
+            | Q(off_by__gt=0)
+            | Q(used=True)
+            & (Q(reconciled_on__isnull=True) | Q(reconciled_on__lte=since))
+        )
+        .order_by("name")
+    )
+    return [_reconcile_item(account, today) for account in accounts]
+
+
+def _reconcile_item(account: Account, today: date) -> Item:
+    """The Account's broken Reconciliation and how far off, else its Balance."""
+    url = reverse("account_reconcile", kwargs={"kind": account.kind, "pk": account.pk})
+    reconciled_on = account.reconciled_on  # type: ignore[attr-defined]
+    if account.off_by:  # type: ignore[attr-defined]
+        return Item(
+            reconciled_on,
+            f"{account}: Reconciliation on {reconciled_on:%-d %b %Y} is off by",
+            account.off_by,  # type: ignore[attr-defined]
+            url,
+        )
+    since = (
+        f"not reconciled since {reconciled_on:%-d %b %Y}"
+        if reconciled_on
+        else "never reconciled"
+    )
+    return Item(today, f"{account}, {since}", account.balance, url)
+
+
 # In the order they are shown, before Budgets; add a (title, finder) pair for a
 # new section.
 SECTIONS: tuple[tuple[str, Callable[[date], list[Item]]], ...] = (
@@ -166,6 +225,7 @@ SECTIONS: tuple[tuple[str, Callable[[date], list[Item]]], ...] = (
     ("Card Due Days", card_due_days),
     ("Low balance", low_balances),
     (f"Drafts waiting {STALE_DRAFT_DAYS} days", stale_drafts),
+    ("Reconcile", reconcile_due),
 )
 
 
