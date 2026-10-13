@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.accounts.models import Account
 from apps.cards.forms import CardEMIForm, ForecloseForm, StatementForm
 from apps.cards.models import CardEMI, Statement
 from apps.cards.plans import Plan
@@ -172,6 +173,21 @@ def card_emi_create(request: HttpRequest, pk: int) -> HttpResponseBase:
             "card": card,
             "spent": spent,
             "plan": _planned(form),
+        },
+    )
+
+
+@login_required
+def statement_history(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
+    """Every Statement of a card, newest first."""
+    card = get_object_or_404(Account, pk=pk, kind=kind, statement_day__isnull=False)
+    return render(
+        request,
+        "cards/statement_history.html",
+        {
+            "account": card,
+            "kind": Account.Kind(kind),
+            "statements": card.statements.listed(),
         },
     )
 

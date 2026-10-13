@@ -1,0 +1,12 @@
+<li>
+  <a href="{% url 'statement_edit' statement.pk %}" class="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 md:px-5" title="Enter the actual Statement Amount">
+    <span class="min-w-0 flex-1">
+      <span class="block font-medium">Due {{ statement.due_date|date:"j M Y" }}</span>
+      <span class="block truncate text-xs text-slate-500">{{ statement.period_start|date:"j M" }} to {{ statement.period_end|date:"j M Y" }}</span>
+    </span>
+    <span class="shrink-0 text-right">
+      <span class="block font-semibold tabular-nums">{% amount statement.amount %}</span>
+      <span class="block text-xs {% if statement.is_paid %}text-emerald-700{% else %}text-slate-500{% endif %}">{% if statement.is_paid %}Paid {{ statement.paid_on|date:"j M" }}{% elif statement.actual_amount is None %}Estimate{% else %}Actual{% endif %}</span>
+    </span>
+  </a>
+</li>

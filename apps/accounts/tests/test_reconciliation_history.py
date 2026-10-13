@@ -135,3 +135,92 @@ def test_history_shows_a_liability_in_credit_as_in_credit(signed_in: Client) -> 
     page = page_text(view_page(signed_in, card))
 
     assert "Reconciliations 3 Mar 2026 ₹500.00 in credit Matches" in page
+
+
+def bank_reconciled_daily(client: Client, days: range) -> Account:
+    """Bank with a matching Reconciliation on each of the days in March 2026."""
+    bank = bank_with_spending()
+    for day in days:
+        reconcile(client, bank, date(2026, 3, day), "8250")
+    return bank
+
+
+def test_side_list_shows_only_the_latest_five(signed_in: Client) -> None:
+    bank = bank_reconciled_daily(signed_in, range(6, 13))
+
+    page = page_text(view_page(signed_in, bank))
+
+    assert (
+        "Reconciliations 12 Mar 2026 ₹8,250.00 Matches"
+        " 11 Mar 2026 ₹8,250.00 Matches"
+        " 10 Mar 2026 ₹8,250.00 Matches"
+        " 9 Mar 2026 ₹8,250.00 Matches"
+        " 8 Mar 2026 ₹8,250.00 Matches Show all 7"
+    ) in page
+    assert "7 Mar 2026" not in page
+    assert account_url("reconciliation_history", bank) in view_page(signed_in, bank)
+
+
+def test_side_list_has_no_show_all_link_with_five_or_fewer(signed_in: Client) -> None:
+    bank = bank_reconciled_daily(signed_in, range(6, 11))
+
+    page = view_page(signed_in, bank)
+
+    assert "Show all" not in page
+
+
+def history_page(client: Client, account: Account) -> str:
+    return client.get(account_url("reconciliation_history", account)).content.decode()
+
+
+def test_history_page_lists_every_reconciliation_newest_first(
+    signed_in: Client,
+) -> None:
+    bank = bank_reconciled_daily(signed_in, range(6, 13))
+
+    page = page_text(history_page(signed_in, bank))
+
+    assert (
+        "12 Mar 2026 ₹8,250.00 Matches 11 Mar 2026 ₹8,250.00 Matches"
+        " 10 Mar 2026 ₹8,250.00 Matches 9 Mar 2026 ₹8,250.00 Matches"
+        " 8 Mar 2026 ₹8,250.00 Matches 7 Mar 2026 ₹8,250.00 Matches"
+        " 6 Mar 2026 ₹8,250.00 Matches"
+    ) in page
+    assert "Show all" not in page
+
+
+def test_history_page_shows_a_liability_in_credit_as_in_credit(
+    signed_in: Client,
+) -> None:
+    card = opening("Card", "liability", "-500")
+    reconcile(signed_in, card, date(2026, 3, 3), "-500")
+
+    page = page_text(history_page(signed_in, card))
+
+    assert "3 Mar 2026 ₹500.00 in credit Matches" in page
+
+
+def test_history_page_deletes_back_to_itself(signed_in: Client) -> None:
+    bank = bank_reconciled_daily(signed_in, range(6, 8))
+
+    page = history_page(signed_in, bank)
+
+    assert f'action="{delete_url(bank, date(2026, 3, 7))}"' in page
+    assert 'name="from" value="history"' in page
+
+
+def test_deleting_from_the_history_page_returns_to_it(signed_in: Client) -> None:
+    bank = bank_reconciled_daily(signed_in, range(6, 13))
+
+    response = signed_in.post(delete_url(bank, date(2026, 3, 7)), {"from": "history"})
+
+    assert response["Location"] == account_url("reconciliation_history", bank)
+    page = page_text(history_page(signed_in, bank))
+    assert "8 Mar 2026 ₹8,250.00 Matches 6 Mar 2026" in page
+
+
+def test_history_page_only_shows_the_kind_in_the_url(signed_in: Client) -> None:
+    bank = bank_reconciled_daily(signed_in, range(6, 7))
+    url = account_url("reconciliation_history", bank).replace("asset", "liability")
+
+    assert signed_in.get(url).status_code == 404

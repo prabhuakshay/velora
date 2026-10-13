@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import F, OuterRef, Q, Subquery, Sum
+from django.db.models import F, Max, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce
 
 from apps.accounts.models import Account, AccountKind
@@ -38,6 +38,14 @@ class StatementQuerySet(models.QuerySet["Statement"]):
             .values("total")
         )
         return self.annotate(paid_total=Coalesce(Subquery(total), Decimal(0)))
+
+    def listed(self) -> StatementQuerySet:
+        """Newest first, with what was paid and on which day it was last paid."""
+        return (
+            self.with_paid()
+            .annotate(paid_on=Max("payments__date"))
+            .order_by("-period_end")
+        )
 
     def unpaid(self) -> StatementQuerySet:
         """Those the linked payments do not cover yet."""

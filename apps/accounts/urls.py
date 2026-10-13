@@ -1,7 +1,8 @@
 from django.urls import path, register_converter
 
-from apps.accounts import views
+from apps.accounts import reconciliation_views, views
 from apps.accounts.models import Account
+from apps.cards import views as cards_views
 
 
 class KindConverter:
@@ -44,12 +45,22 @@ urlpatterns = [
     ),
     path(
         "accounts/<kind:kind>/<int:pk>/reconcile/",
-        views.account_reconcile,
+        reconciliation_views.account_reconcile,
         name="account_reconcile",
     ),
     path(
+        "accounts/<kind:kind>/<int:pk>/reconciliations/",
+        reconciliation_views.reconciliation_history,
+        name="reconciliation_history",
+    ),
+    path(
+        "accounts/<kind:kind>/<int:pk>/statements/",
+        cards_views.statement_history,
+        name="statement_history",
+    ),
+    path(
         "accounts/<kind:kind>/<int:pk>/reconciliations/<int:reconciliation_pk>/delete/",
-        views.reconciliation_delete,
+        reconciliation_views.reconciliation_delete,
         name="reconciliation_delete",
     ),
     path(

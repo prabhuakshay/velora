@@ -146,3 +146,17 @@ def test_page_query_count_does_not_grow_with_reconciliations(
         reconcile(signed_in, bank, date(2026, 3, day), "8249")
 
     assert _queries_to_view(signed_in, bank) == few
+
+
+def test_reconciled_through_reaches_past_the_latest_five(signed_in: Client) -> None:
+    bank = bank_with_spending()
+    reconcile(signed_in, bank, date(2026, 3, 3), "8500")
+    for day in range(6, 12):
+        reconcile(signed_in, bank, date(2026, 3, day), "8250")
+    record(date(2026, 3, 4), bank, make_account("Fruit", "expense"), "40", "Apples")
+
+    page = page_text(view_page(signed_in, bank))
+
+    assert "Reconciliation on 11 Mar 2026 is off by ₹40.00" in page
+    assert "Reconciled through 3 Mar 2026" in page
+    assert "Show all 7" in page

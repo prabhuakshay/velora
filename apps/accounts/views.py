@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, F, Max, Prefetch, Q
+from django.db.models import Count, F
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -13,25 +13,25 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts import forecast_view
-from apps.accounts.activity import bars, month_end, months, rows
+from apps.accounts.activity import bars, month_end, months, rows, touching_transactions
 from apps.accounts.forecast import DAYS, forecast
 from apps.accounts.forms import AccountForm, ReconcileForm
 from apps.accounts.merge import AccountMerge
-from apps.accounts.models import BALANCE_KINDS, Account, Reconciliation
+from apps.accounts.models import BALANCE_KINDS, Account
+from apps.accounts.reconciliation_views import reconciliation_status
 from apps.core.dates import months_after
 from apps.core.forms import MergeForm
 from apps.core.views import paginate, redirect_in_use_to_merge, save_unique_name
-from apps.transactions.models import Split, Transaction
+from apps.transactions.models import Split
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
-    from django.db.models import QuerySet
     from django.http import HttpRequest, HttpResponse
     from django.http.response import HttpResponseBase
 
     from apps.users.models import User
 
-STATEMENTS_SHOWN = 6
+SIDE_LIST_SHOWN = 5
 
 
 @login_required
@@ -207,7 +207,7 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
         accounts = accounts.with_balance()
     account = get_object_or_404(accounts.select_related("pays_from"), pk=pk)
     today = timezone.localdate()
-    page = paginate(request, _touching_transactions(account))
+    page = paginate(request, touching_transactions(account))
     history = months(account, today)
     privacy_mode = cast("User", request.user).privacy_mode
     return render(
@@ -238,13 +238,13 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             "reconcile_form": ReconcileForm(account=account)
             if account.has_opening_balance
             else None,
-            **_reconciliation_status(account),
+            **reconciliation_status(account, SIDE_LIST_SHOWN),
             "used_by": _used_by(account),
             "today": today,
             "here": request.get_full_path(),
-            "statements": account.statements.with_paid()
-            .annotate(paid_on=Max("payments__date"))
-            .order_by("-period_end")[:STATEMENTS_SHOWN],
+            "statements": account.statements.listed()[:SIDE_LIST_SHOWN],
+            "statement_count": account.statements.count(),
+            "shown": SIDE_LIST_SHOWN,
             "card_emis": [
                 (emi, emi.progress(today))
                 for emi in account.card_emis.select_related("card", "purchase__party")
@@ -259,96 +259,6 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             ),
         },
     )
-
-
-def _reconciliation_status(
-    account: Account,
-) -> dict[str, Reconciliation | list[Reconciliation] | None]:
-    """Its Reconciliations newest first, the latest if off, the latest matching."""
-    reconciliations = list(account.reconciliations.with_difference().order_by("-date"))
-    latest = reconciliations[0] if reconciliations else None
-    return {
-        "reconciliations": reconciliations,
-        "latest_off": latest if latest and latest.difference else None,
-        "reconciled_through": next(
-            (r for r in reconciliations if not r.difference), None
-        ),
-    }
-
-
-def _touching_transactions(account: Account) -> QuerySet[Transaction]:
-    """Transactions with a Split into or out of the Account, newest first.
-
-    Only those Splits are prefetched, as rows() expects.
-    """
-    touching = Split.objects.filter(Q(from_account=account) | Q(to_account=account))
-    return (
-        Transaction.objects.filter(pk__in=touching.values("transaction"))
-        .select_related("party")
-        .prefetch_related(
-            Prefetch(
-                "splits",
-                queryset=touching.select_related("from_account", "to_account"),
-            )
-        )
-        .order_by("-date", "-pk")
-    )
-
-
-@login_required
-def account_reconcile(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
-    """Record a Reconciliation if the bank's balance matches Velora's that day.
-
-    On a mismatch, nothing is saved and the page shows the difference and the
-    Transactions since the latest Reconciliation still matching, or the Opening
-    Balance date.
-    """
-    accounts = Account.objects.filter(kind__in=BALANCE_KINDS).with_balance()
-    account = get_object_or_404(accounts, pk=pk, kind=kind)
-    form = ReconcileForm(request.POST or None, account=account)
-    if form.is_valid():
-        reconciliation = form.save()
-        messages.success(
-            request, f"Reconciled {account} on {reconciliation.date:%-d %b %Y}."
-        )
-        return redirect("account_transactions", kind=kind, pk=pk)
-    context = {"account": account, "kind": Account.Kind(kind), "form": form}
-    if form.difference:
-        when = form.cleaned_data["date"]
-        previous = (
-            account.reconciliations.matching()
-            .filter(date__lt=when)
-            .order_by("-date")
-            .first()
-        )
-        transactions = _touching_transactions(account).filter(date__lte=when)
-        if previous:
-            transactions = transactions.filter(date__gt=previous.date)
-        else:
-            transactions = transactions.filter(date__gte=account.opening_balance_date)
-        context |= {
-            "difference": form.difference,
-            "velora_balance": account.balance_on(when),
-            "previous": previous,
-            "rows": rows(account, list(transactions)),
-        }
-    return render(request, "accounts/reconcile.html", context)
-
-
-@login_required
-@require_POST
-def reconciliation_delete(
-    request: HttpRequest, kind: str, pk: int, reconciliation_pk: int
-) -> HttpResponseBase:
-    """Delete one of the Account's Reconciliations."""
-    reconciliation = get_object_or_404(
-        Reconciliation, pk=reconciliation_pk, account__pk=pk, account__kind=kind
-    )
-    reconciliation.delete()
-    messages.success(
-        request, f"Deleted the Reconciliation on {reconciliation.date:%-d %b %Y}."
-    )
-    return redirect("account_transactions", kind=kind, pk=pk)
 
 
 def _form_page(request: HttpRequest, kind: str, account: Account) -> HttpResponseBase:

@@ -195,19 +195,12 @@
           <h2 id="reconciliations-title" class="px-4 pt-4 text-xs font-semibold tracking-wide text-slate-500 uppercase md:px-5">Reconciliations</h2>
           <ul class="mt-2 divide-y divide-slate-100">
             {% for reconciliation in reconciliations %}
-              <li class="flex items-center gap-3 px-4 py-2.5 text-sm md:px-5">
-                <span class="min-w-0 flex-1">
-                  <span class="block font-medium">{{ reconciliation.date|date:"j M Y" }}</span>
-                  <span class="block font-semibold tabular-nums">{% balance reconciliation.balance owes=account.owes %}</span>
-                </span>
-                <span class="shrink-0 text-right text-xs">{% if reconciliation.difference %}<span class="text-amber-700">Off by {% amount reconciliation.difference %}</span>{% else %}<span class="text-emerald-700">Matches</span>{% endif %}</span>
-                <form method="post" action="{% url 'reconciliation_delete' kind account.pk reconciliation.pk %}">
-                  {% csrf_token %}
-                  <button type="submit" class="-mr-2 flex size-9 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-700" aria-label="Delete Reconciliation on {{ reconciliation.date|date:'j M Y' }}" title="Delete">{% include "shell/icon.html" with name="trash" class="size-4" %}</button>
-                </form>
-              </li>
+              {% include "accounts/_reconciliation_row.html" %}
             {% endfor %}
           </ul>
+          {% if reconciliation_count > shown %}
+            <a href="{% url 'reconciliation_history' kind account.pk %}" class="flex items-center justify-between gap-1 rounded-b-2xl border-t border-slate-100 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 md:px-5">Show all {{ reconciliation_count }}{% include "shell/icon.html" with name="chevron-right" class="size-4" %}</a>
+          {% endif %}
         </section>
       {% endif %}
 
@@ -227,21 +220,13 @@
           <h2 id="statements-title" class="px-4 pt-4 text-xs font-semibold tracking-wide text-slate-500 uppercase md:px-5">Statements</h2>
           <ul class="mt-2 divide-y divide-slate-100">
             {% for statement in statements %}
-              <li>
-                <a href="{% url 'statement_edit' statement.pk %}" class="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 md:px-5" title="Enter the actual Statement Amount">
-                  <span class="min-w-0 flex-1">
-                    <span class="block font-medium">Due {{ statement.due_date|date:"j M Y" }}</span>
-                    <span class="block truncate text-xs text-slate-500">{{ statement.period_start|date:"j M" }} to {{ statement.period_end|date:"j M Y" }}</span>
-                  </span>
-                  <span class="shrink-0 text-right">
-                    <span class="block font-semibold tabular-nums">{% amount statement.amount %}</span>
-                    <span class="block text-xs {% if statement.is_paid %}text-emerald-700{% else %}text-slate-500{% endif %}">{% if statement.is_paid %}Paid {{ statement.paid_on|date:"j M" }}{% elif statement.actual_amount is None %}Estimate{% else %}Actual{% endif %}</span>
-                  </span>
-                </a>
-              </li>
+              {% include "cards/_statement_row.html" %}
             {% endfor %}
           </ul>
           <p class="px-4 pt-1 pb-3 text-xs text-slate-400 md:px-5">Tap one to enter its actual amount.</p>
+          {% if statement_count > shown %}
+            <a href="{% url 'statement_history' kind account.pk %}" class="flex items-center justify-between gap-1 rounded-b-2xl border-t border-slate-100 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 md:px-5">Show all {{ statement_count }}{% include "shell/icon.html" with name="chevron-right" class="size-4" %}</a>
+          {% endif %}
         </section>
       {% endif %}
 

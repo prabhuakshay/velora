@@ -1,0 +1,25 @@
+{% extends "app_base.html" %}
+
+{% block title %}Reconciliations · {{ account.name }} · Velora{% endblock %}
+
+{% block main_width %}max-w-xl{% endblock %}
+
+{% block main %}
+  <div class="flex items-center gap-2">
+    <a href="{% url 'account_transactions' kind account.pk %}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to {{ account }}">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Reconciliations</h1>
+      <p class="truncate text-sm text-slate-500">{{ account.name }} · {{ kind.label }} Account</p>
+    </div>
+  </div>
+
+  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:mt-6" aria-label="Reconciliations">
+    <ul class="divide-y divide-slate-100">
+      {% for reconciliation in reconciliations %}
+        {% include "accounts/_reconciliation_row.html" with from_history=True %}
+      {% empty %}
+        <li class="px-4 py-6 text-center text-sm text-slate-500 md:px-5">No Reconciliations yet.</li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endblock %}

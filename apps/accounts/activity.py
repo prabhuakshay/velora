@@ -5,17 +5,18 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.db.models import Q, Sum
+from django.db.models import Prefetch, Q, Sum
 from django.db.models.functions import TruncMonth
 
 from apps.core.dates import months_after
-from apps.transactions.models import Split
+from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from django.db.models import QuerySet
+
     from apps.accounts.models import Account
-    from apps.transactions.models import Transaction
 
 MONTHS = 12
 # The CSP blocks inline styles, so bar sizes go into SVG attributes, in
@@ -185,3 +186,22 @@ def rows(account: Account, transactions: Sequence[Transaction]) -> list[Row]:
         if balance is not None:
             balance -= change
     return result
+
+
+def touching_transactions(account: Account) -> QuerySet[Transaction]:
+    """Transactions with a Split into or out of the Account, newest first.
+
+    Only those Splits are prefetched, as rows() expects.
+    """
+    touching = Split.objects.filter(Q(from_account=account) | Q(to_account=account))
+    return (
+        Transaction.objects.filter(pk__in=touching.values("transaction"))
+        .select_related("party")
+        .prefetch_related(
+            Prefetch(
+                "splits",
+                queryset=touching.select_related("from_account", "to_account"),
+            )
+        )
+        .order_by("-date", "-pk")
+    )
