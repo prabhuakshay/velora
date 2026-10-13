@@ -97,6 +97,11 @@ html:has(#main) {
   }
 }
 
+/* Room to scroll the page's last content clear of the floating Quick Add button. */
+html:has([data-quick-add-button]) #main {
+  @apply pb-24 md:pb-28;
+}
+
 /* "Quick Add sent" shows briefly, then fades so it doesn't sit over the page. */
 @keyframes quick-add-sent {
   80% {
