@@ -22,6 +22,8 @@ from apps.accounts.reconciliation_views import reconciliation_status
 from apps.core.dates import months_after
 from apps.core.forms import MergeForm
 from apps.core.views import paginate, redirect_in_use_to_merge, save_unique_name
+from apps.investments.valuation import account_value
+from apps.investments.views import investment_tabs
 from apps.transactions.models import Split
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
@@ -113,6 +115,8 @@ def _used_by(account: Account) -> str:
         or account.schedule_splits_in.exists()
         or account.suggested_schedules_out.exists()
         or account.suggested_schedules_in.exists()
+        else "Investment Events"
+        if account.investment_events.exists()
         else ""
     )
 
@@ -235,6 +239,12 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
                 owes=account.owes,
             ),
             "forecast": _account_forecast(account),
+            "investment": account_value(account, account.balance)
+            if account.is_investment
+            else None,
+            "tabs": investment_tabs(account, "account_transactions")
+            if account.is_investment
+            else None,
             "reconcile_form": ReconcileForm(account=account)
             if account.has_opening_balance
             else None,

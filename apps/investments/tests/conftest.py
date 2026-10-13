@@ -1,17 +1,18 @@
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
 
+from apps.accounts.models import Account
 from apps.accounts.tests.conftest import page_text
 from apps.investments import price_source
-from apps.investments.models import Instrument
+from apps.investments.models import Instrument, Price
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from django.test import Client
+    from django.test.client import _MonkeyPatchedWSGIResponse as Response
 
 
 class FakePriceSource:
@@ -57,5 +58,50 @@ def instrument_url(isin: str) -> str:
 
 def instrument_page(client: Client, isin: str) -> str:
     response = client.get(instrument_url(isin))
+    assert response.status_code == 200
+    return page_text(response.content.decode())
+
+
+def make_broker(
+    name: str = "Zerodha", opening: str = "0", opened: date = date(2026, 1, 1)
+) -> Account:
+    return Account.objects.create(
+        name=name,
+        kind="asset",
+        investment_mode="holds_cash",
+        opening_balance=Decimal(opening),
+        opening_balance_date=opened,
+    )
+
+
+def add_price(isin: str, day: date, price: str) -> Price:
+    return Price.objects.create(
+        instrument=Instrument.objects.get(isin=isin), date=day, price=Decimal(price)
+    )
+
+
+def event_data(kind: str, isin: str, **fields: str) -> dict[str, str]:
+    return {"kind": kind, "isin": isin, "date": "2026-03-01", "charges": "0"} | fields
+
+
+def record_event(
+    client: Client,
+    account: Account,
+    kind: str,
+    isin: str,
+    *,
+    expect: int = 302,
+    **fields: str,
+) -> Response:
+    response = client.post(
+        reverse("investment_event_create", args=[account.pk]),
+        event_data(kind, isin, **fields),
+    )
+    assert response.status_code == expect
+    return response
+
+
+def holdings_text(client: Client, account: Account) -> str:
+    response = client.get(reverse("account_holdings", args=[account.pk]))
     assert response.status_code == 200
     return page_text(response.content.decode())

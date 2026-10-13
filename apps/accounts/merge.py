@@ -55,6 +55,11 @@ class AccountMerge:
     @property
     def refusal(self) -> str:
         """Why the merge can't go ahead; empty when it can."""
+        if self.source.is_investment or self.target.is_investment:
+            return (
+                "Investment Accounts can't be merged: their Holdings would clash. "
+                "Hide the one you no longer use instead."
+            )
         if self._is_card(self.source) and self._is_card(self.target):
             return (
                 f"{self.source} and {self.target} are both credit cards, so "

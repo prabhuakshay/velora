@@ -1,0 +1,90 @@
+{% extends "app_base.html" %}
+
+{% block title %}Holdings · {{ account.name }} · Velora{% endblock %}
+
+{% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
+
+{% block main %}
+  <div class="flex items-center gap-2">
+    <a href="{% url 'account_list' account.kind %}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to Assets">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    {% include "accounts/_avatar.html" with size="size-9" %}
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{{ account.name }}</h1>
+      <p class="truncate text-sm text-slate-500">Investment Account · {{ account.get_investment_mode_display }}</p>
+    </div>
+  </div>
+
+  <div class="mt-4">{% include "partials/tabs.html" with label="Account views" %}</div>
+
+  <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
+    <p class="text-sm text-slate-500">Market Value</p>
+    <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color value.market_value %}">{% amount value.market_value %}</p>
+    <dl class="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+      <div><dt class="text-slate-500">Cash</dt> <dd class="mt-0.5 font-semibold tabular-nums {% amount_color value.cash %}">{% amount value.cash %}</dd></div>
+      <div><dt class="text-slate-500">Cost Basis</dt> <dd class="mt-0.5 font-semibold tabular-nums">{% amount value.cost_basis %}</dd></div>
+      <div><dt class="text-slate-500">Unrealized Gain</dt> <dd class="mt-0.5 font-semibold tabular-nums">{% signed_amount value.unrealized %}</dd></div>
+      <div><dt class="text-slate-500">Realized Gain</dt> <dd class="mt-0.5 font-semibold tabular-nums">{% signed_amount value.realized %}</dd></div>
+    </dl>
+    <div class="mt-5 flex flex-wrap gap-2">
+      <a href="{% url 'investment_event_create' account.pk %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Record a Buy or Sell</a>
+    </div>
+  </section>
+
+  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="holdings-title">
+    <h2 id="holdings-title" class="px-4 pt-4 font-semibold md:px-5">Holdings</h2>
+    {% if value.holdings %}
+      <div class="mt-2 overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs text-slate-500">
+            <tr>
+              <th scope="col" class="px-4 py-2 font-medium md:px-5">Instrument</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Units</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Cost Basis</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Market Value</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Unrealized</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Realized</th>
+              <th scope="col" class="px-4 py-2 text-right font-medium md:px-5">Price date</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for row in value.holdings %}
+              <tr>
+                <th scope="row" class="px-4 py-3 text-left font-medium md:px-5"><a href="{% url 'instrument_detail' row.instrument.pk %}" class="hover:underline">{{ row.instrument.name }}</a></th>
+                <td class="px-3 py-3 text-right tabular-nums">{% units row.units %}</td>
+                <td class="px-3 py-3 text-right tabular-nums">{% amount row.cost_basis %}</td>
+                <td class="px-3 py-3 text-right tabular-nums">{% amount row.market_value %}</td>
+                <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.unrealized %}</td>
+                <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.realized %}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap text-slate-500 md:px-5">{% if row.price %}{{ row.price.date|date:"j M Y" }}{% if row.stale %} <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700" title="More than five days old">Stale</span>{% endif %}{% else %}No Price yet{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="px-4 pt-1 pb-4 text-sm text-slate-500 md:px-5">Nothing held yet. Record a Buy to start a Lot.</p>
+    {% endif %}
+  </section>
+
+  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="events-title">
+    <h2 id="events-title" class="px-4 pt-4 font-semibold md:px-5">Investment Events</h2>
+    <ul class="mt-2 divide-y divide-slate-100">
+      {% for event in events %}
+        <li class="flex items-center gap-3 px-4 py-3 text-sm md:px-5">
+          <span class="min-w-0 flex-1">
+            <span class="block truncate font-medium">{{ event.get_kind_display }} {{ event.instrument.name }}</span>
+            <span class="block text-xs text-slate-500">{{ event.date|date:"j M Y" }} · {% units event.units %} units at {% price event.price %}{% if event.charges %} · charges {% amount event.charges %}{% endif %}{% if event.note %} · {{ event.note }}{% endif %}</span>
+          </span>
+          <span class="shrink-0 font-semibold tabular-nums">{% amount event.amount %}</span>
+          <a href="{% url 'investment_event_edit' event.pk %}" class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">Edit</a>
+          <form method="post" action="{% url 'investment_event_delete' event.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50">Delete</button>
+          </form>
+        </li>
+      {% empty %}
+        <li class="px-4 py-6 text-center text-sm text-slate-500 md:px-5">No Investment Events yet.</li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endblock %}

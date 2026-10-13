@@ -57,6 +57,26 @@ def _rupees(context: Context, value: Decimal, *, places: int) -> str:
     return f"{sign}₹{_group(digits, number_format)}.{fraction}"
 
 
+UNITS_MASK: SafeString = mark_safe(
+    '<span role="img" aria-label="Units hidden">••••</span>'
+)
+
+
+@register.simple_tag(takes_context=True)
+def units(context: Context, value: Decimal) -> str:
+    """Units of an Instrument, grouped by Number Format, without trailing zeros.
+
+    Masked under Privacy Mode, as units times a public Price give the value away.
+    """
+    if _private(context):
+        return UNITS_MASK
+    number_format = getattr(context.get("user"), "number_format", NumberFormat.INDIAN)
+    digits, _, fraction = f"{abs(value).normalize():f}".partition(".")
+    sign = "-" if value < 0 else ""
+    grouped = _group(digits, number_format)
+    return f"{sign}{grouped}.{fraction}" if fraction else f"{sign}{grouped}"
+
+
 @register.simple_tag(takes_context=True)
 def amount_color(context: Context, value: Decimal, *, owes: bool = False) -> str:
     """The class that shows a negative amount in red.

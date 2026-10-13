@@ -4,7 +4,6 @@ from decimal import Decimal
 import pytest
 from django.db import IntegrityError, transaction
 
-from apps.accounts.tests.conftest import make_account
 from apps.quick_add.tests.test_migrations import migrate
 
 BEFORE = [("accounts", "0005_low_balance_threshold")]
@@ -14,8 +13,17 @@ AFTER = [("accounts", "0006_reconciliation")]
 @pytest.mark.usefixtures("_back_to_latest")
 @pytest.mark.django_db(transaction=True)
 def test_existing_accounts_take_one_reconciliation_per_day() -> None:
-    migrate(BEFORE)
-    bank = make_account("Bank", "asset").pk
+    old = migrate(BEFORE).loader.project_state(BEFORE).apps
+    bank = (
+        old.get_model("accounts", "Account")
+        .objects.create(
+            name="Bank",
+            kind="asset",
+            opening_balance=Decimal(0),
+            opening_balance_date=date(2026, 1, 1),
+        )
+        .pk
+    )
 
     new = migrate(AFTER).loader.project_state(AFTER).apps
     reconciliations = new.get_model("accounts", "Reconciliation").objects

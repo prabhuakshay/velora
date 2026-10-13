@@ -1,4 +1,7 @@
-"""Net Worth: the Asset Balances minus the Liability Balances."""
+"""Net Worth: the Asset Balances minus the Liability Balances.
+
+An Investment Account counts at its Market Value instead of its Balance.
+"""
 
 from collections import defaultdict
 from dataclasses import dataclass
@@ -11,6 +14,7 @@ from django.db.models.functions import TruncMonth
 
 from apps.accounts.models import BALANCE_KINDS, Account, AccountKind, AccountQuerySet
 from apps.core.dates import month_start
+from apps.investments.valuation import Valuer
 from apps.transactions.models import Split
 
 
@@ -34,8 +38,15 @@ def _included() -> AccountQuerySet:
 def net_worth(as_of: date) -> NetWorth:
     """Net Worth as of a date: the sum of each Account's value, hidden ones included."""
     totals: dict[str, Decimal] = dict.fromkeys(BALANCE_KINDS, Decimal("0.00"))
-    for account in _included().with_balance(as_of):
-        totals[account.kind] += account.balance
+    accounts = list(_included().with_balance(as_of))
+    valuer = Valuer([a.pk for a in accounts if a.is_investment], as_of)
+    for account in accounts:
+        value = account.balance
+        if account.is_investment and not account.opens_after(as_of):
+            value = valuer.market_value(
+                account.pk, cast("date", account.opening_balance_date), value, as_of
+            )
+        totals[account.kind] += value
     return NetWorth(
         assets=totals[AccountKind.ASSET], liabilities=totals[AccountKind.LIABILITY]
     )
@@ -53,13 +64,19 @@ def net_worth_on(dates: list[date]) -> dict[date, NetWorth]:
     """
     # Asset and Liability Accounts always have both, by their check constraint.
     accounts = cast(
-        "list[tuple[int, str, Decimal, date]]",
+        "list[tuple[int, str, Decimal, date, str]]",
         list(
             _included().values_list(
-                "pk", "kind", "opening_balance", "opening_balance_date"
+                "pk",
+                "kind",
+                "opening_balance",
+                "opening_balance_date",
+                "investment_mode",
             )
         ),
     )
+    investments = [pk for pk, *_, mode in accounts if mode]
+    valuer = Valuer(investments, max(dates, default=date.min))
     moved_in: dict[int, dict[date, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
     if accounts and dates:
         pks = [pk for pk, *_ in accounts]
@@ -79,7 +96,7 @@ def net_worth_on(dates: list[date]) -> dict[date, NetWorth]:
     result = {}
     for when in dates:
         totals: dict[str, Decimal] = dict.fromkeys(BALANCE_KINDS, Decimal("0.00"))
-        for pk, kind, opening, opened in accounts:
+        for pk, kind, opening, opened, mode in accounts:
             if opened > when:
                 continue
             moved = sum(
@@ -90,9 +107,12 @@ def net_worth_on(dates: list[date]) -> dict[date, NetWorth]:
                 ),
                 Decimal(0),
             )
-            totals[kind] += (
+            balance = (
                 opening - moved if kind == AccountKind.LIABILITY else (opening + moved)
             )
+            if mode:
+                balance = valuer.market_value(pk, opened, balance, when)
+            totals[kind] += balance
         result[when] = NetWorth(
             assets=totals[AccountKind.ASSET],
             liabilities=totals[AccountKind.LIABILITY],

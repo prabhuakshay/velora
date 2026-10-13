@@ -1,8 +1,15 @@
-"""Instruments and their Prices."""
+"""Instruments, their Prices, and the Investment Events that build Lots."""
 
 import datetime
+from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
+from simple_history.models import HistoricalRecords
+
+from apps.investments import replay
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 STALE_AFTER = datetime.timedelta(days=5)
 
@@ -59,3 +66,57 @@ class Price(models.Model):
     def is_stale(self, today: datetime.date) -> bool:
         """Whether the Price is more than five days older than today."""
         return today - self.date > STALE_AFTER
+
+
+class InvestmentEvent(models.Model):
+    """One dated thing that happened to the units of an Instrument in an account.
+
+    Lots are never stored: they come from replaying these (apps.investments.replay).
+    Which fields a kind needs is kept to its form and import; units, amount and
+    price stay optional here because a Dividend or Stock Split has no use for some.
+    """
+
+    class Kind(models.TextChoices):
+        BUY = replay.BUY, "Buy"
+        SELL = replay.SELL, "Sell"
+
+    account = models.ForeignKey(
+        "accounts.Account",
+        on_delete=models.PROTECT,
+        related_name="investment_events",
+        limit_choices_to=~models.Q(investment_mode=""),
+    )
+    instrument = models.ForeignKey(
+        Instrument, on_delete=models.PROTECT, related_name="events"
+    )
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    date = models.DateField()
+    units = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    price = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
+    amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    note = models.CharField(max_length=200, blank=True)
+
+    history = HistoricalRecords()
+    save_without_historical_record: Callable[..., None]
+
+    class Meta:
+        ordering = ("-date", "-pk")
+        constraints: ClassVar = [
+            models.CheckConstraint(
+                condition=~models.Q(kind__in=(replay.BUY, replay.SELL))
+                | models.Q(units__gt=0, price__gt=0, amount__gt=0),
+                name="investments_investmentevent_trade_parts",
+                violation_error_message=(
+                    "A Buy or Sell needs units, a Price and an amount above 0."
+                ),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(charges__gte=0),
+                name="investments_investmentevent_charges_not_negative",
+                violation_error_message="Charges can't be negative.",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_kind_display()} {self.instrument} on {self.date}"

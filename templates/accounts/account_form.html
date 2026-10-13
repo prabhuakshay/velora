@@ -24,6 +24,7 @@
       <h2 id="details-title" class="font-semibold">Details</h2>
       {% include "partials/field.html" with field=form.name %}
       {% include "partials/field.html" with field=form.notes %}
+      {% if form.investment_mode %}{% include "partials/field.html" with field=form.investment_mode %}{% endif %}
     </section>
 
     {% if form.opening_balance %}

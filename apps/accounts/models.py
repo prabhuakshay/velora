@@ -23,6 +23,12 @@ class AccountKind(models.TextChoices):
     INCOME = "income"
 
 
+class InvestmentMode(models.TextChoices):
+    """How an Investment Account's money moves; blank for any other Account."""
+
+    HOLDS_CASH = "holds_cash", "Holds Cash"
+
+
 BALANCE_KINDS = (AccountKind.ASSET, AccountKind.LIABILITY)
 # Money moving out of these grows them: what is owed, or what is earned.
 OWING_KINDS = (AccountKind.LIABILITY, AccountKind.INCOME)
@@ -156,6 +162,7 @@ class Account(models.Model):
 
     # Module-level so Meta's constraints can use BALANCE_KINDS built from it.
     Kind = AccountKind
+    InvestmentMode = InvestmentMode
 
     name = models.CharField(max_length=100)
     kind = models.CharField(max_length=16, choices=Kind)
@@ -189,6 +196,10 @@ class Account(models.Model):
         related_name="cards_paid",
         limit_choices_to={"kind": AccountKind.ASSET},
         verbose_name="Pays from",
+    )
+    # Set when the Asset Account is created and never changed (ADR 0012).
+    investment_mode = models.CharField(
+        "Investment Account", max_length=16, choices=InvestmentMode, blank=True
     )
     low_balance_threshold = models.DecimalField(
         "Low-Balance Threshold",
@@ -251,6 +262,12 @@ class Account(models.Model):
                 name="accounts_account_card_settings_together",
                 violation_error_message=CARD_SETTINGS_TOGETHER,
             ),
+            models.CheckConstraint(
+                condition=models.Q(investment_mode="")
+                | models.Q(kind=AccountKind.ASSET),
+                name="accounts_account_investment_mode_asset_only",
+                violation_error_message="Only an Asset Account can hold investments.",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -282,6 +299,11 @@ class Account(models.Model):
         if self.owes:
             return bool(threshold) and self.balance > threshold
         return self.kind == AccountKind.ASSET and self.balance < threshold
+
+    @property
+    def is_investment(self) -> bool:
+        """Whether it is an Investment Account, with Holdings beside its Balance."""
+        return bool(self.investment_mode)
 
     @property
     def is_card(self) -> bool:

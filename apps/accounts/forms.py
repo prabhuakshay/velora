@@ -1,7 +1,7 @@
 """Forms for Accounts."""
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
 from django.db.models import Min, Q
@@ -32,12 +32,19 @@ class AccountForm(forms.ModelForm[Account]):
     """Create or edit an Account; the kind comes from the instance, never the form.
 
     Only Asset and Liability Accounts get the Opening Balance, Net Worth and
-    Low-Balance Threshold fields, and only Liability Accounts the credit card settings.
+    Low-Balance Threshold fields, only Liability Accounts the credit card
+    settings, and only Asset Accounts the investment mode, fixed once created.
     """
 
     class Meta:
         model = Account
-        fields = ("name", "notes", *BALANCE_KIND_FIELDS, *CARD_FIELDS)
+        fields = (
+            "name",
+            "notes",
+            "investment_mode",
+            *BALANCE_KIND_FIELDS,
+            *CARD_FIELDS,
+        )
         widgets: ClassVar = {
             "notes": forms.Textarea(attrs={"rows": 3}),
             "opening_balance_date": forms.DateInput(attrs={"type": "date"}),
@@ -45,6 +52,7 @@ class AccountForm(forms.ModelForm[Account]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
+        self._set_up_investment_mode()
         if not self.instance.owes:
             for name in CARD_FIELDS:
                 del self.fields[name]
@@ -67,6 +75,15 @@ class AccountForm(forms.ModelForm[Account]):
         if not self.instance.pk:
             self.initial["opening_balance"] = Decimal(0)
             self.initial["opening_balance_date"] = timezone.localdate()
+
+    def _set_up_investment_mode(self) -> None:
+        if self.instance.kind != Account.Kind.ASSET:
+            del self.fields["investment_mode"]
+            return
+        mode = cast("forms.ChoiceField", self.fields["investment_mode"])
+        mode.choices = [("", "No"), *Account.InvestmentMode.choices]
+        mode.disabled = self.instance.pk is not None
+        mode.help_text = "For a broker or fund platform. This can't be changed later."
 
     @property
     def duplicate_name_error(self) -> str:

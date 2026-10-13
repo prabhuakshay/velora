@@ -1,0 +1,53 @@
+{% extends "app_base.html" %}
+
+{% block title %}Investments · Velora{% endblock %}
+
+{% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
+
+{% block main %}
+  <h1 class="text-xl font-semibold tracking-tight md:text-2xl">Investments</h1>
+
+  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:mt-6" aria-labelledby="accounts-title">
+    <h2 id="accounts-title" class="px-4 pt-4 font-semibold md:px-5">Investment Accounts</h2>
+    <ul class="mt-2 divide-y divide-slate-100">
+      {% for account, value in accounts %}
+        <li>
+          <a href="{% url 'account_transactions' account.kind account.pk %}" class="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-slate-50 md:px-5">
+            <span class="min-w-0 truncate font-medium">{{ account.name }}</span>
+            <span class="shrink-0 font-semibold tabular-nums {% amount_color value.market_value %}">{% amount value.market_value %}</span>
+          </a>
+        </li>
+      {% empty %}
+        <li class="px-4 py-6 text-center text-sm text-slate-500 md:px-5">No Investment Accounts yet. Create an Asset Account that Holds Cash to start.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  {% if holdings %}
+    <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="held-title">
+      <h2 id="held-title" class="px-4 pt-4 font-semibold md:px-5">Instruments held</h2>
+      <div class="mt-2 overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs text-slate-500">
+            <tr>
+              <th scope="col" class="px-4 py-2 font-medium md:px-5">Instrument</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Units</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Market Value</th>
+              <th scope="col" class="px-4 py-2 text-right font-medium md:px-5">Investment Account</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for account, row in holdings %}
+              <tr>
+                <th scope="row" class="px-4 py-3 text-left font-medium md:px-5"><a href="{% url 'instrument_detail' row.instrument.pk %}" class="hover:underline">{{ row.instrument.name }}</a></th>
+                <td class="px-3 py-3 text-right tabular-nums">{% units row.units %}</td>
+                <td class="px-3 py-3 text-right tabular-nums">{% amount row.market_value %}</td>
+                <td class="px-4 py-3 text-right text-slate-500 md:px-5">{{ account.name }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}
