@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-13
+
+### Added
+
+**Reconciliation**
+- Check an Asset or Liability Account against your bank: enter the date and the balance the bank showed. A match is saved as a Reconciliation and the Account shows "Reconciled through" that date. A mismatch shows the difference and the Transactions since the last Reconciliation, so you can find what is missing. (#145)
+- The Account page warns when a Reconciliation no longer matches because a Transaction was edited later, and says how far off it is. Undoing the edit makes it match again. (#146)
+- See the latest Reconciliations and Statements on the Account page, with a full history page for each. A Reconciliation can be deleted after a confirmation. (#147)
+- Upcoming and the daily digest remind you to reconcile an Account that has had activity in the last 30 days without a Reconciliation, or whose latest Reconciliation no longer matches. (#149)
+- Reconciling is blocked in Privacy Mode, since a match would reveal the hidden balance.
+
+**Credit cards**
+- Pay a card Statement in several parts. A Statement counts as paid once its linked payments add up to its amount, and its payment Draft proposes only what is still owed. (#136)
+- Link a payment to a Statement by hand, or unlink a wrong one, including an automatic match. (#125)
+- Overpaying a Statement, or a period where refunds beat spending, now lowers the next Statements and the Forecast's card bills instead of being lost. (#143)
+
+**Quick Add**
+- A floating Quick Add button on app pages records a money event without leaving the page you are on. (#151)
+
+### Changed
+
+- A Liability is always shown as what is owed: a card payment lowers its balance, and a card in credit reads "in credit" instead of a red negative. (#132)
+- Removing an Attachment now happens when you save the Transaction, so you can undo it and unsaved edits are kept. (#131)
+- Home and the Transactions list load faster, and Home stays fast however much history you have. (#133, #135)
+
+### Fixed
+
+- Card Statement estimates and their payment Drafts now update whenever a card Transaction is recorded, edited, deleted or merged. (#124)
+- A Statement of zero or a credit shows "Nothing to pay" instead of an overdue warning. (#126)
+- "Post all ready" no longer posts Drafts dated in the future or card payments whose bill is still an estimate. (#122)
+- Scheduled payments no longer auto-post again after you delete the Transaction that covered them, or post every missed date after an outage. (#121)
+- After pausing and resuming a Schedule, the skipped due dates no longer show up as overdue in the Forecast. (#123)
+- Deleting Attachments, Transactions or Accounts now always removes the stored files, even if storage is briefly down. (#130)
+
+### Security
+
+- Wrong current passwords on Change password now count toward the login lockout and are rate limited. (#127)
+- In Privacy Mode, the Transactions list hides the amount filters and export, so totals can no longer be guessed through them. (#128)
+- CI actions are pinned to exact versions, and dependency updates now cover Python, npm and GitHub Actions. (#129)
+
 ## [0.1.1] - 2026-10-12
 
 ### Added
@@ -68,6 +108,7 @@ First release of Velora, a personal finance app.
 - A production Docker image is published to GitHub Container Registry for each release.
 
 
-[Unreleased]: https://github.com/prabhuakshay/velora/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/prabhuakshay/velora/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/prabhuakshay/velora/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/prabhuakshay/velora/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/prabhuakshay/velora/releases/tag/v0.1.0
