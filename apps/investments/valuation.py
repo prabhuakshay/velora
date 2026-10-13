@@ -38,6 +38,7 @@ class HoldingRow:
     cost_basis: Decimal
     market_value: Decimal
     realized: Decimal
+    dividends: Decimal
     price: Price | None
     stale: bool
 
@@ -73,9 +74,15 @@ class AccountValue:
 
 def account_value(account: Account, balance: Decimal) -> AccountValue:
     """Value the Investment Account at its latest Prices, given its Balance now."""
-    events = list(account.investment_events.select_related("instrument"))
+    events = list(
+        account.investment_events.select_related("instrument", "new_instrument")
+    )
     book = replay(events)
-    instruments = {event.instrument_id: event.instrument for event in events}
+    instruments = {event.instrument_id: event.instrument for event in events} | {
+        event.new_instrument_id: event.new_instrument
+        for event in events
+        if event.new_instrument is not None
+    }
     prices = latest_prices(book.holdings)
     today = timezone.localdate()
     rows = [
@@ -85,6 +92,7 @@ def account_value(account: Account, balance: Decimal) -> AccountValue:
             cost_basis=holding.cost_basis,
             market_value=holding_value(holding, _value(prices.get(pk))),
             realized=holding.realized,
+            dividends=holding.dividends,
             price=prices.get(pk),
             stale=pk in prices and prices[pk].is_stale(today),
         )
@@ -131,7 +139,13 @@ class Valuer:
             account__in=accounts, date__lte=until
         ):
             self.events[event.account_id].append(event)
-        instruments = {e.instrument_id for es in self.events.values() for e in es}
+        instruments = {
+            pk
+            for es in self.events.values()
+            for e in es
+            for pk in (e.instrument_id, e.new_instrument_id)
+            if pk is not None
+        }
         for instrument, day, price in (
             Price.objects.filter(instrument__in=instruments, date__lte=until)
             .order_by("date")

@@ -108,7 +108,9 @@ def account_holdings(request: HttpRequest, pk: int) -> HttpResponseBase:
         {
             "account": account,
             "value": account_value(account, account.balance),
-            "events": account.investment_events.select_related("instrument"),
+            "events": account.investment_events.select_related(
+                "instrument", "new_instrument"
+            ),
             "tabs": investment_tabs(account, "account_holdings"),
             "today": timezone.localdate(),
         },
@@ -149,8 +151,10 @@ def investment_event_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 @require_POST
 def investment_event_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Delete an Investment Event, unless a later Sell needs its units."""
-    event = get_object_or_404(InvestmentEvent, pk=pk)
+    """Delete an Investment Event and its Transaction, unless a Sell needs its units."""
+    event = get_object_or_404(
+        InvestmentEvent.objects.select_related("transaction"), pk=pk
+    )
     rest = event.account.investment_events.exclude(pk=pk).select_related("instrument")
     try:
         replay(rest)
@@ -158,6 +162,8 @@ def investment_event_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
         messages.error(request, f"Can't delete it: {_sell_refusal(error)}")
     else:
         event.delete()
+        if event.transaction is not None:
+            event.transaction.delete()
         messages.success(request, f"Deleted the {event.get_kind_display()}.")
     return redirect("account_holdings", pk=event.account_id)
 

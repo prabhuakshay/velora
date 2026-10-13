@@ -9,9 +9,12 @@
 
   {% if accounts %}
     <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-label="Totals">
-      <dl class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+      <p class="text-sm text-slate-500">Market Value</p>
+      <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color totals.market_value %}">{% amount totals.market_value %}</p>
+      <dl class="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 lg:grid-cols-5">
+        <div><dt class="text-slate-500">Holdings</dt> <dd class="mt-1 text-lg font-semibold tabular-nums">{% amount totals.holdings_value %}</dd></div>
+        <div><dt class="text-slate-500">Cash</dt> <dd class="mt-1 text-lg font-semibold tabular-nums {% amount_color totals.cash %}">{% amount totals.cash %}</dd></div>
         <div><dt class="text-slate-500">Invested</dt> <dd class="mt-1 text-lg font-semibold tabular-nums">{% amount totals.cost_basis %}</dd></div>
-        <div><dt class="text-slate-500">Market Value</dt> <dd class="mt-1 text-lg font-semibold tabular-nums">{% amount totals.market_value %}</dd></div>
         <div><dt class="text-slate-500">Unrealized Gain</dt> <dd class="mt-1 text-lg font-semibold tabular-nums">{% signed_amount totals.unrealized %} <span class="text-sm">{% signed_percent totals.unrealized_percent %}</span></dd></div>
         <div><dt class="text-slate-500">Realized Gain</dt> <dd class="mt-1 text-lg font-semibold tabular-nums">{% signed_amount totals.realized %}</dd></div>
       </dl>
@@ -37,6 +40,14 @@
               {% for title, kind in kinds %}
                 {% include "investments/_totals_row.html" with title=title row=kind %}
               {% endfor %}
+              <tr>
+                <th scope="row" class="px-4 py-3 text-left font-medium md:px-5">Cash</th>
+                <td class="px-3 py-3 text-right text-slate-400">—</td>
+                <td class="px-3 py-3 text-right tabular-nums {% amount_color totals.cash %}">{% amount totals.cash %}</td>
+                <td class="py-3 pl-3 text-right text-slate-400">—</td>
+                <td class="py-3 pr-3 pl-2 text-right text-slate-400">—</td>
+                <td class="px-4 py-3 text-right text-slate-400 md:px-5">—</td>
+              </tr>
             </tbody>
             <tfoot class="border-t border-slate-200 font-semibold">
               {% include "investments/_totals_row.html" with title="Total" row=totals %}

@@ -26,7 +26,7 @@
       <div><dt class="text-slate-500">Realized Gain</dt> <dd class="mt-0.5 font-semibold tabular-nums">{% signed_amount value.realized %}</dd></div>
     </dl>
     <div class="mt-5 flex flex-wrap gap-2">
-      <a href="{% url 'investment_event_create' account.pk %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Record a Buy or Sell</a>
+      <a href="{% url 'investment_event_create' account.pk %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Record an Investment Event</a>
     </div>
   </section>
 
@@ -43,6 +43,7 @@
               <th scope="col" class="px-3 py-2 text-right font-medium">Market Value</th>
               <th scope="col" class="px-3 py-2 text-right font-medium">Unrealized</th>
               <th scope="col" class="px-3 py-2 text-right font-medium">Realized</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Dividends</th>
               <th scope="col" class="px-4 py-2 text-right font-medium md:px-5">Price date</th>
             </tr>
           </thead>
@@ -55,6 +56,7 @@
                 <td class="px-3 py-3 text-right tabular-nums">{% amount row.market_value %}</td>
                 <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.unrealized %}</td>
                 <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.realized %}</td>
+                <td class="px-3 py-3 text-right tabular-nums">{% amount row.dividends %}</td>
                 <td class="px-4 py-3 text-right whitespace-nowrap text-slate-500 md:px-5">{% if row.price %}{{ row.price.date|date:"j M Y" }}{% if row.stale %} <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700" title="More than five days old">Stale</span>{% endif %}{% else %}No Price yet{% endif %}</td>
               </tr>
             {% endfor %}
@@ -73,9 +75,9 @@
         <li class="flex items-center gap-3 px-4 py-3 text-sm md:px-5">
           <span class="min-w-0 flex-1">
             <span class="block truncate font-medium">{{ event.get_kind_display }} {{ event.instrument.name }}</span>
-            <span class="block text-xs text-slate-500">{{ event.date|date:"j M Y" }} · {% units event.units %} units at {% price event.price %}{% if event.charges %} · charges {% amount event.charges %}{% endif %}{% if event.note %} · {{ event.note }}{% endif %}</span>
+            <span class="block text-xs text-slate-500">{{ event.date|date:"j M Y" }}{% if event.price %} · {% units event.units %} units at {% price event.price %}{% elif event.kind == "stock_split" %} · 1 unit became {% units event.units %}{% elif event.kind == "bonus" %} · {% units event.units %} free units{% elif event.new_instrument %} · into {{ event.new_instrument.name }}{% endif %}{% if event.charges %} · charges {% amount event.charges %}{% endif %}{% if event.note %} · {{ event.note }}{% endif %}</span>
           </span>
-          <span class="shrink-0 font-semibold tabular-nums">{% amount event.amount %}</span>
+          {% if event.amount %}<span class="shrink-0 font-semibold tabular-nums">{% amount event.amount %}</span>{% endif %}
           <a href="{% url 'investment_event_edit' event.pk %}" class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">Edit</a>
           <form method="post" action="{% url 'investment_event_delete' event.pk %}">
             {% csrf_token %}

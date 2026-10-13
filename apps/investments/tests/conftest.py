@@ -101,6 +101,25 @@ def make_broker(
     )
 
 
+def make_direct(
+    pays_from: Account,
+    pays_into: Account | None = None,
+    *,
+    name: str = "Kuvera",
+    opening: str = "0",
+    opened: date = date(2026, 1, 1),
+) -> Account:
+    return Account.objects.create(
+        name=name,
+        kind="asset",
+        investment_mode="direct",
+        invests_from=pays_from,
+        invests_into=pays_into or pays_from,
+        opening_balance=Decimal(opening),
+        opening_balance_date=opened,
+    )
+
+
 def add_price(isin: str, day: date, price: str) -> Price:
     return Price.objects.create(
         instrument=Instrument.objects.get(isin=isin), date=day, price=Decimal(price)

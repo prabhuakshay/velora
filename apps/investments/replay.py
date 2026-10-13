@@ -7,18 +7,22 @@ leaves Lots stale.
 
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
     from datetime import date
 
 BUY = "buy"
+BONUS = "bonus"
+STOCK_SPLIT = "stock_split"
+MERGER = "merger"
+DIVIDEND = "dividend"
 SELL = "sell"
 CENT = Decimal("0.01")
 # Events on one day apply in this order, so a same-day Sell can take what
 # that day's Buy or Bonus added.
-DAY_ORDER = (BUY, "bonus", "stock_split", "merger", "dividend", SELL)
+DAY_ORDER = (BUY, BONUS, STOCK_SPLIT, MERGER, DIVIDEND, SELL)
 
 
 class Event(Protocol):
@@ -32,6 +36,9 @@ class Event(Protocol):
 
     @property
     def instrument_id(self) -> int: ...  # noqa: D102
+
+    @property
+    def new_instrument_id(self) -> int | None: ...  # noqa: D102
 
     @property
     def units(self) -> Decimal | None: ...  # noqa: D102
@@ -70,6 +77,7 @@ class Holding:
     lots: list[Lot] = field(default_factory=list)
     # Realized Gain of every Sell, whatever its date.
     realized: Decimal = Decimal(0)
+    dividends: Decimal = Decimal(0)
 
     @property
     def units(self) -> Decimal:
@@ -146,18 +154,59 @@ def replay(events: Iterable[Event], until: date | None = None) -> Book:
 
 
 def _apply(book: Book, event: Event) -> None:
-    holding = book.holding(event.instrument_id)
-    units = event.units or Decimal(0)
-    amount = event.amount or Decimal(0)
-    if event.kind == BUY:
-        holding.lots.append(Lot(event.date, units, amount + event.charges))
-    elif event.kind == SELL:
-        held = holding.units
-        if units > held:
-            raise OversoldError(event, held)
-        gain = amount - event.charges - holding.take(units)
-        holding.realized += gain
-        book.realizations.append(Realization(event.date, event.instrument_id, gain))
+    APPLY[event.kind](book, book.holding(event.instrument_id), event)
+
+
+def _buy(_book: Book, holding: Holding, event: Event) -> None:
+    holding.lots.append(Lot(event.date, _units(event), _amount(event) + event.charges))
+
+
+def _sell(book: Book, holding: Holding, event: Event) -> None:
+    held, units = holding.units, _units(event)
+    if units > held:
+        raise OversoldError(event, held)
+    gain = _amount(event) - event.charges - holding.take(units)
+    holding.realized += gain
+    book.realizations.append(Realization(event.date, event.instrument_id, gain))
+
+
+def _bonus(_book: Book, holding: Holding, event: Event) -> None:
+    holding.lots.append(Lot(event.date, _units(event), Decimal(0)))
+
+
+def _stock_split(_book: Book, holding: Holding, event: Event) -> None:
+    # A Stock Split keeps its ratio in units.
+    for lot in holding.lots:
+        lot.units *= _units(event)
+
+
+def _merger(book: Book, holding: Holding, event: Event) -> None:
+    # A Merger always names the Instrument it turns into.
+    into = book.holding(cast("int", event.new_instrument_id))
+    into.lots = sorted([*into.lots, *holding.lots], key=lambda lot: lot.date)
+    holding.lots = []
+
+
+def _dividend(_book: Book, holding: Holding, event: Event) -> None:
+    holding.dividends += _amount(event)
+
+
+def _units(event: Event) -> Decimal:
+    return event.units or Decimal(0)
+
+
+def _amount(event: Event) -> Decimal:
+    return event.amount or Decimal(0)
+
+
+APPLY: dict[str, Callable[[Book, Holding, Event], None]] = {
+    BUY: _buy,
+    SELL: _sell,
+    BONUS: _bonus,
+    STOCK_SPLIT: _stock_split,
+    MERGER: _merger,
+    DIVIDEND: _dividend,
+}
 
 
 def cash(balance: Decimal, book: Book, opened: date) -> Decimal:
