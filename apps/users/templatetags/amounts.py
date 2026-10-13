@@ -39,12 +39,22 @@ def amount(context: Context, value: Decimal) -> str:
 
     Under Privacy Mode, a fixed mask instead, so no real value reaches the HTML.
     """
+    return _rupees(context, value, places=2)
+
+
+@register.simple_tag(takes_context=True)
+def price(context: Context, value: Decimal) -> str:
+    """A Price as amount() shows it, but to four decimals as NAVs are quoted."""
+    return _rupees(context, value, places=4)
+
+
+def _rupees(context: Context, value: Decimal, *, places: int) -> str:
     if _private(context):
         return MASK
     number_format = getattr(context.get("user"), "number_format", NumberFormat.INDIAN)
-    digits, cents = f"{abs(value):.2f}".split(".")
+    digits, fraction = f"{abs(value):.{places}f}".split(".")
     sign = "-" if value < 0 else ""
-    return f"{sign}₹{_group(digits, number_format)}.{cents}"
+    return f"{sign}₹{_group(digits, number_format)}.{fraction}"
 
 
 @register.simple_tag(takes_context=True)

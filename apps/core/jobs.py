@@ -2,7 +2,9 @@
 
 import logging
 import traceback
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from django.db import transaction as db_transaction
 
@@ -39,3 +41,15 @@ def run_each[T: Model](
             )
     if failures:
         raise ItemsFailedError(step, failures)
+
+
+def daily_cron(zone: str, hour: int) -> str:
+    """A daily cron expression for the hour in the zone, written in UTC.
+
+    Procrastinate reads cron expressions in UTC and takes no time zone. The
+    zone's offset is read when the worker starts, so a daylight saving change
+    shifts the run by an hour until the worker restarts.
+    """
+    offset = datetime.now(ZoneInfo(zone)).utcoffset() or timedelta()
+    minutes = (hour * 60 - int(offset.total_seconds()) // 60) % (24 * 60)
+    return f"{minutes % 60} {minutes // 60} * * *"
