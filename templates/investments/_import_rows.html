@@ -1,0 +1,38 @@
+{% if rows %}
+  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="{{ id }}-title">
+    <h2 id="{{ id }}-title" class="px-4 pt-4 font-semibold md:px-5">{{ title }}</h2>
+    <div class="mt-2 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="text-left text-xs text-slate-500">
+          <tr>
+            <th scope="col" class="px-4 py-2 font-medium md:px-5">Line</th>
+            <th scope="col" class="px-3 py-2 font-medium">Date</th>
+            <th scope="col" class="px-3 py-2 font-medium">Account</th>
+            <th scope="col" class="px-3 py-2 font-medium">Type</th>
+            <th scope="col" class="px-3 py-2 font-medium">ISIN</th>
+            <th scope="col" class="px-3 py-2 text-right font-medium">Units</th>
+            <th scope="col" class="px-3 py-2 text-right font-medium">Amount</th>
+            <th scope="col" class="px-4 py-2 font-medium md:px-5">Ledger</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for row in rows %}
+            <tr class="align-top">
+              <td class="px-4 py-3 tabular-nums text-slate-500 md:px-5">{{ row.line }}</td>
+              <td class="px-3 py-3 whitespace-nowrap">{{ row.values.date }}</td>
+              <td class="px-3 py-3">{{ row.values.account }}</td>
+              <td class="px-3 py-3">{{ row.values.type }}</td>
+              <td class="px-3 py-3">{{ row.values.isin }}{% if row.values.instrument_name %}<span class="block text-xs text-slate-500">{{ row.values.instrument_name }}</span>{% endif %}</td>
+              <td class="px-3 py-3 text-right tabular-nums">{{ row.values.units }}</td>
+              <td class="px-3 py-3 text-right tabular-nums">{{ row.values.amount }}</td>
+              <td class="px-4 py-3 md:px-5">
+                {% if row.transaction %}Matches the Transaction on {{ row.transaction.date|date:"j M Y" }}{% elif not row.needs_transaction %}<span class="text-slate-500">Nothing</span>{% endif %}
+                {% for error in row.errors %}<p class="text-red-600">{{ error }}</p>{% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endif %}
