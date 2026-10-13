@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.core.views import paginate
+from apps.investments.draft_views import investment_draft_edit
 from apps.quick_add import openrouter
 from apps.quick_add.forms import (
     DraftEditForm,
@@ -105,7 +106,9 @@ def draft_list(request: HttpRequest) -> HttpResponseBase:
     drafts = (
         Draft.objects.waiting()
         .order_by("-created_at", "-pk")
-        .select_related("party", "quick_add")
+        .select_related(
+            "party", "quick_add", "investment__instrument", "investment__account"
+        )
         .prefetch_related(
             Prefetch(
                 "splits",
@@ -256,6 +259,8 @@ def draft_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     draft = get_object_or_404(Draft, pk=pk)
     if draft.status != Draft.Status.WAITING:
         return already_handled(request)
+    if hasattr(draft, "investment"):
+        return investment_draft_edit(request, draft)
     if request.method != "POST":
         return render_draft_edit(request, *unsaved_edit(draft))
     return save_draft_edit(request, draft)

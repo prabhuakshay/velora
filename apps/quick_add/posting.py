@@ -7,6 +7,7 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from apps.classification.models import Party
+from apps.investments.drafts import investment_problems
 from apps.quick_add.models import Draft
 from apps.transactions.models import Transaction
 from apps.transactions.recording import TransactionForms
@@ -61,7 +62,7 @@ def missing_parts(draft: Draft) -> list[str]:
         missing += [
             f"Split {number}: missing {what}." for what, value in gaps if value is None
         ]
-    return missing
+    return missing or investment_problems(draft)
 
 
 def form_data(draft: Draft, party: Party | None) -> dict[str, Any]:

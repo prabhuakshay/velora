@@ -1,0 +1,51 @@
+{% extends "app_base.html" %}
+
+{% block title %}Edit Draft · {{ investment.get_kind_display }} {{ investment.instrument }} · Velora{% endblock %}
+
+{% block quick_add_button %}{% endblock %}
+
+{% block main_width %}max-w-2xl{% endblock %}
+
+{% block main %}
+  {% url 'draft_list' as cancel_url %}
+  <div class="flex items-center gap-2">
+    <a href="{{ cancel_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Edit Draft {{ investment.get_kind_display }}</h1>
+      <p class="truncate text-sm text-slate-500">{{ investment.instrument }} in {{ investment.account }}</p>
+      <p class="mt-1 flex items-center gap-1.5 text-xs text-slate-500">{% include "quick_add/_source.html" %}</p>
+    </div>
+  </div>
+
+  <form method="post" class="mt-4 space-y-4 md:mt-6">
+    {% csrf_token %}
+    {% if posting_error %}<p role="alert" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">{{ posting_error }}</p>{% endif %}
+    {% if form.non_field_errors %}{% include "partials/form_errors.html" %}{% endif %}
+    {% if details.non_field_errors %}{% include "partials/form_errors.html" with form=details %}{% endif %}
+
+    <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Details">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {% include "partials/field.html" with field=form.date %}
+        {% include "partials/field.html" with field=form.party %}
+      </div>
+      {% include "partials/field.html" with field=form.new_party_name %}
+      {% include "partials/field.html" with field=form.description %}
+    </section>
+
+    <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="{{ investment.get_kind_display }}">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {% if details.units %}{% include "partials/field.html" with field=details.units %}{% endif %}
+        {% if details.price %}{% include "partials/field.html" with field=details.price %}{% endif %}
+        {% include "partials/field.html" with field=details.amount %}
+        {% if details.charges %}{% include "partials/field.html" with field=details.charges %}{% endif %}
+        {% if details.income_account %}{% include "partials/field.html" with field=details.income_account %}{% endif %}
+      </div>
+    </section>
+
+    <div class="sticky -bottom-4 z-10 -mx-4 -mb-4 flex items-center gap-3 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-4 backdrop-blur md:static md:mx-0 md:mb-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+      <a href="{{ cancel_url }}" class="btn-secondary hidden items-center justify-center py-2.5 md:flex">Cancel</a>
+      <button type="submit" name="action" value="save" class="btn-secondary flex-1 py-2.5 md:flex-none">Save Draft</button>
+      <button type="submit" name="action" value="post" class="btn-primary flex-1 md:flex-none">Save and post</button>
+    </div>
+  </form>
+{% endblock %}

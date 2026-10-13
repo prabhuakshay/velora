@@ -7,13 +7,15 @@ Opening Balance date post nothing: they are inside the Opening Balance.
 
 from typing import TYPE_CHECKING, Any
 
-from apps.investments.replay import BUY, SELL
+from apps.investments import dividends
+from apps.investments.replay import BUY, DIVIDEND, SELL
 from apps.transactions.models import Transaction
 from apps.transactions.recording import TransactionForms
 
 if TYPE_CHECKING:
     from decimal import Decimal
 
+    from apps.accounts.models import Account
     from apps.investments.models import InvestmentEvent
 
 
@@ -37,6 +39,28 @@ def money_moved(event: InvestmentEvent) -> Decimal:
     return amount - event.charges
 
 
+def moves_money(event: InvestmentEvent) -> bool:
+    """Whether the event posts a Transaction: a Direct trade or a Dividend."""
+    return posts_transaction(event) or dividends.posts_transaction(event)
+
+
+def route(
+    event: InvestmentEvent, income: Account | None = None
+) -> tuple[int | None, int | None, Decimal | None]:
+    """The From and To Account ids and amount of the Split moving its money.
+
+    A Dividend comes from its Income Account, which may not be known yet.
+    """
+    account = event.account
+    if event.kind == DIVIDEND:
+        receiver = dividends.receiving_account(account)
+        return (income.pk if income else None), receiver.pk, event.amount
+    amount = None if event.amount is None else money_moved(event)
+    if event.kind == BUY:
+        return account.invests_from_id, account.pk, amount
+    return account.pk, account.invests_into_id, amount
+
+
 def transaction_forms(event: InvestmentEvent) -> TransactionForms | None:
     """The event's linked Transaction as it should now be, or None for none.
 
@@ -47,12 +71,7 @@ def transaction_forms(event: InvestmentEvent) -> TransactionForms | None:
         return None
     linked = event.transaction or Transaction()
     old = list(linked.splits.all()) if linked.pk else []
-    account = event.account
-    source, destination = (
-        (account.invests_from_id, account.pk)
-        if event.kind == BUY
-        else (account.pk, account.invests_into_id)
-    )
+    source, destination, amount = route(event)
     data: dict[str, Any] = {
         "date": event.date.isoformat(),
         "party": linked.party_id or "",
@@ -71,6 +90,6 @@ def transaction_forms(event: InvestmentEvent) -> TransactionForms | None:
     data |= {
         f"splits-{len(old)}-from_account": source,
         f"splits-{len(old)}-to_account": destination,
-        f"splits-{len(old)}-amount": money_moved(event),
+        f"splits-{len(old)}-amount": amount,
     }
     return TransactionForms(data, instance=linked)

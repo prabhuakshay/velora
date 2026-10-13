@@ -100,13 +100,14 @@ class Draft(models.Model):
         MANUAL = "manual", "Manual"
         STATEMENT = "statement", "Statement"
         CARD_EMI = "card_emi", "Card EMI"
+        INVESTMENT_IMPORT = "investment_import", "Investment Import"
 
     class Status(models.TextChoices):
         WAITING = "waiting"
         POSTED = "posted"
         REJECTED = "rejected"
 
-    source = models.CharField(max_length=16, choices=Source)
+    source = models.CharField(max_length=20, choices=Source)
     quick_add = models.OneToOneField(
         QuickAdd,
         on_delete=models.CASCADE,
@@ -237,8 +238,8 @@ class Draft(models.Model):
     def mark_posted(self, transaction: Transaction, *, without_edits: bool) -> None:
         """Link the Draft to the Transaction it became.
 
-        Its Occurrence is Paid by that Transaction, or its Statement gets it
-        as a payment.
+        Its Occurrence is Paid by that Transaction, its Statement gets it
+        as a payment, or its Investment Event is recorded linked to it.
         """
         self.status = Draft.Status.POSTED
         self.transaction = transaction
@@ -252,6 +253,8 @@ class Draft(models.Model):
             self.occurrence.settle(transaction)
         if self.statement:
             self.statement.add_payment(transaction)
+        if investment := getattr(self, "investment", None):
+            investment.record(transaction)
 
     def reject(self) -> None:
         """Mark it rejected, and its Occurrence Skipped, never Missed."""

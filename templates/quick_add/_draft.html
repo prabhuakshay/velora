@@ -4,7 +4,7 @@
   unless it needs a look: red when posting failed, amber for a missing amount
   or an estimate.
 {% endcomment %}
-<li class="flex gap-4 px-4 py-4 shadow-[inset_3px_0] {% if draft.posting_error %}shadow-red-500{% elif draft.estimated or draft.amount is None %}shadow-amber-400{% elif draft.source == 'quick_add' %}shadow-violet-500{% elif draft.source == 'schedule' %}shadow-sky-500{% elif draft.source == 'statement' or draft.source == 'card_emi' %}shadow-emerald-500{% else %}shadow-slate-400{% endif %}{% if draft.created_at > fresh_since %} draft-arrive{% endif %}">
+<li class="flex gap-4 px-4 py-4 shadow-[inset_3px_0] {% if draft.posting_error %}shadow-red-500{% elif draft.estimated or draft.amount is None %}shadow-amber-400{% elif draft.source == 'quick_add' %}shadow-violet-500{% elif draft.source == 'schedule' %}shadow-sky-500{% elif draft.source == 'statement' or draft.source == 'card_emi' %}shadow-emerald-500{% elif draft.source == 'investment_import' %}shadow-indigo-500{% else %}shadow-slate-400{% endif %}{% if draft.created_at > fresh_since %} draft-arrive{% endif %}">
   <div class="w-10 shrink-0 text-center leading-none">
     <p class="text-xl font-semibold tabular-nums">{{ draft.date|date:"j" }}</p>
     <p class="mt-1 text-xs text-slate-500">{{ draft.date|date:"M" }}</p>
@@ -24,6 +24,7 @@
       {% endif %}
     </div>
     {% if draft.description and draft.party or draft.description and draft.new_party_name %}<p class="text-sm text-slate-600">{{ draft.description }}</p>{% endif %}
+    {% if draft.investment %}{% include "investments/_draft_investment.html" with investment=draft.investment %}{% endif %}
     <div class="mt-1 space-y-0.5">
       {% for split in splits %}
         <p class="flex items-center justify-between gap-3 text-sm text-slate-500">
