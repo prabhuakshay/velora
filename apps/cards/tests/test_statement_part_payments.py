@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from apps.accounts.tests.conftest import page_text
 from apps.cards.models import Statement
-from apps.cards.statements import enter_actual_amount, settle, unsettle
+from apps.cards.statements import enter_actual_amount, link_payment, unlink_payment
 from apps.cards.tests.conftest import record
 from apps.cards.tests.test_card_payments import edit_url, link_url, unlink_url
 from apps.digest.upcoming import card_due_days
@@ -52,7 +52,7 @@ def november(card: Account, groceries: Account) -> Statement:
 def test_a_part_payment_leaves_the_statement_unpaid_and_proposes_the_rest(
     card: Account, groceries: Account, big: Statement
 ) -> None:
-    settle(big, pay(card, "5000", date(2026, 10, 25)))
+    link_payment(big, pay(card, "5000", date(2026, 10, 25)))
     next_one = november(card, groceries)
 
     big.refresh_from_db()
@@ -65,9 +65,9 @@ def test_a_part_payment_leaves_the_statement_unpaid_and_proposes_the_rest(
 def test_a_second_part_that_covers_it_pays_it_and_withdraws_the_draft(
     card: Account, big: Statement
 ) -> None:
-    settle(big, pay(card, "5000", date(2026, 10, 25)))
+    link_payment(big, pay(card, "5000", date(2026, 10, 25)))
 
-    settle(big, pay(card, "5000", date(2026, 11, 1)))
+    link_payment(big, pay(card, "5000", date(2026, 11, 1)))
 
     big.refresh_from_db()
     assert big.is_paid
@@ -78,7 +78,7 @@ def test_a_second_part_that_covers_it_pays_it_and_withdraws_the_draft(
 def test_the_daily_match_links_a_payment_of_what_is_still_owed(
     card: Account, big: Statement
 ) -> None:
-    settle(big, pay(card, "4000", date(2026, 10, 20)))
+    link_payment(big, pay(card, "4000", date(2026, 10, 20)))
     rest = pay(card, "6000", date(2026, 11, 3))
 
     run_daily_job(date(2026, 11, 3))
@@ -103,7 +103,7 @@ def test_the_daily_match_leaves_a_smaller_part_for_the_user(
 def test_an_actual_amount_above_what_was_paid_makes_it_unpaid_again(
     signed_in: Client, card: Account, big: Statement
 ) -> None:
-    settle(big, pay(card, "10000", date(2026, 10, 25)))
+    link_payment(big, pay(card, "10000", date(2026, 10, 25)))
     assert not Draft.objects.exists()
 
     enter_actual_amount(big, Decimal(12000))
@@ -120,9 +120,9 @@ def test_an_actual_amount_above_what_was_paid_makes_it_unpaid_again(
 def test_unlinking_one_of_two_parts_makes_it_unpaid_and_counts_it_again(
     signed_in: Client, card: Account, groceries: Account, big: Statement
 ) -> None:
-    settle(big, pay(card, "5000", date(2026, 10, 25)))
+    link_payment(big, pay(card, "5000", date(2026, 10, 25)))
     second = pay(card, "5000", date(2026, 11, 3))
-    settle(big, second)
+    link_payment(big, second)
     next_one = november(card, groceries)
 
     signed_in.post(unlink_url(big), {"transaction": second.pk})
@@ -137,9 +137,9 @@ def test_unlinking_one_of_two_parts_makes_it_unpaid_and_counts_it_again(
 def test_deleting_one_of_two_parts_makes_it_unpaid_and_counts_it_again(
     card: Account, groceries: Account, big: Statement
 ) -> None:
-    settle(big, pay(card, "5000", date(2026, 10, 25)))
+    link_payment(big, pay(card, "5000", date(2026, 10, 25)))
     second = pay(card, "5000", date(2026, 11, 3))
-    settle(big, second)
+    link_payment(big, second)
     next_one = november(card, groceries)
     third = pay(card, "100", date(2026, 10, 30))
 
@@ -156,11 +156,11 @@ def test_deleting_one_of_two_parts_makes_it_unpaid_and_counts_it_again(
 def test_unlinking_a_part_that_leaves_it_covered_keeps_it_paid(
     card: Account, big: Statement
 ) -> None:
-    settle(big, pay(card, "10000", date(2026, 10, 25)))
+    link_payment(big, pay(card, "10000", date(2026, 10, 25)))
     extra = pay(card, "500", date(2026, 10, 26))
-    settle(big, extra)
+    link_payment(big, extra)
 
-    unsettle(big, extra)
+    unlink_payment(big, extra)
 
     big.refresh_from_db()
     assert big.is_paid
@@ -170,7 +170,7 @@ def test_unlinking_a_part_that_leaves_it_covered_keeps_it_paid(
 def test_deleting_the_payment_its_draft_posted_proposes_what_is_still_owed(
     signed_in: Client, card: Account, big: Statement
 ) -> None:
-    settle(big, pay(card, "4000", date(2026, 10, 25)))
+    link_payment(big, pay(card, "4000", date(2026, 10, 25)))
     draft = Draft.objects.get()
     signed_in.post(reverse("draft_post", args=[draft.pk]))
     assert Statement.objects.get().is_paid
@@ -194,7 +194,7 @@ def test_unlinking_the_payment_its_draft_posted_proposes_what_is_still_owed(
     posted = Draft.objects.get().transaction
     assert posted
 
-    unsettle(big, posted)
+    unlink_payment(big, posted)
 
     assert not Draft.objects.filter(pk=draft.pk).exists()
     assert waiting_amount(big) == Decimal(10000)
@@ -236,8 +236,8 @@ def test_the_statement_page_lists_every_part_and_offers_more_while_unpaid(
 def test_the_card_page_shows_the_last_payment_date(
     signed_in: Client, card: Account, big: Statement
 ) -> None:
-    settle(big, pay(card, "6000", date(2026, 10, 25)))
-    settle(big, pay(card, "4000", date(2026, 11, 3)))
+    link_payment(big, pay(card, "6000", date(2026, 10, 25)))
+    link_payment(big, pay(card, "4000", date(2026, 11, 3)))
     url = reverse("account_transactions", kwargs={"kind": "liability", "pk": card.pk})
 
     text = page_text(signed_in.get(url).content.decode())

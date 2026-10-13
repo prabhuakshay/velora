@@ -251,8 +251,7 @@ class Draft(models.Model):
         if self.occurrence:
             self.occurrence.settle(transaction)
         if self.statement:
-            transaction.statement = self.statement
-            transaction.save_without_historical_record(update_fields=["statement"])
+            self.statement.add_payment(transaction)
 
     def reject(self) -> None:
         """Mark it rejected, and its Occurrence Skipped, never Missed."""

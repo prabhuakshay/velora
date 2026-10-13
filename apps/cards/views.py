@@ -18,10 +18,10 @@ from apps.cards.plans import Plan
 from apps.cards.statements import (
     enter_actual_amount,
     estimate,
+    link_payment,
     payment_candidates,
     refresh_estimates,
-    settle,
-    unsettle,
+    unlink_payment,
 )
 from apps.quick_add.models import Draft
 from apps.transactions.models import Transaction
@@ -45,7 +45,9 @@ def _bound_data(request: HttpRequest) -> QueryDict | None:
 @blocked_in_privacy_mode
 def statement_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Enter the actual Statement Amount, which then replaces the estimate."""
-    statement = get_object_or_404(Statement.objects.select_related("card"), pk=pk)
+    statement = get_object_or_404(
+        Statement.objects.with_paid().select_related("card"), pk=pk
+    )
     card = statement.card
     form = StatementForm(request.POST or None, instance=statement)
     if form.is_valid():
@@ -101,7 +103,7 @@ def statement_link_payment(request: HttpRequest, pk: int) -> HttpResponseBase:
             "not linked to anything else.",
         )
     else:
-        settle(statement, payment)
+        link_payment(statement, payment)
         messages.success(request, f"Linked the payment on {payment.date:%-d %b %Y}.")
     return redirect("statement_edit", pk=statement.pk)
 
@@ -115,7 +117,7 @@ def statement_unlink_payment(request: HttpRequest, pk: int) -> HttpResponseBase:
     chosen = request.POST.get("transaction", "")
     payment = statement.payments.filter(pk=chosen).first() if chosen.isdigit() else None
     if payment:
-        unsettle(statement, payment)
+        unlink_payment(statement, payment)
         messages.success(request, f"Unlinked the payment on {payment.date:%-d %b %Y}.")
     return redirect("statement_edit", pk=statement.pk)
 

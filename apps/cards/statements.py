@@ -144,7 +144,7 @@ def create_statement(card: Account, closing: date) -> None:
         estimated_amount=estimate_statement_amount(card, start, closing),
     )
     if payment := find_payment(statement):
-        settle(statement, payment)
+        link_payment(statement, payment)
     else:
         sync_payment_draft(statement)
 
@@ -189,13 +189,12 @@ def find_payment(statement: Statement) -> Transaction | None:
 
 
 @db_transaction.atomic
-def settle(statement: Statement, transaction: Transaction) -> None:
+def link_payment(statement: Statement, transaction: Transaction) -> None:
     """Link the payment to the Statement, which is paid once its payments cover it.
 
     Its waiting payment Draft takes what is still owed, or is withdrawn.
     """
-    transaction.statement = statement
-    transaction.save_without_historical_record(update_fields=["statement"])
+    statement.add_payment(transaction)
     # Linking re-estimated the card, this Statement included.
     statement.refresh_from_db()
     sync_payment_draft(statement)
@@ -232,25 +231,24 @@ def match_card_payments(today: date) -> None:
         .select_related("card")
     )
 
-    def settle_if_paid(statement: Statement) -> None:
+    def link_if_covered(statement: Statement) -> None:
         # Settling an earlier Statement re-estimates this one.
         statement.refresh_from_db()
         if payment := find_payment(statement):
-            settle(statement, payment)
+            link_payment(statement, payment)
 
-    run_each("match_card_payments", unpaid, settle_if_paid)
+    run_each("match_card_payments", unpaid, link_if_covered)
 
 
 @db_transaction.atomic
-def unsettle(statement: Statement, transaction: Transaction) -> None:
+def unlink_payment(statement: Statement, transaction: Transaction) -> None:
     """Unlink one payment from the Statement, leaving it as recorded.
 
     The Statement is unpaid again once the rest no longer cover it. If the
     payment is the one its own Draft posted, that Draft goes, so it can be
     proposed again for what is still owed.
     """
-    transaction.statement = None
-    transaction.save_without_historical_record(update_fields=["statement"])
+    statement.remove_payment(transaction)
     Draft.objects.filter(statement=statement, transaction=transaction).delete()
     # The payment counts in the period it is dated in again.
     refresh_estimates(statement.card)

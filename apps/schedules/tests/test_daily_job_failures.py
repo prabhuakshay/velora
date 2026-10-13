@@ -213,7 +213,7 @@ def test_one_failed_card_leaves_the_others_statements_created(
     assert_logged(caplog, "create_statements", f"Account {bad.pk}")
 
 
-def test_one_failed_statement_leaves_the_others_settled(
+def test_one_failed_statement_leaves_the_others_paid(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     groceries = make_account("Groceries", "expense")
@@ -226,7 +226,7 @@ def test_one_failed_statement_leaves_the_others_settled(
         record(card.pays_from, card, "1200", date(2026, 11, 3))
     fail_after(
         monkeypatch,
-        "apps.cards.statements.settle",
+        "apps.cards.statements.link_payment",
         lambda statement: statement.card == bad,
     )
 

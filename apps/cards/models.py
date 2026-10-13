@@ -8,7 +8,6 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import F, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce
-from django.utils.functional import cached_property
 
 from apps.accounts.models import Account, AccountKind
 from apps.core.dates import day_of
@@ -88,9 +87,9 @@ class Statement(models.Model):
             return self.actual_amount
         return self.estimated_amount
 
-    @cached_property
+    @property
     def paid(self) -> Decimal:
-        """What the linked payments paid into the card."""
+        """What the linked payments paid into the card, as `with_paid()` read it."""
         if (annotated := self.__dict__.get("paid_total")) is not None:
             return Decimal(annotated)
         total = _paid_into_card(Q(transaction__statement=self)).aggregate(
@@ -113,10 +112,18 @@ class Statement(models.Model):
         """Something is still owed on it."""
         return self.owed > 0
 
-    def refresh_from_db(self, *args: object, **kwargs: object) -> None:
-        """Reload it, and what its payments paid, which may have changed too."""
-        super().refresh_from_db(*args, **kwargs)  # type: ignore[arg-type]
-        self.__dict__.pop("paid", None)
+    def add_payment(self, transaction: Transaction) -> None:
+        """Link the payment to this Statement."""
+        self._link(transaction, self)
+
+    def remove_payment(self, transaction: Transaction) -> None:
+        """Unlink the payment, leaving it as recorded."""
+        self._link(transaction, None)
+
+    def _link(self, transaction: Transaction, statement: Statement | None) -> None:
+        transaction.statement = statement
+        # Linking is bookkeeping, not an edit, and saving it re-estimates the card.
+        transaction.save_without_historical_record(update_fields=["statement"])
         self.__dict__.pop("paid_total", None)
 
 

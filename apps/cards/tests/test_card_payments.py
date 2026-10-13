@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from apps.accounts.tests.conftest import make_account
 from apps.cards.models import Statement
-from apps.cards.statements import enter_actual_amount, settle
+from apps.cards.statements import enter_actual_amount, link_payment
 from apps.cards.tests.conftest import make_card, record
 from apps.quick_add.models import Draft
 from apps.schedules.daily_job import run_daily_job
@@ -58,7 +58,7 @@ def test_a_payment_far_off_the_statement_amount_does_not_cover_it(
     assert Draft.objects.waiting().count() == 1
 
 
-def test_a_payment_that_settled_a_statement_is_not_counted_in_the_next(
+def test_a_payment_that_paid_a_statement_is_not_counted_in_the_next(
     card: Account, groceries: Account, billed: Statement
 ) -> None:
     assert card.pays_from
@@ -70,7 +70,7 @@ def test_a_payment_that_settled_a_statement_is_not_counted_in_the_next(
     assert Statement.objects.last().amount == Decimal(400)  # type: ignore[union-attr]
 
 
-def test_posting_the_payment_draft_settles_the_statement(
+def test_posting_the_payment_draft_pays_the_statement(
     signed_in: Client, card: Account, groceries: Account
 ) -> None:
     # Due well after today, so posting it is posting early.
@@ -379,7 +379,7 @@ def test_a_payment_linked_elsewhere_is_refused(
     run_daily_job(date(2026, 11, 16))
     november = Statement.objects.get(period_end=date(2026, 11, 15))
     payment = record(card.pays_from, card, "500", date(2026, 11, 20))
-    settle(november, payment)
+    link_payment(november, payment)
 
     response = signed_in.post(link_url(billed), {"transaction": payment.pk})
 
@@ -418,7 +418,7 @@ def test_a_paid_statement_refuses_another_payment(
 ) -> None:
     assert card.pays_from
     first = record(card.pays_from, card, "1200", date(2026, 11, 3))
-    settle(billed, first)
+    link_payment(billed, first)
     second = record(card.pays_from, card, "1200", date(2026, 11, 4))
 
     signed_in.post(link_url(billed), {"transaction": second.pk})
@@ -485,7 +485,7 @@ def test_unlinking_leaves_a_rejected_draft_rejected(
     draft.status = Draft.Status.REJECTED
     draft.save()
     payment = record(card.pays_from, card, "1200", date(2026, 11, 3))
-    settle(billed, payment)
+    link_payment(billed, payment)
 
     signed_in.post(unlink_url(billed), {"transaction": payment.pk})
 

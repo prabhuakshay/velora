@@ -38,7 +38,6 @@ class Transaction(models.Model):
         related_name="payments",
     )
 
-    # Linking a payment is bookkeeping, not an edit to the Transaction.
     history = HistoricalRecords(excluded_fields=["statement"])
     save_without_historical_record: Callable[..., None]
 
