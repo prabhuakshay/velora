@@ -97,6 +97,21 @@ html:has(#main) {
   }
 }
 
+/* "Quick Add sent" shows briefly, then fades so it doesn't sit over the page. */
+@keyframes quick-add-sent {
+  80% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.quick-add-sent {
+  animation: quick-add-sent 4s ease-in forwards;
+}
+
 /* A Draft's Split amount still to fill in before it can be posted. */
 .field-control input.draft-gap {
   @apply border-amber-400 bg-amber-50 ring-1 ring-amber-400;

@@ -1,0 +1,19 @@
+{% comment %}
+  The floating button's Quick Add form. It posts with htmx so the user stays on
+  their page; the response swaps in a fresh form, or this one with its error.
+{% endcomment %}
+<form data-quick-add method="post" action="{% url 'quick_add_create' %}" hx-post="{% url 'quick_add_create' %}" hx-swap="outerHTML" class="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+  {% csrf_token %}
+  <label for="fab-quick-add-text" class="sr-only">Quick Add</label>
+  <div class="flex items-center gap-2">
+    {% include "quick_add/_text_input.html" with id="fab-quick-add-text" value=text autofocus=True describedby="fab-quick-add-error" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" %}
+    <button type="submit" class="flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 active:scale-95 motion-reduce:active:scale-100">
+      {% include "shell/icon.html" with name="plus" class="size-4" stroke="stroke-[2.5]" %}Add
+    </button>
+  </div>
+  <div id="fab-quick-add-error" role="alert" class="text-sm text-red-700">
+    {% for error in errors %}<p class="mt-2">{{ error }}</p>{% endfor %}
+    <p data-send-error hidden class="mt-2">Couldn’t send. Check your connection and try again.</p>
+  </div>
+  <p class="mt-2 text-xs text-slate-500">The AI turns it into a Draft for you to approve.</p>
+</form>

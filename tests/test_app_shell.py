@@ -11,8 +11,13 @@ from django.template.loader import render_to_string
 from django.test import RequestFactory
 from django.urls import reverse
 
+from apps.accounts.models import AccountKind
+from apps.accounts.tests.conftest import make_account
+from apps.classification.models import Party, Tag
+
 if TYPE_CHECKING:
     from django.test import Client
+    from pytest_django import Settings
 
     from apps.users.models import User
 
@@ -120,3 +125,76 @@ def test_budgets_page_loads_budget_sheet(signed_in: Client) -> None:
 
     tag = next(line for line in body.splitlines() if "js/budget_sheet.js" in line)
     assert 'hx-preserve="true"' in tag
+
+
+QUICK_ADD_BUTTON = 'aria-label="Quick Add" data-dialog-open="quick-add"'
+
+
+@pytest.fixture
+def ai_on(settings: Settings) -> None:
+    settings.OPENROUTER_API_KEY = "test-key"
+
+
+def _shell_has_quick_add_button(client: Client, url: str) -> bool:
+    body = client.get(url).content.decode()
+    return QUICK_ADD_BUTTON in body and '<dialog id="quick-add"' in body
+
+
+@pytest.mark.usefixtures("ai_on")
+def test_ordinary_pages_offer_the_quick_add_button(signed_in: Client) -> None:
+    account = make_account("HDFC", AccountKind.ASSET)
+
+    for url in [
+        reverse("index"),
+        reverse("transaction_list"),
+        reverse("account_transactions", args=[account.kind, account.pk]),
+    ]:
+        assert _shell_has_quick_add_button(signed_in, url), url
+
+
+def test_no_page_offers_the_quick_add_button_without_the_ai(
+    signed_in: Client, settings: Settings
+) -> None:
+    settings.OPENROUTER_API_KEY = ""
+
+    for name in ["index", "transaction_list", "draft_list"]:
+        assert not _shell_has_quick_add_button(signed_in, reverse(name)), name
+
+
+@pytest.mark.usefixtures("ai_on")
+def test_drafts_and_form_pages_leave_out_the_quick_add_button(
+    signed_in: Client,
+) -> None:
+    account = make_account("HDFC", AccountKind.ASSET)
+    party = Party.objects.create(name="Toit")
+    tag = Tag.objects.create(name="Food")
+    at_account = [account.kind, account.pk]
+
+    for url in [
+        reverse("draft_list"),
+        reverse("draft_create"),
+        reverse("transaction_create"),
+        reverse("schedule_create"),
+        reverse("party_create"),
+        reverse("party_edit", args=[party.pk]),
+        reverse("party_merge", args=[party.pk]),
+        reverse("party_delete", args=[party.pk]),
+        reverse("tag_create"),
+        reverse("tag_edit", args=[tag.pk]),
+        reverse("account_create", args=[account.kind]),
+        reverse("account_edit", args=at_account),
+        reverse("account_reconcile", args=at_account),
+        reverse("account_merge", args=at_account),
+        reverse("account_delete", args=at_account),
+        reverse("preferences"),
+        reverse("password_change"),
+    ]:
+        response = signed_in.get(url)
+        assert response.status_code == 200, url
+        assert not _shell_has_quick_add_button(signed_in, url), url
+
+
+@pytest.mark.usefixtures("ai_on")
+def test_auth_pages_leave_out_the_quick_add_button(client: Client) -> None:
+    for name in ["login", "password_reset"]:
+        assert not _shell_has_quick_add_button(client, reverse(name)), name

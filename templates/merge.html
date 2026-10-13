@@ -2,6 +2,8 @@
 
 {% block title %}Merge {{ noun }} · Velora{% endblock %}
 
+{% block quick_add_button %}{% endblock %}
+
 {% block card %}
   <h1 class="text-xl font-semibold">Merge {{ noun }}</h1>
   <p class="mt-4 text-slate-700">Merge <strong>{{ object }}</strong> into another {{ noun }}. <strong>{{ object }}</strong> will be removed, and everything that used it will use the target instead.</p>

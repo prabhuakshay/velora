@@ -2,6 +2,8 @@
 
 {% block title %}Delete Transaction · Velora{% endblock %}
 
+{% block quick_add_button %}{% endblock %}
+
 {% block main %}
   <div class="mx-auto max-w-sm rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
     {% include "transactions/_delete_confirm.html" with next=return_url %}

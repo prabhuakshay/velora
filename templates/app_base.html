@@ -101,5 +101,7 @@
     </nav>
   </div>
   {% include "shell/more_sheet.html" %}
+  {% comment %}Pages with their own Quick Add box, or a form to finish, empty this block.{% endcomment %}
+  {% block quick_add_button %}{% if quick_add_enabled %}{% include "shell/quick_add.html" %}{% endif %}{% endblock %}
   {% endwith %}
 {% endblock %}
