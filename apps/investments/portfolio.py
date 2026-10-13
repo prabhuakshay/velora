@@ -131,7 +131,7 @@ class Portfolio:
 
 def portfolio() -> Portfolio:
     """Value every Investment Account at its latest Prices."""
-    accounts = Account.objects.exclude(investment_mode="").with_balance()
+    accounts = Account.objects.investment().with_balance()
     return Portfolio(
         accounts=[
             (account, account_value(account, account.balance))

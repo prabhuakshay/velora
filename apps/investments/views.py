@@ -74,9 +74,7 @@ def instrument_add_price(request: HttpRequest, pk: int) -> HttpResponseBase:
 
 def investment_account(pk: int) -> Account:
     """The Investment Account with its Balance, or 404."""
-    return get_object_or_404(
-        Account.objects.exclude(investment_mode="").with_balance(), pk=pk
-    )
+    return get_object_or_404(Account.objects.investment().with_balance(), pk=pk)
 
 
 def investment_tabs(account: Account, current: str) -> list[dict[str, object]]:

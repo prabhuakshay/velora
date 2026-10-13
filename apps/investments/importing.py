@@ -176,9 +176,7 @@ def _parts(row: ImportRow) -> tuple[Account, str, datetime.date] | None:
     when = _date(values["date"])
     kind = TYPES.get(values["type"].upper())
     account = (
-        Account.objects.exclude(investment_mode="")
-        .filter(name__iexact=values["account"])
-        .first()
+        Account.objects.investment().filter(name__iexact=values["account"]).first()
     )
     if when is None:
         row.errors.append("date: Use a date like 2026-03-31.")

@@ -40,7 +40,7 @@ def value_history(today: date) -> list[ValuePoint]:
     accounts = cast(
         "list[AccountRow]",
         list(
-            Account.objects.exclude(investment_mode="").values_list(
+            Account.objects.investment().values_list(
                 "pk", "kind", "opening_balance", "opening_balance_date"
             )
         ),

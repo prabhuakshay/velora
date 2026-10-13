@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models.functions import Lower
 
-from apps.accounts.models import Account
+from apps.accounts.models import Account, AccountKind
 from apps.investments.models import InvestmentEvent
 from apps.investments.valuation import account_value
 
@@ -40,7 +40,7 @@ def source_choices() -> list[tuple[str, list[tuple[str, str]]]]:
     """Visible Asset Accounts, and every Instrument held in an Investment Account."""
     accounts = [
         (source_key(pk), name)
-        for pk, name in Account.objects.filter(kind="asset", hidden=False)
+        for pk, name in Account.objects.filter(kind=AccountKind.ASSET, hidden=False)
         .order_by(Lower("name"))
         .values_list("pk", "name")
     ]

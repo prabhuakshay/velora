@@ -97,6 +97,10 @@ def reconciliation_difference() -> models.Expression:
 class AccountQuerySet(models.QuerySet["Account"]):
     """Queries over Accounts."""
 
+    def investment(self) -> Self:
+        """Only the Investment Accounts."""
+        return self.exclude(investment_mode="")
+
     def with_balance(self, as_of: date | None = None) -> Self:
         """Annotate each Account's Balance; a Liability's reads as what is owed.
 
