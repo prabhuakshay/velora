@@ -33,7 +33,7 @@
           <p class="text-sm text-slate-500">Balance{% if account.owes %} <span class="text-slate-400">· what you owe</span>{% endif %}</p>
           <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color account.balance owes=account.owes %}">{% balance account.balance owes=account.owes %}</p>
           <p class="mt-2 text-sm text-slate-500">Opening Balance {% amount account.opening_balance %} on {{ account.opening_balance_date|date:"j M Y" }}</p>
-          {% if investment %}<p class="mt-1 text-sm text-slate-500">Cash <span class="font-medium text-slate-900 tabular-nums {% amount_color investment.cash %}">{% amount investment.cash %}</span> · Market Value <span class="font-medium text-slate-900 tabular-nums">{% amount investment.market_value %}</span></p>{% endif %}
+          {% if investment %}<p class="mt-1 text-sm text-slate-500">Cash <span class="font-medium text-slate-900 tabular-nums {% amount_color investment.cash %}">{% amount investment.cash %}</span> · Market Value <span class="font-medium text-slate-900 tabular-nums">{% amount investment.market_value %}</span> · XIRR <span class="font-medium tabular-nums">{% signed_percent investment.xirr %}</span></p>{% endif %}
           {% if latest_off %}<p class="mt-1 flex items-center gap-1 text-sm text-amber-700">{% include "shell/icon.html" with name="alert-triangle" class="size-4" %}Reconciliation on {{ latest_off.date|date:"j M Y" }} is off by {% amount latest_off.difference %}</p>{% endif %}
           {% if reconciled_through %}<p class="mt-1 flex items-center gap-1 text-sm text-emerald-700">{% include "shell/icon.html" with name="check" class="size-4" %}Reconciled through {{ reconciled_through.date|date:"j M Y" }}</p>{% endif %}
         {% else %}
