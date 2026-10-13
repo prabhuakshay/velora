@@ -262,13 +262,18 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
     )
 
 
-def _reconciliation_status(account: Account) -> dict[str, Reconciliation | None]:
-    """The latest Reconciliation if it's off, and the latest that still matches."""
-    newest_first = account.reconciliations.order_by("-date")
-    latest = newest_first.with_difference().first()
+def _reconciliation_status(
+    account: Account,
+) -> dict[str, Reconciliation | list[Reconciliation] | None]:
+    """Its Reconciliations newest first, the latest if off, the latest matching."""
+    reconciliations = list(account.reconciliations.with_difference().order_by("-date"))
+    latest = reconciliations[0] if reconciliations else None
     return {
+        "reconciliations": reconciliations,
         "off": latest if latest and latest.difference else None,
-        "reconciled_through": newest_first.matching().first(),
+        "reconciled_through": next(
+            (r for r in reconciliations if not r.difference), None
+        ),
     }
 
 
@@ -325,6 +330,22 @@ def account_reconcile(request: HttpRequest, kind: str, pk: int) -> HttpResponseB
             "rows": rows(account, list(transactions)),
         }
     return render(request, "accounts/reconcile.html", context)
+
+
+@login_required
+@require_POST
+def reconciliation_delete(
+    request: HttpRequest, kind: str, pk: int, reconciliation_pk: int
+) -> HttpResponseBase:
+    """Delete one of the Account's Reconciliations."""
+    reconciliation = get_object_or_404(
+        Reconciliation, pk=reconciliation_pk, account__pk=pk, account__kind=kind
+    )
+    reconciliation.delete()
+    messages.success(
+        request, f"Deleted the Reconciliation on {reconciliation.date:%-d %b %Y}."
+    )
+    return redirect("account_transactions", kind=kind, pk=pk)
 
 
 def _form_page(request: HttpRequest, kind: str, account: Account) -> HttpResponseBase:
