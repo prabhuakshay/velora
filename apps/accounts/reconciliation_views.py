@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.urls import reverse
 
 from apps.accounts.activity import rows, touching_transactions
 from apps.accounts.forms import ReconcileForm
@@ -87,20 +87,32 @@ def reconciliation_history(request: HttpRequest, kind: str, pk: int) -> HttpResp
 
 
 @login_required
-@require_POST
 def reconciliation_delete(
     request: HttpRequest, kind: str, pk: int, reconciliation_pk: int
 ) -> HttpResponseBase:
-    """Delete one of the Account's Reconciliations.
+    """Confirm, then delete one of the Account's Reconciliations.
 
     Returns to the full history when deleted from there, else to the Account.
     """
     reconciliation = get_object_or_404(
         Reconciliation, pk=reconciliation_pk, account__pk=pk, account__kind=kind
     )
-    reconciliation.delete()
-    messages.success(
-        request, f"Deleted the Reconciliation on {reconciliation.date:%-d %b %Y}."
+    back = (
+        "reconciliation_history"
+        if request.GET.get("from") == "history"
+        else "account_transactions"
     )
-    back = "reconciliation_history" if request.POST.get("from") == "history" else None
-    return redirect(back or "account_transactions", kind=kind, pk=pk)
+    label = f"Reconciliation on {reconciliation.date:%-d %b %Y}"
+    if request.method == "POST":
+        reconciliation.delete()
+        messages.success(request, f"Deleted the {label}.")
+        return redirect(back, kind=kind, pk=pk)
+    return render(
+        request,
+        "confirm_delete.html",
+        {
+            "object": label,
+            "noun": "Reconciliation",
+            "list_url": reverse(back, kwargs={"kind": kind, "pk": pk}),
+        },
+    )

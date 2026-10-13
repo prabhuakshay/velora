@@ -52,7 +52,19 @@ def test_page_offers_to_delete_each_reconciliation(signed_in: Client) -> None:
 
     page = view_page(signed_in, bank)
 
-    assert f'action="{delete_url(bank, date(2026, 3, 3))}"' in page
+    assert f'href="{delete_url(bank, date(2026, 3, 3))}"' in page
+
+
+def test_deleting_asks_to_confirm_first(signed_in: Client) -> None:
+    bank = bank_with_spending()
+    reconcile(signed_in, bank, date(2026, 3, 3), "8500")
+
+    response = signed_in.get(delete_url(bank, date(2026, 3, 3)))
+
+    page = page_text(response.content.decode())
+    assert "Delete Reconciliation on 3 Mar 2026? This cannot be undone." in page
+    assert account_url("account_transactions", bank) in response.content.decode()
+    assert "Reconciled through 3 Mar 2026" in page_text(view_page(signed_in, bank))
 
 
 def test_deleting_removes_it_and_returns_to_the_page(signed_in: Client) -> None:
@@ -66,16 +78,6 @@ def test_deleting_removes_it_and_returns_to_the_page(signed_in: Client) -> None:
     page = page_text(view_page(signed_in, bank))
     assert "Reconciliations" not in page
     assert "Reconciled through" not in page
-
-
-def test_delete_needs_a_post(signed_in: Client) -> None:
-    bank = bank_with_spending()
-    reconcile(signed_in, bank, date(2026, 3, 3), "8500")
-
-    response = signed_in.get(delete_url(bank, date(2026, 3, 3)))
-
-    assert response.status_code == 405
-    assert "Reconciled through 3 Mar 2026" in page_text(view_page(signed_in, bank))
 
 
 def test_delete_only_reaches_the_account_in_the_url(signed_in: Client) -> None:
@@ -205,14 +207,23 @@ def test_history_page_deletes_back_to_itself(signed_in: Client) -> None:
 
     page = history_page(signed_in, bank)
 
-    assert f'action="{delete_url(bank, date(2026, 3, 7))}"' in page
-    assert 'name="from" value="history"' in page
+    assert f'href="{delete_url(bank, date(2026, 3, 7))}?from=history"' in page
+
+
+def test_confirming_from_the_history_page_cancels_back_to_it(
+    signed_in: Client,
+) -> None:
+    bank = bank_reconciled_daily(signed_in, range(6, 8))
+
+    response = signed_in.get(f"{delete_url(bank, date(2026, 3, 7))}?from=history")
+
+    assert account_url("reconciliation_history", bank) in response.content.decode()
 
 
 def test_deleting_from_the_history_page_returns_to_it(signed_in: Client) -> None:
     bank = bank_reconciled_daily(signed_in, range(6, 13))
 
-    response = signed_in.post(delete_url(bank, date(2026, 3, 7)), {"from": "history"})
+    response = signed_in.post(f"{delete_url(bank, date(2026, 3, 7))}?from=history")
 
     assert response["Location"] == account_url("reconciliation_history", bank)
     page = page_text(history_page(signed_in, bank))

@@ -4,9 +4,5 @@
     <span class="block font-semibold tabular-nums">{% balance reconciliation.balance owes=account.owes %}</span>
   </span>
   <span class="shrink-0 text-right text-xs">{% if reconciliation.difference %}<span class="text-amber-700">Off by {% amount reconciliation.difference %}</span>{% else %}<span class="text-emerald-700">Matches</span>{% endif %}</span>
-  <form method="post" action="{% url 'reconciliation_delete' kind account.pk reconciliation.pk %}">
-    {% csrf_token %}
-    {% if from_history %}<input type="hidden" name="from" value="history">{% endif %}
-    <button type="submit" class="-mr-2 flex size-9 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-700" aria-label="Delete Reconciliation on {{ reconciliation.date|date:'j M Y' }}" title="Delete">{% include "shell/icon.html" with name="trash" class="size-4" %}</button>
-  </form>
+  <a href="{% url 'reconciliation_delete' kind account.pk reconciliation.pk %}{% if from_history %}?from=history{% endif %}" class="-mr-2 flex size-9 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-700" aria-label="Delete Reconciliation on {{ reconciliation.date|date:'j M Y' }}" title="Delete">{% include "shell/icon.html" with name="trash" class="size-4" %}</a>
 </li>
