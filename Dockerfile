@@ -9,10 +9,10 @@
 
 # Pinned by digest so a rebuild gets the same bases; Dependabot bumps them.
 
-FROM ghcr.io/astral-sh/uv:0.12@sha256:3af4716e991d6956a41e573eab705d0ee08500cd829ed30293eb8472f372c65a AS uv
+FROM ghcr.io/astral-sh/uv:0.13@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 AS uv
 
 
-FROM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS tailwind
+FROM node:26-slim@sha256:193fe51b64e77981119c98c2002c9e32a70e2f006fb4d25068ce0558998917f0 AS tailwind
 
 ARG DOCKER_UID=1000
 ARG DOCKER_GID=1000
@@ -30,7 +30,7 @@ RUN mkdir -p /app/node_modules /cache/npm \
 CMD ["sh", "-c", "npm ci --no-audit --no-fund && npm run watch"]
 
 
-FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2 AS dev
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS dev
 
 COPY --from=uv /uv /usr/local/bin/
 
@@ -59,7 +59,7 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
 
 # The output is plain CSS, so npm runs natively even when cross-building.
-FROM --platform=$BUILDPLATFORM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS assets
+FROM --platform=$BUILDPLATFORM node:26-slim@sha256:193fe51b64e77981119c98c2002c9e32a70e2f006fb4d25068ce0558998917f0 AS assets
 
 WORKDIR /app
 
@@ -74,7 +74,7 @@ COPY apps/ apps/
 RUN npm run build
 
 
-FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2 AS builder
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS builder
 
 COPY --from=uv /uv /usr/local/bin/
 
@@ -91,7 +91,7 @@ RUN --mount=type=cache,target=/cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
 
-FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2 AS prod
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS prod
 
 # Bytecode is precompiled below and the root filesystem is read-only, so
 # workers must not retry writing .pyc files on every import.
