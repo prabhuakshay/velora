@@ -25,26 +25,33 @@ KIND_TITLES = {
 
 @dataclass(frozen=True)
 class Totals:
-    """Cost Basis, Market Value and gains of some Holdings added up."""
+    """Cost Basis, Market Value and gains of some Holdings, plus any Cash."""
 
     cost_basis: Decimal
-    market_value: Decimal
+    holdings_value: Decimal
     realized: Decimal
+    cash: Decimal = Decimal(0)
 
     @classmethod
-    def of(cls, rows: Iterable[HoldingRow]) -> Totals:
-        """The rows' figures added up."""
+    def of(cls, rows: Iterable[HoldingRow], cash: Decimal = Decimal(0)) -> Totals:
+        """The rows' figures added up, with the Cash beside them."""
         listed = list(rows)
         return cls(
             cost_basis=sum((row.cost_basis for row in listed), Decimal(0)),
-            market_value=sum((row.market_value for row in listed), Decimal(0)),
+            holdings_value=sum((row.market_value for row in listed), Decimal(0)),
             realized=sum((row.realized for row in listed), Decimal(0)),
+            cash=cash,
         )
 
     @property
+    def market_value(self) -> Decimal:
+        """The Holdings' Market Value plus Cash."""
+        return self.holdings_value + self.cash
+
+    @property
     def unrealized(self) -> Decimal:
-        """Market Value less Cost Basis."""
-        return self.market_value - self.cost_basis
+        """The Holdings' Market Value less their Cost Basis; Cash has no gain."""
+        return self.holdings_value - self.cost_basis
 
     @property
     def unrealized_percent(self) -> Decimal | None:
@@ -128,8 +135,12 @@ class Portfolio:
 
     @property
     def totals(self) -> Totals:
-        """Every Holding added up, including the Realized Gain of ones sold off."""
-        return Totals.of(self.rows)
+        """Every Holding added up, including the Realized Gain of ones sold off.
+
+        Its Market Value includes every account's Cash, as Net Worth counts it.
+        """
+        cash = sum((value.cash for _, value in self.accounts), Decimal(0))
+        return Totals.of(self.rows, cash)
 
     def holdings(self, column: Column, *, descending: bool) -> list[Held]:
         """The Holdings still held, by the column; ties by Instrument A to Z."""
