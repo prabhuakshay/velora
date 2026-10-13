@@ -57,26 +57,17 @@ def _month_end(when: date) -> date:
     return next_month - timedelta(days=1)
 
 
-def net_worth_on(dates: list[date]) -> dict[date, NetWorth]:
-    """Net Worth as of each date, in two queries whatever the number of dates.
+type AccountRow = tuple[int, str, Decimal, date]
 
-    Splits are summed by month, so every date but the latest must be a month-end.
+
+def balances_on(
+    accounts: list[AccountRow], dates: list[date]
+) -> dict[date, dict[int, Decimal]]:
+    """Each account's Balance as of each date it is open on, in one query.
+
+    Accounts are (pk, kind, opening balance, opening date). Splits are summed
+    by month, so every date but the latest must be a month-end.
     """
-    # Asset and Liability Accounts always have both, by their check constraint.
-    accounts = cast(
-        "list[tuple[int, str, Decimal, date, str]]",
-        list(
-            _included().values_list(
-                "pk",
-                "kind",
-                "opening_balance",
-                "opening_balance_date",
-                "investment_mode",
-            )
-        ),
-    )
-    investments = [pk for pk, *_, mode in accounts if mode]
-    valuer = Valuer(investments, max(dates, default=date.min))
     moved_in: dict[int, dict[date, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
     if accounts and dates:
         pks = [pk for pk, *_ in accounts]
@@ -93,10 +84,10 @@ def net_worth_on(dates: list[date]) -> dict[date, NetWorth]:
         ):
             moved_in[source][month] -= total
             moved_in[destination][month] += total
-    result = {}
+    result: dict[date, dict[int, Decimal]] = {}
     for when in dates:
-        totals: dict[str, Decimal] = dict.fromkeys(BALANCE_KINDS, Decimal("0.00"))
-        for pk, kind, opening, opened, mode in accounts:
+        result[when] = {}
+        for pk, kind, opening, opened in accounts:
             if opened > when:
                 continue
             moved = sum(
@@ -107,17 +98,58 @@ def net_worth_on(dates: list[date]) -> dict[date, NetWorth]:
                 ),
                 Decimal(0),
             )
-            balance = (
+            result[when][pk] = (
                 opening - moved if kind == AccountKind.LIABILITY else (opening + moved)
             )
-            if mode:
-                balance = valuer.market_value(pk, opened, balance, when)
-            totals[kind] += balance
+    return result
+
+
+def net_worth_on(dates: list[date]) -> dict[date, NetWorth]:
+    """Net Worth as of each date, in two queries whatever the number of dates.
+
+    Every date but the latest must be a month-end.
+    """
+    # Asset and Liability Accounts always have both, by their check constraint.
+    accounts = cast(
+        "list[tuple[int, str, Decimal, date, str]]",
+        list(
+            _included().values_list(
+                "pk",
+                "kind",
+                "opening_balance",
+                "opening_balance_date",
+                "investment_mode",
+            )
+        ),
+    )
+    investments = {pk: opened for pk, _, _, opened, mode in accounts if mode}
+    kinds = {pk: kind for pk, kind, *_ in accounts}
+    valuer = Valuer(list(investments), max(dates, default=date.min))
+    balances = balances_on([row[:4] for row in accounts], dates)
+    result = {}
+    for when in dates:
+        totals: dict[str, Decimal] = dict.fromkeys(BALANCE_KINDS, Decimal("0.00"))
+        for pk, balance in balances[when].items():
+            value = balance
+            if pk in investments:
+                value = valuer.market_value(pk, investments[pk], balance, when)
+            totals[kinds[pk]] += value
         result[when] = NetWorth(
             assets=totals[AccountKind.ASSET],
             liabilities=totals[AccountKind.LIABILITY],
         )
     return result
+
+
+def month_ends(start: date, today: date) -> list[date]:
+    """Each month-end from start's month until before today, then today."""
+    points = []
+    when = _month_end(start)
+    while when < today:
+        points.append(when)
+        when = _month_end(when + timedelta(days=1))
+    points.append(today)
+    return points
 
 
 def history_dates(today: date, since: date | None = None) -> list[date]:
@@ -131,13 +163,7 @@ def history_dates(today: date, since: date | None = None) -> list[date]:
         return []
     if since is not None:
         start = max(start, since)
-    points = []
-    when = _month_end(start)
-    while when < today:
-        points.append(when)
-        when = _month_end(when + timedelta(days=1))
-    points.append(today)
-    return points
+    return month_ends(start, today)
 
 
 def net_worth_history(

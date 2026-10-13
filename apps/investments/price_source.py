@@ -7,15 +7,21 @@ formats, only this module should need to change.
 
 import csv
 import io
+import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from http import HTTPStatus
 
 from apps.investments.models import Instrument
 
 AMFI_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
+AMFI_HISTORY_URL = (
+    "https://portal.amfiindia.com/DownloadNAVHistoryReport_Po.aspx"
+    "?frmdt={start:%d-%b-%Y}&todt={end:%d-%b-%Y}"
+)
 NSE_BHAVCOPY_URL = (
     "https://nsearchives.nseindia.com/content/cm/"
     "BhavCopy_NSE_CM_0_0_0_{day:%Y%m%d}_F_0000.csv.zip"
@@ -64,6 +70,21 @@ def _isin(text: str) -> str | None:
     return text if len(text) == 12 and text.isalnum() else None  # noqa: PLR2004
 
 
+def _amfi_rows(isins: list[str], name: str, nav: str, when: str) -> list[PriceRow]:
+    """One row per valid ISIN of an AMFI line; none if its NAV or date is bad."""
+    price = _price(nav)
+    try:
+        day = datetime.strptime(when.strip(), "%d-%b-%Y").date()  # noqa: DTZ007
+    except ValueError:
+        return []
+    if price is None:
+        return []
+    return [
+        PriceRow(isin, name.strip(), Instrument.Kind.MUTUAL_FUND, price, day)
+        for isin in filter(None, map(_isin, isins))
+    ]
+
+
 def parse_amfi(text: str) -> list[PriceRow]:
     """Rows from AMFI's NAVAll.txt; one per ISIN, skipping headings and gaps.
 
@@ -72,20 +93,24 @@ def parse_amfi(text: str) -> list[PriceRow]:
     rows: list[PriceRow] = []
     for line in text.splitlines():
         fields = line.split(";")
-        if len(fields) != 6:  # noqa: PLR2004
-            continue
-        _, *isins, name, nav, when = fields
-        price = _price(nav)
-        try:
-            day = datetime.strptime(when.strip(), "%d-%b-%Y").date()  # noqa: DTZ007
-        except ValueError:
-            continue
-        if price is None:
-            continue
-        rows.extend(
-            PriceRow(isin, name.strip(), Instrument.Kind.MUTUAL_FUND, price, day)
-            for isin in filter(None, map(_isin, isins))
-        )
+        if len(fields) == 6:  # noqa: PLR2004
+            _, *isins, name, nav, when = fields
+            rows.extend(_amfi_rows(isins, name, nav, when))
+    return rows
+
+
+def parse_amfi_history(text: str) -> list[PriceRow]:
+    """Rows from AMFI's NAV history report; one per ISIN and day.
+
+    A data line is `code;name;ISIN growth/payout;ISIN reinvestment;NAV;
+    repurchase price;sale price;date`.
+    """
+    rows: list[PriceRow] = []
+    for line in text.splitlines():
+        fields = line.split(";")
+        if len(fields) == 8:  # noqa: PLR2004
+            _, name, *isins, nav, _, _, when = fields
+            rows.extend(_amfi_rows(isins, name, nav, when))
     return rows
 
 
@@ -127,13 +152,44 @@ def amfi_rows() -> list[PriceRow]:
     return parse_amfi(_get(AMFI_URL).decode("utf-8", errors="replace"))
 
 
+def amfi_history_rows(start: date, end: date) -> list[PriceRow]:
+    """Every mutual fund scheme's NAV on each day from start to end."""
+    url = AMFI_HISTORY_URL.format(start=start, end=end)
+    return parse_amfi_history(_get(url).decode("utf-8", errors="replace"))
+
+
+def _bhavcopy(day: date) -> str:
+    archive = zipfile.ZipFile(io.BytesIO(_get(NSE_BHAVCOPY_URL.format(day=day))))
+    return archive.read(archive.namelist()[0]).decode("utf-8", errors="replace")
+
+
+def _etf_list() -> str:
+    return _get(NSE_ETF_URL).decode("utf-8", errors="replace")
+
+
 def nse_rows(day: date) -> list[PriceRow]:
     """Every NSE stock's and ETF's closing price on the day.
 
     Raises urllib.error.HTTPError when NSE has no bhavcopy for the day, such
     as on a holiday.
     """
-    archive = zipfile.ZipFile(io.BytesIO(_get(NSE_BHAVCOPY_URL.format(day=day))))
-    bhavcopy = archive.read(archive.namelist()[0]).decode("utf-8", errors="replace")
-    etf_list = _get(NSE_ETF_URL).decode("utf-8", errors="replace")
-    return parse_nse(bhavcopy, etf_list)
+    return parse_nse(_bhavcopy(day), _etf_list())
+
+
+def nse_history_rows(start: date, end: date) -> list[PriceRow]:
+    """Every NSE stock's and ETF's closing price on each weekday, start to end.
+
+    Days with no bhavcopy in NSE's archive, such as holidays, are skipped.
+    """
+    etf_list = _etf_list()
+    rows: list[PriceRow] = []
+    day = start
+    while day <= end:
+        if day.weekday() < 5:  # noqa: PLR2004
+            try:
+                rows.extend(parse_nse(_bhavcopy(day), etf_list))
+            except urllib.error.HTTPError as error:
+                if error.code != HTTPStatus.NOT_FOUND:
+                    raise
+        day += timedelta(days=1)
+    return rows

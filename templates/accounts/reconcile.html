@@ -20,7 +20,7 @@
     <section class="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-labelledby="difference-title">
       <h2 id="difference-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Not reconciled</h2>
       <dl class="mt-3 space-y-2.5 text-sm">
-        <div class="flex justify-between gap-3"><dt class="text-slate-500">Velora's Balance</dt> <dd class="text-right font-medium tabular-nums">{% balance velora_balance owes=account.owes %}</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-slate-500">Velora's {% if account.reconciles_cash %}Cash{% else %}Balance{% endif %}</dt> <dd class="text-right font-medium tabular-nums">{% balance velora_balance owes=account.owes %}</dd></div>
         <div class="flex justify-between gap-3"><dt class="text-slate-500">Off by</dt> <dd class="text-right font-semibold tabular-nums">{% amount difference %}</dd></div>
       </dl>
     </section>

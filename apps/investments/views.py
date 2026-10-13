@@ -1,6 +1,6 @@
 """Instrument pages, Investment Account Holdings and their Investment Events."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -10,22 +10,33 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
+from apps.home.charts import line
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
+from apps.investments.history import last_each_month, value_chart, value_history
 from apps.investments.models import Instrument, InvestmentEvent
 from apps.investments.portfolio import COLUMNS, Column, portfolio, sorting
 from apps.investments.replay import OversoldError, replay
+from apps.investments.tasks import queue_backfill
 from apps.investments.valuation import account_value
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
+    from datetime import date
+    from decimal import Decimal
+
     from django.http import HttpRequest
     from django.http.response import HttpResponseBase
+
+    from apps.users.models import User
 
 
 def _page(
     request: HttpRequest, instrument: Instrument, form: ManualPriceForm | None
 ) -> HttpResponseBase:
     latest = instrument.latest_price()
+    history: list[tuple[date, Decimal]] = []
+    if not cast("User", request.user).privacy_mode:
+        history = list(instrument.prices.order_by("date").values_list("date", "price"))
     return render(
         request,
         "investments/instrument_detail.html",
@@ -34,6 +45,8 @@ def _page(
             "latest": latest,
             "stale": latest is not None and latest.is_stale(timezone.localdate()),
             "form": form,
+            "chart": line([p for _, p in history]) if len(history) > 1 else None,
+            "month_ends": last_each_month(history),
         },
     )
 
@@ -110,6 +123,8 @@ def _event_form(
     form = InvestmentEventForm(request.POST or None, instance=event, account=account)
     if form.is_valid():
         saved = form.save()
+        if saved.kind == InvestmentEvent.Kind.BUY:
+            queue_backfill()
         messages.success(request, f"Saved the {saved.get_kind_display()}.")
         return redirect("account_holdings", pk=account.pk)
     return render(
@@ -178,6 +193,9 @@ def investments_overview(request: HttpRequest) -> HttpResponseBase:
     """The portfolio's totals, each Investment Account and every Holding."""
     held = portfolio()
     column, descending = sorting(request.GET.get("sort", ""))
+    history = []
+    if not cast("User", request.user).privacy_mode:
+        history = value_history(timezone.localdate())
     return render(
         request,
         "investments/overview.html",
@@ -187,5 +205,7 @@ def investments_overview(request: HttpRequest) -> HttpResponseBase:
             "kinds": held.by_kind(),
             "columns": _headers(column, descending=descending),
             "holdings": held.holdings(column, descending=descending),
+            "history": history,
+            "chart": value_chart(history),
         },
     )
