@@ -45,7 +45,7 @@ The user's check that an Asset or Liability Account's Balance on a given day mat
 _Avoid_: Confirm, verify, audit, cleared
 
 **Net Worth**:
-What the user owns minus what they owe on a given day: the Balances of Asset Accounts minus the Balances of Liability Accounts, leaving out any Account the user has excluded from it, such as a car.
+What the user owns minus what they owe on a given day: the Balances of Asset Accounts minus the Balances of Liability Accounts, leaving out any Account the user has excluded from it, such as a car. An Investment Account counts at its Market Value, not its Balance.
 _Avoid_: Wealth, total balance, equity
 
 **Transaction**:
@@ -191,3 +191,111 @@ _Avoid_: Locale, currency format
 **Privacy Mode**:
 A setting that masks every amount Velora shows, so someone who sees the screen can't learn what the user has, owes or spends. It changes only what is shown, never any value.
 _Avoid_: Hide amounts, stealth mode, incognito
+
+**Investment Account**:
+An Asset Account for one place the user holds Instruments, such as a broker or a mutual fund platform. Its Balance is the money the user moved into it less what came out; what it is worth is its Market Value. It either Holds Cash or is Direct, and this never changes.
+_Avoid_: Portfolio, demat, folio, broker account
+
+**Holds Cash**:
+An Investment Account that keeps money of its own between Buys and Sells, such as a broker. Money reaches it by an ordinary Transfer from a bank, and a Buy or Sell inside it moves no money in the ledger, only between its Cash and its Holdings.
+_Avoid_: Broker mode, wallet
+
+**Direct**:
+An Investment Account with no money of its own, such as a mutual fund platform, where every Buy is paid straight from its Pays from Asset Account and every Sell pays straight into its Pays into Asset Account. Its Cash is always zero.
+_Avoid_: Platform mode, pass-through
+
+**Cash**:
+The money an Investment Account that Holds Cash has not put into Instruments, as the broker would report it.
+_Avoid_: Funds, margin, free balance
+
+**Instrument**:
+Something the user can hold units of, identified by its ISIN: a mutual fund scheme, a stock or an ETF. Two Instruments are never the same thing under different names.
+_Avoid_: Security, scrip, scheme, ticker, asset
+
+**Price**:
+What one unit of an Instrument was worth at the end of a day: a mutual fund's NAV or a stock's or ETF's closing price. The latest Price is used until a newer one arrives, and is Stale once it is more than five days old.
+_Avoid_: NAV, quote, rate, LTP
+
+**Investment Event**:
+One dated thing that happened to the user's units of an Instrument in an Investment Account: a Buy, Sell, Dividend, Stock Split, Bonus or Merger.
+_Avoid_: Trade, investment transaction, order
+
+**Buy**:
+An Investment Event that adds units at a Price, costing their amount plus charges such as brokerage, STT and stamp duty. Every Buy starts a Lot.
+_Avoid_: Purchase, investment, subscription
+
+**Sell**:
+An Investment Event that removes units at a Price, taken from the oldest Lots first. What it brings in less the Cost Basis of those units is its Realized Gain.
+_Avoid_: Redemption, withdrawal, exit
+
+**Dividend**:
+An Investment Event that pays the user money for holding an Instrument, without changing units. It is Income, linked to the Holding it came from.
+_Avoid_: IDCW, payout, distribution
+
+**Stock Split**:
+An Investment Event that multiplies every Lot's units of an Instrument by a ratio, leaving their Cost Basis unchanged.
+_Avoid_: Split (that is part of a Transaction), subdivision
+
+**Bonus**:
+An Investment Event that gives free units of an Instrument, starting a Lot with no Cost Basis dated the day of the Bonus.
+_Avoid_: Bonus issue, free units
+
+**Merger**:
+An Investment Event that turns every Lot of one Instrument into units of another, keeping each Lot's date and Cost Basis, such as when a fund house merges two schemes.
+_Avoid_: Switch, conversion, amalgamation
+
+**Lot**:
+Units of one Instrument the user got together in one Buy or Bonus, with the date and Cost Basis they came at. A Sell takes from the oldest Lots first.
+_Avoid_: Tranche, purchase, position
+
+**Holding**:
+All the units of one Instrument the user has in one Investment Account: its open Lots.
+_Avoid_: Position, investment, stock
+
+**Cost Basis**:
+What the user paid, charges included, for the units still held. Also shown as Invested.
+_Avoid_: Average price, invested amount, principal
+
+**Market Value**:
+What Holdings are worth at their latest Prices. For an Investment Account, its Cash plus the Market Value of its Holdings.
+_Avoid_: Current value, worth, NAV value
+
+**Unrealized Gain**:
+Market Value less Cost Basis for units still held. It is negative when they are worth less than they cost.
+_Avoid_: Paper profit, returns, P&L
+
+**Realized Gain**:
+What a Sell brought in less the Cost Basis of the units it took. It is negative for a loss.
+_Avoid_: Profit, booked gain, capital gain
+
+**XIRR**:
+The yearly return that explains every Buy, Sell and Dividend by its date along with today's Market Value, so money invested longer counts for more.
+_Avoid_: CAGR, return %, annualised return
+
+**SIP**:
+A Schedule that buys one Instrument for a set amount on each due date. Its Draft fills in the units from that day's Price.
+_Avoid_: Recurring investment, systematic plan
+
+**Investment Import**:
+A CSV file of Investment Events, in Velora's own format, that the user fills in and uploads. It is checked in full and applied all at once or not at all, and uploading the same Investment Events again adds nothing. An Investment Export writes the same format back out.
+_Avoid_: CAS import, statement upload, tradebook
+
+**Goal**:
+Something the user is saving for, such as a house or a child's education, with a target amount in today's money, a target date, and the inflation and expected return the user assumes for it. Goals only show progress and never change a Balance or Market Value.
+_Avoid_: Piggy bank, target, savings pot, envelope
+
+**Allocation**:
+The share of an Asset Account or Holding counted toward a Goal, as a percentage or a fixed amount. One Account or Holding's Allocations never add up to more than all of it; what is left is unallocated.
+_Avoid_: Earmark, assignment, contribution
+
+**Goal Progress**:
+What a Goal's Allocations are worth now, at Market Value for Holdings and Balance for other Asset Accounts. A fixed-amount Allocation counts for no more than what it is allocated from.
+_Avoid_: Saved, funded, achieved amount
+
+**Projection**:
+What a Goal's Progress is expected to grow to by its target date, at its expected return and with the SIPs and other Schedules linked to it carrying on unchanged until the target date or their end. The Goal is on track when the Projection reaches the inflated target, and behind by the gap when it does not.
+_Avoid_: Forecast (that is the next 30 days of Balances), estimate
+
+**Required Monthly Investment**:
+What the user would need to add every month, at the Goal's expected return, for its Projection to reach the inflated target.
+_Avoid_: Required SIP, monthly target, shortfall
