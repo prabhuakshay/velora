@@ -17,7 +17,7 @@ register = template.Library()
 MASK: SafeString = mark_safe('<span role="img" aria-label="Amount hidden">₹••••</span>')
 
 
-def _group(digits: str, number_format: NumberFormat) -> str:
+def _group(digits: str, number_format: str) -> str:
     if number_format == NumberFormat.INTERNATIONAL:
         return f"{int(digits):,}"
     head, tail = digits[:-3], digits[-3:]
@@ -50,15 +50,26 @@ def price(context: Context, value: Decimal) -> str:
 def _rupees(context: Context, value: Decimal, *, places: int) -> str:
     if _private(context):
         return MASK
-    number_format = getattr(context.get("user"), "number_format", NumberFormat.INDIAN)
     digits, fraction = f"{abs(value):.{places}f}".split(".")
     sign = "-" if value < 0 else ""
-    return f"{sign}₹{_group(digits, number_format)}.{fraction}"
+    return f"{sign}₹{_group(digits, _number_format(context))}.{fraction}"
 
 
 UNITS_MASK: SafeString = mark_safe(
     '<span role="img" aria-label="Units hidden">••••</span>'
 )
+
+
+def plain_number(value: Decimal, number_format: str = NumberFormat.INDIAN) -> str:
+    """The value grouped by Number Format, without trailing zeros."""
+    digits, _, fraction = f"{abs(value).normalize():f}".partition(".")
+    sign = "-" if value < 0 else ""
+    grouped = _group(digits, number_format)
+    return f"{sign}{grouped}.{fraction}" if fraction else f"{sign}{grouped}"
+
+
+def _number_format(context: Context) -> str:
+    return getattr(context.get("user"), "number_format", NumberFormat.INDIAN)
 
 
 @register.simple_tag(takes_context=True)
@@ -69,11 +80,7 @@ def units(context: Context, value: Decimal) -> str:
     """
     if _private(context):
         return UNITS_MASK
-    number_format = getattr(context.get("user"), "number_format", NumberFormat.INDIAN)
-    digits, _, fraction = f"{abs(value).normalize():f}".partition(".")
-    sign = "-" if value < 0 else ""
-    grouped = _group(digits, number_format)
-    return f"{sign}{grouped}.{fraction}" if fraction else f"{sign}{grouped}"
+    return plain_number(value, _number_format(context))
 
 
 @register.simple_tag(takes_context=True)
@@ -120,6 +127,17 @@ PERCENT_MASK: SafeString = mark_safe(
     '<span role="img" aria-label="Percentage hidden">••••%</span>'
 )
 CENTS = Decimal("0.01")
+
+
+@register.simple_tag(takes_context=True)
+def percent(context: Context, value: Decimal) -> str:
+    """A percentage to at most two decimals, grouped by Number Format.
+
+    Masked under Privacy Mode, as a share of a shown target gives amounts away.
+    """
+    if _private(context):
+        return PERCENT_MASK
+    return f"{plain_number(value.quantize(CENTS), _number_format(context))}%"
 
 
 @register.simple_tag(takes_context=True)

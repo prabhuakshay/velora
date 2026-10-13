@@ -86,6 +86,24 @@ def test_privacy_mode_masks_goal_amounts(signed_in: Client, house: Goal) -> None
         assert "1,00,000" not in page
 
 
+def test_privacy_mode_masks_goal_percentages_and_progress_bars(
+    signed_in: Client, house: Goal
+) -> None:
+    bank = opening("Bank", "asset", "20000")
+    allocate(signed_in, house, source(bank), percent="37")
+    turn_on(signed_in)
+
+    for response in (
+        signed_in.get(reverse("goal_list")),
+        signed_in.get(reverse("goal_detail", args=[house.pk])),
+    ):
+        html = response.content.decode()
+        assert "Percentage hidden" in html
+        assert "%" not in text(response).replace("••••%", "")
+        assert 'width="7.4"' not in html
+        assert "fill-emerald-500" not in html
+
+
 def test_privacy_mode_blocks_editing(signed_in: Client, house: Goal) -> None:
     bank = opening("Bank", "asset", "20000")
     allocate(signed_in, house, source(bank), percent="25")

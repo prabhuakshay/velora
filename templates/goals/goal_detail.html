@@ -19,7 +19,7 @@
     <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Goal Progress">
       <p class="text-sm text-slate-500">Goal Progress</p>
       <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{% amount summary.progress %}</p>
-      <p class="mt-1 text-sm text-slate-500">of {% amount goal.target_amount %}{% if not user.privacy_mode %} · {{ summary.percent_done|floatformat:"-1" }}%{% endif %}</p>
+      <p class="mt-1 text-sm text-slate-500">of {% amount goal.target_amount %} · {% percent summary.percent_done %}</p>
       <div class="mt-4">{% include "goals/_bar.html" %}</div>
     </section>
 
@@ -51,7 +51,7 @@
         </dl>
       {% endif %}
       <div class="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 md:px-6">
-        <p>Assumes {{ goal.inflation|floatformat:"-2" }}% inflation and {{ goal.expected_return|floatformat:"-2" }}% expected return a year.</p>
+        <p>Assumes {% percent goal.inflation %} inflation and {% percent goal.expected_return %} expected return a year.</p>
         {% if goal.schedules.all %}
           <p class="mt-1">Linked Schedules:
             {% for schedule in goal.schedules.all %}<a href="{% url 'schedule_detail' schedule.pk %}" class="link">{{ schedule }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
@@ -86,9 +86,9 @@
                       <span class="block text-xs font-normal text-slate-500">Worth {% amount line.value %}</span>
                       {% if line.capped %}<span class="mt-1 block text-xs font-medium text-amber-700" role="alert">Capped: only {% amount line.counted %} is there to count.</span>{% endif %}
                     </th>
-                    <td class="px-3 py-3 text-right tabular-nums">{% if allocation.percent is not None %}{{ allocation.percent|floatformat:"-2" }}%{% else %}{% amount allocation.amount %}{% endif %}</td>
+                    <td class="px-3 py-3 text-right tabular-nums">{% if allocation.percent is not None %}{% percent allocation.percent %}{% else %}{% amount allocation.amount %}{% endif %}</td>
                     <td class="px-3 py-3 text-right tabular-nums">{% amount line.counted %}</td>
-                    <td class="px-3 py-3 text-right tabular-nums">{% amount line.unallocated %} <span class="block text-xs text-slate-500">{{ line.percent_left|floatformat:"-2" }}% free</span></td>
+                    <td class="px-3 py-3 text-right tabular-nums">{% amount line.unallocated %} <span class="block text-xs text-slate-500">{% percent line.percent_left %} free</span></td>
                     <td class="px-4 py-3 text-right whitespace-nowrap md:px-5">
                       <a href="{% url 'allocation_edit' allocation.pk %}" class="link text-sm">Edit</a>
                       <form method="post" action="{% url 'allocation_delete' allocation.pk %}" class="inline">

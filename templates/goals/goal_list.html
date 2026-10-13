@@ -18,7 +18,7 @@
             <span class="min-w-0 truncate font-semibold">{{ summary.goal.name }}</span>
             <span class="shrink-0 text-sm text-slate-500">by {{ summary.goal.target_date|date:"j M Y" }}</span>
           </div>
-          <p class="mt-1 text-sm tabular-nums"><span class="font-semibold">{% amount summary.progress %}</span> <span class="text-slate-500">of {% amount summary.goal.target_amount %}</span>{% if not user.privacy_mode %} <span class="text-slate-500">· {{ summary.percent_done|floatformat:"-1" }}%</span>{% endif %}</p>
+          <p class="mt-1 text-sm tabular-nums"><span class="font-semibold">{% amount summary.progress %}</span> <span class="text-slate-500">of {% amount summary.goal.target_amount %}</span> <span class="text-slate-500">· {% percent summary.percent_done %}</span></p>
           <div class="mt-3">{% include "goals/_bar.html" %}</div>
           <p class="mt-2 text-sm font-medium">{% include "goals/_status.html" %}</p>
           {% if summary.capped %}<p class="mt-2 text-xs font-medium text-amber-700">An Allocation is capped at what it comes from.</p>{% endif %}

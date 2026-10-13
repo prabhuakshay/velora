@@ -102,3 +102,32 @@ def test_signed_percent_is_only_the_mask_in_privacy_mode() -> None:
     html = render("{% signed_percent value %}", privacy_mode=True, value=Decimal(5))
 
     assert html == PERCENT_MASK
+
+
+@pytest.mark.parametrize(
+    ("value", "number_format", "expected"),
+    [
+        ("25", "indian", "25%"),
+        ("12.50", "indian", "12.5%"),
+        ("33.333", "indian", "33.33%"),
+        ("0", "indian", "0%"),
+        ("123456.7", "indian", "1,23,456.7%"),
+        ("123456.7", "international", "123,456.7%"),
+        ("-2.5", "indian", "-2.5%"),
+    ],
+)
+def test_percent_shows_up_to_two_decimals_in_the_number_format(
+    value: str, number_format: str, expected: str
+) -> None:
+    user = SimpleNamespace(privacy_mode=False, number_format=number_format)
+    template = Template("{% load amounts %}{% percent value %}")
+
+    html = template.render(Context({"user": user, "value": Decimal(value)}))
+
+    assert html == expected
+
+
+def test_percent_is_only_the_mask_in_privacy_mode() -> None:
+    html = render("{% percent value %}", privacy_mode=True, value=Decimal(5))
+
+    assert html == PERCENT_MASK
