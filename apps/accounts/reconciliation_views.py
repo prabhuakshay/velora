@@ -10,6 +10,7 @@ from django.urls import reverse
 from apps.accounts.activity import rows, touching_transactions
 from apps.accounts.forms import ReconcileForm
 from apps.accounts.models import BALANCE_KINDS, Account, Reconciliation
+from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -30,6 +31,7 @@ def reconciliation_status(account: Account, shown: int) -> dict[str, object]:
 
 
 @login_required
+@blocked_in_privacy_mode
 def account_reconcile(request: HttpRequest, kind: str, pk: int) -> HttpResponseBase:
     """Record a Reconciliation if the bank's balance matches Velora's that day.
 

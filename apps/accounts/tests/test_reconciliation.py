@@ -10,6 +10,7 @@ from apps.accounts.tests.conftest import account_url, make_account, page_text
 from apps.accounts.tests.test_account_transactions import record, view_page
 from apps.accounts.tests.test_balance import opening
 from apps.users.models import NumberFormat
+from apps.users.tests.conftest import privacy_mode_off_url, turn_on
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -196,13 +197,15 @@ def test_mismatch_follows_number_format(signed_in: Client, user: User) -> None:
     assert "Off by -₹500,000.00" in page
 
 
-def test_mismatch_hides_amounts_in_privacy_mode(signed_in: Client, user: User) -> None:
-    user.privacy_mode = True
-    user.save()
+def test_reconciling_is_blocked_in_privacy_mode(signed_in: Client) -> None:
     bank = bank_with_spending()
+    url = account_url("account_reconcile", bank)
+    turn_on(signed_in)
 
-    page = reconcile(signed_in, bank, date(2026, 3, 5), "8000")
+    get = signed_in.get(url)
+    post = signed_in.post(url, {"date": "2026-03-03", "balance": "8500"})
 
-    assert "8,250" not in page
-    assert "250.00" not in page
-    assert "Amount hidden" in page
+    for response in (get, post):
+        assert response.status_code == 302
+        assert response["Location"] == privacy_mode_off_url(url)
+    assert not Reconciliation.objects.exists()
