@@ -31,6 +31,7 @@
           <p class="text-sm text-slate-500">Balance{% if account.owes %} <span class="text-slate-400">· what you owe</span>{% endif %}</p>
           <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color account.balance owes=account.owes %}">{% balance account.balance owes=account.owes %}</p>
           <p class="mt-2 text-sm text-slate-500">Opening Balance {% amount account.opening_balance %} on {{ account.opening_balance_date|date:"j M Y" }}</p>
+          {% if reconciled_through %}<p class="mt-1 flex items-center gap-1 text-sm text-emerald-700">{% include "shell/icon.html" with name="check" class="size-4" %}Reconciled through {{ reconciled_through.date|date:"j M Y" }}</p>{% endif %}
         {% else %}
           <p class="text-sm text-slate-500">{% if kind == "expense" %}Spent{% else %}Earned{% endif %} in {{ this_month.start|date:"F" }}</p>
           <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{% amount this_month.net %}</p>
@@ -180,6 +181,14 @@
           </div>
         {% endif %}
       </section>
+
+      {% if reconcile_form %}
+        <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="reconcile-title">
+          <h2 id="reconcile-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Reconcile</h2>
+          <p class="mt-1 text-sm text-slate-500">Enter the balance your {% if account.owes %}card issuer or lender{% else %}bank{% endif %} shows for a day.</p>
+          {% include "accounts/_reconcile_form.html" with form=reconcile_form %}
+        </section>
+      {% endif %}
 
       {% if account.is_card %}
         <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="card-title">

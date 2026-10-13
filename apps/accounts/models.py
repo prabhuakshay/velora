@@ -250,3 +250,33 @@ class Account(models.Model):
         """Whether the date falls before this Account's Opening Balance date."""
         started = self.opening_balance_date
         return started is not None and when < started
+
+    def balance_on(self, when: date) -> Decimal:
+        """Its Balance at the end of the day, counting that day's Splits."""
+        return Account.objects.with_balance(when).get(pk=self.pk).balance
+
+
+class Reconciliation(models.Model):
+    """The balance the bank said an Account held on a day, matched when recorded.
+
+    Checked against the Balance whenever shown, never locked (ADR 0011). A
+    Liability's balance reads as what is owed, like its Balance.
+    """
+
+    account = models.ForeignKey(
+        Account, on_delete=models.CASCADE, related_name="reconciliations"
+    )
+    date = models.DateField()
+    balance = models.DecimalField(max_digits=15, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=("account", "date"),
+                name="accounts_reconciliation_account_date_unique",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.account} on {self.date}"

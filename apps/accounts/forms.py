@@ -7,11 +7,12 @@ from django import forms
 from django.db.models import Min, Q
 from django.utils import timezone
 
-from apps.accounts.models import CARD_SETTINGS_TOGETHER, Account
+from apps.accounts.models import CARD_SETTINGS_TOGETHER, Account, Reconciliation
 from apps.core.forms import clean_unique_name
 from apps.transactions.models import Split
 
 if TYPE_CHECKING:
+    import datetime
     from datetime import date
 
 OPENING_BALANCE_FIELDS = ("opening_balance", "opening_balance_date")
@@ -125,3 +126,62 @@ class AccountForm(forms.ModelForm[Account]):
             Account.objects.filter(kind=self.instance.kind),
             self.duplicate_name_error,
         )
+
+
+class ReconcileForm(forms.Form):
+    """The bank's balance for an Account on a day, refused unless it matches.
+
+    A Liability's balance is entered as what is owed (ADR 0009). After a
+    refusal, difference is the entered balance less Velora's Balance that day.
+    """
+
+    date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    balance = forms.DecimalField(max_digits=15, decimal_places=2)
+
+    def __init__(self, *args: Any, account: Account, **kwargs: Any) -> None:  # noqa: ANN401
+        super().__init__(*args, **kwargs)
+        self.account = account
+        self.difference = Decimal(0)
+        self.initial.setdefault("date", timezone.localdate())
+        if account.owes:
+            self.fields["balance"].label = "What you owed"
+            self.fields[
+                "balance"
+            ].help_text = "Put a minus sign before a credit balance."
+
+    def clean_date(self) -> datetime.date:
+        """Refuse a day after today or before the Account's Opening Balance date."""
+        when: datetime.date = self.cleaned_data["date"]
+        if when > timezone.localdate():
+            message = "Pick today or earlier."
+            raise forms.ValidationError(message)
+        if self.account.opens_after(when):
+            opened = self.account.opening_balance_date
+            message = f"This Account opens on {opened:%-d %b %Y}; pick that or later."
+            raise forms.ValidationError(message)
+        return when
+
+    def clean(self) -> dict[str, Any]:
+        """Refuse a balance that differs from Velora's by even a paisa."""
+        super().clean()
+        cleaned = self.cleaned_data
+        when, balance = cleaned.get("date"), cleaned.get("balance")
+        if when is None or balance is None:
+            return cleaned
+        self.difference = balance - self.account.balance_on(when)
+        if self.difference:
+            message = f"That doesn't match Velora's Balance on {when:%-d %b %Y}."
+            raise forms.ValidationError(message)
+        return cleaned
+
+    def save(self) -> Reconciliation:
+        """Record the Reconciliation, replacing any on the same day."""
+        reconciliation, _ = Reconciliation.objects.update_or_create(
+            account=self.account,
+            date=self.cleaned_data["date"],
+            defaults={
+                "balance": self.cleaned_data["balance"],
+                "created_at": timezone.now(),
+            },
+        )
+        return reconciliation
