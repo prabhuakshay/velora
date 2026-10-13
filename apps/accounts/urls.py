@@ -48,6 +48,11 @@ urlpatterns = [
         name="account_reconcile",
     ),
     path(
+        "accounts/<kind:kind>/<int:pk>/reconciliations/<int:reconciliation_pk>/delete/",
+        views.reconciliation_delete,
+        name="reconciliation_delete",
+    ),
+    path(
         "accounts/<kind:kind>/<int:pk>/merge/",
         views.account_merge,
         name="account_merge",
