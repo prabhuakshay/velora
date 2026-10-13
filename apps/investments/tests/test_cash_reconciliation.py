@@ -3,11 +3,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from apps.accounts.tests.conftest import account_url, page_text
+from apps.accounts.tests.conftest import account_url, make_account, page_text
 from apps.accounts.tests.test_account_transactions import view_page
 from apps.accounts.tests.test_reconciliation import reconcile
 from apps.investments.models import Instrument
 from apps.investments.tests.conftest import make_broker, record_event
+from apps.investments.tests.test_dividends import record_dividend
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -108,3 +109,15 @@ def test_a_buy_after_it_leaves_it_matching(signed_in: Client) -> None:
     page = page_text(view_page(signed_in, broker))
     assert "Reconciled through 1 Mar 2026" in page
     assert "Matches" in history_text(signed_in, broker)
+
+
+def test_a_later_dividend_dated_before_it_shows_how_far_off_it_is(
+    signed_in: Client,
+) -> None:
+    broker = reconciled_broker(signed_in)
+    dividends = make_account("Dividends", "income")
+
+    record_dividend(signed_in, broker, dividends, "250", day="2026-02-20")
+
+    page = page_text(view_page(signed_in, broker))
+    assert "Reconciliation on 1 Mar 2026 is off by -₹250.00" in page
