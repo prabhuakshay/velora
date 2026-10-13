@@ -5,6 +5,7 @@ Goals are views only: nothing here moves money or changes a Balance.
 
 from typing import TYPE_CHECKING, ClassVar
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.functions import Lower
 from simple_history.models import HistoricalRecords
@@ -15,13 +16,28 @@ from apps.goals.sources import source_key
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+YEARLY_PERCENT = (MinValueValidator(0), MaxValueValidator(100))
+
 
 class Goal(models.Model):
-    """Something the user is saving for, by a date, in today's money."""
+    """Something the user is saving for, by a date, in today's money.
+
+    Inflation and expected return are yearly percentages; linked Schedules add
+    to its Projection.
+    """
 
     name = models.CharField(max_length=100)
     target_amount = models.DecimalField(max_digits=15, decimal_places=2)
     target_date = models.DateField()
+    inflation = models.DecimalField(
+        max_digits=5, decimal_places=2, default=6, validators=YEARLY_PERCENT
+    )
+    expected_return = models.DecimalField(
+        max_digits=5, decimal_places=2, default=12, validators=YEARLY_PERCENT
+    )
+    schedules = models.ManyToManyField(
+        "schedules.Schedule", blank=True, related_name="goals"
+    )
 
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
