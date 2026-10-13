@@ -1,5 +1,6 @@
 """Show amounts in the signed-in user's Number Format."""
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django import template
@@ -9,8 +10,6 @@ from django.utils.safestring import SafeString, mark_safe
 from apps.users.models import NumberFormat
 
 if TYPE_CHECKING:
-    from decimal import Decimal
-
     from django.template.context import Context
 
 register = template.Library()
@@ -113,5 +112,29 @@ def signed_amount(context: Context, value: Decimal, good: str = "up") -> str:
     if value > 0:
         text = f"+{text}"
     if value and (value > 0) == (good == "up"):
+        return format_html('<span class="text-emerald-600">{}</span>', text)
+    return format_html("<span>{}</span>", text)
+
+
+PERCENT_MASK: SafeString = mark_safe(
+    '<span role="img" aria-label="Percentage hidden">••••%</span>'
+)
+CENTS = Decimal("0.01")
+
+
+@register.simple_tag(takes_context=True)
+def signed_percent(context: Context, value: Decimal | None) -> str:
+    """A gain as a percentage to two decimals, signed and coloured as signed_amount.
+
+    A dash when there is none to show, and a mask under Privacy Mode, as the
+    sign gives the direction away.
+    """
+    if _private(context):
+        return PERCENT_MASK
+    if value is None:
+        return "—"
+    rounded = value.quantize(CENTS)
+    text = f"{rounded:+.2f}%" if rounded else "0.00%"
+    if rounded > 0:
         return format_html('<span class="text-emerald-600">{}</span>', text)
     return format_html("<span>{}</span>", text)

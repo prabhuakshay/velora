@@ -1,0 +1,8 @@
+<tr>
+  <th scope="row" class="px-4 py-3 text-left font-medium md:px-5">{{ title }}</th>
+  <td class="px-3 py-3 text-right tabular-nums">{% amount row.cost_basis %}</td>
+  <td class="px-3 py-3 text-right tabular-nums">{% amount row.market_value %}</td>
+  <td class="py-3 pl-3 text-right tabular-nums">{% signed_amount row.unrealized %}</td>
+  <td class="py-3 pr-3 pl-2 text-right text-xs tabular-nums">{% signed_percent row.unrealized_percent %}</td>
+  <td class="px-4 py-3 text-right tabular-nums md:px-5">{% signed_amount row.realized %}</td>
+</tr>
