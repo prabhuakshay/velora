@@ -1,0 +1,33 @@
+{% extends "app_base.html" %}
+
+{% block title %}{% if goal %}Edit {{ goal.name }}{% else %}New Goal{% endif %} · Velora{% endblock %}
+
+{% block quick_add_button %}{% endblock %}
+
+{% block main_width %}max-w-2xl{% endblock %}
+
+{% block main %}
+  {% if goal %}{% url 'goal_detail' goal.pk as cancel_url %}{% else %}{% url 'goal_list' as cancel_url %}{% endif %}
+  <div class="flex items-center gap-2">
+    <a href="{{ cancel_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <h1 class="min-w-0 flex-1 truncate text-xl font-semibold tracking-tight md:text-2xl">{% if goal %}Edit {{ goal.name }}{% else %}New Goal{% endif %}</h1>
+  </div>
+
+  <form method="post" class="mt-4 space-y-4 md:mt-6">
+    {% csrf_token %}
+    {% if form.non_field_errors %}{% include "partials/form_errors.html" %}{% endif %}
+
+    <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Goal">
+      {% include "partials/field.html" with field=form.name %}
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {% include "partials/field.html" with field=form.target_amount %}
+        {% include "partials/field.html" with field=form.target_date %}
+      </div>
+    </section>
+
+    <div class="sticky -bottom-4 z-10 -mx-4 -mb-4 flex items-center gap-3 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-4 backdrop-blur md:static md:mx-0 md:mb-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+      <a href="{{ cancel_url }}" class="btn-secondary flex flex-1 items-center justify-center py-2.5 md:flex-none">Cancel</a>
+      <div class="flex-1 md:w-40 md:flex-none">{% include "partials/submit.html" with label="Save" %}</div>
+    </div>
+  </form>
+{% endblock %}
