@@ -27,22 +27,30 @@ class Estimate:
     spent: Decimal
     paid: Decimal
     card_emis: Decimal
+    credit: Decimal = Decimal(0)
+
+    @property
+    def raw(self) -> Decimal:
+        """The estimate before it is floored, below zero when credit is left."""
+        return self.spent - self.paid + self.card_emis - self.credit
 
     @property
     def amount(self) -> Decimal:
-        """The estimate itself."""
-        return self.spent - self.paid + self.card_emis
+        """The estimate itself, never below zero."""
+        return max(self.raw, Decimal(0))
 
 
-def estimate(card: Account, start: date, end: date) -> Estimate:
+def estimate(
+    card: Account, start: date, end: date, credit: Decimal = Decimal(0)
+) -> Estimate:
     """What the card's activity from start to end suggests the Statement holds.
 
-    Spends minus payments and refunds to the card, all dated in the period. A
-    payment linked to any Statement, even one it does not cover yet, paid for
-    that Statement's period, not this one, so it is left out. Each Card EMI
-    swaps its purchase for what the bank bills in the period, which already
-    holds the interest, GST and fees its posted Drafts record, so those are
-    left out too.
+    Spends minus payments and refunds to the card, all dated in the period,
+    minus the Carried Credit from the Statement before. A payment linked to
+    any Statement, even one it does not cover yet, paid for that Statement's
+    period, not this one, so it is left out. Each Card EMI swaps its purchase
+    for what the bank bills in the period, which already holds the interest,
+    GST and fees its posted Drafts record, so those are left out too.
     """
     in_period = Split.objects.filter(transaction__date__range=(start, end))
     spent = (
@@ -57,12 +65,62 @@ def estimate(card: Account, start: date, end: date) -> Estimate:
         (emi.billed(start, end) for emi in card.card_emis.select_related("purchase")),
         Decimal(0),
     )
-    return Estimate(spent["total"] or Decimal(0), paid["total"] or Decimal(0), emis)
+    return Estimate(
+        spent["total"] or Decimal(0), paid["total"] or Decimal(0), emis, credit
+    )
 
 
-def estimate_statement_amount(card: Account, start: date, end: date) -> Decimal:
+def estimate_statement_amount(
+    card: Account, start: date, end: date, credit: Decimal = Decimal(0)
+) -> Decimal:
     """The Statement Amount the card's activity from start to end suggests."""
-    return estimate(card, start, end).amount
+    return estimate(card, start, end, credit).amount
+
+
+@dataclass(frozen=True)
+class Credit:
+    """The Carried Credit a Statement takes in and what it passes on.
+
+    It passes on how far its own Statement Amount falls below zero, `left`,
+    and how far its linked payments go beyond it, `overpaid`.
+    """
+
+    taken: Decimal
+    left: Decimal
+    overpaid: Decimal
+
+    @property
+    def carried(self) -> Decimal:
+        """The Carried Credit it passes on to the next Statement."""
+        return self.left + self.overpaid
+
+
+def credit_chain(card: Account) -> Iterator[tuple[Statement, Estimate, Credit]]:
+    """Each of the card's Statements in period order, estimated now, with its credit.
+
+    The earliest takes no credit. An actual amount from the bank already
+    counts any credit, so it stands for the Statement. Otherwise even a paid
+    Statement passes on what its estimate now leaves, as its stored amount is
+    floored and took the credit it had when paid.
+    """
+    taken = Decimal(0)
+    for statement in card.statements.with_paid():
+        parts = estimate(card, statement.period_start, statement.period_end, taken)
+        raw = statement.actual_amount
+        if raw is None:
+            raw = parts.raw
+        floored = max(raw, Decimal(0))
+        credit = Credit(taken, floored - raw, max(statement.paid - floored, Decimal(0)))
+        yield statement, parts, credit
+        taken = credit.carried
+
+
+def carried_credit(card: Account) -> Decimal:
+    """The Carried Credit the card's latest Statement passes on."""
+    carried = Decimal(0)
+    for _statement, _parts, credit in credit_chain(card):
+        carried = credit.carried
+    return carried
 
 
 def closing_dates(card: Account, after: date, until: date) -> Iterator[date]:
@@ -141,7 +199,9 @@ def create_statement(card: Account, closing: date) -> None:
         period_start=start,
         period_end=closing,
         due_date=due_date(card, closing),
-        estimated_amount=estimate_statement_amount(card, start, closing),
+        estimated_amount=estimate_statement_amount(
+            card, start, closing, carried_credit(card)
+        ),
     )
     if payment := find_payment(statement):
         link_payment(statement, payment)
@@ -252,6 +312,7 @@ def unlink_payment(statement: Statement, transaction: Transaction) -> None:
     Draft.objects.filter(statement=statement, transaction=transaction).delete()
     # The payment counts in the period it is dated in again.
     refresh_estimates(statement.card)
+    # Refreshing leaves out a Statement the actual amount has just paid.
     statement.refresh_from_db()
     sync_payment_draft(statement)
 
@@ -279,9 +340,16 @@ def sync_payment_draft(statement: Statement) -> None:
 
 @db_transaction.atomic
 def enter_actual_amount(statement: Statement, amount: Decimal | None) -> None:
-    """Save the actual Statement Amount, or clear it, and update its payment."""
+    """Save the actual Statement Amount, or clear it, and update its payment.
+
+    It changes the credit carried to every later Statement, so the card is
+    re-estimated too.
+    """
     statement.actual_amount = amount
     statement.save(update_fields=["actual_amount"])
+    refresh_estimates(statement.card)
+    # Refreshing leaves out a Statement the actual amount has just paid.
+    statement.refresh_from_db()
     sync_payment_draft(statement)
 
 
@@ -289,15 +357,16 @@ def enter_actual_amount(statement: Statement, amount: Decimal | None) -> None:
 def refresh_estimates(*accounts: Account) -> None:
     """Re-estimate the unpaid Statements of each Account that is a card.
 
-    Any change to a card's Splits, Card EMIs or linked payments can change
-    what an earlier period's estimate comes to. A paid Statement is history.
+    Any change to a card's Splits, Card EMIs, linked payments or actual
+    amounts can change what an earlier period's estimate comes to, and the
+    credit it carries to every later one. A paid Statement is history.
     """
     for account in accounts:
         if not account.is_card:
             continue
-        for statement in account.statements.unpaid():
-            statement.estimated_amount = estimate_statement_amount(
-                account, statement.period_start, statement.period_end
-            )
+        for statement, parts, _credit in credit_chain(account):
+            if statement.is_paid:
+                continue
+            statement.estimated_amount = parts.amount
             statement.save(update_fields=["estimated_amount"])
             sync_payment_draft(statement)

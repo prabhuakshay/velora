@@ -16,8 +16,8 @@ from apps.cards.forms import CardEMIForm, ForecloseForm, StatementForm
 from apps.cards.models import CardEMI, Statement
 from apps.cards.plans import Plan
 from apps.cards.statements import (
+    credit_chain,
     enter_actual_amount,
-    estimate,
     link_payment,
     payment_candidates,
     refresh_estimates,
@@ -57,6 +57,11 @@ def statement_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
         )
         return redirect("account_transactions", kind=card.kind, pk=card.pk)
     statements = card.statements.order_by("period_end")
+    parts, credit = next(
+        (parts, credit)
+        for each, parts, credit in credit_chain(card)
+        if each == statement
+    )
     today = timezone.localdate()
     candidates = []
     if not statement.is_paid:
@@ -77,7 +82,8 @@ def statement_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
             "payments": statement.payments.annotate(
                 paid=Sum("splits__amount", filter=Q(splits__to_account=card))
             ).order_by("date", "pk"),
-            "parts": estimate(card, statement.period_start, statement.period_end),
+            "parts": parts,
+            "credit": credit,
             "draft": Draft.objects.waiting().filter(statement=statement).first(),
             "older": statements.filter(period_end__lt=statement.period_end).last(),
             "newer": statements.filter(period_end__gt=statement.period_end).first(),

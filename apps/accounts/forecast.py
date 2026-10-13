@@ -12,9 +12,10 @@ from django.urls import reverse
 from apps.accounts.expected import upcoming_due, waiting_drafts
 from apps.accounts.models import BALANCE_KINDS, Account
 from apps.cards.statements import (
+    carried_credit,
     closing_dates,
     due_date,
-    estimate_statement_amount,
+    estimate,
     previous_closing,
 )
 from apps.quick_add.models import Draft, DraftSplit
@@ -193,12 +194,14 @@ def _card_moves(start: date, end: date, expected: list[Move]) -> list[Move]:
 
     A stored Statement's payment is counted by its Draft, or already recorded.
     Each is estimated from the card's activity in its period so far, plus the
-    expected Occurrences and Drafts dated in it.
+    expected Occurrences and Drafts dated in it, less the credit carried from
+    the last stored Statement through the ones before it.
     """
     moves = []
     for card in Account.objects.filter(statement_day__isnull=False):
         last = card.statements.order_by("period_end").last()
         previous = last.period_end if last else None
+        credit = carried_credit(card)
         for closing in closing_dates(card, previous or start - timedelta(days=1), end):
             due = due_date(card, closing)
             if due > end:
@@ -206,9 +209,11 @@ def _card_moves(start: date, end: date, expected: list[Move]) -> list[Move]:
             period_start = (previous or previous_closing(card, closing)) + timedelta(
                 days=1
             )
-            amount = estimate_statement_amount(
-                card, period_start, closing
-            ) + _expected_on_card(card, period_start, closing, expected)
+            raw = estimate(card, period_start, closing, credit).raw + _expected_on_card(
+                card, period_start, closing, expected
+            )
+            amount = max(raw, Decimal(0))
+            credit = amount - raw
             if amount > 0:
                 moves.append(
                     Move(

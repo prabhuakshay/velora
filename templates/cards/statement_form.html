@@ -46,6 +46,7 @@
             </li>
           {% endfor %}
         </ul>
+        {% if credit.overpaid %}<p class="mt-2 text-sm text-slate-500">{% amount credit.overpaid %} overpaid carries to the next Statement.</p>{% endif %}
       {% endif %}
       <div class="mt-5 flex flex-wrap gap-2">
         <a href="{% url 'transaction_list' %}?account={{ card.pk }}&start={{ statement.period_start|date:'Y-m-d' }}&end={{ statement.period_end|date:'Y-m-d' }}" class="btn-secondary flex items-center gap-1.5 py-2">{% include "shell/icon.html" with name="search" class="size-4" %}Its Transactions</a>
@@ -96,8 +97,12 @@
         {% if parts.card_emis %}
           <div class="flex justify-between gap-3"><dt class="text-slate-500">Card EMIs <span class="block text-xs">Purchases out, installments in</span></dt> <dd class="text-right font-medium tabular-nums">{% amount parts.card_emis %}</dd></div>
         {% endif %}
+        {% if credit.taken %}
+          <div class="flex justify-between gap-3"><dt class="text-slate-500">Credit from {{ older }}</dt> <dd class="text-right font-medium tabular-nums">-{% amount credit.taken %}</dd></div>
+        {% endif %}
         <div class="flex justify-between gap-3 border-t border-slate-100 pt-2.5"><dt class="font-medium">Comes to</dt> <dd class="text-right font-semibold tabular-nums">{% amount parts.amount %}</dd></div>
       </dl>
+      {% if credit.left %}<p class="mt-2 text-sm text-slate-500">{% amount credit.left %} credit carries to the next Statement.</p>{% endif %}
     </section>
 
     <form method="post" class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="actual-title">

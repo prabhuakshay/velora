@@ -187,7 +187,7 @@ def test_settling_an_older_statement_late_updates_the_next(
     record(card, groceries, "5000", date(2026, 10, 20))
     run_daily_job(date(2026, 11, 16))
     october, november = Statement.objects.all()
-    assert november.amount == Decimal(-7000)
+    assert november.amount == 0
     signed_in.post(
         reverse("statement_edit", args=[october.pk]), {"actual_amount": "12000"}
     )

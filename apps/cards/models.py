@@ -62,8 +62,10 @@ class Statement(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        validators=[MinValueValidator(Decimal(0))],
-        help_text="From the real statement; leave blank to use the estimate.",
+        help_text=(
+            "From the real statement, below zero when it shows a credit; leave"
+            " blank to use the estimate."
+        ),
     )
 
     objects = StatementQuerySet.as_manager()

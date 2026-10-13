@@ -149,14 +149,14 @@ def test_a_posted_payment_draft_is_left_alone(
     assert Draft.objects.count() == 1
 
 
-def test_a_negative_actual_amount_is_refused(
+def test_a_negative_actual_amount_is_a_credit(
     signed_in: Client, billed: Statement
 ) -> None:
-    response = signed_in.post(edit_url(billed), {"actual_amount": "-5"})
+    signed_in.post(edit_url(billed), {"actual_amount": "-5"})
 
-    assert response.status_code == 200
     billed.refresh_from_db()
-    assert billed.actual_amount is None
+    assert billed.actual_amount == Decimal(-5)
+    assert not billed.needs_payment
 
 
 def test_the_card_page_lists_its_statements(
@@ -359,7 +359,7 @@ def test_linking_a_payment_raises_the_next_estimate(
     record(card, groceries, "400", date(2026, 11, 1))
     run_daily_job(date(2026, 11, 16))
     november = Statement.objects.get(period_end=date(2026, 11, 15))
-    assert november.amount == Decimal(-800)
+    assert november.amount == 0
 
     signed_in.post(link_url(billed), {"transaction": payment.pk})
 
@@ -474,7 +474,7 @@ def test_unlinking_reopens_the_statement_and_proposes_its_payment(
     assert Draft.objects.waiting().get(statement=billed).splits.get().amount == (
         Decimal(1200)
     )
-    assert november.amount == Decimal(-800)
+    assert november.amount == 0
 
 
 def test_unlinking_leaves_a_rejected_draft_rejected(

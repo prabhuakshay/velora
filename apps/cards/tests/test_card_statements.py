@@ -156,5 +156,5 @@ def test_nothing_to_pay_proposes_no_draft(card: Account, groceries: Account) -> 
 
     run_daily_job(date(2026, 10, 16))
 
-    assert Statement.objects.get().amount == Decimal(-500)
+    assert Statement.objects.get().amount == 0
     assert not Draft.objects.exists()

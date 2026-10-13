@@ -131,7 +131,7 @@ def test_unlinking_one_of_two_parts_makes_it_unpaid_and_counts_it_again(
     next_one.refresh_from_db()
     assert not big.is_paid
     assert waiting_amount(big) == Decimal(5000)
-    assert next_one.amount == Decimal(-4600)
+    assert next_one.amount == 0
 
 
 def test_deleting_one_of_two_parts_makes_it_unpaid_and_counts_it_again(
