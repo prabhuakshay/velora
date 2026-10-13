@@ -21,9 +21,12 @@ from apps.investments.tests.conftest import (
     upload_import,
 )
 from apps.users.tests.conftest import privacy_mode_off_url, turn_on
+from apps.users.tests.test_number_format import use_format
 
 if TYPE_CHECKING:
     from django.test import Client
+
+    from apps.users.models import User
 
 pytestmark = pytest.mark.django_db
 
@@ -187,3 +190,36 @@ def test_export_and_import_are_blocked_in_privacy_mode(signed_in: Client) -> Non
         url = reverse(name)
         response = signed_in.get(url)
         assert response["Location"] == privacy_mode_off_url(url)
+
+
+@pytest.mark.parametrize(
+    ("number_format", "shown"),
+    [
+        ("indian", "12,345.5 ₹12,34,550.00"),
+        ("international", "12,345.5 ₹1,234,550.00"),
+    ],
+)
+def test_the_preview_shows_units_and_amounts_in_the_number_format(
+    signed_in: Client, user: User, number_format: str, shown: str
+) -> None:
+    make_broker(opening="5000000")
+    use_format(user, number_format)
+
+    page = upload_import(
+        signed_in,
+        import_text(
+            import_line("BUY", units="12345.500000", price="100", amount="1234550")
+        ).encode(),
+    )
+
+    assert f"INF000000001 {shown}" in page
+
+
+def test_the_preview_shows_a_value_it_cant_read_as_written(signed_in: Client) -> None:
+    make_broker()
+
+    page = upload_import(
+        signed_in, import_text(import_line("BUY", units="NaN", amount="1x")).encode()
+    )
+
+    assert "INF000000001 NaN 1x" in page

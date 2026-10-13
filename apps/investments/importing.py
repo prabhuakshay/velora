@@ -60,6 +60,16 @@ class ImportRow:
         """Whether it needs a Transaction and none was recorded."""
         return self.needs_transaction and self.transaction is None
 
+    @property
+    def units(self) -> Decimal | None:
+        """The row's units as a number, or None when blank or unreadable."""
+        return _decimal(self.values["units"])
+
+    @property
+    def amount(self) -> Decimal | None:
+        """The row's amount as a number, or None when blank or unreadable."""
+        return _decimal(self.values["amount"])
+
 
 @dataclass
 class ImportResult:
@@ -144,9 +154,10 @@ def _date(text: str) -> datetime.date | None:
 
 def _decimal(text: str) -> Decimal | None:
     try:
-        return Decimal(text) if text else None
+        number = Decimal(text) if text else None
     except InvalidOperation:
         return None
+    return number if number is not None and number.is_finite() else None
 
 
 def _order(row: ImportRow) -> tuple[datetime.date, int, int]:

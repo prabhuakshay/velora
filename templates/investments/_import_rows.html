@@ -23,8 +23,8 @@
               <td class="px-3 py-3">{{ row.values.account }}</td>
               <td class="px-3 py-3">{{ row.values.type }}</td>
               <td class="px-3 py-3">{{ row.values.isin }}{% if row.values.instrument_name %}<span class="block text-xs text-slate-500">{{ row.values.instrument_name }}</span>{% endif %}</td>
-              <td class="px-3 py-3 text-right tabular-nums">{{ row.values.units }}</td>
-              <td class="px-3 py-3 text-right tabular-nums">{{ row.values.amount }}</td>
+              <td class="px-3 py-3 text-right tabular-nums">{% if row.units is None %}{{ row.values.units }}{% else %}{% units row.units %}{% endif %}</td>
+              <td class="px-3 py-3 text-right tabular-nums">{% if row.amount is None %}{{ row.values.amount }}{% else %}{% amount row.amount %}{% endif %}</td>
               <td class="px-4 py-3 md:px-5">
                 {% if row.transaction %}Matches the Transaction on {{ row.transaction.date|date:"j M Y" }}{% elif row.needs_transaction %}{% if not row.errors %}Becomes a Draft to review{% endif %}{% else %}<span class="text-slate-500">Nothing</span>{% endif %}
                 {% for error in row.errors %}<p class="text-red-600">{{ error }}</p>{% endfor %}
