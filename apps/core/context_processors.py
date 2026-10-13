@@ -40,6 +40,7 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
         # The kind tabs on the page switch kinds, so any kind counts as here.
         | {"active": path.startswith("/accounts/")},
         top("pie", label="Investments", url=reverse("investments_overview")),
+        top("flag", label="Goals", url=reverse("goal_list")),
         top("tag", label="Classification", url=reverse("party_list"))
         # The Parties and Tags tabs on the page switch lists, so both count as here.
         | {"active": path.startswith(("/parties/", "/tags/"))},
