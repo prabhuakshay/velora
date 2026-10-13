@@ -1,12 +1,16 @@
 {% comment %}
   The floating Quick Add button, above the tab bar on phones, and its sheet.
-  The sent message lands in the status region outside the sheet, so it stays
-  after the sheet closes.
+  The sent message shows in the status region outside the sheet once the sheet
+  has closed: while it's modal the rest of the page is inert, so a screen
+  reader wouldn't announce it.
 {% endcomment %}
-<button type="button" aria-label="Quick Add" data-dialog-open="quick-add" title="Quick Add" class="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex size-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg shadow-slate-900/25 transition-transform outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 md:right-8 md:bottom-8">
-  {% include "shell/icon.html" with name="plus" class="size-6" stroke="stroke-[2.5]" %}
-</button>
-<div id="quick-add-status" role="status" class="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-20 md:bottom-8"></div>
+<div class="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 md:bottom-8">
+  <div id="quick-add-status" role="status" class="flex justify-center px-20"></div>
+  <template id="quick-add-sent"><p class="quick-add-sent rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-lg">Quick Add sent</p></template>
+  <button type="button" aria-label="Quick Add" data-dialog-open="quick-add" title="Quick Add" class="pointer-events-auto absolute right-4 bottom-0 flex size-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg shadow-slate-900/25 transition-transform outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 md:right-8">
+    {% include "shell/icon.html" with name="plus" class="size-6" stroke="stroke-[2.5]" %}
+  </button>
+</div>
 <dialog id="quick-add" data-dialog data-sheet aria-labelledby="quick-add-title" class="m-0 mt-auto w-full max-w-none rounded-t-2xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-black/50 md:m-auto md:max-w-md md:rounded-2xl">
   <div class="px-4 pt-2 pb-2">
     <div class="mx-auto mb-1 h-1 w-9 rounded-full bg-slate-300 md:hidden" aria-hidden="true"></div>

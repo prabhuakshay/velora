@@ -88,7 +88,8 @@ def test_the_floating_quick_add_box_matches_the_drafts_page_box(
 
     assert 'placeholder="dinner 1200 on hdfc card"' in box
     assert 'maxlength="500"' in box
-    assert "autofocus" in box
+    assert "data-autofocus" in box
+    assert " autofocus" not in box
 
 
 def test_an_htmx_quick_add_is_sent_without_leaving_the_page(
@@ -104,10 +105,12 @@ def test_an_htmx_quick_add_is_sent_without_leaving_the_page(
     assert "Location" not in response
     assert response["HX-Trigger"] == "quick-add-sent"
     body = response.content.decode()
-    status = next(line for line in body.splitlines() if 'role="status"' in line)
-    assert "Quick Add sent" in body[body.index(status) :]
+    # Announced by the page once the sheet has closed, not swapped in while open.
+    assert "Quick Add sent" not in body
     box = next(line for line in body.splitlines() if 'id="fab-quick-add-text"' in line)
     assert 'value=""' in box
+    # htmx would focus a swapped-in autofocus, popping the keyboard as it closes.
+    assert " autofocus" not in box
     quick_add = QuickAdd.objects.get()
     assert quick_add.status == QuickAdd.Status.PROCESSING
     assert ProcrastinateJob.objects.get().args == {"quick_add_id": quick_add.pk}

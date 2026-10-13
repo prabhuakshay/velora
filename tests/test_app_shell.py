@@ -141,6 +141,14 @@ def _shell_has_quick_add_button(client: Client, url: str) -> bool:
 
 
 @pytest.mark.usefixtures("ai_on")
+def test_the_quick_add_sent_message_waits_in_the_page(signed_in: Client) -> None:
+    body = signed_in.get(reverse("index")).content.decode()
+
+    status = body[body.index('id="quick-add-status"') :]
+    assert status.index("<template") < status.index("Quick Add sent")
+
+
+@pytest.mark.usefixtures("ai_on")
 def test_ordinary_pages_offer_the_quick_add_button(signed_in: Client) -> None:
     account = make_account("HDFC", AccountKind.ASSET)
 

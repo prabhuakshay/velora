@@ -1,6 +1,8 @@
 {% comment %}
   The floating button's Quick Add form. It posts with htmx so the user stays on
   their page; the response swaps in a fresh form, or this one with its error.
+  data-autofocus, not autofocus: htmx focuses a swapped-in autofocus, which
+  would pop the phone keyboard as the sheet closes.
 {% endcomment %}
 <form data-quick-add method="post" action="{% url 'quick_add_create' %}" hx-post="{% url 'quick_add_create' %}" hx-swap="outerHTML" class="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
   {% csrf_token %}
