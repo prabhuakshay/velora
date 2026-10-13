@@ -2,6 +2,7 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 import pytest
+from django.urls import reverse
 
 from apps.accounts.tests.conftest import account_url, make_account, page_text
 from apps.accounts.tests.test_balance import opening, record
@@ -16,6 +17,7 @@ from apps.investments.tests.conftest import (
     make_broker,
     make_direct,
 )
+from apps.quick_add.models import Draft
 from apps.transactions.models import Transaction
 
 if TYPE_CHECKING:
@@ -44,6 +46,10 @@ def buy(**fields: str) -> str:
 
 def sell(units: str, amount: str, **fields: str) -> str:
     return import_line("SELL", units=units, price="100", amount=amount, **fields)
+
+
+def drafts_text(client: Client) -> str:
+    return page_text(client.get(reverse("draft_list")).content.decode())
 
 
 def account_text(client: Client, account: Account) -> str:
@@ -193,15 +199,26 @@ def test_a_later_direct_buy_links_the_transaction_already_recorded(
     assert "Cash ₹0.00" in holdings_text(signed_in, kuvera)
 
 
-def test_a_later_direct_buy_with_no_transaction_is_an_error(signed_in: Client) -> None:
+def test_a_later_direct_buy_with_no_transaction_becomes_a_draft(
+    signed_in: Client,
+) -> None:
     bank = opening("Bank", "asset", "10000")
     kuvera = make_direct(bank)
     record(signed_in, bank, kuvera, "1000.00")
+    row = buy(account="Kuvera", date="2026-03-05", charges="5")
 
-    page = import_preview(signed_in, buy(account="Kuvera", date="2026-03-05"))
+    page = import_preview(signed_in, row)
+    response = import_confirm(signed_in, row)
 
-    assert "No recorded Transaction with the same Accounts and amount" in page
-    assert "Confirm import" not in page
+    assert "Becomes a Draft to review" in page
+    assert response.status_code == 302
+    drafts = drafts_text(signed_in)
+    assert "Imported 0 Investment Events and 1 Draft to review" in drafts
+    assert "Buy Nifty Fund ₹1,005.00" in drafts
+    assert "Buy Nifty Fund in Kuvera · 10 units at ₹100.0000 Bank Kuvera" in drafts
+    assert "Investment Import Post" in drafts
+    assert not InvestmentEvent.objects.exists()
+    assert "Nothing held yet" in holdings_text(signed_in, kuvera)
 
 
 def test_one_transaction_matches_only_one_row(signed_in: Client) -> None:
@@ -213,7 +230,8 @@ def test_one_transaction_matches_only_one_row(signed_in: Client) -> None:
         signed_in, buy(account="Kuvera"), buy(account="Kuvera", ref="second")
     )
 
-    assert "1 to add · 0 already recorded · 1 with errors" in page
+    assert "Matches the Transaction on 1 Mar 2026" in page
+    assert "Becomes a Draft to review" in page
 
 
 def test_a_later_direct_sell_matches_its_proceeds(signed_in: Client) -> None:
@@ -285,3 +303,81 @@ def test_stock_split_and_bonus_rows(signed_in: Client) -> None:
     )
 
     assert "Nifty Fund 25 ₹1,000.00" in holdings_text(signed_in, broker)
+
+
+def post_drafts(client: Client) -> None:
+    response = client.post(reverse("draft_post_all"))
+    assert response.status_code == 302
+
+
+@pytest.mark.parametrize("ref", ["", "K-7"])
+def test_a_posted_import_draft_is_recorded_once_whatever_is_uploaded_after(
+    signed_in: Client, ref: str
+) -> None:
+    bank = opening("Bank", "asset", "10000")
+    kuvera = make_direct(bank)
+    row = buy(account="Kuvera", date="2026-03-05", charges="5", ref=ref, note="SIP")
+    imported(signed_in, row)
+
+    post_drafts(signed_in)
+    page = import_preview(signed_in, row)
+    imported(signed_in, row)
+
+    assert "0 to add · 1 already recorded · 0 with errors" in page
+    event = InvestmentEvent.objects.get()
+    assert (event.ref, event.note) == (ref, "SIP")
+    assert event.transaction == Transaction.objects.get()
+    assert "Nifty Fund 10 ₹1,005.00" in holdings_text(signed_in, kuvera)
+    assert "Balance ₹8,995.00" in account_text(signed_in, bank)
+
+
+@pytest.mark.parametrize("ref", ["", "K-7"])
+def test_uploading_again_before_posting_proposes_no_second_draft(
+    signed_in: Client, ref: str
+) -> None:
+    make_direct(opening("Bank", "asset", "10000"))
+    row = buy(account="Kuvera", date="2026-03-05", ref=ref)
+    imported(signed_in, row)
+
+    page = import_preview(signed_in, row)
+    imported(signed_in, row)
+
+    assert "0 to add · 1 already recorded · 0 with errors" in page
+    assert "Drafts 1 " in drafts_text(signed_in)
+
+
+def test_a_rejected_import_draft_is_proposed_again(signed_in: Client) -> None:
+    make_direct(opening("Bank", "asset", "10000"))
+    row = buy(account="Kuvera", date="2026-03-05", ref="K-7")
+    imported(signed_in, row)
+    draft = Draft.objects.get()
+    signed_in.post(reverse("draft_reject", args=[draft.pk]))
+
+    page = import_preview(signed_in, row)
+
+    assert "1 to add · 0 already recorded · 0 with errors" in page
+
+
+def test_a_later_dividend_with_no_transaction_waits_for_its_income_account(
+    signed_in: Client,
+) -> None:
+    broker = make_broker(opening="5000")
+
+    imported(signed_in, buy(), import_line("DIVIDEND", date="2026-03-04", amount="75"))
+    post_drafts(signed_in)
+
+    assert "Dividend Nifty Fund ₹75.00" in drafts_text(signed_in)
+    assert not InvestmentEvent.objects.filter(kind="dividend").exists()
+    assert "Balance ₹5,000.00" in account_text(signed_in, broker)
+
+
+def test_a_draft_row_can_bring_an_unknown_instrument(signed_in: Client) -> None:
+    make_direct(opening("Bank", "asset", "10000"))
+
+    imported(
+        signed_in,
+        buy(account="Kuvera", isin=STOCK, instrument_name="Unlisted Co"),
+    )
+
+    assert "Buy Unlisted Co in Kuvera" in drafts_text(signed_in)
+    assert Instrument.objects.get(isin=STOCK).manual_price

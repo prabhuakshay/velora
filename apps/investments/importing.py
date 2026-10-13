@@ -18,11 +18,13 @@ from django.core.exceptions import NON_FIELD_ERRORS
 from django.db import transaction as db_transaction
 
 from apps.accounts.models import Account
+from apps.investments.drafts import save_investment
 from apps.investments.export import COLUMNS
 from apps.investments.forms import InvestmentEventForm
 from apps.investments.matching import matching_transaction, moves_ledger_money
-from apps.investments.models import Instrument, InvestmentEvent
+from apps.investments.models import DraftInvestment, Instrument, InvestmentEvent
 from apps.investments.replay import DAY_ORDER, MERGER
+from apps.quick_add.models import Draft
 
 if TYPE_CHECKING:
     from apps.transactions.models import Transaction
@@ -35,9 +37,6 @@ HIDDEN_ERRORS = {"income_account"}
 REF_LENGTH = int(InvestmentEvent._meta.get_field("ref").max_length or 0)
 ISIN_LENGTH = int(Instrument._meta.get_field("isin").max_length or 0)
 NAME_LENGTH = int(Instrument._meta.get_field("name").max_length or 0)
-UNMATCHED = (
-    "No recorded Transaction with the same Accounts and amount is within 3 days."
-)
 
 
 @dataclass
@@ -45,7 +44,8 @@ class ImportRow:
     """One row of the file and what the import makes of it.
 
     A row that moves ledger money after its account's Opening Balance date
-    needs a Transaction: the recorded one it matched, or None when unmatched.
+    needs a Transaction: the recorded one it matched, or None when unmatched,
+    in which case the row becomes a Draft to review and post (ADR 0006).
     """
 
     line: int
@@ -80,8 +80,13 @@ class ImportResult:
 
     @property
     def valid(self) -> list[ImportRow]:
-        """Rows the import adds."""
+        """Rows the import adds, as Investment Events or Drafts."""
         return [row for row in self.rows if not row.duplicate and not row.errors]
+
+    @property
+    def drafts(self) -> list[ImportRow]:
+        """Rows the import proposes as Drafts."""
+        return [row for row in self.valid if row.unmatched]
 
     @property
     def can_confirm(self) -> bool:
@@ -179,17 +184,25 @@ def _parts(row: ImportRow) -> tuple[Account, str, datetime.date] | None:
 
 
 def _recorded(row: ImportRow, account: Account, kind: str, when: datetime.date) -> bool:
+    """Whether the row is an Investment Event already, or a Draft waiting to be."""
     values = row.values
+    drafts = DraftInvestment.objects.filter(draft__status=Draft.Status.WAITING)
     if values["ref"]:
-        return InvestmentEvent.objects.filter(ref=values["ref"]).exists()
-    return InvestmentEvent.objects.filter(
-        date=when,
-        account=account,
-        kind=kind,
-        instrument__isin=values["isin"].upper(),
-        units=_decimal(values["units"]),
-        amount=_decimal(values["amount"]),
-    ).exists()
+        return (
+            InvestmentEvent.objects.filter(ref=values["ref"]).exists()
+            or drafts.filter(ref=values["ref"]).exists()
+        )
+    same = {
+        "account": account,
+        "kind": kind,
+        "instrument__isin": values["isin"].upper(),
+        "units": _decimal(values["units"]),
+        "amount": _decimal(values["amount"]),
+    }
+    return (
+        InvestmentEvent.objects.filter(date=when, **same).exists()
+        or drafts.filter(draft__date=when, **same).exists()
+    )
 
 
 def _import(row: ImportRow) -> None:
@@ -211,22 +224,47 @@ def _import(row: ImportRow) -> None:
     if event.amount is not None and moves_ledger_money(event):
         row.needs_transaction = True
         row.transaction = matching_transaction(event)
-    if row.unmatched:
-        # Until Investment Import Drafts (#161), an unmatched row blocks the import.
-        row.errors.append(UNMATCHED)
-        return
     if kind == MERGER:
         _define_merger_target(values)
     form = InvestmentEventForm(
         _form_data(values, kind),
         account=account,
         matched=row.transaction,
+        drafting=row.unmatched,
         instance=InvestmentEvent(ref=values["ref"]),
     )
-    if form.is_valid():
-        form.save()
-    else:
+    if not form.is_valid():
         row.errors.extend(_messages(form))
+    elif row.unmatched:
+        _propose_draft(form)
+    else:
+        form.save()
+
+
+def _propose_draft(form: InvestmentEventForm) -> None:
+    """Save the checked event as a Draft carrying it, to post once reviewed."""
+    event = form.save(commit=False)
+    if form.new_instrument is not None:
+        event.instrument.save()
+    draft = Draft.objects.create(
+        source=Draft.Source.INVESTMENT_IMPORT,
+        date=event.date,
+        description=f"{event.get_kind_display()} {event.instrument}",
+    )
+    save_investment(
+        DraftInvestment(
+            draft=draft,
+            account=event.account,
+            instrument=event.instrument,
+            kind=event.kind,
+            units=event.units,
+            price=event.price,
+            amount=event.amount,
+            charges=event.charges,
+            ref=event.ref,
+            note=event.note,
+        )
+    )
 
 
 def _define_merger_target(values: dict[str, str]) -> None:

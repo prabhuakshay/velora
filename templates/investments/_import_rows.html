@@ -26,7 +26,7 @@
               <td class="px-3 py-3 text-right tabular-nums">{{ row.values.units }}</td>
               <td class="px-3 py-3 text-right tabular-nums">{{ row.values.amount }}</td>
               <td class="px-4 py-3 md:px-5">
-                {% if row.transaction %}Matches the Transaction on {{ row.transaction.date|date:"j M Y" }}{% elif not row.needs_transaction %}<span class="text-slate-500">Nothing</span>{% endif %}
+                {% if row.transaction %}Matches the Transaction on {{ row.transaction.date|date:"j M Y" }}{% elif row.needs_transaction %}{% if not row.errors %}Becomes a Draft to review{% endif %}{% else %}<span class="text-slate-500">Nothing</span>{% endif %}
                 {% for error in row.errors %}<p class="text-red-600">{{ error }}</p>{% endfor %}
               </td>
             </tr>

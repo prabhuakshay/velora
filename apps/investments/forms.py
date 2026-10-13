@@ -101,6 +101,8 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
     leave a Sell taking more units than held on its date, counting every
     other event, is refused. A Dividend also records its Income Transaction.
     Given a matched Transaction, the event is linked to it as it is instead.
+    When drafting, the form only checks the event: its money is left to the
+    Draft it is proposed as.
     """
 
     isin = forms.CharField(label="ISIN", max_length=12)
@@ -144,11 +146,13 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         *args: Any,  # noqa: ANN401
         account: Account,
         matched: Transaction | None = None,
+        drafting: bool = False,
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
         super().__init__(*args, **kwargs)
         self.account = account
         self.matched = matched
+        self.drafting = drafting
         self.instance.account = account
         for name in ("units", "price", "amount"):
             self.fields[name].widget.attrs["min"] = "0"
@@ -186,7 +190,8 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
             self._merge_target(cleaned["new_isin"], instrument)
         if not self.errors and instrument is not None:
             self._refuse_overselling(instrument)
-            self._check_ledger(instrument)
+            if not self.drafting:
+                self._check_ledger(instrument)
         return cleaned
 
     def _keep_what_the_kind_needs(self) -> None:
@@ -206,6 +211,7 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         when = self.cleaned_data.get("date")
         return (
             self.matched is None
+            and not self.drafting
             and when is not None
             and posts_transaction(
                 InvestmentEvent(

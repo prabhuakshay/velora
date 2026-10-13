@@ -207,6 +207,10 @@ class DraftInvestment(models.Model):
     price = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
     amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    # From an Investment Import row, passed on to the event when posted, so
+    # importing the file again spots the row as recorded.
+    ref = models.CharField(max_length=100, blank=True)
+    note = models.CharField(max_length=200, blank=True)
 
     class Meta:
         constraints: ClassVar = [
@@ -231,6 +235,8 @@ class DraftInvestment(models.Model):
             price=self.price,
             amount=self.amount,
             charges=self.charges,
+            ref=self.ref,
+            note=self.note,
         )
 
     def record(self, transaction: Transaction) -> InvestmentEvent:

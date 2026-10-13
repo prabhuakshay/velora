@@ -6,6 +6,7 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.template.defaultfilters import pluralize
 from django.views.decorators.http import require_POST
 
 from apps.investments import importing
@@ -73,10 +74,12 @@ def investment_import_confirm(request: HttpRequest) -> HttpResponseBase:
         return _preview(request, text, result)
     if result.valid:
         queue_backfill()
+    drafts = len(result.drafts)
+    proposed = f" and {drafts} Draft{pluralize(drafts)} to review" if drafts else ""
     messages.success(
         request,
-        f"Imported {len(result.valid)} Investment Events; skipped "
-        f"{len(result.duplicates)} already recorded.",
+        f"Imported {len(result.valid) - drafts} Investment Events{proposed}; "
+        f"skipped {len(result.duplicates)} already recorded.",
     )
     return redirect("investments_overview")
 

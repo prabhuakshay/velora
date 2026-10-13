@@ -13,7 +13,7 @@
 
   <section class="mt-4 space-y-3 rounded-2xl bg-white p-4 text-sm text-slate-600 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-label="How it works">
     <p>Fill in the template from your statements, one Investment Event per row, then upload it. Velora checks every row and shows a preview; nothing changes until you confirm.</p>
-    <p>Rows on or before an Investment Account's Opening Balance date only build Lot history. A later Buy, Sell or Dividend that moves bank money is linked to the Transaction you already recorded for it. Rows already recorded are skipped, so uploading a file again is safe.</p>
+    <p>Rows on or before an Investment Account's Opening Balance date only build Lot history. A later Buy, Sell or Dividend that moves bank money is linked to the Transaction you already recorded for it, or becomes a Draft for you to review and post when there is none. Rows already recorded are skipped, so uploading a file again is safe.</p>
     <p>For a Merger, <code>instrument_name</code> names the new Instrument.</p>
     <div class="flex flex-wrap gap-2 pt-1">
       <a href="{% url 'investment_import_template' %}" class="btn-secondary py-2 text-sm">Download the template</a>
