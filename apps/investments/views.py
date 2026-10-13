@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -13,6 +12,7 @@ from django.views.decorators.http import require_POST
 from apps.accounts.models import Account
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
 from apps.investments.models import Instrument, InvestmentEvent
+from apps.investments.portfolio import COLUMNS, Column, portfolio, sorting
 from apps.investments.replay import OversoldError, replay
 from apps.investments.valuation import account_value
 from apps.users.privacy_mode import blocked_in_privacy_mode
@@ -157,27 +157,35 @@ def _sell_refusal(error: OversoldError) -> str:
     return f"the Sell on {error.event.date:%-d %b %Y} would sell units not held."
 
 
+def _headers(current: Column, *, descending: bool) -> list[dict[str, object]]:
+    """Each Holdings column heading; the sorted one links to its other way."""
+    return [
+        {
+            "title": column.title,
+            "numeric": column.numeric,
+            "url": f"?sort={'-' if column == current and not descending else ''}"
+            f"{column.key}",
+            "aria_sort": ("descending" if descending else "ascending")
+            if column == current
+            else "",
+        }
+        for column in COLUMNS
+    ]
+
+
 @login_required
 def investments_overview(request: HttpRequest) -> HttpResponseBase:
-    """Each Investment Account at its Market Value, and the Instruments held."""
-    accounts = Account.objects.exclude(investment_mode="").with_balance()
-    values = [
-        (account, account_value(account, account.balance))
-        for account in accounts.order_by(Lower("name"))
-    ]
+    """The portfolio's totals, each Investment Account and every Holding."""
+    held = portfolio()
+    column, descending = sorting(request.GET.get("sort", ""))
     return render(
         request,
         "investments/overview.html",
         {
-            "accounts": values,
-            "holdings": sorted(
-                (
-                    (account, row)
-                    for account, value in values
-                    for row in value.holdings
-                    if row.units
-                ),
-                key=lambda pair: pair[1].instrument.name,
-            ),
+            "accounts": held.accounts,
+            "totals": held.totals,
+            "kinds": held.by_kind(),
+            "columns": _headers(column, descending=descending),
+            "holdings": held.holdings(column, descending=descending),
         },
     )
