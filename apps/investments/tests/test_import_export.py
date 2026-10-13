@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from django.urls import reverse
+from procrastinate.contrib.django.models import ProcrastinateJob
 
 from apps.accounts.tests.conftest import page_text
 from apps.accounts.tests.test_balance import opening
@@ -151,6 +152,32 @@ def test_export_then_import_into_an_empty_database_round_trips(
     assert (holdings_text(signed_in, broker), holdings_text(signed_in, kuvera)) == (
         holdings
     )
+
+
+def test_confirming_an_import_queues_one_price_backfill(signed_in: Client) -> None:
+    make_broker(opening="5000")
+    rows = (
+        import_line("BUY", units="1", price="10", amount="10"),
+        import_line("BUY", date="2026-03-03", units="1", price="10", amount="10"),
+    )
+
+    imported(signed_in, *rows)
+    imported(signed_in, *rows)
+
+    assert ProcrastinateJob.objects.get().task_name == "investments.backfill_prices"
+
+
+def test_a_preview_or_an_import_adding_nothing_queues_no_backfill(
+    signed_in: Client,
+) -> None:
+    make_broker(opening="5000")
+    row = import_line("BUY", units="1", price="10", amount="10")
+    imported(signed_in, row)
+    ProcrastinateJob.objects.all().delete()
+
+    imported(signed_in, row)
+
+    assert not ProcrastinateJob.objects.exists()
 
 
 def test_export_and_import_are_blocked_in_privacy_mode(signed_in: Client) -> None:

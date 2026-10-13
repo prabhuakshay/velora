@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 
 from apps.investments import importing
 from apps.investments.export import events_csv, template_csv
+from apps.investments.tasks import queue_backfill
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
@@ -70,6 +71,8 @@ def investment_import_confirm(request: HttpRequest) -> HttpResponseBase:
     result = importing.apply(text)
     if not result.can_confirm:
         return _preview(request, text, result)
+    if result.valid:
+        queue_backfill()
     messages.success(
         request,
         f"Imported {len(result.valid)} Investment Events; skipped "
