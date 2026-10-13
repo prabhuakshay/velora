@@ -25,6 +25,12 @@
       {% include "partials/field.html" with field=form.name %}
       {% include "partials/field.html" with field=form.notes %}
       {% if form.investment_mode %}{% include "partials/field.html" with field=form.investment_mode %}{% endif %}
+      {% if form.invests_from %}
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {% include "partials/field.html" with field=form.invests_from %}
+          {% include "partials/field.html" with field=form.invests_into %}
+        </div>
+      {% endif %}
     </section>
 
     {% if form.opening_balance %}

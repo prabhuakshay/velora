@@ -27,6 +27,7 @@ class InvestmentMode(models.TextChoices):
     """How an Investment Account's money moves; blank for any other Account."""
 
     HOLDS_CASH = "holds_cash", "Holds Cash"
+    DIRECT = "direct", "Direct"
 
 
 BALANCE_KINDS = (AccountKind.ASSET, AccountKind.LIABILITY)
@@ -152,6 +153,19 @@ CARD_SETTINGS_TOGETHER = (
     "Set the Statement Day, Due Day and Pays from Account together, "
     "or leave all three blank."
 )
+DIRECT_NEEDS_BANKS = "A Direct Investment Account needs a Pays from and a Pays into."
+
+
+def _direct_bank(label: str, related_name: str) -> models.ForeignKey[Account | None]:
+    return models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name=related_name,
+        limit_choices_to={"kind": AccountKind.ASSET, "investment_mode": ""},
+        verbose_name=label,
+    )
 
 
 class Account(models.Model):
@@ -201,6 +215,9 @@ class Account(models.Model):
     investment_mode = models.CharField(
         "Investment Account", max_length=16, choices=InvestmentMode, blank=True
     )
+    # Where a Direct Investment Account's Buys are paid from and Sells paid into.
+    invests_from = _direct_bank("Pays from", "direct_investments_paid")
+    invests_into = _direct_bank("Pays into", "direct_investments_received")
     low_balance_threshold = models.DecimalField(
         "Low-Balance Threshold",
         max_digits=15,
@@ -268,6 +285,19 @@ class Account(models.Model):
                 name="accounts_account_investment_mode_asset_only",
                 violation_error_message="Only an Asset Account can hold investments.",
             ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    investment_mode=InvestmentMode.DIRECT,
+                    invests_from__isnull=False,
+                    invests_into__isnull=False,
+                )
+                | (
+                    ~models.Q(investment_mode=InvestmentMode.DIRECT)
+                    & models.Q(invests_from__isnull=True, invests_into__isnull=True)
+                ),
+                name="accounts_account_direct_investment_banks",
+                violation_error_message=DIRECT_NEEDS_BANKS,
+            ),
         ]
 
     def __str__(self) -> str:
@@ -304,6 +334,11 @@ class Account(models.Model):
     def is_investment(self) -> bool:
         """Whether it is an Investment Account, with Holdings beside its Balance."""
         return bool(self.investment_mode)
+
+    @property
+    def is_direct(self) -> bool:
+        """Whether it is a Direct Investment Account, paid from and into banks."""
+        return self.investment_mode == InvestmentMode.DIRECT
 
     @property
     def is_card(self) -> bool:
