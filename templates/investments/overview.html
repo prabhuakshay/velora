@@ -7,7 +7,45 @@
 {% block main %}
   <h1 class="text-xl font-semibold tracking-tight md:text-2xl">Investments</h1>
 
-  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:mt-6" aria-labelledby="accounts-title">
+  {% if accounts %}
+    <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-label="Totals">
+      <dl class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+        <div><dt class="text-slate-500">Invested</dt> <dd class="mt-1 text-lg font-semibold tabular-nums">{% amount totals.cost_basis %}</dd></div>
+        <div><dt class="text-slate-500">Market Value</dt> <dd class="mt-1 text-lg font-semibold tabular-nums">{% amount totals.market_value %}</dd></div>
+        <div><dt class="text-slate-500">Unrealized Gain</dt> <dd class="mt-1 text-lg font-semibold tabular-nums">{% signed_amount totals.unrealized %} <span class="text-sm">{% signed_percent totals.unrealized_percent %}</span></dd></div>
+        <div><dt class="text-slate-500">Realized Gain</dt> <dd class="mt-1 text-lg font-semibold tabular-nums">{% signed_amount totals.realized %}</dd></div>
+      </dl>
+    </section>
+
+    {% if kinds %}
+      <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="mix-title">
+        <h2 id="mix-title" class="px-4 pt-4 font-semibold md:px-5">By kind</h2>
+        <div class="mt-2 overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-left text-xs text-slate-500">
+              <tr>
+                <th scope="col" class="px-4 py-2 font-medium md:px-5"><span class="sr-only">Kind</span></th>
+                <th scope="col" class="px-3 py-2 text-right font-medium">Invested</th>
+                <th scope="col" class="px-3 py-2 text-right font-medium">Market Value</th>
+                <th scope="col" class="px-3 py-2 text-right font-medium" colspan="2">Unrealized Gain</th>
+                <th scope="col" class="px-4 py-2 text-right font-medium md:px-5">Realized Gain</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {% for title, kind in kinds %}
+                {% include "investments/_totals_row.html" with title=title row=kind %}
+              {% endfor %}
+            </tbody>
+            <tfoot class="border-t border-slate-200 font-semibold">
+              {% include "investments/_totals_row.html" with title="Total" row=totals %}
+            </tfoot>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+  {% endif %}
+
+  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="accounts-title">
     <h2 id="accounts-title" class="px-4 pt-4 font-semibold md:px-5">Investment Accounts</h2>
     <ul class="mt-2 divide-y divide-slate-100">
       {% for account, value in accounts %}
@@ -25,24 +63,31 @@
 
   {% if holdings %}
     <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="held-title">
-      <h2 id="held-title" class="px-4 pt-4 font-semibold md:px-5">Instruments held</h2>
+      <h2 id="held-title" class="px-4 pt-4 font-semibold md:px-5">Holdings</h2>
       <div class="mt-2 overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="text-left text-xs text-slate-500">
             <tr>
-              <th scope="col" class="px-4 py-2 font-medium md:px-5">Instrument</th>
-              <th scope="col" class="px-3 py-2 text-right font-medium">Units</th>
-              <th scope="col" class="px-3 py-2 text-right font-medium">Market Value</th>
-              <th scope="col" class="px-4 py-2 text-right font-medium md:px-5">Investment Account</th>
+              {% for column in columns %}
+                <th scope="col" {% if column.aria_sort %}aria-sort="{{ column.aria_sort }}"{% endif %} class="px-3 py-2 font-medium whitespace-nowrap first:pl-4 last:pr-4 md:first:pl-5 md:last:pr-5 {% if column.numeric %}text-right{% endif %}">
+                  <a href="{{ column.url }}" class="inline-flex items-center gap-1 hover:text-slate-900 {% if column.aria_sort %}text-slate-900{% endif %}">{{ column.title }}{% if column.aria_sort == "ascending" %}<span aria-hidden="true">↑</span>{% elif column.aria_sort == "descending" %}<span aria-hidden="true">↓</span>{% endif %}</a>
+                </th>
+              {% endfor %}
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            {% for account, row in holdings %}
+            {% for held in holdings %}
               <tr>
-                <th scope="row" class="px-4 py-3 text-left font-medium md:px-5"><a href="{% url 'instrument_detail' row.instrument.pk %}" class="hover:underline">{{ row.instrument.name }}</a></th>
-                <td class="px-3 py-3 text-right tabular-nums">{% units row.units %}</td>
-                <td class="px-3 py-3 text-right tabular-nums">{% amount row.market_value %}</td>
-                <td class="px-4 py-3 text-right text-slate-500 md:px-5">{{ account.name }}</td>
+                <th scope="row" class="py-3 pr-3 pl-4 text-left font-medium md:pl-5">
+                  <a href="{% url 'instrument_detail' held.row.instrument.pk %}" class="hover:underline">{{ held.row.instrument.name }}</a>
+                  {% if not held.row.price %}<span class="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-slate-600">No Price yet</span>{% elif held.row.stale %}<span class="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700" title="Price from {{ held.row.price.date|date:'j M Y' }}, more than five days old">Stale</span>{% endif %}
+                </th>
+                <td class="px-3 py-3 text-slate-500"><a href="{% url 'account_holdings' held.account.pk %}" class="hover:underline">{{ held.account.name }}</a></td>
+                <td class="px-3 py-3 text-right tabular-nums">{% units held.row.units %}</td>
+                <td class="px-3 py-3 text-right tabular-nums">{% price held.average_cost %}</td>
+                <td class="px-3 py-3 text-right tabular-nums">{% amount held.row.cost_basis %}</td>
+                <td class="px-3 py-3 text-right tabular-nums">{% amount held.row.market_value %}</td>
+                <td class="py-3 pr-4 pl-3 text-right tabular-nums whitespace-nowrap md:pr-5">{% signed_amount held.row.unrealized %} <span class="block text-xs">{% signed_percent held.unrealized_percent %}</span></td>
               </tr>
             {% endfor %}
           </tbody>

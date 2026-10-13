@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from django.template import Context, Template
 
-from apps.users.templatetags.amounts import MASK
+from apps.users.templatetags.amounts import MASK, PERCENT_MASK
 
 
 def render(source: str, *, privacy_mode: bool = False, **values: object) -> str:
@@ -79,3 +79,26 @@ def test_balance_is_only_the_mask_in_privacy_mode() -> None:
     )
 
     assert html == MASK
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("42.6087", '<span class="text-emerald-600">+42.61%</span>'),
+        ("-20", "<span>-20.00%</span>"),
+        ("0.001", "<span>0.00%</span>"),
+        (None, "—"),
+    ],
+)
+def test_signed_percent_shows_sign_and_greens_a_gain(
+    value: str | None, expected: str
+) -> None:
+    number = None if value is None else Decimal(value)
+
+    assert render("{% signed_percent value %}", value=number) == expected
+
+
+def test_signed_percent_is_only_the_mask_in_privacy_mode() -> None:
+    html = render("{% signed_percent value %}", privacy_mode=True, value=Decimal(5))
+
+    assert html == PERCENT_MASK
