@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.investments.models import InvestmentEvent, Price
 from apps.investments.replay import Book, cash, holding_value, market_value, replay
+from apps.investments.xirr import returns
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 
     from apps.accounts.models import Account
     from apps.investments.models import Instrument
+    from apps.investments.xirr import Flow
 
 
 def latest_prices(instruments: Collection[int]) -> dict[int, Price]:
@@ -41,11 +43,17 @@ class HoldingRow:
     dividends: Decimal
     price: Price | None
     stale: bool
+    flows: tuple[Flow, ...] = ()
 
     @property
     def unrealized(self) -> Decimal:
         """Market Value less Cost Basis."""
         return self.market_value - self.cost_basis
+
+    @property
+    def xirr(self) -> Decimal | None:
+        """XIRR of the Holding's Buys, Sells and Dividends and its value today."""
+        return returns(self.flows, self.market_value, timezone.localdate())
 
 
 @dataclass(frozen=True)
@@ -71,6 +79,15 @@ class AccountValue:
         """Market Value of the Holdings less their Cost Basis."""
         return sum((row.unrealized for row in self.holdings), Decimal(0))
 
+    @property
+    def xirr(self) -> Decimal | None:
+        """XIRR of every Holding together; Cash moves no return."""
+        return returns(
+            (flow for row in self.holdings for flow in row.flows),
+            sum((row.market_value for row in self.holdings), Decimal(0)),
+            timezone.localdate(),
+        )
+
 
 def account_value(account: Account, balance: Decimal) -> AccountValue:
     """Value the Investment Account at its latest Prices, given its Balance now."""
@@ -95,6 +112,7 @@ def account_value(account: Account, balance: Decimal) -> AccountValue:
             dividends=holding.dividends,
             price=prices.get(pk),
             stale=pk in prices and prices[pk].is_stale(today),
+            flows=tuple(holding.flows),
         )
         for pk, holding in book.holdings.items()
     ]

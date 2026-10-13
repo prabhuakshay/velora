@@ -5,17 +5,22 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 from apps.accounts.models import Account
 from apps.investments.models import Instrument
 from apps.investments.valuation import account_value
+from apps.investments.xirr import returns
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from apps.investments.valuation import AccountValue, HoldingRow
+    from apps.investments.xirr import Flow
 
 HUNDRED = Decimal(100)
+# Holdings with no XIRR sort below every one that has one.
+NO_XIRR = Decimal("-Infinity")
 KIND_TITLES = {
     Instrument.Kind.MUTUAL_FUND: "Mutual funds",
     Instrument.Kind.STOCK: "Stocks",
@@ -31,6 +36,7 @@ class Totals:
     holdings_value: Decimal
     realized: Decimal
     cash: Decimal = Decimal(0)
+    flows: tuple[Flow, ...] = ()
 
     @classmethod
     def of(cls, rows: Iterable[HoldingRow], cash: Decimal = Decimal(0)) -> Totals:
@@ -41,6 +47,7 @@ class Totals:
             holdings_value=sum((row.market_value for row in listed), Decimal(0)),
             realized=sum((row.realized for row in listed), Decimal(0)),
             cash=cash,
+            flows=tuple(flow for row in listed for flow in row.flows),
         )
 
     @property
@@ -59,6 +66,11 @@ class Totals:
         if not self.cost_basis:
             return None
         return self.unrealized / self.cost_basis * HUNDRED
+
+    @property
+    def xirr(self) -> Decimal | None:
+        """XIRR of the Holdings' flows and their value today; Cash moves no return."""
+        return returns(self.flows, self.holdings_value, timezone.localdate())
 
 
 @dataclass(frozen=True)
@@ -107,6 +119,7 @@ COLUMNS = (
     Column("invested", "Invested", lambda h: h.row.cost_basis),
     Column("market_value", "Market Value", lambda h: h.row.market_value),
     Column("gain", "Gain", lambda h: h.row.unrealized),
+    Column("xirr", "XIRR", lambda h: NO_XIRR if (x := h.row.xirr) is None else x),
 )
 
 
