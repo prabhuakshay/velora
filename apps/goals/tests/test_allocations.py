@@ -326,3 +326,59 @@ def test_deleting_a_goal_frees_its_share(
     signed_in.post(reverse("goal_delete", args=[house.pk]))
 
     allocate(signed_in, car, source(bank), percent="100")
+
+
+def test_a_rupee_another_goal_takes_by_percentage_is_not_counted_again(
+    signed_in: Client, house: Goal, car: Goal
+) -> None:
+    bank = opening("Bank", "asset", "20000")
+    allocate(signed_in, house, source(bank), percent="75")
+
+    allocate(signed_in, car, source(bank), amount="8000")
+
+    page = goal_text(signed_in, car)
+    assert "Goal Progress ₹5,000.00" in page
+    assert "Capped: only ₹5,000.00 is there to count." in page
+    assert "Goal Progress ₹15,000.00" in goal_text(signed_in, house)
+
+
+def test_a_later_fixed_amount_counts_only_what_earlier_ones_leave(
+    signed_in: Client, house: Goal, car: Goal
+) -> None:
+    bank = opening("Bank", "asset", "20000")
+    allocate(signed_in, house, source(bank), amount="15000")
+
+    allocate(signed_in, car, source(bank), amount="15000")
+
+    assert "Goal Progress ₹15,000.00" in goal_text(signed_in, house)
+    assert "Goal Progress ₹5,000.00" in goal_text(signed_in, car)
+
+
+def test_a_fixed_amount_over_what_is_unallocated_is_saved_with_a_warning(
+    signed_in: Client, house: Goal, car: Goal
+) -> None:
+    bank = opening("Bank", "asset", "20000")
+    allocate(signed_in, house, source(bank), percent="75")
+
+    response = signed_in.post(
+        reverse("allocation_create", args=[car.pk]),
+        {"source": source(bank), "percent": "", "amount": "8000"},
+        follow=True,
+    )
+
+    assert "Bank has less than that unallocated" in text(response)
+    assert Allocation.objects.filter(goal=car).exists()
+
+
+def test_a_fixed_amount_within_what_is_unallocated_has_no_warning(
+    signed_in: Client, house: Goal
+) -> None:
+    bank = opening("Bank", "asset", "20000")
+
+    response = signed_in.post(
+        reverse("allocation_create", args=[house.pk]),
+        {"source": source(bank), "percent": "", "amount": "8000"},
+        follow=True,
+    )
+
+    assert "less than that unallocated" not in text(response)

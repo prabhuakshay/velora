@@ -1,5 +1,6 @@
 """Forms for Goals and their Allocations."""
 
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
@@ -7,13 +8,11 @@ from django import forms
 from apps.accounts.models import Account
 from apps.core.forms import clean_unique_name
 from apps.goals.models import Allocation, Goal
-from apps.goals.progress import percent_left
-from apps.goals.sources import parse_source, source_choices
+from apps.goals.progress import percent_left, unallocated
+from apps.goals.sources import parse_source, source_choices, source_values
 from apps.investments.models import Instrument
 
 if TYPE_CHECKING:
-    from decimal import Decimal
-
     from django.db.models import QuerySet
 
 
@@ -74,6 +73,7 @@ class AllocationForm(forms.ModelForm[Allocation]):
             self.initial["source"] = self.instance.source_key
         self.fields["percent"].widget.attrs.update(min="0.01", max="100")
         self.fields["amount"].widget.attrs["min"] = "0.01"
+        self.warning = ""
 
     def clean(self) -> dict[str, Any]:
         """Check the share and that the source isn't allocated beyond all of it."""
@@ -90,7 +90,28 @@ class AllocationForm(forms.ModelForm[Allocation]):
             None if parsed[1] is None else Instrument.objects.get(pk=parsed[1])
         )
         self._check_source(percent)
+        if amount is not None:
+            self._note_over_unallocated(amount)
         return data
+
+    def _note_over_unallocated(self, amount: Decimal) -> None:
+        """Warn when the amount asks for more than other Goals leave of its source.
+
+        Saving still goes ahead: the amount is capped when Goal Progress counts.
+        """
+        allocation = self.instance
+        others = Allocation.objects.filter(
+            account=allocation.account, instrument=allocation.instrument
+        ).exclude(pk=allocation.pk)
+        value = source_values({allocation.account_id}).get(
+            allocation.source_key, Decimal(0)
+        )
+        left = unallocated(value, (a.share for a in others))
+        if amount > left:
+            self.warning = (
+                f"{allocation.source_label} has less than that unallocated, so "
+                "this Allocation counts only what is left of it."
+            )
 
     def _check_source(self, percent: Decimal | None) -> None:
         allocation = self.instance

@@ -82,6 +82,8 @@ def _allocation_form(
     if form.is_valid():
         saved = form.save()
         messages.success(request, f"Saved the Allocation of {saved.source_label}.")
+        if form.warning:
+            messages.warning(request, form.warning)
         return redirect("goal_detail", pk=goal.pk)
     return render(
         request,

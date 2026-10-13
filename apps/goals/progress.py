@@ -2,6 +2,9 @@
 
 Pure functions over plain numbers, so the Goal pages and later Projections can
 share them without touching the database.
+
+No rupee of a source counts twice: its percentages count first, then each
+fixed amount, in the order given, counts only what is still left of it.
 """
 
 from dataclasses import dataclass
@@ -9,7 +12,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
 CENT = Decimal("0.01")
 
@@ -22,32 +25,40 @@ class Share:
     amount: Decimal | None = None
 
 
+@dataclass(frozen=True)
+class Counted:
+    """What a share counts, and whether it asked for more than was left."""
+
+    amount: Decimal
+    capped: bool
+
+
 def _available(value: Decimal) -> Decimal:
     # A source in the red has nothing to count toward a Goal.
     return max(value, Decimal(0))
 
 
-def counted(share: Share, value: Decimal) -> Decimal:
-    """What the share counts of a source worth value, never more than it holds."""
+def count_shares(value: Decimal, shares: Sequence[Share]) -> list[Counted]:
+    """What each share of one source worth value counts, in the shares' order."""
     available = _available(value)
-    if share.percent is not None:
-        return (available * share.percent / 100).quantize(CENT, ROUND_HALF_UP)
-    return min(share.amount or Decimal(0), available)
-
-
-def is_capped(share: Share, value: Decimal) -> bool:
-    """Whether a fixed amount asks for more than its source is worth."""
-    return share.amount is not None and share.amount > _available(value)
-
-
-def goal_progress(allocations: Iterable[tuple[Share, Decimal]]) -> Decimal:
-    """Goal Progress: the sum of what each (share, source value) counts."""
-    return sum((counted(share, value) for share, value in allocations), Decimal(0))
+    counted: dict[int, Counted] = {}
+    left = available
+    for index, share in enumerate(shares):
+        if share.percent is not None:
+            amount = (available * share.percent / 100).quantize(CENT, ROUND_HALF_UP)
+            counted[index] = Counted(amount, capped=False)
+            left -= amount
+    for index, share in enumerate(shares):
+        if share.amount is not None:
+            amount = min(share.amount, max(left, Decimal(0)))
+            counted[index] = Counted(amount, capped=amount < share.amount)
+            left -= amount
+    return [counted[index] for index in range(len(shares))]
 
 
 def unallocated(value: Decimal, shares: Iterable[Share]) -> Decimal:
     """What is left of a source after every Goal's share of it."""
-    taken = sum((counted(share, value) for share in shares), Decimal(0))
+    taken = sum((c.amount for c in count_shares(value, list(shares))), Decimal(0))
     return max(_available(value) - taken, Decimal(0))
 
 
