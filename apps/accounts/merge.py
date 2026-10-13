@@ -72,7 +72,9 @@ class AccountMerge:
 
         That is every Split, Draft, Schedule Split, Suggested Schedule, card
         and Card EMI, re-estimating the target's Statements once they have
-        moved. Budgets go over only when the target has none.
+        moved. Budgets go over only when the target has none. The source's
+        Reconciliations go with it, since they matched its Balance, not the
+        target's.
         Saves and deletes row by row so change history records each one.
         """
         if self.refusal:

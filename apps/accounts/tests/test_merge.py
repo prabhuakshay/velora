@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 from django.urls import reverse
 
-from apps.accounts.models import Account
+from apps.accounts.models import Account, Reconciliation
 from apps.accounts.tests.conftest import (
     KINDS,
     account_url,
@@ -120,6 +120,20 @@ def test_merge_adds_opening_balances_with_the_earlier_date(signed_in: Client) ->
     card.refresh_from_db()
     assert card.opening_balance == Decimal("1250.50")
     assert card.opening_balance_date == date(2025, 6, 1)
+
+
+def test_merge_drops_the_sources_reconciliations_and_keeps_the_targets(
+    signed_in: Client, merge_scenario: tuple[Account, Account, Account]
+) -> None:
+    old_bank, bank, _ = merge_scenario
+    old_bank.reconciliations.create(date=date(2026, 3, 1), balance=Decimal(-200))
+    bank.reconciliations.create(date=date(2026, 2, 1), balance=Decimal(0))
+
+    signed_in.post(account_url("account_merge", old_bank), {"target": bank.pk})
+
+    assert list(Reconciliation.objects.values_list("account", "date", "balance")) == [
+        (bank.pk, date(2026, 2, 1), Decimal(0))
+    ]
 
 
 def test_change_history_records_the_merge(
