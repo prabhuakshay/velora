@@ -46,7 +46,13 @@ def test_a_goal_can_be_renamed_and_retargeted(signed_in: Client) -> None:
 
     response = signed_in.post(
         reverse("goal_edit", args=[goal.pk]),
-        {"name": "Flat", "target_amount": "500000", "target_date": "2029-06-30"},
+        {
+            "name": "Flat",
+            "target_amount": "500000",
+            "target_date": "2029-06-30",
+            "inflation": "6",
+            "expected_return": "12",
+        },
     )
 
     assert response.status_code == 302
