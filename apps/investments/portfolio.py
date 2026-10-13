@@ -5,20 +5,16 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.db.models.functions import Lower
-from django.utils import timezone
 
 from apps.accounts.models import Account
 from apps.investments.models import Instrument
-from apps.investments.valuation import account_value
-from apps.investments.xirr import returns
+from apps.investments.valuation import Totals, account_value
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable
 
     from apps.investments.valuation import AccountValue, HoldingRow
-    from apps.investments.xirr import Flow
 
-HUNDRED = Decimal(100)
 # Holdings with no XIRR sort below every one that has one.
 NO_XIRR = Decimal("-Infinity")
 KIND_TITLES = {
@@ -26,51 +22,6 @@ KIND_TITLES = {
     Instrument.Kind.STOCK: "Stocks",
     Instrument.Kind.ETF: "ETFs",
 }
-
-
-@dataclass(frozen=True)
-class Totals:
-    """Cost Basis, Market Value and gains of some Holdings, plus any Cash."""
-
-    cost_basis: Decimal
-    holdings_value: Decimal
-    realized: Decimal
-    cash: Decimal = Decimal(0)
-    flows: tuple[Flow, ...] = ()
-
-    @classmethod
-    def of(cls, rows: Iterable[HoldingRow], cash: Decimal = Decimal(0)) -> Totals:
-        """The rows' figures added up, with the Cash beside them."""
-        listed = list(rows)
-        return cls(
-            cost_basis=sum((row.cost_basis for row in listed), Decimal(0)),
-            holdings_value=sum((row.market_value for row in listed), Decimal(0)),
-            realized=sum((row.realized for row in listed), Decimal(0)),
-            cash=cash,
-            flows=tuple(flow for row in listed for flow in row.flows),
-        )
-
-    @property
-    def market_value(self) -> Decimal:
-        """The Holdings' Market Value plus Cash."""
-        return self.holdings_value + self.cash
-
-    @property
-    def unrealized(self) -> Decimal:
-        """The Holdings' Market Value less their Cost Basis; Cash has no gain."""
-        return self.holdings_value - self.cost_basis
-
-    @property
-    def unrealized_percent(self) -> Decimal | None:
-        """Unrealized Gain as a percentage of Cost Basis; None with no Cost Basis."""
-        if not self.cost_basis:
-            return None
-        return self.unrealized / self.cost_basis * HUNDRED
-
-    @property
-    def xirr(self) -> Decimal | None:
-        """XIRR of the Holdings' flows and their value today; Cash moves no return."""
-        return returns(self.flows, self.holdings_value, timezone.localdate())
 
 
 @dataclass(frozen=True)
@@ -166,7 +117,6 @@ class Portfolio:
             ),
             key=COLUMNS[0].sort_by,
         )
-        # Python's sort is stable, also reversed, so ties stay A to Z.
         return sorted(held, key=column.sort_by, reverse=descending)
 
     def by_kind(self) -> list[tuple[str, Totals]]:

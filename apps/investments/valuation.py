@@ -13,12 +13,15 @@ from apps.investments.replay import Book, cash, holding_value, market_value, rep
 from apps.investments.xirr import returns
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Iterable
     from datetime import date
 
     from apps.accounts.models import Account
     from apps.investments.models import Instrument
     from apps.investments.xirr import Flow
+
+
+HUNDRED = Decimal(100)
 
 
 def latest_prices(instruments: Collection[int]) -> dict[int, Price]:
@@ -57,6 +60,51 @@ class HoldingRow:
 
 
 @dataclass(frozen=True)
+class Totals:
+    """Cost Basis, Market Value and gains of some Holdings, plus any Cash."""
+
+    cost_basis: Decimal
+    holdings_value: Decimal
+    realized: Decimal
+    cash: Decimal = Decimal(0)
+    flows: tuple[Flow, ...] = ()
+
+    @classmethod
+    def of(cls, rows: Iterable[HoldingRow], cash: Decimal = Decimal(0)) -> Totals:
+        """The rows' figures added up, with the Cash beside them."""
+        listed = list(rows)
+        return cls(
+            cost_basis=sum((row.cost_basis for row in listed), Decimal(0)),
+            holdings_value=sum((row.market_value for row in listed), Decimal(0)),
+            realized=sum((row.realized for row in listed), Decimal(0)),
+            cash=cash,
+            flows=tuple(flow for row in listed for flow in row.flows),
+        )
+
+    @property
+    def market_value(self) -> Decimal:
+        """The Holdings' Market Value plus Cash."""
+        return self.holdings_value + self.cash
+
+    @property
+    def unrealized(self) -> Decimal:
+        """The Holdings' Market Value less their Cost Basis; Cash has no gain."""
+        return self.holdings_value - self.cost_basis
+
+    @property
+    def unrealized_percent(self) -> Decimal | None:
+        """Unrealized Gain as a percentage of Cost Basis; None with no Cost Basis."""
+        if not self.cost_basis:
+            return None
+        return self.unrealized / self.cost_basis * HUNDRED
+
+    @property
+    def xirr(self) -> Decimal | None:
+        """XIRR of the Holdings' flows and their value today; Cash moves no return."""
+        return returns(self.flows, self.holdings_value, timezone.localdate())
+
+
+@dataclass(frozen=True)
 class AccountValue:
     """An Investment Account's Cash, Holdings and Market Value now."""
 
@@ -65,28 +113,29 @@ class AccountValue:
     holdings: list[HoldingRow]
 
     @property
+    def totals(self) -> Totals:
+        """Its Holdings added up, with its Cash beside them."""
+        return Totals.of(self.holdings, self.cash)
+
+    @property
     def cost_basis(self) -> Decimal:
         """The Cost Basis of every Holding together."""
-        return sum((row.cost_basis for row in self.holdings), Decimal(0))
+        return self.totals.cost_basis
 
     @property
     def realized(self) -> Decimal:
         """The Realized Gain of every Sell, whatever its date."""
-        return sum((row.realized for row in self.holdings), Decimal(0))
+        return self.totals.realized
 
     @property
     def unrealized(self) -> Decimal:
         """Market Value of the Holdings less their Cost Basis."""
-        return sum((row.unrealized for row in self.holdings), Decimal(0))
+        return self.totals.unrealized
 
     @property
     def xirr(self) -> Decimal | None:
         """XIRR of every Holding together; Cash moves no return."""
-        return returns(
-            (flow for row in self.holdings for flow in row.flows),
-            sum((row.market_value for row in self.holdings), Decimal(0)),
-            timezone.localdate(),
-        )
+        return self.totals.xirr
 
 
 def account_value(account: Account, balance: Decimal) -> AccountValue:
