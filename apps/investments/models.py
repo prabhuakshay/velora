@@ -109,6 +109,8 @@ class InvestmentEvent(models.Model):
     amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     note = models.CharField(max_length=200, blank=True)
+    # The user's own reference from an Investment Import, for spotting duplicates.
+    ref = models.CharField(max_length=100, blank=True)
     # The ledger Transaction that moved the event's money, such as a Dividend's.
     transaction = models.OneToOneField(
         "transactions.Transaction",
@@ -152,6 +154,12 @@ class InvestmentEvent(models.Model):
                 violation_error_message=(
                     "Only a Merger, and every Merger, names a new Instrument."
                 ),
+            ),
+            models.UniqueConstraint(
+                fields=("ref",),
+                condition=~models.Q(ref=""),
+                name="investments_investmentevent_unique_ref",
+                violation_error_message="Another Investment Event has this ref.",
             ),
             models.CheckConstraint(
                 condition=models.Q(charges__gte=0),

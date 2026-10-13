@@ -1,9 +1,25 @@
 from django.urls import path
 
-from apps.investments import views
+from apps.investments import import_views, views
 
 urlpatterns = [
     path("investments/", views.investments_overview, name="investments_overview"),
+    path(
+        "investments/import/", import_views.investment_import, name="investment_import"
+    ),
+    path(
+        "investments/import/confirm/",
+        import_views.investment_import_confirm,
+        name="investment_import_confirm",
+    ),
+    path(
+        "investments/import/template/",
+        import_views.investment_import_template,
+        name="investment_import_template",
+    ),
+    path(
+        "investments/export/", import_views.investment_export, name="investment_export"
+    ),
     path(
         "investments/instruments/<int:pk>/",
         views.instrument_detail,

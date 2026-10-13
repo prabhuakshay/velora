@@ -21,6 +21,7 @@ from apps.investments.replay import OversoldError, replay
 if TYPE_CHECKING:
     import datetime
 
+    from apps.transactions.models import Transaction
     from apps.transactions.recording import TransactionForms
 
 REPLAYED = ("kind", "date", "units", "amount", "charges")
@@ -99,6 +100,7 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
     Instrument with a manual Price, named by the form. An event that would
     leave a Sell taking more units than held on its date, counting every
     other event, is refused. A Dividend also records its Income Transaction.
+    Given a matched Transaction, the event is linked to it as it is instead.
     """
 
     isin = forms.CharField(label="ISIN", max_length=12)
@@ -137,9 +139,16 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         }
         widgets: ClassVar = {"date": forms.DateInput(attrs={"type": "date"})}
 
-    def __init__(self, *args: Any, account: Account, **kwargs: Any) -> None:  # noqa: ANN401
+    def __init__(
+        self,
+        *args: Any,  # noqa: ANN401
+        account: Account,
+        matched: Transaction | None = None,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.account = account
+        self.matched = matched
         self.instance.account = account
         for name in ("units", "price", "amount"):
             self.fields[name].widget.attrs["min"] = "0"
@@ -182,6 +191,8 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
 
     def _keep_what_the_kind_needs(self) -> None:
         needs = NEEDS.get(self.cleaned_data.get("kind", ""), ())
+        if not self._posts_dividend():
+            needs = tuple(name for name in needs if name != "income_account")
         for name in OPTIONAL:
             if name not in needs:
                 self.cleaned_data[name] = None
@@ -189,6 +200,21 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
                 self.add_error(name, REQUIRED)
         if "price" not in needs:
             self.cleaned_data["charges"] = Decimal(0)
+
+    def _posts_dividend(self) -> bool:
+        """Whether a Dividend posts a Transaction it needs an Income Account for."""
+        when = self.cleaned_data.get("date")
+        return (
+            self.matched is None
+            and when is not None
+            and posts_transaction(
+                InvestmentEvent(
+                    account=self.account,
+                    kind=self.cleaned_data.get("kind", ""),
+                    date=when,
+                )
+            )
+        )
 
     def _instrument(self, isin: str | None) -> Instrument | None:
         if isin is None:
@@ -238,7 +264,9 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
 
     def _check_ledger(self, instrument: Instrument) -> None:
         candidate = self._candidate(instrument)
-        if posts_transaction(candidate):
+        if self.matched is not None:
+            self.ledger = None
+        elif posts_transaction(candidate):
             income = self.cleaned_data["income_account"]
             self.ledger = transaction_forms(candidate, income)
         else:
@@ -255,7 +283,10 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         self.instance.new_instrument = self.cleaned_data.get("new_instrument")
         event = super().save(commit=False)
         if commit:
-            if self.ledger is None:
+            if self.matched is not None:
+                event.transaction = self.matched
+                event.save()
+            elif self.ledger is None:
                 save_unlinked(event)
             else:
                 self.ledger.save(within=linking(event, self.ledger))

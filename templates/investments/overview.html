@@ -5,7 +5,10 @@
 {% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
 
 {% block main %}
-  <h1 class="text-xl font-semibold tracking-tight md:text-2xl">Investments</h1>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-xl font-semibold tracking-tight md:text-2xl">Investments</h1>
+    <a href="{% url 'investment_import' %}" class="btn-secondary py-2 text-sm">Import or export</a>
+  </div>
 
   {% if accounts %}
     <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-label="Totals">

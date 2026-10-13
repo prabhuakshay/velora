@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from apps.accounts.models import Account
@@ -124,3 +125,43 @@ def holdings_text(client: Client, account: Account) -> str:
     response = client.get(reverse("account_holdings", args=[account.pk]))
     assert response.status_code == 200
     return page_text(response.content.decode())
+
+
+IMPORT_HEADER = (
+    "date,account,isin,instrument_name,type,units,price,amount,charges,new_isin,"
+    "ref,note"
+)
+IMPORT_DEFAULTS = {"date": "2026-03-02", "account": "Zerodha", "isin": "INF000000001"}
+
+
+def import_line(kind: str, **fields: str) -> str:
+    """One Investment Import row; columns not given are blank."""
+    values = IMPORT_DEFAULTS | fields | {"type": kind}
+    return ",".join(values.get(name, "") for name in IMPORT_HEADER.split(","))
+
+
+def import_text(*lines: str) -> str:
+    return "\n".join([IMPORT_HEADER, *lines]) + "\n"
+
+
+def upload_import(client: Client, content: bytes) -> str:
+    file = SimpleUploadedFile("events.csv", content, "text/csv")
+    response = client.post(reverse("investment_import"), {"file": file})
+    assert response.status_code == 200
+    return page_text(response.content.decode())
+
+
+def import_preview(client: Client, *lines: str) -> str:
+    return upload_import(client, import_text(*lines).encode())
+
+
+def import_confirm(client: Client, *lines: str) -> Response:
+    return client.post(
+        reverse("investment_import_confirm"), {"text": import_text(*lines)}
+    )
+
+
+def imported(client: Client, *lines: str) -> None:
+    page = import_preview(client, *lines)
+    assert "Confirm import" in page, page
+    assert import_confirm(client, *lines).status_code == 302

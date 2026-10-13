@@ -1,0 +1,37 @@
+{% extends "app_base.html" %}
+
+{% block title %}Investment Import preview · Velora{% endblock %}
+
+{% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
+
+{% block main %}
+  {% url 'investment_import' as back_url %}
+  <div class="flex items-center gap-2">
+    <a href="{{ back_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to Investment Import">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Investment Import preview</h1>
+  </div>
+
+  {% if result.problem %}
+    <p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ result.problem }}</p>
+  {% else %}
+    <p class="mt-4 text-sm text-slate-600">{{ result.valid|length }} to add · {{ result.duplicates|length }} already recorded · {{ result.errors|length }} with errors</p>
+    {% if result.errors %}
+      <p class="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">Fix the rows with errors and upload the file again. Nothing is imported while any row has an error.</p>
+    {% endif %}
+
+    {% include "investments/_import_rows.html" with title="Errors" rows=result.errors id="errors" %}
+    {% include "investments/_import_rows.html" with title="To add" rows=result.valid id="valid" %}
+    {% include "investments/_import_rows.html" with title="Already recorded" rows=result.duplicates id="duplicates" %}
+  {% endif %}
+
+  <div class="mt-4 flex flex-wrap items-center gap-3">
+    <a href="{{ back_url }}" class="btn-secondary py-2.5">Upload another file</a>
+    {% if result.can_confirm %}
+      <form method="post" action="{% url 'investment_import_confirm' %}" class="md:w-48">
+        {% csrf_token %}
+        {{ confirm.text }}
+        {% include "partials/submit.html" with label="Confirm import" %}
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}
