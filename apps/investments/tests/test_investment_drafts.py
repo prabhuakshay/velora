@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from django.urls import reverse
+from procrastinate.contrib.django.models import ProcrastinateJob
 
 from apps.accounts.tests.conftest import list_text, make_account
 from apps.accounts.tests.test_balance import opening
@@ -220,3 +221,23 @@ def test_a_draft_dated_inside_the_opening_balance_is_refused(
         "It is dated on or before Kuvera's Opening Balance date; "
         "record it on its Holdings tab instead."
     )
+
+
+@pytest.mark.usefixtures("fund")
+def test_posting_a_buy_draft_queues_a_price_backfill(
+    signed_in: Client, kuvera: Account
+) -> None:
+    post(signed_in, buy_draft(kuvera))
+
+    assert ProcrastinateJob.objects.get().task_name == "investments.backfill_prices"
+
+
+@pytest.mark.usefixtures("fund")
+def test_posting_a_dividend_draft_queues_no_backfill(signed_in: Client) -> None:
+    dividends = make_account("Dividends", "income")
+    draft = investment_draft(make_broker(), "dividend", income=dividends, amount="9")
+
+    post(signed_in, draft)
+
+    assert draft.status == Draft.Status.POSTED
+    assert not ProcrastinateJob.objects.exists()

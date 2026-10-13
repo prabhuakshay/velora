@@ -7,7 +7,8 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from apps.classification.models import Party
-from apps.investments.drafts import investment_problems
+from apps.investments.drafts import buys_units, investment_problems
+from apps.investments.tasks import queue_backfill
 from apps.quick_add.models import Draft
 from apps.transactions.models import Transaction
 from apps.transactions.recording import TransactionForms
@@ -116,7 +117,10 @@ def post_draft(draft: Draft) -> Transaction:
     forms = TransactionForms(form_data(draft, party_for(draft)), instance=Transaction())
     if not forms.is_valid():
         raise DraftNotPostableError(forms.errors())
-    return forms.save(within=marking_posted(draft, forms.form.instance))
+    transaction = forms.save(within=marking_posted(draft, forms.form.instance))
+    if buys_units(draft):
+        queue_backfill()
+    return transaction
 
 
 @contextmanager

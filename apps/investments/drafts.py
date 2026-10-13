@@ -44,6 +44,12 @@ def save_investment(detail: DraftInvestment, income: Account | None = None) -> N
     )
 
 
+def buys_units(draft: Draft) -> bool:
+    """Whether the Draft carries a Buy, which may need past Prices backfilled."""
+    detail: DraftInvestment | None = getattr(draft, "investment", None)
+    return detail is not None and detail.kind == BUY
+
+
 def investment_problems(draft: Draft) -> list[str]:
     """Why the Draft's Investment Event can't be recorded yet; empty when it can."""
     detail: DraftInvestment | None = getattr(draft, "investment", None)
