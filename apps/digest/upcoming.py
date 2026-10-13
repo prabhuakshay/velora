@@ -4,22 +4,23 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Q
 from django.urls import reverse
 
 from apps.accounts.forecast import Forecast, Item, forecast
 from apps.accounts.models import BALANCE_KINDS, Account
+from apps.accounts.reconciling import cash_events, cash_gaps
 from apps.budgets.warnings import due_warnings, warning_items
 from apps.cards.models import Statement
 from apps.quick_add.models import Draft
 from apps.schedules.models import Occurrence
-from apps.transactions.models import Split
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import date
 
     from apps.budgets.picture import Row
+    from apps.investments.models import InvestmentEvent
 
 # Days before a card's Due Day it starts showing.
 CARD_REMINDER_DAYS = 3
@@ -169,31 +170,45 @@ def reconcile_due(today: date) -> list[Item]:
     in them, or whenever its latest Reconciliation no longer matches.
     """
     since = today - timedelta(days=RECONCILE_DAYS)
-    used = Split.objects.filter(
-        Q(from_account=OuterRef("pk")) | Q(to_account=OuterRef("pk")),
-        transaction__date__gt=since,
-        transaction__date__lte=today,
-    )
     accounts = (
         Account.objects.filter(kind__in=BALANCE_KINDS, hidden=False)
         .with_balance()
         .with_latest_reconciliation()
-        .annotate(used=Exists(used))
-        .filter(
-            Q(off_by__lt=0)
-            | Q(off_by__gt=0)
-            | (
-                Q(used=True)
-                & (Q(reconciled_on__isnull=True) | Q(reconciled_on__lte=since))
-            )
-        )
+        .with_used(since, today)
         .order_by("name")
     )
-    return [_reconcile_item(account, today) for account in accounts]
+    events = cash_events(accounts)
+    due = []
+    for account in accounts:
+        if not account.offers_reconciliation:
+            continue
+        _check_cash(account, today, events[account.pk])
+        reconciled_on = account.reconciled_on
+        unreconciled = account.used and (
+            reconciled_on is None or reconciled_on <= since
+        )
+        if account.off_by or unreconciled:
+            due.append(_reconcile_item(account, today))
+    return due
+
+
+def _check_cash(account: Account, today: date, events: list[InvestmentEvent]) -> None:
+    """Make an account that Holds Cash show its Cash and how far off from it."""
+    if not account.reconciles_cash:
+        return
+    reconciled_on = account.reconciled_on
+    days = [today] if reconciled_on is None else [today, reconciled_on]
+    gaps = cash_gaps(account, days, events)
+    account.balance -= gaps[today]
+    if reconciled_on is not None and account.off_by is not None:
+        account.off_by += gaps[reconciled_on]
 
 
 def _reconcile_item(account: Account, today: date) -> Item:
-    """The Account's broken Reconciliation and how far off, else its Balance."""
+    """The Account's broken Reconciliation and how far off, else its Balance.
+
+    An account that Holds Cash shows its Cash instead of its Balance.
+    """
     url = reverse("account_reconcile", kwargs={"kind": account.kind, "pk": account.pk})
     reconciled_on = account.reconciled_on
     if reconciled_on and account.off_by:

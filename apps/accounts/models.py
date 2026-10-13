@@ -132,6 +132,17 @@ class AccountQuerySet(models.QuerySet["Account"]):
         )
         return self.annotate(last_used=models.Subquery(newest))
 
+    def with_used(self, since: date, until: date) -> Self:
+        """Annotate whether each Account has a Split after since, up to until."""
+        split = apps.get_model("transactions", "Split")
+        used = split.objects.filter(
+            models.Q(from_account=models.OuterRef("pk"))
+            | models.Q(to_account=models.OuterRef("pk")),
+            transaction__date__gt=since,
+            transaction__date__lte=until,
+        )
+        return self.annotate(used=models.Exists(used))
+
     def with_latest_reconciliation(self) -> Self:
         """Annotate the date of each Account's latest Reconciliation, if any.
 
@@ -222,6 +233,8 @@ class Account(models.Model):
     # Set only on Accounts fetched through with_latest_reconciliation().
     reconciled_on: date | None
     off_by: Decimal | None
+    # Set only on Accounts fetched through with_used().
+    used: bool
 
     class Meta:
         constraints: ClassVar = [
@@ -304,6 +317,16 @@ class Account(models.Model):
     def is_investment(self) -> bool:
         """Whether it is an Investment Account, with Holdings beside its Balance."""
         return bool(self.investment_mode)
+
+    @property
+    def offers_reconciliation(self) -> bool:
+        """Whether it can be reconciled against what its bank or broker reports."""
+        return self.has_opening_balance
+
+    @property
+    def reconciles_cash(self) -> bool:
+        """Whether its Reconciliations check its Cash rather than its Balance."""
+        return self.investment_mode == InvestmentMode.HOLDS_CASH
 
     @property
     def is_card(self) -> bool:

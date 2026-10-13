@@ -246,7 +246,7 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             if account.is_investment
             else None,
             "reconcile_form": ReconcileForm(account=account)
-            if account.has_opening_balance
+            if account.offers_reconciliation
             else None,
             **reconciliation_status(account, SIDE_LIST_SHOWN),
             "used_by": _used_by(account),
