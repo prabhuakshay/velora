@@ -1,0 +1,31 @@
+{% comment %}An Instrument's Price history: the line over every Price, and each month-end's Price for screen readers.{% endcomment %}
+<section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="price-history-title">
+  <h2 id="price-history-title" class="text-base font-semibold">Price history</h2>
+  {% if user.privacy_mode %}
+    <p class="mt-4 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
+  {% elif chart %}
+    {% with first=month_ends|first last=month_ends|last %}
+      <div class="relative mt-4 h-40">
+        <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+          <polygon points="{{ chart.area }}" class="fill-slate-100"/>
+          <polyline points="{{ chart.points }}" fill="none" class="stroke-slate-900" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+        </svg>
+      </div>
+      <div class="mt-2 flex justify-between text-xs text-slate-500">
+        <span>{{ first.0|date:"M Y" }}</span>
+        <span>{{ last.0|date:"j M Y" }}</span>
+      </div>
+    {% endwith %}
+    <div class="sr-only"><table>
+      <caption>Price at each month-end and the latest</caption>
+      <thead><tr><th scope="col">Date</th><th scope="col">Price</th></tr></thead>
+      <tbody>
+        {% for when, value in month_ends %}
+          <tr><td>{{ when|date:"j M Y" }}</td><td>{% price value %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <p class="mt-4 flex h-24 items-center justify-center rounded-xl bg-slate-50 px-4 text-center text-sm text-slate-500">Not enough Prices to chart yet.</p>
+  {% endif %}
+</section>

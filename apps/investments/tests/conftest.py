@@ -20,11 +20,16 @@ class FakePriceSource:
     """Stands in for the price-source client: hands back the rows it is given.
 
     A source set to an exception raises it instead, as a failed fetch would.
+    History is one list for both archives; each hands back its kinds in range.
     """
 
     def __init__(self) -> None:
         self.amfi: list[price_source.PriceRow] | Exception = []
         self.nse: list[price_source.PriceRow] | Exception = []
+        self.history: list[price_source.PriceRow] = []
+        self.amfi_history: Exception | None = None
+        self.nse_history: Exception | None = None
+        self.fetched: list[tuple[str, date, date]] = []
 
     def amfi_rows(self) -> list[price_source.PriceRow]:
         if isinstance(self.amfi, Exception):
@@ -36,12 +41,34 @@ class FakePriceSource:
             raise self.nse
         return self.nse
 
+    def _history(
+        self, source: str, start: date, end: date, *, funds: bool
+    ) -> list[price_source.PriceRow]:
+        self.fetched.append((source, start, end))
+        failure = self.amfi_history if funds else self.nse_history
+        if failure is not None:
+            raise failure
+        return [
+            r
+            for r in self.history
+            if start <= r.date <= end
+            and (r.kind == Instrument.Kind.MUTUAL_FUND) == funds
+        ]
+
+    def amfi_history_rows(self, start: date, end: date) -> list[price_source.PriceRow]:
+        return self._history("AMFI", start, end, funds=True)
+
+    def nse_history_rows(self, start: date, end: date) -> list[price_source.PriceRow]:
+        return self._history("NSE", start, end, funds=False)
+
 
 @pytest.fixture
 def fake_prices(monkeypatch: pytest.MonkeyPatch) -> FakePriceSource:
     fake = FakePriceSource()
     monkeypatch.setattr(price_source, "amfi_rows", fake.amfi_rows)
     monkeypatch.setattr(price_source, "nse_rows", fake.nse_rows)
+    monkeypatch.setattr(price_source, "amfi_history_rows", fake.amfi_history_rows)
+    monkeypatch.setattr(price_source, "nse_history_rows", fake.nse_history_rows)
     return fake
 
 

@@ -1,0 +1,49 @@
+{% comment %}The portfolio's Market Value against Invested at each month-end and today, on one scale.{% endcomment %}
+{% with first=history|first %}
+<section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="value-history-title">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <h2 id="value-history-title" class="font-semibold">Value over time</h2>
+    <p class="flex items-center gap-4 text-xs text-slate-500" aria-hidden="true">
+      <span class="inline-flex items-center gap-1.5"><span class="h-0.5 w-4 rounded-full bg-slate-900"></span>Market Value</span>
+      <span class="inline-flex items-center gap-1.5"><span class="h-0.5 w-4 rounded-full bg-slate-400"></span>Invested</span>
+    </p>
+  </div>
+  {% if user.privacy_mode %}
+    <p class="mt-4 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
+  {% elif chart %}
+    <div class="relative mt-4 h-40">
+      <svg viewBox="0 0 {{ chart.market_value.width }} {{ chart.market_value.height }}" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+        <polyline points="{{ chart.invested.points }}" fill="none" class="stroke-slate-400" stroke-width="2" stroke-dasharray="6 4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+        <polyline points="{{ chart.market_value.points }}" fill="none" class="stroke-slate-900" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+      </svg>
+      <div class="absolute inset-0 flex">
+        {% for point in history %}
+          <div tabindex="0" class="group relative outline-hidden {% if forloop.first or forloop.last %}flex-1{% else %}flex-[2]{% endif %}">
+            <span class="absolute inset-y-0 w-px bg-slate-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 {% if forloop.first %}left-0{% elif forloop.last %}right-0{% else %}left-1/2{% endif %}"></span>
+            <span class="pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-lg bg-slate-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg group-hover:block group-focus-visible:block {% if forloop.counter <= 2 %}left-0{% elif forloop.revcounter <= 2 %}right-0{% else %}left-1/2 -translate-x-1/2{% endif %}">
+              <span class="block text-white/70">{% if forloop.last %}Today{% else %}{{ point.day|date:"j M Y" }}{% endif %}</span>
+              <span class="block tabular-nums">Market Value <span class="font-semibold">{% amount point.market_value %}</span></span>
+              <span class="block tabular-nums">Invested <span class="font-semibold">{% amount point.invested %}</span></span>
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="mt-2 flex justify-between text-xs text-slate-500">
+      <span>{{ first.day|date:"M Y" }}</span>
+      <span>Today</span>
+    </div>
+    <div class="sr-only"><table>
+      <caption>Market Value and Invested at each month-end and today</caption>
+      <thead><tr><th scope="col">Date</th><th scope="col">Market Value</th><th scope="col">Invested</th></tr></thead>
+      <tbody>
+        {% for point in history %}
+          <tr><td>{{ point.day|date:"j M Y" }}</td><td>{% amount point.market_value %}</td><td>{% amount point.invested %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <p class="mt-4 flex h-24 items-center justify-center rounded-xl bg-slate-50 px-4 text-center text-sm text-slate-500">The chart starts once a month has passed.</p>
+  {% endif %}
+</section>
+{% endwith %}

@@ -1,0 +1,73 @@
+{% extends "app_base.html" %}
+
+{% block title %}{{ summary.goal.name }} · Goals · Velora{% endblock %}
+
+{% block main_width %}max-w-2xl lg:max-w-4xl{% endblock %}
+
+{% block main %}
+  {% with goal=summary.goal %}
+    <div class="flex items-center gap-2">
+      <a href="{% url 'goal_list' %}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to Goals">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+      <div class="min-w-0 flex-1">
+        <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{{ goal.name }}</h1>
+        <p class="truncate text-sm text-slate-500">Target {% amount goal.target_amount %} in today's money by {{ goal.target_date|date:"j M Y" }}</p>
+      </div>
+      <a href="{% url 'goal_edit' goal.pk %}" class="flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Edit Goal">{% include "shell/icon.html" with name="pencil" class="size-5" %}</a>
+      <a href="{% url 'goal_delete' goal.pk %}" class="flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-red-700" aria-label="Delete Goal">{% include "shell/icon.html" with name="trash" class="size-5" %}</a>
+    </div>
+
+    <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Goal Progress">
+      <p class="text-sm text-slate-500">Goal Progress</p>
+      <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{% amount summary.progress %}</p>
+      <p class="mt-1 text-sm text-slate-500">of {% amount goal.target_amount %}{% if not user.privacy_mode %} · {{ summary.percent_done|floatformat:"-1" }}%{% endif %}</p>
+      <div class="mt-4">{% include "goals/_bar.html" %}</div>
+    </section>
+
+    <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="allocations-title">
+      <div class="flex items-center justify-between gap-3 px-4 pt-4 md:px-5">
+        <h2 id="allocations-title" class="font-semibold">Allocations</h2>
+        <a href="{% url 'allocation_create' goal.pk %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Allocate</a>
+      </div>
+      {% if summary.lines %}
+        <div class="mt-2 overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-left text-xs text-slate-500">
+              <tr>
+                <th scope="col" class="px-4 py-2 font-medium md:px-5">From</th>
+                <th scope="col" class="px-3 py-2 text-right font-medium">Share</th>
+                <th scope="col" class="px-3 py-2 text-right font-medium">Counts</th>
+                <th scope="col" class="px-3 py-2 text-right font-medium">Unallocated</th>
+                <th scope="col" class="px-4 py-2 md:px-5"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {% for line in summary.lines %}
+                {% with allocation=line.allocation %}
+                  <tr>
+                    <th scope="row" class="px-4 py-3 text-left font-medium md:px-5">
+                      {{ allocation.source_label }}
+                      <span class="block text-xs font-normal text-slate-500">Worth {% amount line.value %}</span>
+                      {% if line.capped %}<span class="mt-1 block text-xs font-medium text-amber-700" role="alert">Capped: only {% amount line.counted %} is there to count.</span>{% endif %}
+                    </th>
+                    <td class="px-3 py-3 text-right tabular-nums">{% if allocation.percent is not None %}{{ allocation.percent|floatformat:"-2" }}%{% else %}{% amount allocation.amount %}{% endif %}</td>
+                    <td class="px-3 py-3 text-right tabular-nums">{% amount line.counted %}</td>
+                    <td class="px-3 py-3 text-right tabular-nums">{% amount line.unallocated %} <span class="block text-xs text-slate-500">{{ line.percent_left|floatformat:"-2" }}% free</span></td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap md:px-5">
+                      <a href="{% url 'allocation_edit' allocation.pk %}" class="link text-sm">Edit</a>
+                      <form method="post" action="{% url 'allocation_delete' allocation.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="ml-2 text-sm text-red-700 hover:underline">Remove</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endwith %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="px-4 py-6 text-center text-sm text-slate-500 md:px-5">Nothing allocated yet. Allocate a percentage or a fixed amount of an Account or Holding.</p>
+      {% endif %}
+    </section>
+  {% endwith %}
+{% endblock %}

@@ -159,8 +159,17 @@ class Valuer:
         self, account: int, opened: date, balance: Decimal, when: date
     ) -> Decimal:
         """The account's Market Value at the end of when, given its Balance then."""
+        return self.position(account, opened, balance, when)[0]
+
+    def position(
+        self, account: int, opened: date, balance: Decimal, when: date
+    ) -> tuple[Decimal, Decimal]:
+        """The account's Market Value and Cost Basis at the end of when."""
         book = replay(self.events[account], until=when)
-        return market_value(cash(balance, book, opened), book, self._prices(book, when))
+        value = market_value(
+            cash(balance, book, opened), book, self._prices(book, when)
+        )
+        return value, book.cost_basis
 
     def _prices(self, book: Book, when: date) -> dict[int, Decimal]:
         found = {}
