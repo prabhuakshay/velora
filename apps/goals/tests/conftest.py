@@ -20,10 +20,18 @@ def create_goal(
     target_date: str = "2030-12-31",
     *,
     expect: int = 302,
+    **fields: str | list[int],
 ) -> Goal | None:
     response = client.post(
         reverse("goal_create"),
-        {"name": name, "target_amount": target, "target_date": target_date},
+        {
+            "name": name,
+            "target_amount": target,
+            "target_date": target_date,
+            "inflation": "6",
+            "expected_return": "12",
+        }
+        | fields,
     )
     assert response.status_code == expect
     return Goal.objects.filter(name=name).first()

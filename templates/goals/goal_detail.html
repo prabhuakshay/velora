@@ -23,6 +23,43 @@
       <div class="mt-4">{% include "goals/_bar.html" %}</div>
     </section>
 
+    <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="projection-title">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-5 pt-4 md:px-6">
+        <h2 id="projection-title" class="font-semibold">Projection</h2>
+        <p class="text-sm font-medium">{% include "goals/_status.html" %}</p>
+      </div>
+      {% if summary.passed %}
+        <p class="px-5 pt-2 pb-4 text-sm text-slate-600 md:px-6">
+          Target date passed on {{ goal.target_date|date:"j M Y" }}.
+          {% if summary.gap %}Short by {% amount summary.gap %}{% else %}Reached{% endif %}
+          of the {% amount goal.target_amount %} target.
+        </p>
+      {% else %}
+        <dl class="mt-3 grid grid-cols-2 gap-px border-t border-slate-200 bg-slate-200 text-sm sm:grid-cols-3">
+          <div class="bg-white px-5 py-3">
+            <dt class="text-slate-500">Inflated target</dt>
+            <dd class="mt-0.5 text-base font-semibold tabular-nums">{% amount summary.inflated_target %}</dd>
+          </div>
+          <div class="bg-white px-5 py-3">
+            <dt class="text-slate-500">Projection</dt>
+            <dd class="mt-0.5 text-base font-semibold tabular-nums">{% amount summary.projection %}</dd>
+          </div>
+          <div class="col-span-2 bg-white px-5 py-3 sm:col-span-1">
+            <dt class="text-slate-500">Required Monthly Investment</dt>
+            <dd class="mt-0.5 text-base font-semibold tabular-nums">{% amount summary.required_monthly %}</dd>
+          </div>
+        </dl>
+      {% endif %}
+      <div class="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 md:px-6">
+        <p>Assumes {{ goal.inflation|floatformat:"-2" }}% inflation and {{ goal.expected_return|floatformat:"-2" }}% expected return a year.</p>
+        {% if goal.schedules.all %}
+          <p class="mt-1">Linked Schedules:
+            {% for schedule in goal.schedules.all %}<a href="{% url 'schedule_detail' schedule.pk %}" class="link">{{ schedule }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+          </p>
+        {% endif %}
+      </div>
+    </section>
+
     <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="allocations-title">
       <div class="flex items-center justify-between gap-3 px-4 pt-4 md:px-5">
         <h2 id="allocations-title" class="font-semibold">Allocations</h2>
