@@ -17,7 +17,7 @@ from apps.accounts.activity import bars, month_end, months, rows
 from apps.accounts.forecast import DAYS, forecast
 from apps.accounts.forms import AccountForm, ReconcileForm
 from apps.accounts.merge import AccountMerge
-from apps.accounts.models import BALANCE_KINDS, Account
+from apps.accounts.models import BALANCE_KINDS, Account, Reconciliation
 from apps.core.dates import months_after
 from apps.core.forms import MergeForm
 from apps.core.views import paginate, redirect_in_use_to_merge, save_unique_name
@@ -239,7 +239,7 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             "reconcile_form": ReconcileForm(account=account)
             if account.has_opening_balance
             else None,
-            "reconciled_through": account.reconciliations.order_by("-date").first(),
+            **_reconciliation_status(account),
             "used_by": _used_by(account),
             "today": today,
             "here": request.get_full_path(),
@@ -260,6 +260,16 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             ),
         },
     )
+
+
+def _reconciliation_status(account: Account) -> dict[str, Reconciliation | None]:
+    """The latest Reconciliation if it's off, and the latest that still matches."""
+    newest_first = account.reconciliations.order_by("-date")
+    latest = newest_first.with_difference().first()
+    return {
+        "off": latest if latest and latest.difference else None,
+        "reconciled_through": newest_first.matching().first(),
+    }
 
 
 def _touching_transactions(account: Account) -> QuerySet[Transaction]:

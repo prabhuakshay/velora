@@ -31,11 +31,14 @@ DAY_OF_MONTH = [MinValueValidator(1), MaxValueValidator(31)]
 
 
 def _split_total(
-    account_field: str, as_of: date | None, since: date | None = None
+    account_field: str,
+    as_of: date | models.F | None,
+    since: date | None = None,
+    account: str = "pk",
 ) -> Coalesce:
     # Looked up by name: the transactions app imports this module.
     split = apps.get_model("transactions", "Split")
-    splits = split.objects.filter(**{account_field: models.OuterRef("pk")})
+    splits = split.objects.filter(**{account_field: models.OuterRef(account)})
     if as_of is not None:
         splits = splits.filter(transaction__date__lte=as_of)
     if since is not None:
@@ -256,6 +259,37 @@ class Account(models.Model):
         return Account.objects.with_balance(when).get(pk=self.pk).balance
 
 
+class ReconciliationQuerySet(models.QuerySet["Reconciliation"]):
+    """Queries over Reconciliations."""
+
+    def with_difference(self) -> Self:
+        """Annotate its balance less the Account's Balance on its date now.
+
+        Zero means it still matches; nothing about matching is stored (ADR 0011).
+        """
+        when = models.OuterRef("date")
+        moved_in = _split_total("to_account", when, account="account") - (
+            _split_total("from_account", when, account="account")
+        )
+        signed = models.Case(
+            models.When(account__kind=AccountKind.LIABILITY, then=-moved_in),
+            default=moved_in,
+        )
+        current = models.Case(
+            models.When(
+                account__opening_balance_date__gt=models.F("date"),
+                then=models.Value(0),
+            ),
+            default=models.F("account__opening_balance") + signed,
+            output_field=self.model._meta.get_field("balance"),
+        )
+        return self.annotate(difference=models.F("balance") - current)
+
+    def matching(self) -> Self:
+        """Those whose balance still equals the Account's Balance on their date."""
+        return self.with_difference().filter(difference=0)
+
+
 class Reconciliation(models.Model):
     """The balance the bank said an Account held on a day, matched when recorded.
 
@@ -269,6 +303,10 @@ class Reconciliation(models.Model):
     date = models.DateField()
     balance = models.DecimalField(max_digits=15, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = ReconciliationQuerySet.as_manager()
+    # Set only on Reconciliations fetched through with_difference().
+    difference: Decimal
 
     class Meta:
         constraints: ClassVar = [
