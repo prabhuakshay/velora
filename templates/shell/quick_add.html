@@ -1,0 +1,19 @@
+{% comment %}
+  The floating Quick Add button, above the tab bar on phones, and its sheet.
+  The sent message lands in the status region outside the sheet, so it stays
+  after the sheet closes.
+{% endcomment %}
+<button type="button" aria-label="Quick Add" data-dialog-open="quick-add" title="Quick Add" class="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex size-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg shadow-slate-900/25 transition-transform outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 md:right-8 md:bottom-8">
+  {% include "shell/icon.html" with name="plus" class="size-6" stroke="stroke-[2.5]" %}
+</button>
+<div id="quick-add-status" role="status" class="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-20 md:bottom-8"></div>
+<dialog id="quick-add" data-dialog data-sheet aria-labelledby="quick-add-title" class="m-0 mt-auto w-full max-w-none rounded-t-2xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-black/50 md:m-auto md:max-w-md md:rounded-2xl">
+  <div class="px-4 pt-2 pb-2">
+    <div class="mx-auto mb-1 h-1 w-9 rounded-full bg-slate-300 md:hidden" aria-hidden="true"></div>
+    <div class="flex items-center justify-between">
+      <h2 id="quick-add-title" class="flex items-center gap-2 text-lg font-semibold tracking-tight">{% include "shell/icon.html" with name="sparkle" class="size-5 text-violet-500" %}Quick Add</h2>
+      <button type="button" data-dialog-close class="-mr-2 flex h-11 items-center rounded-full px-3 text-sm font-medium text-slate-600 active:bg-slate-200">Cancel</button>
+    </div>
+  </div>
+  {% include "quick_add/_quick_add_form.html" %}
+</dialog>

@@ -1,4 +1,4 @@
-// The shell's loading bar, the More sheet's open/close and its
+// The shell's loading bar, the More and Quick Add sheets' open/close and their
 // swipe-down-to-close, and the service worker that makes Velora installable.
 
 // Only boosted page loads, not in-page partials like Quick Add polling.
@@ -109,6 +109,19 @@ document.addEventListener("touchend", (e) => {
     s.animate([{ transform: from }, { transform: "translateY(0)" }], { duration: 300, easing: EASE });
   }
 });
+
+// The floating Quick Add sheet: the server says when it's sent, and a request
+// that never reached it, as when offline, leaves the text in place to retry.
+document.addEventListener("quick-add-sent", (e) => {
+  const dialog = e.target.closest?.("dialog[data-dialog]");
+  if (dialog) closeDialog(dialog);
+});
+for (const [name, failed] of [["htmx:beforeRequest", false], ["htmx:sendError", true]]) {
+  document.addEventListener(name, (e) => {
+    const error = e.target.closest?.("[data-quick-add]")?.querySelector("[data-send-error]");
+    if (error) error.hidden = !failed;
+  });
+}
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
 

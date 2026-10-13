@@ -2,6 +2,8 @@
 
 {% block title %}{% if editing_draft %}Edit Draft{% elif transaction %}Edit Transaction{% else %}New Transaction{% endif %} · Velora{% endblock %}
 
+{% block quick_add_button %}{% endblock %}
+
 {% block scripts %}
     <script src="{% static 'js/transaction_form.js' %}" defer hx-preserve="true"></script>
     <script src="{% static 'js/attachment_limit.js' %}" defer hx-preserve="true"></script>

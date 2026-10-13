@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
+HTMX = {"HX-Request": "true"}
+
 
 def page(client: Client, name: str) -> str:
     return client.get(reverse(name), follow=True).content.decode()
@@ -74,8 +76,72 @@ def test_drafts_page_has_the_quick_add_box(signed_in: Client) -> None:
     assert 'maxlength="500"' in body
 
 
-def test_transactions_list_has_no_quick_add_box(signed_in: Client) -> None:
-    assert reverse("quick_add_create") not in page(signed_in, "transaction_list")
+def test_transactions_list_has_no_pinned_quick_add_box(signed_in: Client) -> None:
+    assert 'id="quick-add-text"' not in page(signed_in, "transaction_list")
+
+
+def test_the_floating_quick_add_box_matches_the_drafts_page_box(
+    signed_in: Client,
+) -> None:
+    body = page(signed_in, "index")
+    box = next(line for line in body.splitlines() if 'id="fab-quick-add-text"' in line)
+
+    assert 'placeholder="dinner 1200 on hdfc card"' in box
+    assert 'maxlength="500"' in box
+    assert "autofocus" in box
+
+
+def test_an_htmx_quick_add_is_sent_without_leaving_the_page(
+    signed_in: Client,
+) -> None:
+    response = signed_in.post(
+        reverse("quick_add_create"),
+        {"text": "lunch at Toit 850 on hdfc card"},
+        headers=HTMX,
+    )
+
+    assert response.status_code == 200
+    assert "Location" not in response
+    assert response["HX-Trigger"] == "quick-add-sent"
+    body = response.content.decode()
+    status = next(line for line in body.splitlines() if 'role="status"' in line)
+    assert "Quick Add sent" in body[body.index(status) :]
+    box = next(line for line in body.splitlines() if 'id="fab-quick-add-text"' in line)
+    assert 'value=""' in box
+    quick_add = QuickAdd.objects.get()
+    assert quick_add.status == QuickAdd.Status.PROCESSING
+    assert ProcrastinateJob.objects.get().args == {"quick_add_id": quick_add.pk}
+
+
+def test_a_refused_htmx_quick_add_shows_its_error_in_the_sheet(
+    signed_in: Client,
+) -> None:
+    response = signed_in.post(
+        reverse("quick_add_create"), {"text": "x" * 501}, headers=HTMX
+    )
+
+    assert response.status_code == 200
+    assert "HX-Trigger" not in response
+    body = response.content.decode()
+    assert "at most 500 characters" in body
+    box = next(line for line in body.splitlines() if 'id="fab-quick-add-text"' in line)
+    assert f'value="{"x" * 501}"' in box
+    assert not QuickAdd.objects.exists()
+    assert not ProcrastinateJob.objects.exists()
+    # Shown once, in the sheet, not again as a flash on the next page.
+    assert "at most 500 characters" not in page(signed_in, "index")
+
+
+def test_the_drafts_page_box_still_returns_to_drafts(signed_in: Client) -> None:
+    # The Drafts page's form is boosted, so htmx sends it too.
+    response = signed_in.post(
+        reverse("quick_add_create"),
+        {"text": "lunch 850"},
+        headers=HTMX | {"HX-Boosted": "true"},
+    )
+
+    assert response["Location"] == reverse("draft_list")
+    assert QuickAdd.objects.get().text == "lunch 850"
 
 
 def test_drafts_page_shows_the_draft_beside_the_text(signed_in: Client) -> None:
