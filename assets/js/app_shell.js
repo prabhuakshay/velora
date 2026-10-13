@@ -20,6 +20,7 @@ function fadeBackdrop(dialog, from, to, duration) {
 
 function openDialog(dialog) {
   dialog.showModal();
+  dialog.querySelector("[data-autofocus]")?.focus();
   if (reduced()) return;
   const duration = wide() ? 200 : 500;
   const frames = wide()
@@ -29,10 +30,11 @@ function openDialog(dialog) {
   fadeBackdrop(dialog, 0, 1, duration);
 }
 
-function closeDialog(dialog) {
+function closeDialog(dialog, onClosed = () => {}) {
   if (!dialog.open || dialog.dataset.closing) return;
   if (reduced()) {
     dialog.close();
+    onClosed();
     return;
   }
   dialog.dataset.closing = "";
@@ -49,6 +51,7 @@ function closeDialog(dialog) {
     dialog.close();
     dialog.getAnimations({ subtree: true }).forEach((a) => a.cancel());
     delete dialog.dataset.closing;
+    onClosed();
   };
 }
 
@@ -111,17 +114,33 @@ document.addEventListener("touchend", (e) => {
 });
 
 // The floating Quick Add sheet: the server says when it's sent, and a request
-// that never reached it, as when offline, leaves the text in place to retry.
+// that fails, as when offline or with an error page, leaves the text in place
+// to retry. "Sent" waits for the sheet to close, as the modal makes the
+// status region inert until then.
 document.addEventListener("quick-add-sent", (e) => {
   const dialog = e.target.closest?.("dialog[data-dialog]");
-  if (dialog) closeDialog(dialog);
-});
-for (const [name, failed] of [["htmx:beforeRequest", false], ["htmx:sendError", true]]) {
-  document.addEventListener(name, (e) => {
-    const error = e.target.closest?.("[data-quick-add]")?.querySelector("[data-send-error]");
-    if (error) error.hidden = !failed;
+  if (!dialog) return;
+  closeDialog(dialog, () => {
+    const sent = document.getElementById("quick-add-sent").content.cloneNode(true);
+    document.getElementById("quick-add-status").replaceChildren(sent);
   });
-}
+});
+const sendError = (e) => e.target.closest?.("[data-quick-add]")?.querySelector("[data-send-error]");
+document.addEventListener("htmx:beforeRequest", (e) => {
+  const error = sendError(e);
+  if (error) error.hidden = true;
+});
+document.addEventListener("htmx:sendError", (e) => {
+  const error = sendError(e);
+  if (error) error.hidden = false;
+});
+document.addEventListener("htmx:beforeSwap", (e) => {
+  const error = sendError(e);
+  if (error && e.detail.xhr.status >= 300) {
+    e.detail.shouldSwap = false;
+    error.hidden = false;
+  }
+});
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
 

@@ -67,11 +67,7 @@ def show_errors(request: HttpRequest, form: QuickAddForm) -> None:
 @requires_quick_add
 @require_POST
 def quick_add_create(request: HttpRequest) -> HttpResponseBase:
-    """Save the Quick Add as processing and queue it for the AI.
-
-    The floating button's sheet posts with htmx and stays on its page; the
-    Drafts page's boosted form goes back to Drafts.
-    """
+    """Save the Quick Add as processing and queue it for the AI."""
     in_sheet = request.headers.get("HX-Request") and not request.headers.get(
         "HX-Boosted"
     )
@@ -89,7 +85,7 @@ def quick_add_create(request: HttpRequest) -> HttpResponseBase:
     # Same database transaction as the save, so the job never sees a missing row.
     process_quick_add.defer(quick_add_id=quick_add.pk)
     if in_sheet:
-        response = render(request, "quick_add/_quick_add_sent.html")
+        response = render(request, "quick_add/_quick_add_form.html")
         response["HX-Trigger"] = "quick-add-sent"
         return response
     return redirect("draft_list")
