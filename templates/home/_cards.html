@@ -15,10 +15,10 @@
               <span class="block truncate text-xs text-slate-500">
                 {% with statement=row.statement %}
                   {% if not statement %}No Statement yet
-                  {% elif statement.transaction_id %}Statement paid
+                  {% elif statement.is_paid %}Statement paid
                   {% elif not statement.needs_payment %}Nothing to pay
-                  {% elif statement.due_date < today %}<span class="font-medium text-red-700">{% amount statement.amount %} overdue since {{ statement.due_date|date:"j M" }}</span>
-                  {% else %}{% amount statement.amount %} due {{ statement.due_date|date:"j M" }}{% endif %}
+                  {% elif statement.due_date < today %}<span class="font-medium text-red-700">{% amount statement.owed %} overdue since {{ statement.due_date|date:"j M" }}</span>
+                  {% else %}{% amount statement.owed %} due {{ statement.due_date|date:"j M" }}{% endif %}
                 {% endwith %}
               </span>
             </span>

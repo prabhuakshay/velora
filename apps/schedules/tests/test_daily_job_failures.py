@@ -233,10 +233,10 @@ def test_one_failed_statement_leaves_the_others_settled(
     with pytest.raises(DailyJobError):
         run_daily_job(date(2026, 11, 3))
 
-    assert Statement.objects.get(card=bad).transaction is None
+    assert not Statement.objects.get(card=bad).payments.exists()
     assert Draft.objects.get(statement__card=bad)
     assert Draft.objects.count() == 1
-    assert Statement.objects.get(card=good).transaction
+    assert Statement.objects.get(card=good).is_paid
     assert_logged(caplog, "match_card_payments", "Statement")
 
 

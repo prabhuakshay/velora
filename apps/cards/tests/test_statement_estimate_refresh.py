@@ -98,7 +98,7 @@ def test_an_actual_amount_or_a_payment_keeps_what_is_paid(
     record(card.pays_from, card, "1000", date(2026, 9, 20))
     run_daily_job(date(2026, 10, 16))
     september, october = Statement.objects.all()
-    assert september.transaction
+    assert september.is_paid
     signed_in.post(
         reverse("statement_edit", args=[october.pk]), {"actual_amount": "1000"}
     )
@@ -196,7 +196,7 @@ def test_settling_an_older_statement_late_updates_the_next(
 
     october.refresh_from_db()
     november.refresh_from_db()
-    assert october.transaction
+    assert october.is_paid
     assert november.estimated_amount == Decimal(5000)
     assert november.draft.splits.get().amount == Decimal(5000)
 
@@ -218,7 +218,7 @@ def test_posting_an_older_payment_draft_late_updates_the_next(
 
     billed.refresh_from_db()
     november.refresh_from_db()
-    assert billed.transaction
+    assert billed.is_paid
     assert november.estimated_amount == Decimal(500)
     assert november.draft.splits.get().amount == Decimal(500)
 
@@ -233,6 +233,6 @@ def test_a_paid_statement_is_never_re_estimated(
     record_via_form(signed_in, card, groceries, amount="400", date="2026-10-10")
 
     billed.refresh_from_db()
-    assert billed.transaction
+    assert billed.is_paid
     assert billed.estimated_amount == Decimal(1200)
     assert not Draft.objects.filter(statement=billed).exists()

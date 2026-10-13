@@ -6,16 +6,46 @@ from typing import TYPE_CHECKING, ClassVar
 
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import F, OuterRef, Q, Subquery, Sum
+from django.db.models.functions import Coalesce
+from django.utils.functional import cached_property
 
 from apps.accounts.models import Account, AccountKind
 from apps.core.dates import day_of
-from apps.transactions.models import Transaction
+from apps.transactions.models import Split, Transaction
 
 if TYPE_CHECKING:
     import datetime
 
 GST_RATE = Decimal("0.18")
 CENT = Decimal("0.01")
+
+
+def _paid_into_card(statements: Q) -> models.QuerySet[Split]:
+    return Split.objects.filter(
+        statements, to_account=F("transaction__statement__card")
+    )
+
+
+class StatementQuerySet(models.QuerySet["Statement"]):
+    """Statements read with what their linked payments paid."""
+
+    def with_paid(self) -> StatementQuerySet:
+        """Annotate what the linked payments paid into the card, read by `paid`."""
+        total = (
+            _paid_into_card(Q(transaction__statement=OuterRef("pk")))
+            .values("transaction__statement")
+            .annotate(total=Sum("amount"))
+            .values("total")
+        )
+        return self.annotate(paid_total=Coalesce(Subquery(total), Decimal(0)))
+
+    def unpaid(self) -> StatementQuerySet:
+        """Those the linked payments do not cover yet."""
+        covered = Q(paid_total__gt=0) & Q(
+            paid_total__gte=Coalesce("actual_amount", "estimated_amount")
+        )
+        return self.with_paid().exclude(covered)
 
 
 class Statement(models.Model):
@@ -36,14 +66,8 @@ class Statement(models.Model):
         validators=[MinValueValidator(Decimal(0))],
         help_text="From the real statement; leave blank to use the estimate.",
     )
-    # The payment that settled it; one-to-one so it settles only this one.
-    transaction = models.OneToOneField(
-        Transaction,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="statement",
-    )
+
+    objects = StatementQuerySet.as_manager()
 
     class Meta:
         ordering = ("period_end", "pk")
@@ -64,10 +88,36 @@ class Statement(models.Model):
             return self.actual_amount
         return self.estimated_amount
 
+    @cached_property
+    def paid(self) -> Decimal:
+        """What the linked payments paid into the card."""
+        if (annotated := self.__dict__.get("paid_total")) is not None:
+            return Decimal(annotated)
+        total = _paid_into_card(Q(transaction__statement=self)).aggregate(
+            total=Sum("amount")
+        )["total"]
+        return total or Decimal(0)
+
+    @property
+    def owed(self) -> Decimal:
+        """What is still owed once the linked payments are taken off."""
+        return self.amount - self.paid
+
+    @property
+    def is_paid(self) -> bool:
+        """Its linked payments add up to at least the Statement Amount."""
+        return self.paid > 0 and self.owed <= 0
+
     @property
     def needs_payment(self) -> bool:
-        """Unpaid with something to pay."""
-        return self.transaction_id is None and self.amount > 0
+        """Something is still owed on it."""
+        return self.owed > 0
+
+    def refresh_from_db(self, *args: object, **kwargs: object) -> None:
+        """Reload it, and what its payments paid, which may have changed too."""
+        super().refresh_from_db(*args, **kwargs)  # type: ignore[arg-type]
+        self.__dict__.pop("paid", None)
+        self.__dict__.pop("paid_total", None)
 
 
 @dataclass(frozen=True)

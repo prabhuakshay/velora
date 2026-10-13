@@ -220,9 +220,8 @@ def cards(today: date) -> list[CardRow]:
     )
     latest = {
         statement.card_id: statement
-        for statement in Statement.objects.filter(
-            card__in=accounts, period_end__lte=today
-        )
+        for statement in Statement.objects.with_paid()
+        .filter(card__in=accounts, period_end__lte=today)
         .order_by("card_id", "-period_end")
         .distinct("card_id")
     }

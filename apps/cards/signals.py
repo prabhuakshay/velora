@@ -3,8 +3,7 @@
 from typing import TYPE_CHECKING
 
 from apps.accounts.models import Account
-from apps.cards.models import Statement
-from apps.cards.statements import refresh_estimates, sync_payment_draft
+from apps.cards.statements import refresh_estimates
 from apps.quick_add.models import Draft
 from apps.transactions.signals import touched_accounts
 
@@ -12,19 +11,16 @@ if TYPE_CHECKING:
     from apps.transactions.models import Transaction
 
 
-def reopen_statement(instance: Transaction, **_: object) -> None:
-    """Put the Statement the deleted Transaction paid back to unpaid.
+def remove_posting_draft(instance: Transaction, **_: object) -> None:
+    """Remove the Statement payment Draft that posted the deleted Transaction.
 
-    The Draft that posted the Transaction is removed, so its payment can be
-    proposed again.
+    Its Statement can then be proposed a payment again for what is still
+    owed, once the card is re-estimated after the deletion.
     """
-    statement = Statement.objects.filter(transaction=instance).first()
-    if statement is None:
-        return
-    Draft.objects.filter(statement=statement).delete()
-    statement.transaction = None
-    statement.save(update_fields=["transaction"])
-    sync_payment_draft(statement)
+    if instance.statement_id:
+        Draft.objects.filter(
+            statement_id=instance.statement_id, transaction=instance
+        ).delete()
 
 
 def refresh_cards(account_ids: set[int], **_: object) -> None:
@@ -43,13 +39,12 @@ def refresh_deleted_cards(instance: Transaction, **_: object) -> None:
 
 
 def refresh_after_payment(
-    instance: Statement, update_fields: frozenset[str] | None, **_: object
+    instance: Transaction, update_fields: frozenset[str] | None, **_: object
 ) -> None:
     """Re-estimate the card when a payment is linked to one of its Statements.
 
     A payment linked to one Statement leaves every other one's estimate.
-    Unlinking happens only as the payment is deleted, which refreshes the
-    card once it is gone.
+    Unlinking refreshes the card itself, as it knows the Statement it left.
     """
-    if instance.transaction_id and update_fields and "transaction" in update_fields:
-        refresh_estimates(instance.card)
+    if instance.statement_id and update_fields and "statement" in update_fields:
+        refresh_estimates(instance.statement.card)  # type: ignore[union-attr]

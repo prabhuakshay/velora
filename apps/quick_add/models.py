@@ -237,7 +237,8 @@ class Draft(models.Model):
     def mark_posted(self, transaction: Transaction, *, without_edits: bool) -> None:
         """Link the Draft to the Transaction it became.
 
-        Its Occurrence is Paid, or its Statement settled, by that Transaction.
+        Its Occurrence is Paid by that Transaction, or its Statement gets it
+        as a payment.
         """
         self.status = Draft.Status.POSTED
         self.transaction = transaction
@@ -250,8 +251,8 @@ class Draft(models.Model):
         if self.occurrence:
             self.occurrence.settle(transaction)
         if self.statement:
-            self.statement.transaction = transaction
-            self.statement.save(update_fields=["transaction"])
+            transaction.statement = self.statement
+            transaction.save_without_historical_record(update_fields=["statement"])
 
     def reject(self) -> None:
         """Mark it rejected, and its Occurrence Skipped, never Missed."""

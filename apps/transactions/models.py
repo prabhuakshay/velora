@@ -29,8 +29,17 @@ class Transaction(models.Model):
         related_name="transactions",
     )
     description = models.TextField(blank=True)
+    # The Statement it pays; many parts can pay one (ADR 0010).
+    statement = models.ForeignKey(
+        "cards.Statement",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+    )
 
-    history = HistoricalRecords()
+    # Linking a payment is bookkeeping, not an edit to the Transaction.
+    history = HistoricalRecords(excluded_fields=["statement"])
     save_without_historical_record: Callable[..., None]
 
     class Meta:

@@ -38,10 +38,11 @@ def estimate(card: Account, start: date, end: date) -> Estimate:
     """What the card's activity from start to end suggests the Statement holds.
 
     Spends minus payments and refunds to the card, all dated in the period. A
-    payment that settled an earlier Statement paid for that period, not this
-    one, so it is left out. Each Card EMI swaps its purchase for what the bank
-    bills in the period, which already holds the interest, GST and fees its
-    posted Drafts record, so those are left out too.
+    payment linked to any Statement, even one it does not cover yet, paid for
+    that Statement's period, not this one, so it is left out. Each Card EMI
+    swaps its purchase for what the bank bills in the period, which already
+    holds the interest, GST and fees its posted Drafts record, so those are
+    left out too.
     """
     in_period = Split.objects.filter(transaction__date__range=(start, end))
     spent = (
@@ -108,7 +109,7 @@ def periods_to_create(card: Account, today: date) -> Iterator[date]:
 
 
 def propose_payment(statement: Statement) -> None:
-    """Propose paying the Statement Amount from the card's Pays from Account."""
+    """Propose paying what is still owed from the card's Pays from Account."""
     card = statement.card
     draft = Draft.objects.create(
         source=Draft.Source.STATEMENT,
@@ -121,7 +122,7 @@ def propose_payment(statement: Statement) -> None:
         draft=draft,
         from_account=card.pays_from,
         to_account=card,
-        amount=statement.amount,
+        amount=statement.owed,
     )
 
 
@@ -172,12 +173,15 @@ class PaymentLeg:
 
 
 def find_payment(statement: Statement) -> Transaction | None:
-    """A recorded payment of the Statement Amount between its close and due date."""
+    """A recorded payment of what is still owed between its close and due date.
+
+    Smaller part payments are left for the user to link.
+    """
     card = statement.card
-    if statement.amount <= 0:
+    if statement.owed <= 0:
         return None
     return find_cover(
-        [PaymentLeg(card.pays_from, card, statement.amount)],  # type: ignore[arg-type]
+        [PaymentLeg(card.pays_from, card, statement.owed)],  # type: ignore[arg-type]
         statement.due_date,
         Transaction.objects.filter(occurrence__isnull=True, statement__isnull=True),
         earliest=statement.period_end + timedelta(days=1),
@@ -186,17 +190,22 @@ def find_payment(statement: Statement) -> Transaction | None:
 
 @db_transaction.atomic
 def settle(statement: Statement, transaction: Transaction) -> None:
-    """Mark the Statement paid by the Transaction and withdraw its payment Draft."""
-    Draft.objects.waiting().filter(statement=statement).delete()
-    statement.transaction = transaction
-    statement.save(update_fields=["transaction"])
+    """Link the payment to the Statement, which is paid once its payments cover it.
+
+    Its waiting payment Draft takes what is still owed, or is withdrawn.
+    """
+    transaction.statement = statement
+    transaction.save_without_historical_record(update_fields=["statement"])
+    # Linking re-estimated the card, this Statement included.
+    statement.refresh_from_db()
+    sync_payment_draft(statement)
 
 
 def payment_candidates(statement: Statement, today: date) -> QuerySet[Transaction]:
     """The recorded payments into the card the user can link to the Statement.
 
     Any Asset Account may pay it, of any amount, as long as the payment is
-    dated after the period closed and settles nothing else. Each carries the
+    dated after the period closed and pays no Statement yet. Each carries the
     Account it came from and the amount it paid into the card.
     """
     # The Sums reuse the filter's join, so they add up only the paying Splits.
@@ -213,12 +222,15 @@ def payment_candidates(statement: Statement, today: date) -> QuerySet[Transactio
 
 
 def match_card_payments(today: date) -> None:
-    """Settle each unpaid Statement a recorded payment already covers."""
-    unpaid = Statement.objects.filter(
-        transaction__isnull=True,
-        period_end__lt=today,
-        card__pays_from__isnull=False,
-    ).select_related("card")
+    """Link a recorded payment to each unpaid Statement it covers the rest of."""
+    unpaid = (
+        Statement.objects.unpaid()
+        .filter(
+            period_end__lt=today,
+            card__pays_from__isnull=False,
+        )
+        .select_related("card")
+    )
 
     def settle_if_paid(statement: Statement) -> None:
         # Settling an earlier Statement re-estimates this one.
@@ -230,32 +242,37 @@ def match_card_payments(today: date) -> None:
 
 
 @db_transaction.atomic
-def unsettle(statement: Statement) -> None:
-    """Put the Statement back to unpaid, leaving its payment as recorded."""
-    statement.transaction = None
-    statement.save(update_fields=["transaction"])
-    # The payment counts in the period it is dated in again, and the
-    # Statement's own Draft follows once it is unpaid.
+def unsettle(statement: Statement, transaction: Transaction) -> None:
+    """Unlink one payment from the Statement, leaving it as recorded.
+
+    The Statement is unpaid again once the rest no longer cover it. If the
+    payment is the one its own Draft posted, that Draft goes, so it can be
+    proposed again for what is still owed.
+    """
+    transaction.statement = None
+    transaction.save_without_historical_record(update_fields=["statement"])
+    Draft.objects.filter(statement=statement, transaction=transaction).delete()
+    # The payment counts in the period it is dated in again.
     refresh_estimates(statement.card)
+    statement.refresh_from_db()
+    sync_payment_draft(statement)
 
 
 def sync_payment_draft(statement: Statement) -> None:
-    """Bring the Statement's payment Draft in line with its Statement Amount.
+    """Bring the Statement's payment Draft in line with what is still owed.
 
-    A waiting Draft takes the amount, an estimate until the actual amount is
-    entered, or is withdrawn when there is nothing to pay; with none proposed
-    yet, one is now if the Statement is unpaid and there is something to pay. A
-    posted or rejected Draft is left alone.
+    A waiting Draft takes what is owed, an estimate until the actual amount is
+    entered, or is withdrawn when nothing is; with none proposed yet, one is
+    now if something is owed. A posted or rejected Draft is left alone, so no
+    second one is proposed.
     """
     draft = Draft.objects.filter(statement=statement).first()
     if draft is None:
         if statement.needs_payment:
             propose_payment(statement)
     elif draft.status == Draft.Status.WAITING:
-        if statement.amount > 0:
-            draft.splits.filter(to_account=statement.card).update(
-                amount=statement.amount
-            )
+        if statement.needs_payment:
+            draft.splits.filter(to_account=statement.card).update(amount=statement.owed)
             draft.estimated = statement.actual_amount is None
             draft.save(update_fields=["estimated"])
         else:
@@ -274,13 +291,13 @@ def enter_actual_amount(statement: Statement, amount: Decimal | None) -> None:
 def refresh_estimates(*accounts: Account) -> None:
     """Re-estimate the unpaid Statements of each Account that is a card.
 
-    Any change to a card's Splits, Card EMIs or paid Statements can change
+    Any change to a card's Splits, Card EMIs or linked payments can change
     what an earlier period's estimate comes to. A paid Statement is history.
     """
     for account in accounts:
         if not account.is_card:
             continue
-        for statement in account.statements.filter(transaction__isnull=True):
+        for statement in account.statements.unpaid():
             statement.estimated_amount = estimate_statement_amount(
                 account, statement.period_start, statement.period_end
             )

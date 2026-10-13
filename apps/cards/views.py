@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -45,9 +45,7 @@ def _bound_data(request: HttpRequest) -> QueryDict | None:
 @blocked_in_privacy_mode
 def statement_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     """Enter the actual Statement Amount, which then replaces the estimate."""
-    statement = get_object_or_404(
-        Statement.objects.select_related("card", "transaction"), pk=pk
-    )
+    statement = get_object_or_404(Statement.objects.select_related("card"), pk=pk)
     card = statement.card
     form = StatementForm(request.POST or None, instance=statement)
     if form.is_valid():
@@ -59,7 +57,7 @@ def statement_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
     statements = card.statements.order_by("period_end")
     today = timezone.localdate()
     candidates = []
-    if statement.transaction is None:
+    if not statement.is_paid:
         candidates = sorted(
             payment_candidates(statement, today).order_by("date", "pk"),
             key=lambda payment: abs(payment.date - statement.due_date),
@@ -73,6 +71,10 @@ def statement_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
             "card": card,
             "today": today,
             "candidates": candidates,
+            # Every one, so even one edited off the card can be unlinked.
+            "payments": statement.payments.annotate(
+                paid=Sum("splits__amount", filter=Q(splits__to_account=card))
+            ).order_by("date", "pk"),
             "parts": estimate(card, statement.period_start, statement.period_end),
             "draft": Draft.objects.waiting().filter(statement=statement).first(),
             "older": statements.filter(period_end__lt=statement.period_end).last(),
@@ -85,12 +87,12 @@ def statement_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
 @blocked_in_privacy_mode
 @require_POST
 def statement_link_payment(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Mark the Statement paid by a recorded payment the user picked."""
+    """Link a recorded payment the user picked, which may pay only a part."""
     statement = get_object_or_404(Statement.objects.select_related("card"), pk=pk)
     candidates = payment_candidates(statement, timezone.localdate())
     chosen = request.POST.get("transaction", "")
     payment = candidates.filter(pk=chosen).first() if chosen.isdigit() else None
-    if statement.transaction_id:
+    if statement.is_paid:
         messages.error(request, "This Statement is already paid.")
     elif payment is None:
         messages.error(
@@ -100,7 +102,7 @@ def statement_link_payment(request: HttpRequest, pk: int) -> HttpResponseBase:
         )
     else:
         settle(statement, payment)
-        messages.success(request, f"Marked paid on {payment.date:%-d %b %Y}.")
+        messages.success(request, f"Linked the payment on {payment.date:%-d %b %Y}.")
     return redirect("statement_edit", pk=statement.pk)
 
 
@@ -108,11 +110,13 @@ def statement_link_payment(request: HttpRequest, pk: int) -> HttpResponseBase:
 @blocked_in_privacy_mode
 @require_POST
 def statement_unlink_payment(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Put the Statement back to unpaid when its payment was the wrong one."""
+    """Unlink one of the Statement's payments when it was the wrong one."""
     statement = get_object_or_404(Statement.objects.select_related("card"), pk=pk)
-    if statement.transaction_id:
-        unsettle(statement)
-        messages.success(request, "The Statement is unpaid again.")
+    chosen = request.POST.get("transaction", "")
+    payment = statement.payments.filter(pk=chosen).first() if chosen.isdigit() else None
+    if payment:
+        unsettle(statement, payment)
+        messages.success(request, f"Unlinked the payment on {payment.date:%-d %b %Y}.")
     return redirect("statement_edit", pk=statement.pk)
 
 

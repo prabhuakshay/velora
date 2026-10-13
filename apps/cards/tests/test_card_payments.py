@@ -33,7 +33,7 @@ def test_a_recorded_payment_withdraws_the_payment_draft(
 
     assert not Draft.objects.exists()
     billed.refresh_from_db()
-    assert billed.transaction == payment
+    assert list(billed.payments.all()) == [payment]
 
 
 def test_a_payment_made_soon_after_the_statement_day_still_covers_it(
@@ -80,8 +80,8 @@ def test_posting_the_payment_draft_settles_the_statement(
     signed_in.post(reverse("draft_post", args=[Draft.objects.get().pk]))
 
     statement = Statement.objects.get()
-    assert statement.transaction
-    assert statement.transaction.date == timezone.localdate()
+    assert statement.is_paid
+    assert statement.payments.get().date == timezone.localdate()
 
 
 def edit_url(statement: Statement) -> str:
@@ -184,7 +184,7 @@ def test_a_payment_recorded_before_the_job_caught_up_means_no_draft(
 
     run_daily_job(date(2026, 10, 20))
 
-    assert Statement.objects.get().transaction
+    assert Statement.objects.get().is_paid
     assert not Draft.objects.exists()
 
 
@@ -215,7 +215,7 @@ def test_an_actual_amount_of_zero_withdraws_the_payment_draft(
         ("1200", "0", False, False),
     ],
 )
-def test_a_statement_needs_payment_only_when_unpaid_with_something_to_pay(
+def test_a_statement_needs_payment_only_while_something_is_owed(
     card: Account,
     *,
     estimated: str,
@@ -223,17 +223,18 @@ def test_a_statement_needs_payment_only_when_unpaid_with_something_to_pay(
     paid: bool,
     needs_payment: bool,
 ) -> None:
-    statement = Statement(
+    statement = Statement.objects.create(
         card=card,
         period_start=date(2026, 9, 16),
         period_end=date(2026, 10, 15),
         due_date=date(2026, 11, 5),
         estimated_amount=Decimal(estimated),
         actual_amount=None if actual is None else Decimal(actual),
-        transaction=Transaction.objects.create(date=date(2026, 11, 3))
-        if paid
-        else None,
     )
+    if paid:
+        assert card.pays_from
+        payment = record(card.pays_from, card, estimated, date(2026, 11, 3))
+        Transaction.objects.filter(pk=payment.pk).update(statement=statement)
 
     assert statement.needs_payment is needs_payment
 
@@ -258,7 +259,7 @@ def test_deleting_the_payment_reopens_the_statement_and_proposes_it_again(
     payment.delete()
 
     billed.refresh_from_db()
-    assert billed.transaction is None
+    assert not billed.payments.exists()
     draft = Draft.objects.waiting().get()
     assert (draft.statement, draft.splits.get().amount) == (billed, Decimal(1200))
 
@@ -267,13 +268,12 @@ def test_deleting_a_posted_payment_proposes_it_again(
     signed_in: Client, billed: Statement
 ) -> None:
     signed_in.post(reverse("draft_post", args=[Draft.objects.get().pk]))
-    payment = Statement.objects.get().transaction
-    assert payment
+    payment = Statement.objects.get().payments.get()
 
     payment.delete()
 
     billed.refresh_from_db()
-    assert billed.transaction is None
+    assert not billed.payments.exists()
     assert Draft.objects.waiting().get().statement == billed
 
 
@@ -288,7 +288,7 @@ def test_deleting_the_payment_of_nothing_to_pay_proposes_no_draft(
     payment.delete()
 
     billed.refresh_from_db()
-    assert billed.transaction is None
+    assert not billed.payments.exists()
     assert not Draft.objects.exists()
 
 
@@ -320,10 +320,9 @@ def unlink_url(statement: Statement) -> str:
     ("amount", "on", "other_bank"),
     [
         ("1200", date(2026, 11, 2), True),
-        ("600", date(2026, 11, 3), False),
         ("1200", date(2026, 11, 20), False),
     ],
-    ids=["second bank", "far off the amount", "late"],
+    ids=["second bank", "late"],
 )
 @pytest.mark.usefixtures("late_today")
 def test_linking_a_payment_marks_the_statement_paid(  # noqa: PLR0913
@@ -344,7 +343,7 @@ def test_linking_a_payment_marks_the_statement_paid(  # noqa: PLR0913
 
     assert response["Location"] == edit_url(billed)
     billed.refresh_from_db()
-    assert billed.transaction == payment
+    assert list(billed.payments.all()) == [payment]
     assert not Draft.objects.waiting().filter(statement=billed).exists()
 
 
@@ -387,8 +386,8 @@ def test_a_payment_linked_elsewhere_is_refused(
     assert response["Location"] == edit_url(billed)
     billed.refresh_from_db()
     november.refresh_from_db()
-    assert billed.transaction is None
-    assert november.transaction == payment
+    assert not billed.payments.exists()
+    assert list(november.payments.all()) == [payment]
     assert (
         "Pick a payment into the card"
         in signed_in.get(edit_url(billed)).content.decode()
@@ -410,7 +409,7 @@ def test_payments_linked_to_an_occurrence_or_another_card_are_refused(
         signed_in.post(link_url(billed), {"transaction": payment.pk})
 
     billed.refresh_from_db()
-    assert billed.transaction is None
+    assert not billed.payments.exists()
 
 
 @pytest.mark.usefixtures("late_today")
@@ -425,7 +424,7 @@ def test_a_paid_statement_refuses_another_payment(
     signed_in.post(link_url(billed), {"transaction": second.pk})
 
     billed.refresh_from_db()
-    assert billed.transaction == first
+    assert list(billed.payments.all()) == [first]
 
 
 @pytest.mark.parametrize("pk", ["999", "", "x"])
@@ -436,7 +435,7 @@ def test_an_unknown_payment_is_refused(
 
     assert response["Location"] == edit_url(billed)
     billed.refresh_from_db()
-    assert billed.transaction is None
+    assert not billed.payments.exists()
 
 
 def test_a_payment_dated_in_the_period_is_refused(
@@ -448,7 +447,7 @@ def test_a_payment_dated_in_the_period_is_refused(
     signed_in.post(link_url(billed), {"transaction": payment.pk})
 
     billed.refresh_from_db()
-    assert billed.transaction is None
+    assert not billed.payments.exists()
 
 
 def test_unlinking_reopens_the_statement_and_proposes_its_payment(
@@ -465,12 +464,12 @@ def test_unlinking_reopens_the_statement_and_proposes_its_payment(
     november = Statement.objects.get(period_end=date(2026, 11, 15))
     assert november.amount == Decimal(400)
 
-    response = signed_in.post(unlink_url(billed))
+    response = signed_in.post(unlink_url(billed), {"transaction": payment.pk})
 
     assert response["Location"] == edit_url(billed)
     billed.refresh_from_db()
     november.refresh_from_db()
-    assert billed.transaction is None
+    assert not billed.payments.exists()
     assert Transaction.objects.filter(pk=payment.pk).exists()
     assert Draft.objects.waiting().get(statement=billed).splits.get().amount == (
         Decimal(1200)
@@ -488,10 +487,10 @@ def test_unlinking_leaves_a_rejected_draft_rejected(
     payment = record(card.pays_from, card, "1200", date(2026, 11, 3))
     settle(billed, payment)
 
-    signed_in.post(unlink_url(billed))
+    signed_in.post(unlink_url(billed), {"transaction": payment.pk})
 
     billed.refresh_from_db()
-    assert billed.transaction is None
+    assert not billed.payments.exists()
     assert list(Draft.objects.values_list("status", flat=True)) == [
         Draft.Status.REJECTED
     ]

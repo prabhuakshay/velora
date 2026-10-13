@@ -1,12 +1,8 @@
 from datetime import date
-from typing import TYPE_CHECKING
 
 import pytest
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 BEFORE = [("quick_add", "0003_draft_protects_its_party")]
 AFTER = [("quick_add", "0004_drafts_own_their_source_and_lifecycle")]
@@ -17,12 +13,6 @@ def migrate(targets: list[tuple[str, str]]) -> MigrationExecutor:
     executor.migrate(targets)
     executor.loader.build_graph()
     return executor
-
-
-@pytest.fixture
-def _back_to_latest() -> Iterator[None]:
-    yield
-    migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
 
 
 @pytest.mark.usefixtures("_back_to_latest")

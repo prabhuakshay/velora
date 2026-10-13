@@ -84,15 +84,18 @@ def missed(today: date) -> list[Item]:  # noqa: ARG001
 
 def card_due_days(today: date) -> list[Item]:
     """Unpaid Statements due within CARD_REMINDER_DAYS, with their payment."""
-    statements = Statement.objects.filter(
-        transaction__isnull=True,
-        due_date__range=(today, today + timedelta(days=CARD_REMINDER_DAYS)),
-    ).select_related("card", "draft")
+    statements = (
+        Statement.objects.unpaid()
+        .filter(
+            due_date__range=(today, today + timedelta(days=CARD_REMINDER_DAYS)),
+        )
+        .select_related("card", "draft")
+    )
     return [
         Item(
             statement.due_date,
             str(statement.card),
-            statement.amount,
+            statement.owed,
             _waiting_or(
                 getattr(statement, "draft", None),
                 reverse(

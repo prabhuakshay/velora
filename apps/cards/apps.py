@@ -7,19 +7,18 @@ class CardsConfig(AppConfig):
     label = "cards"
 
     def ready(self) -> None:
-        from apps.cards.models import Statement  # noqa: PLC0415
         from apps.cards.signals import (  # noqa: PLC0415
             note_touched_accounts,
             refresh_after_payment,
             refresh_cards,
             refresh_deleted_cards,
-            reopen_statement,
+            remove_posting_draft,
         )
         from apps.transactions.models import Transaction  # noqa: PLC0415
         from apps.transactions.signals import splits_saved  # noqa: PLC0415
 
-        pre_delete.connect(reopen_statement, sender=Transaction)
+        pre_delete.connect(remove_posting_draft, sender=Transaction)
         pre_delete.connect(note_touched_accounts, sender=Transaction)
         post_delete.connect(refresh_deleted_cards, sender=Transaction)
         splits_saved.connect(refresh_cards, sender=Transaction)
-        post_save.connect(refresh_after_payment, sender=Statement)
+        post_save.connect(refresh_after_payment, sender=Transaction)

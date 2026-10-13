@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, F, Prefetch, Q
+from django.db.models import Count, F, Max, Prefetch, Q
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -249,9 +249,9 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
             "used_by": _used_by(account),
             "today": today,
             "here": request.get_full_path(),
-            "statements": account.statements.select_related("transaction").order_by(
-                "-period_end"
-            )[:STATEMENTS_SHOWN],
+            "statements": account.statements.with_paid()
+            .annotate(paid_on=Max("payments__date"))
+            .order_by("-period_end")[:STATEMENTS_SHOWN],
             "card_emis": [
                 (emi, emi.progress(today))
                 for emi in account.card_emis.select_related("card", "purchase__party")

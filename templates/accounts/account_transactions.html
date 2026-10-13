@@ -205,7 +205,7 @@
                   </span>
                   <span class="shrink-0 text-right">
                     <span class="block font-semibold tabular-nums">{% amount statement.amount %}</span>
-                    <span class="block text-xs {% if statement.transaction %}text-emerald-700{% else %}text-slate-500{% endif %}">{% if statement.transaction %}Paid{% elif statement.actual_amount is None %}Estimate{% else %}Actual{% endif %}</span>
+                    <span class="block text-xs {% if statement.is_paid %}text-emerald-700{% else %}text-slate-500{% endif %}">{% if statement.is_paid %}Paid {{ statement.paid_on|date:"j M" }}{% elif statement.actual_amount is None %}Estimate{% else %}Actual{% endif %}</span>
                   </span>
                 </a>
               </li>

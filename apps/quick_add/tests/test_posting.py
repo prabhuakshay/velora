@@ -287,7 +287,7 @@ def test_post_all_leaves_an_estimated_card_payment_waiting(signed_in: Client) ->
 
     assert not Transaction.objects.filter(splits__to_account=statement.card).exists()
     statement.refresh_from_db()
-    assert statement.transaction is None
+    assert not statement.payments.exists()
     assert Draft.objects.get().status == Draft.Status.WAITING
 
 

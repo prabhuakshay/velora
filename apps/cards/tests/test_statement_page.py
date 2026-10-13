@@ -95,14 +95,15 @@ def test_an_unpaid_statement_offers_payments_into_the_card(
     record(card.pays_from, card, "700", date(2026, 11, 26))
     mixed = record(card.pays_from, card, "900", date(2026, 11, 10))
     mixed.splits.create(from_account=card, to_account=groceries, amount=Decimal(90))
-    Statement.objects.create(
+    linked = record(card.pays_from, card, "400", date(2026, 11, 22))
+    linked.statement = Statement.objects.create(
         card=card,
         period_start=date(2026, 10, 16),
         period_end=date(2026, 11, 15),
         due_date=date(2026, 12, 5),
         estimated_amount=Decimal(0),
-        transaction=record(card.pays_from, card, "400", date(2026, 11, 22)),
     )
+    linked.save()
     scheduled = record(card.pays_from, card, "800", date(2026, 11, 4))
     make_schedule((card.pays_from, card, "800")).occurrences.create(
         due_date=date(2026, 11, 4), transaction=scheduled

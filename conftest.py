@@ -3,10 +3,14 @@ from typing import TYPE_CHECKING
 import pytest
 from django.conf import settings
 from django.core.cache import cache
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
 
 from apps.users.models import User
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from django.test import Client
     from pytest_django import Settings
 
@@ -30,6 +34,14 @@ def pytest_configure() -> None:
     settings.CLOUDFLARE_API_TOKEN = ""
     # Admins in a local .env get error emails that land in mail.outbox.
     settings.ADMINS = []
+
+
+@pytest.fixture
+def _back_to_latest() -> Iterator[None]:
+    """Migrate forward again after a test that migrated back."""
+    yield
+    executor = MigrationExecutor(connection)
+    executor.migrate(executor.loader.graph.leaf_nodes())
 
 
 @pytest.fixture(autouse=True)
