@@ -149,8 +149,12 @@ One billing period of a credit card, from the day after one Statement Day to the
 _Avoid_: Bill, invoice, cycle
 
 **Statement Amount**:
-What a credit card's latest statement asks the user to pay. Velora estimates it from the card's spending, payments and refunds in the Statement's period until the user enters the actual amount from the real statement, which then replaces the estimate. A payment that settled an earlier Statement paid for that period, so the estimate leaves it out.
+What a credit card's latest statement asks the user to pay. Velora estimates it from the card's spending, payments and refunds in the Statement's period until the user enters the actual amount from the real statement, which then replaces the estimate. A payment linked to an earlier Statement paid for that period, so the estimate leaves it out and takes off the earlier Statement's Carried Credit instead. An estimate is never below zero.
 _Avoid_: Bill, outstanding, total due
+
+**Carried Credit**:
+What a Statement leaves for the next one: how far its payments went beyond its Statement Amount, or how far its activity fell below zero. It lowers the next Statement Amount, never below zero, and what is still left carries on. An actual Statement Amount from the bank already counts it.
+_Avoid_: Overpayment, credit balance, excess, rollover
 
 **Refund**:
 A Split from an Expense Account back to an Asset or Liability Account, which reduces what was spent under that Expense Account.
