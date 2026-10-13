@@ -40,6 +40,10 @@ _Avoid_: Initial balance, starting amount
 What an Asset or Liability Account holds now: its Opening Balance moved by every Split into or out of it. For a Liability Account it is what the user owes. Amounts shown for a Liability Account always read as what is owed: + is charged, − is paid off. A negative Balance is shown as in credit.
 _Avoid_: Total, net
 
+**Reconciliation**:
+The user's check that an Asset or Liability Account's Balance on a given day matches what the bank or card issuer says it held that day. It is recorded only when the two match, and every Split into or out of that Account dated on or before that day then counts as reconciled. A later change can move the Balance on that day, such as editing or back-dating a Transaction; the Reconciliation then no longer matches and shows how far off it is until the user fixes the difference or deletes it. The latest matching one gives the Account's reconciled-through date. Every Reconciliation is kept.
+_Avoid_: Confirm, verify, audit, cleared
+
 **Net Worth**:
 What the user owns minus what they owe on a given day: the Balances of Asset Accounts minus the Balances of Liability Accounts, leaving out any Account the user has excluded from it, such as a car.
 _Avoid_: Wealth, total balance, equity
