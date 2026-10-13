@@ -17,6 +17,7 @@ from apps.investments.dividends import (
 from apps.investments.ledger import transaction_forms as trade_forms
 from apps.investments.models import Instrument, InvestmentEvent, Price
 from apps.investments.replay import OversoldError, replay
+from apps.quick_add.models import Draft
 
 if TYPE_CHECKING:
     import datetime
@@ -78,6 +79,16 @@ def oversold_message(error: OversoldError) -> str:
         f"Only {units_text(error.held)} units of {instrument} were held on "
         f"{error.event.date:%-d %b %Y}."
     )
+
+
+def _waiting_drafts(account: Account) -> list[InvestmentEvent]:
+    """The Buys and Sells the account's waiting Drafts will record once posted."""
+    return [
+        detail.event_on(detail.draft.date)
+        for detail in account.investment_drafts.filter(
+            draft__status=Draft.Status.WAITING, units__isnull=False
+        ).select_related("draft", "instrument")
+    ]
 
 
 # What each kind of Investment Event needs; the other optional parts stay blank.
@@ -260,9 +271,13 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         )
 
     def _refuse_overselling(self, instrument: Instrument) -> None:
-        others = self.account.investment_events.exclude(
-            pk=self.instance.pk
-        ).select_related("instrument")
+        others = [
+            *self.account.investment_events.exclude(pk=self.instance.pk).select_related(
+                "instrument"
+            ),
+        ]
+        if self.drafting:
+            others += _waiting_drafts(self.account)
         try:
             replay([*others, self._candidate(instrument)])
         except OversoldError as error:
