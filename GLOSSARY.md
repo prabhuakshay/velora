@@ -56,6 +56,10 @@ _Avoid_: Line, leg, posting
 A file the user keeps with a Transaction as evidence or reference, such as a receipt, invoice or warranty card. It belongs to the whole Transaction, not to any one Split.
 _Avoid_: Receipt, document, file
 
+**Untracked object**:
+A stored file no Attachment points to any more, left behind when deleting it from storage failed for good or a crash interrupted an upload. It only wastes storage; nothing in Velora can reach it.
+_Avoid_: Orphan, stray file, leaked file
+
 **Quick Add**:
 A short line of free text the user writes about a money event, such as "lunch at Toit 850 on hdfc card", which an AI reads to propose a Draft. Every Quick Add is Processing, Draft (its Draft awaits the user), Failed, Posted or Rejected.
 _Avoid_: Prompt, quick entry, note
