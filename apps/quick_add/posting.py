@@ -123,6 +123,15 @@ def post_draft(draft: Draft) -> Transaction:
     return transaction
 
 
+def try_posting(draft: Draft) -> None:
+    """Post the Draft, or leave it waiting with why posting was refused."""
+    try:
+        post_draft(draft)
+    except DraftNotPostableError as error:
+        draft.posting_error = str(error)
+        draft.save(update_fields=["posting_error"])
+
+
 @contextmanager
 def marking_posted(draft: Draft, transaction: Transaction) -> Iterator[None]:
     """Wrap saving the Transaction so the Draft is linked to it before it is seen.

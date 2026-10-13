@@ -5,8 +5,9 @@ from datetime import date, timedelta
 from django.db import transaction as db_transaction
 
 from apps.core.jobs import run_each
+from apps.investments.sips import draft_sip_buy
 from apps.quick_add.models import Draft, DraftSplit
-from apps.quick_add.posting import DraftNotPostableError, post_draft
+from apps.quick_add.posting import try_posting
 from apps.schedules.estimates import last_paid_amount
 from apps.schedules.matching import match_occurrence
 from apps.schedules.models import Occurrence, Schedule
@@ -109,19 +110,12 @@ def propose_draft(
         )
         for split in splits
     )
+    if schedule.is_sip:
+        draft_sip_buy(draft, schedule)
     occurrence.status = Occurrence.Status.DRAFTED
     occurrence.save(update_fields=["status"])
-    if (
-        auto_post
-        and schedule.auto_post
-        and schedule.amount is not None
-        and occurrence.due_date + timedelta(days=schedule.grace_days) >= today
-    ):
-        try:
-            post_draft(draft)
-        except DraftNotPostableError as error:
-            draft.posting_error = str(error)
-            draft.save(update_fields=["posting_error"])
+    if auto_post and occurrence.auto_posts_on(today):
+        try_posting(draft)
 
 
 def propose_due_drafts(today: date) -> None:

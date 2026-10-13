@@ -10,6 +10,7 @@ from apps.cards.emis import propose_card_emi_drafts
 from apps.cards.statements import create_statements, match_card_payments
 from apps.core.jobs import ItemsFailedError
 from apps.digest.email import send_digest
+from apps.investments.sips import fill_sip_units
 from apps.schedules.matching import mark_missed, match_transactions
 from apps.schedules.occurrences import materialise_occurrences, propose_due_drafts
 from apps.schedules.suggestions import suggest_schedules
@@ -24,6 +25,8 @@ STEPS: tuple[Callable[[date], None], ...] = (
     # Match first, so a Transaction already recorded needs no Draft.
     match_transactions,
     propose_due_drafts,
+    # After the nightly Prices, so a waiting SIP Draft gets its units.
+    fill_sip_units,
     mark_missed,
     # Settle payments first, so a new Statement's estimate leaves them out.
     match_card_payments,

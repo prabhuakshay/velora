@@ -6,6 +6,7 @@ from croniter import croniter
 from django import forms
 from django.utils import timezone
 
+from apps.investments.models import Instrument
 from apps.schedules.models import Schedule, ScheduleSplit
 from apps.schedules.repeat import cron_dates
 from apps.transactions.forms import offer_accounts, offer_parties
@@ -22,6 +23,13 @@ REMINDER_DAYS: dict[str, int] = {
 
 class ScheduleForm(forms.ModelForm[Schedule]):
     """The Schedule's template fields and its repeat rule."""
+
+    is_sip = forms.BooleanField(
+        label="SIP",
+        required=False,
+        help_text="It buys one Instrument in a Direct Investment Account.",
+    )
+    sip_isin = forms.CharField(label="ISIN", max_length=12, required=False)
 
     class Meta:
         model = Schedule
@@ -41,6 +49,7 @@ class ScheduleForm(forms.ModelForm[Schedule]):
             "trial_ends_on",
             "plan",
             "how_to_cancel",
+            "sip_account",
         )
         labels: ClassVar = {
             "start_date": "First due date",
@@ -53,6 +62,7 @@ class ScheduleForm(forms.ModelForm[Schedule]):
             "auto_post": "Auto-post",
             "is_subscription": "Subscription",
             "trial_ends_on": "Trial ends on",
+            "sip_account": "Investment Account",
         }
         help_texts: ClassVar = {
             "cron": (
@@ -87,6 +97,9 @@ class ScheduleForm(forms.ModelForm[Schedule]):
         self.fields["reminder_days"].required = False
         if not self.instance.pk:
             self.initial["reminder_days"] = None
+        if instrument := self.instance.sip_instrument:
+            self.initial["is_sip"] = True
+            self.initial["sip_isin"] = instrument.isin
 
     def clean_cron(self) -> str:
         """Refuse an expression croniter can't read or that never falls due."""
@@ -115,7 +128,23 @@ class ScheduleForm(forms.ModelForm[Schedule]):
         start, end = cleaned.get("start_date"), cleaned.get("ends_on")
         if start and end and end < start:
             self.add_error("ends_on", "The last due date cannot be before the first.")
+        self._clean_sip()
         return cleaned
+
+    def _clean_sip(self) -> None:
+        """Require a SIP's Investment Account and a known Instrument."""
+        cleaned = self.cleaned_data
+        if not cleaned.get("is_sip"):
+            cleaned["sip_account"] = None
+            self.instance.sip_instrument = None
+            return
+        if "sip_account" in cleaned and cleaned["sip_account"] is None:
+            self.add_error("sip_account", "Pick the Investment Account it buys in.")
+        isin = cleaned.get("sip_isin", "").strip().upper()
+        instrument = Instrument.objects.filter(isin=isin).first()
+        if instrument is None:
+            self.add_error("sip_isin", "Velora doesn't know this ISIN.")
+        self.instance.sip_instrument = instrument
 
 
 class ScheduleSplitForm(forms.ModelForm[ScheduleSplit]):
@@ -183,12 +212,36 @@ ScheduleSplitFormSet = forms.inlineformset_factory(
 )
 
 
-def has_open_amount(
-    formset: forms.BaseInlineFormSet[ScheduleSplit, Schedule, ScheduleSplitForm],
-) -> bool:
-    """Whether any kept Split of a valid formset leaves its amount open."""
-    return any(
-        form.cleaned_data.get("amount") is None
+type SplitFormSet = forms.BaseInlineFormSet[ScheduleSplit, Schedule, ScheduleSplitForm]
+
+
+def _kept(formset: SplitFormSet) -> list[dict[str, Any]]:
+    """The cleaned data of the valid formset's kept Splits."""
+    return [
+        form.cleaned_data
         for form in formset.forms
         if form.cleaned_data and not form.cleaned_data.get("DELETE")
-    )
+    ]
+
+
+def splits_fit(form: ScheduleForm, formset: SplitFormSet) -> bool:
+    """Whether the valid formset's Splits suit the valid Schedule form.
+
+    Auto-post needs every amount, and a SIP pays its Investment Account from
+    its Pays from Account in one Split; otherwise the form gets the error.
+    """
+    kept = _kept(formset)
+    if form.cleaned_data["auto_post"] and any(
+        split["amount"] is None for split in kept
+    ):
+        form.add_error("auto_post", "Auto-post needs an amount on every Split.")
+        return False
+    account = form.cleaned_data.get("sip_account")
+    if account is not None and [
+        (split["from_account"], split["to_account"]) for split in kept
+    ] != [(account.invests_from, account)]:
+        form.add_error(
+            None, f"A SIP has one Split, from {account.invests_from} into {account}."
+        )
+        return False
+    return True
