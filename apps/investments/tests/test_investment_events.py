@@ -68,7 +68,9 @@ def test_market_value_counts_units_at_the_latest_price(signed_in: Client) -> Non
     holdings = holdings_text(signed_in, broker)
 
     assert "Market Value ₹10,205.00" in holdings
-    assert "Nifty Fund 10 ₹1,000.00 ₹1,205.00 +₹205.00 ₹0.00 2 Mar 2026" in holdings
+    assert (
+        "Nifty Fund 10 ₹1,000.00 ₹1,205.00 +₹205.00 ₹0.00 ₹0.00 2 Mar 2026" in holdings
+    )
 
 
 def test_a_holding_without_a_price_counts_at_its_cost_basis(
