@@ -143,3 +143,24 @@ def test_instruments_not_held_or_priced_by_hand_are_left_alone(
 
     assert fake_prices.fetched == []
     assert not Price.objects.exists()
+
+
+def test_an_instrument_held_through_a_merger_is_backfilled_from_the_merger(
+    fake_prices: FakePriceSource,
+) -> None:
+    new = Instrument.objects.create(isin="INF000000009", name="New", kind="mutual_fund")
+    buy(FUND, day(0))
+    InvestmentEvent.objects.create(
+        account=InvestmentEvent.objects.get().account,
+        instrument=Instrument.objects.get(isin=FUND),
+        new_instrument=new,
+        kind="merger",
+        date=day(2),
+    )
+    fake_prices.history = [
+        row(new.isin, "New", "mutual_fund", "20", day(n)) for n in range(4)
+    ]
+
+    backfill_prices(today=day(3))
+
+    assert set(prices(new.isin)) == {day(2), day(3)}

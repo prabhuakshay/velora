@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from django.db.models import Min
+from django.db.models.functions import Least
 
 from apps.investments import price_source
 from apps.investments.models import Instrument, Price
@@ -53,24 +54,27 @@ def _windows(days: set[date]) -> Iterator[tuple[date, date]]:
     yield start, last
 
 
-def _missing(today: date) -> dict[str, tuple[set[str], set[date]]]:
-    """Per source, the ISINs held and the weekdays some of them have no Price."""
-    held = Instrument.objects.filter(manual_price=False, events__isnull=False)
+def _missing(today: date) -> dict[str, tuple[dict[str, date], set[date]]]:
+    """Per source, each ISIN held from when, and the weekdays some have no Price."""
+    # An Instrument a Merger turns Lots into is held from the Merger's date.
     firsts = {
         pk: (isin, kind, first)
-        for pk, isin, kind, first in held.annotate(first=Min("events__date"))
+        for pk, isin, kind, first in Instrument.objects.filter(manual_price=False)
+        .annotate(first=Least(Min("events__date"), Min("merged_into_events__date")))
+        .filter(first__isnull=False)
         .values_list("pk", "isin", "kind", "first")
-        .distinct()
     }
     priced = set(
         Price.objects.filter(instrument__in=firsts).values_list("instrument", "date")
     )
-    missing: dict[str, tuple[set[str], set[date]]] = defaultdict(lambda: (set(), set()))
+    missing: dict[str, tuple[dict[str, date], set[date]]] = defaultdict(
+        lambda: ({}, set())
+    )
     for pk, (isin, kind, first) in firsts.items():
         days = {d for d in _weekdays(first, today) if (pk, d) not in priced}
         if days:
             isins, gaps = missing[_source(kind)]
-            isins.add(isin)
+            isins[isin] = first
             gaps.update(days)
     return missing
 
@@ -95,6 +99,6 @@ def backfill_prices(today: date) -> None:
                 logger.exception("Backfilling %s Prices failed", name)
                 failed.append(name)
                 continue
-            store([r for r in rows if r.isin in isins])
+            store([r for r in rows if r.isin in isins and r.date >= isins[r.isin]])
     if failed:
         raise PriceFetchError(", ".join(sorted(set(failed))))
