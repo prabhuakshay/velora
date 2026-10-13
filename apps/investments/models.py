@@ -74,11 +74,16 @@ class InvestmentEvent(models.Model):
     Lots are never stored: they come from replaying these (apps.investments.replay).
     Which fields a kind needs is kept to its form and import; units, amount and
     price stay optional here because a Dividend or Stock Split has no use for some.
+    A Stock Split keeps its ratio in units.
     """
 
     class Kind(models.TextChoices):
         BUY = replay.BUY, "Buy"
         SELL = replay.SELL, "Sell"
+        DIVIDEND = replay.DIVIDEND, "Dividend"
+        STOCK_SPLIT = replay.STOCK_SPLIT, "Stock Split"
+        BONUS = replay.BONUS, "Bonus"
+        MERGER = replay.MERGER, "Merger"
 
     account = models.ForeignKey(
         "accounts.Account",
@@ -89,6 +94,14 @@ class InvestmentEvent(models.Model):
     instrument = models.ForeignKey(
         Instrument, on_delete=models.PROTECT, related_name="events"
     )
+    # The Instrument a Merger turns the Lots into.
+    new_instrument = models.ForeignKey(
+        Instrument,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="merged_into_events",
+    )
     kind = models.CharField(max_length=16, choices=Kind.choices)
     date = models.DateField()
     units = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
@@ -96,6 +109,14 @@ class InvestmentEvent(models.Model):
     amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     note = models.CharField(max_length=200, blank=True)
+    # The ledger Transaction that moved the event's money, such as a Dividend's.
+    transaction = models.OneToOneField(
+        "transactions.Transaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="investment_event",
+    )
 
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]
@@ -109,6 +130,27 @@ class InvestmentEvent(models.Model):
                 name="investments_investmentevent_trade_parts",
                 violation_error_message=(
                     "A Buy or Sell needs units, a Price and an amount above 0."
+                ),
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(kind=replay.DIVIDEND) | models.Q(amount__gt=0),
+                name="investments_investmentevent_dividend_amount",
+                violation_error_message="A Dividend needs an amount above 0.",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(kind__in=(replay.STOCK_SPLIT, replay.BONUS))
+                | models.Q(units__gt=0),
+                name="investments_investmentevent_units_given",
+                violation_error_message=(
+                    "A Stock Split needs a ratio, and a Bonus units, above 0."
+                ),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(kind=replay.MERGER, new_instrument__isnull=False)
+                | models.Q(~models.Q(kind=replay.MERGER), new_instrument__isnull=True),
+                name="investments_investmentevent_new_instrument_iff_merger",
+                violation_error_message=(
+                    "Only a Merger, and every Merger, names a new Instrument."
                 ),
             ),
             models.CheckConstraint(
