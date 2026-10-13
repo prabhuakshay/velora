@@ -141,7 +141,7 @@ The day of the month the amount on a credit card's latest statement must be paid
 _Avoid_: Payment date, deadline
 
 **Statement**:
-One billing period of a credit card, from the day after one Statement Day to the next, with its Due Day and Statement Amount. It is paid once a payment the user posts or records covers it.
+One billing period of a credit card, from the day after one Statement Day to the next, with its Due Day and Statement Amount. It is paid once the payments the user posts or records for it add up to its Statement Amount. A payment pays at most one Statement.
 _Avoid_: Bill, invoice, cycle
 
 **Statement Amount**:

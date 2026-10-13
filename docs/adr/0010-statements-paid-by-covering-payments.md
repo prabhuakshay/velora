@@ -1,0 +1,3 @@
+# Statements are paid by the payments that cover them
+
+A Statement can have many payments, since people often pay a card in parts, and it is paid only once the payments linked to it add up to its Statement Amount. Linking any payment no longer counts as paying it, because a part payment would then hide what is still owed. Each payment pays at most one Statement, so splitting one payment across Statements is not supported. A Statement keeps a single payment Draft: while unpaid, the waiting Draft proposes what is still owed, but once that Draft is posted no second one is proposed, and anything still owed shows only as the Statement being unpaid. Automatic matching links only a payment that covers what is still owed. The user links smaller part payments by hand.
