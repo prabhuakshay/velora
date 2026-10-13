@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from apps.accounts.tests.conftest import make_account
 from apps.digest.tests.test_reconcile_reminders import (
     days_ago,
     reconcile_items,
@@ -10,7 +11,7 @@ from apps.digest.tests.test_reconcile_reminders import (
     section,
 )
 from apps.investments.models import Instrument, InvestmentEvent
-from apps.investments.tests.conftest import make_broker
+from apps.investments.tests.conftest import make_broker, make_direct
 
 if TYPE_CHECKING:
     from datetime import date
@@ -53,3 +54,10 @@ def test_a_holds_cash_account_off_its_cash_is_listed_with_the_difference() -> No
 
     assert item.label == "Zerodha: Reconciliation on 8 Oct 2026 is off by"
     assert item.amount == Decimal(400)
+
+
+def test_a_direct_account_is_never_listed() -> None:
+    direct = make_direct(make_account("Bank", "asset"))
+    reconciled(direct, days_ago(5), "1")
+
+    assert reconcile_items() == []

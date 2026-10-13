@@ -7,7 +7,7 @@ from apps.accounts.tests.conftest import account_url, make_account, page_text
 from apps.accounts.tests.test_account_transactions import view_page
 from apps.accounts.tests.test_reconciliation import reconcile
 from apps.investments.models import Instrument
-from apps.investments.tests.conftest import make_broker, record_event
+from apps.investments.tests.conftest import make_broker, make_direct, record_event
 from apps.investments.tests.test_dividends import record_dividend
 
 if TYPE_CHECKING:
@@ -121,3 +121,15 @@ def test_a_later_dividend_dated_before_it_shows_how_far_off_it_is(
 
     page = page_text(view_page(signed_in, broker))
     assert "Reconciliation on 1 Mar 2026 is off by -₹250.00" in page
+
+
+def test_a_direct_account_offers_no_reconciliation(signed_in: Client) -> None:
+    direct = make_direct(make_account("Bank", "asset"))
+
+    page = view_page(signed_in, direct)
+
+    assert "Reconcile" not in page
+    url = account_url("account_reconcile", direct)
+    assert (
+        signed_in.post(url, {"date": "2026-03-01", "balance": "0"}).status_code == 404
+    )

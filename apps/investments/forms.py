@@ -14,6 +14,7 @@ from apps.investments.dividends import (
     save_unlinked,
     transaction_forms,
 )
+from apps.investments.ledger import transaction_forms as trade_forms
 from apps.investments.models import Instrument, InvestmentEvent, Price
 from apps.investments.replay import OversoldError, replay
 
@@ -237,10 +238,12 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
 
     def _check_ledger(self, instrument: Instrument) -> None:
         candidate = self._candidate(instrument)
-        if not posts_transaction(candidate):
-            return
-        self.ledger = transaction_forms(candidate, self.cleaned_data["income_account"])
-        if not self.ledger.is_valid():
+        if posts_transaction(candidate):
+            income = self.cleaned_data["income_account"]
+            self.ledger = transaction_forms(candidate, income)
+        else:
+            self.ledger = trade_forms(candidate)
+        if self.ledger is not None and not self.ledger.is_valid():
             for error in self.ledger.errors():
                 self.add_error(None, error)
 

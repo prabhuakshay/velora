@@ -27,6 +27,7 @@ class InvestmentMode(models.TextChoices):
     """How an Investment Account's money moves; blank for any other Account."""
 
     HOLDS_CASH = "holds_cash", "Holds Cash"
+    DIRECT = "direct", "Direct"
 
 
 BALANCE_KINDS = (AccountKind.ASSET, AccountKind.LIABILITY)
@@ -88,7 +89,7 @@ def _balance(as_of: date | str | None, account: str = "") -> models.Expression:
     )
 
 
-def _reconciliation_difference() -> models.Expression:
+def reconciliation_difference() -> models.Expression:
     """A Reconciliation's balance less its Account's Balance on its date now."""
     return models.F("balance") - _balance("date", account="account")
 
@@ -148,10 +149,11 @@ class AccountQuerySet(models.QuerySet["Account"]):
 
         off_by is how far that Reconciliation is off now; zero when it matches.
         """
+        reconciliation = apps.get_model("accounts", "Reconciliation")
         latest = (
-            Reconciliation.objects.filter(account=models.OuterRef("pk"))
+            reconciliation.objects.filter(account=models.OuterRef("pk"))
             .order_by("-date")
-            .annotate(off=_reconciliation_difference())
+            .annotate(off=reconciliation_difference())
         )
         return self.annotate(
             reconciled_on=models.Subquery(latest.values("date")[:1]),
@@ -163,6 +165,19 @@ CARD_SETTINGS_TOGETHER = (
     "Set the Statement Day, Due Day and Pays from Account together, "
     "or leave all three blank."
 )
+DIRECT_NEEDS_BANKS = "A Direct Investment Account needs a Pays from and a Pays into."
+
+
+def _direct_bank(label: str, related_name: str) -> models.ForeignKey[Account | None]:
+    return models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name=related_name,
+        limit_choices_to={"kind": AccountKind.ASSET, "investment_mode": ""},
+        verbose_name=label,
+    )
 
 
 class Account(models.Model):
@@ -212,6 +227,9 @@ class Account(models.Model):
     investment_mode = models.CharField(
         "Investment Account", max_length=16, choices=InvestmentMode, blank=True
     )
+    # Where a Direct Investment Account's Buys are paid from and Sells paid into.
+    invests_from = _direct_bank("Pays from", "direct_investments_paid")
+    invests_into = _direct_bank("Pays into", "direct_investments_received")
     low_balance_threshold = models.DecimalField(
         "Low-Balance Threshold",
         max_digits=15,
@@ -281,6 +299,19 @@ class Account(models.Model):
                 name="accounts_account_investment_mode_asset_only",
                 violation_error_message="Only an Asset Account can hold investments.",
             ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    investment_mode=InvestmentMode.DIRECT,
+                    invests_from__isnull=False,
+                    invests_into__isnull=False,
+                )
+                | (
+                    ~models.Q(investment_mode=InvestmentMode.DIRECT)
+                    & models.Q(invests_from__isnull=True, invests_into__isnull=True)
+                ),
+                name="accounts_account_direct_investment_banks",
+                violation_error_message=DIRECT_NEEDS_BANKS,
+            ),
         ]
 
     def __str__(self) -> str:
@@ -320,13 +351,18 @@ class Account(models.Model):
 
     @property
     def offers_reconciliation(self) -> bool:
-        """Whether it can be reconciled against what its bank or broker reports."""
-        return self.has_opening_balance
+        """Whether it can be reconciled; a Direct account has nothing to check."""
+        return self.has_opening_balance and not self.is_direct
 
     @property
     def reconciles_cash(self) -> bool:
         """Whether its Reconciliations check its Cash rather than its Balance."""
         return self.investment_mode == InvestmentMode.HOLDS_CASH
+
+    @property
+    def is_direct(self) -> bool:
+        """Whether it is a Direct Investment Account, paid from and into banks."""
+        return self.investment_mode == InvestmentMode.DIRECT
 
     @property
     def is_card(self) -> bool:
@@ -343,46 +379,10 @@ class Account(models.Model):
         return Account.objects.with_balance(when).get(pk=self.pk).balance
 
 
-class ReconciliationQuerySet(models.QuerySet["Reconciliation"]):
-    """Queries over Reconciliations."""
+# Re-exported: Django finds the model here, and callers import it from here.
+from apps.accounts.reconciliations import (  # noqa: E402
+    Reconciliation,
+    ReconciliationQuerySet,
+)
 
-    def with_difference(self) -> Self:
-        """Annotate its balance less the Account's Balance on its date now.
-
-        Zero means it still matches; nothing about matching is stored (ADR 0011).
-        """
-        return self.annotate(difference=_reconciliation_difference())
-
-    def matching(self) -> Self:
-        """Those whose balance still equals the Account's Balance on their date."""
-        return self.with_difference().filter(difference=0)
-
-
-class Reconciliation(models.Model):
-    """The balance the bank said an Account held on a day, matched when recorded.
-
-    Checked against the Balance whenever shown, never locked (ADR 0011). A
-    Liability's balance reads as what is owed, like its Balance.
-    """
-
-    account = models.ForeignKey(
-        Account, on_delete=models.CASCADE, related_name="reconciliations"
-    )
-    date = models.DateField()
-    balance = models.DecimalField(max_digits=15, decimal_places=2)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    objects = ReconciliationQuerySet.as_manager()
-    # Set only on Reconciliations fetched through with_difference().
-    difference: Decimal
-
-    class Meta:
-        constraints: ClassVar = [
-            models.UniqueConstraint(
-                fields=("account", "date"),
-                name="accounts_reconciliation_account_date_unique",
-            ),
-        ]
-
-    def __str__(self) -> str:
-        return f"{self.account} on {self.date}"
+__all__ = ["Reconciliation", "ReconciliationQuerySet"]

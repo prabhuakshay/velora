@@ -7,7 +7,12 @@ from django import forms
 from django.db.models import Min, Q
 from django.utils import timezone
 
-from apps.accounts.models import CARD_SETTINGS_TOGETHER, Account, Reconciliation
+from apps.accounts.models import (
+    CARD_SETTINGS_TOGETHER,
+    DIRECT_NEEDS_BANKS,
+    Account,
+    Reconciliation,
+)
 from apps.accounts.reconciling import checked_on
 from apps.core.forms import clean_unique_name
 from apps.transactions.models import Split
@@ -23,6 +28,7 @@ BALANCE_KIND_FIELDS = (
     "low_balance_threshold",
 )
 CARD_FIELDS = ("statement_day", "due_day", "pays_from")
+DIRECT_FIELDS = ("invests_from", "invests_into")
 CARD_IN_USE = (
     "This card has Statements or Card EMIs, so its card settings can't be cleared."
 )
@@ -43,6 +49,7 @@ class AccountForm(forms.ModelForm[Account]):
             "name",
             "notes",
             "investment_mode",
+            *DIRECT_FIELDS,
             *BALANCE_KIND_FIELDS,
             *CARD_FIELDS,
         )
@@ -78,12 +85,20 @@ class AccountForm(forms.ModelForm[Account]):
             self.initial["opening_balance_date"] = timezone.localdate()
 
     def _set_up_investment_mode(self) -> None:
-        if self.instance.kind != Account.Kind.ASSET:
+        account = self.instance
+        is_asset = account.kind == Account.Kind.ASSET
+        # Pays from and Pays into can change later, but only on a Direct one.
+        for name in DIRECT_FIELDS:
+            if not is_asset or (account.pk and not account.is_direct):
+                del self.fields[name]
+            else:
+                self.fields[name].help_text = "Only for a Direct Investment Account."
+        if not is_asset:
             del self.fields["investment_mode"]
             return
         mode = cast("forms.ChoiceField", self.fields["investment_mode"])
         mode.choices = [("", "No"), *Account.InvestmentMode.choices]
-        mode.disabled = self.instance.pk is not None
+        mode.disabled = account.pk is not None
         mode.help_text = "For a broker or fund platform. This can't be changed later."
 
     @property
@@ -110,7 +125,18 @@ class AccountForm(forms.ModelForm[Account]):
                 and (card.statements.exists() or card.card_emis.exists())
             ):
                 raise forms.ValidationError(CARD_IN_USE)
+        if DIRECT_FIELDS[0] in self.fields:
+            self._clean_direct_banks()
         return cleaned
+
+    def _clean_direct_banks(self) -> None:
+        cleaned = self.cleaned_data
+        mode = cleaned.get("investment_mode", self.instance.investment_mode)
+        if mode != Account.InvestmentMode.DIRECT:
+            for name in DIRECT_FIELDS:
+                cleaned[name] = None
+        elif not all(cleaned.get(name) for name in DIRECT_FIELDS):
+            raise forms.ValidationError(DIRECT_NEEDS_BANKS)
 
     def clean_low_balance_threshold(self) -> Decimal:
         """A blank threshold is the default, 0; a Liability's can't be negative."""
