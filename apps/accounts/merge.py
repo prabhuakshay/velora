@@ -11,6 +11,8 @@ from apps.accounts.models import Account
 from apps.budgets.models import Budget, BudgetWarning
 from apps.cards.statements import refresh_estimates
 from apps.core.history import with_reason
+from apps.goals.models import Allocation, Goal
+from apps.goals.progress import percent_left
 from apps.quick_add.models import DraftSplit
 from apps.schedules.models import Schedule, ScheduleSplit, SuggestedSchedule
 from apps.schedules.occurrences import regenerate
@@ -66,6 +68,28 @@ class AccountMerge:
                 "their Statements would clash. Clear one's card settings and "
                 "Statements first."
             )
+        return self._allocation_refusal()
+
+    def _allocation_refusal(self) -> str:
+        """Why the source's Goal Allocations can't move to the target, if so."""
+        source, target = self.source, self.target
+        shared = Goal.objects.filter(allocations__account=source).filter(
+            allocations__account=target
+        )
+        if goal := shared.first():
+            return (
+                f"{source} and {target} are both allocated to {goal}. "
+                "Remove one of those Allocations first."
+            )
+        left = percent_left(
+            a.share for a in Allocation.objects.filter(account__in=(source, target))
+        )
+        if left < 0:
+            return (
+                f"Goals would be allocated {(100 - left).normalize():f}% of "
+                f"{target}. "
+                "Lower their percentages first."
+            )
         return ""
 
     @staticmethod
@@ -75,11 +99,11 @@ class AccountMerge:
     def run(self) -> None:
         """Repoint everything on the source at the target, then remove the source.
 
-        That is every Split, Draft, Schedule Split, Suggested Schedule, card
-        and Card EMI, re-estimating the target's Statements once they have
-        moved. Budgets go over only when the target has none. The source's
-        Reconciliations go with it, since they matched its Balance, not the
-        target's.
+        That is every Split, Draft, Schedule Split, Suggested Schedule, Goal
+        Allocation, card and Card EMI, re-estimating the target's Statements
+        once they have moved. Budgets go over only when the target has none.
+        The source's Reconciliations go with it, since they matched its
+        Balance, not the target's.
         Saves and deletes row by row so change history records each one.
         """
         if self.refusal:
@@ -103,6 +127,7 @@ class AccountMerge:
             self._repoint_schedule_splits(reason)
             self._move_card(reason)
             self._repoint_direct_investments(reason)
+            self._move_allocations(reason)
             self._repoint_suggested_schedules()
             self._hand_over_budgets(reason)
             for reconciliation in source.reconciliations.all():
@@ -122,6 +147,12 @@ class AccountMerge:
                 source.opening_balance_date,
             )
             with_reason(target, reason).save()
+
+    def _move_allocations(self, reason: str) -> None:
+        """Hand the source's Goal Allocations to the target."""
+        for allocation in self.source.goal_allocations.all():
+            allocation.account = self.target
+            with_reason(allocation, reason).save()
 
     def _repoint_direct_investments(self, reason: str) -> None:
         """Pay the source's Direct Investment Accounts from and into the target."""
