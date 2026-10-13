@@ -22,15 +22,14 @@ if TYPE_CHECKING:
 @login_required
 def goal_list(request: HttpRequest) -> HttpResponseBase:
     """Every Goal with its progress toward its target."""
-    return render(
-        request, "goals/goal_list.html", {"summaries": summarise(Goal.objects.all())}
-    )
+    goals = Goal.objects.prefetch_related("schedules__splits")
+    return render(request, "goals/goal_list.html", {"summaries": summarise(goals)})
 
 
 @login_required
 def goal_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """A Goal, its Allocations and what's unallocated on each source."""
-    goal = get_object_or_404(Goal, pk=pk)
+    """A Goal, its Projection, its Allocations and what's unallocated on each."""
+    goal = get_object_or_404(Goal.objects.prefetch_related("schedules__splits"), pk=pk)
     return render(request, "goals/goal_detail.html", {"summary": summarise([goal])[0]})
 
 
@@ -57,7 +56,7 @@ def goal_create(request: HttpRequest) -> HttpResponseBase:
 @login_required
 @blocked_in_privacy_mode
 def goal_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Change a Goal's name, target or date."""
+    """Change a Goal's target, date, assumptions or linked Schedules."""
     return _goal_form(request, get_object_or_404(Goal, pk=pk))
 
 

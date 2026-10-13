@@ -18,13 +18,31 @@ if TYPE_CHECKING:
 
 
 class GoalForm(forms.ModelForm[Goal]):
-    """A Goal's name, target in today's money and target date."""
+    """A Goal's target, date, assumptions and linked Schedules."""
 
     class Meta:
         model = Goal
-        fields = ("name", "target_amount", "target_date")
-        labels: ClassVar = {"target_amount": "Target (in today's money)"}
-        widgets: ClassVar = {"target_date": forms.DateInput(attrs={"type": "date"})}
+        fields = (
+            "name",
+            "target_amount",
+            "target_date",
+            "inflation",
+            "expected_return",
+            "schedules",
+        )
+        labels: ClassVar = {
+            "target_amount": "Target (in today's money)",
+            "inflation": "Inflation (% a year)",
+            "expected_return": "Expected return (% a year)",
+            "schedules": "Linked Schedules",
+        }
+        help_texts: ClassVar = {
+            "schedules": "SIPs and other Schedules that keep adding to this Goal.",
+        }
+        widgets: ClassVar = {
+            "target_date": forms.DateInput(attrs={"type": "date"}),
+            "schedules": forms.CheckboxSelectMultiple,
+        }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)

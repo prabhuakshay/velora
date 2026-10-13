@@ -1,0 +1,1 @@
+{% if summary.passed %}<span class="text-slate-600">Target date passed</span>{% elif summary.on_track %}<span class="text-emerald-700">On track</span>{% else %}<span class="text-amber-700">Behind by {% amount summary.gap %}</span>{% endif %}
