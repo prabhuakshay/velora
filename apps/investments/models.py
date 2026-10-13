@@ -96,6 +96,14 @@ class InvestmentEvent(models.Model):
     amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     note = models.CharField(max_length=200, blank=True)
+    # The Transaction that moved its money, if any (apps.investments.ledger).
+    transaction = models.OneToOneField(
+        "transactions.Transaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="investment_event",
+    )
 
     history = HistoricalRecords()
     save_without_historical_record: Callable[..., None]

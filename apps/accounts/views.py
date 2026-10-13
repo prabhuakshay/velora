@@ -108,6 +108,9 @@ def _used_by(account: Account) -> str:
         if account.splits_out.exists() or account.splits_in.exists()
         else "a credit card it pays"
         if account.cards_paid.exists()
+        else "a Direct Investment Account it pays or is paid by"
+        if account.direct_investments_paid.exists()
+        or account.direct_investments_received.exists()
         else "a Card EMI's interest"
         if account.card_emi_interest.exists()
         else "Schedules"
@@ -209,7 +212,9 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
     accounts = Account.objects.filter(kind=kind)
     if kind in BALANCE_KINDS:
         accounts = accounts.with_balance()
-    account = get_object_or_404(accounts.select_related("pays_from"), pk=pk)
+    account = get_object_or_404(
+        accounts.select_related("pays_from", "invests_from", "invests_into"), pk=pk
+    )
     today = timezone.localdate()
     page = paginate(request, touching_transactions(account))
     history = months(account, today)

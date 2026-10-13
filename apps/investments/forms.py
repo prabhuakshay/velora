@@ -4,8 +4,10 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
+from django.db import transaction as db_transaction
 from django.utils import timezone
 
+from apps.investments.ledger import transaction_forms
 from apps.investments.models import Instrument, InvestmentEvent, Price
 from apps.investments.replay import OversoldError, replay
 
@@ -13,6 +15,7 @@ if TYPE_CHECKING:
     import datetime
 
     from apps.accounts.models import Account
+    from apps.transactions.recording import TransactionForms
 
 REPLAYED = ("kind", "date", "units", "amount", "charges")
 UNKNOWN_ISIN = "Velora doesn't know this ISIN; enter the Instrument's name."
@@ -115,6 +118,7 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         else:
             self.initial.setdefault("date", timezone.localdate())
         self.new_instrument: Instrument | None = None
+        self.ledger: TransactionForms | None = None
 
     def clean_date(self) -> datetime.date:
         """Refuse a day after today."""
@@ -146,15 +150,18 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
             self.new_instrument = instrument
         self.instance.instrument = instrument
         if not self.errors:
-            self._refuse_overselling(instrument)
+            # The instance only takes the form's values after clean(), so check a copy.
+            candidate = InvestmentEvent(
+                account=self.account,
+                instrument=instrument,
+                transaction=self.instance.transaction,
+                **{name: cleaned[name] for name in REPLAYED},
+            )
+            self._refuse_overselling(candidate)
+            self._check_ledger(candidate)
         return cleaned
 
-    def _refuse_overselling(self, instrument: Instrument) -> None:
-        # The instance only takes the form's values after clean(), so replay a copy.
-        candidate = InvestmentEvent(
-            instrument=instrument,
-            **{name: self.cleaned_data[name] for name in REPLAYED},
-        )
+    def _refuse_overselling(self, candidate: InvestmentEvent) -> None:
         others = self.account.investment_events.exclude(
             pk=self.instance.pk
         ).select_related("instrument")
@@ -163,9 +170,27 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         except OversoldError as error:
             raise forms.ValidationError(oversold_message(error)) from error
 
+    def _check_ledger(self, candidate: InvestmentEvent) -> None:
+        self.ledger = transaction_forms(candidate)
+        if self.ledger is not None and not self.ledger.is_valid():
+            for error in self.ledger.errors():
+                self.add_error(None, f"Its Transaction can't be posted: {error}")
+
+    @db_transaction.atomic
     def save(self, commit: bool = True) -> InvestmentEvent:  # noqa: FBT001, FBT002
-        """Save the event, and first any Instrument it brought."""
+        """Save the event with any Instrument it brought and its Transaction.
+
+        A Transaction it no longer posts is deleted.
+        """
         if self.new_instrument is not None:
             self.new_instrument.save()
             self.instance.instrument = self.new_instrument
-        return super().save(commit=commit)
+        unposted = None
+        if self.ledger is not None:
+            self.instance.transaction = self.ledger.save()
+        else:
+            unposted, self.instance.transaction = self.instance.transaction, None
+        event = super().save(commit=commit)
+        if unposted is not None:
+            unposted.delete()
+        return event

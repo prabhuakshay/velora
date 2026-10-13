@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
+from apps.investments.ledger import delete_event
 from apps.investments.models import Instrument, InvestmentEvent
 from apps.investments.replay import OversoldError, replay
 from apps.investments.valuation import account_value
@@ -142,7 +143,7 @@ def investment_event_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     except OversoldError as error:
         messages.error(request, f"Can't delete it: {_sell_refusal(error)}")
     else:
-        event.delete()
+        delete_event(event)
         messages.success(request, f"Deleted the {event.get_kind_display()}.")
     return redirect("account_holdings", pk=event.account_id)
 
