@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-13
+
+### Changed
+
+- Velora has a new logo: two green leaves growing into a V. It shows in the browser tab, the sidebar, and on the home screen when Velora is installed as an app. An already installed app keeps the old icon until it is reinstalled (on iPhone, remove it and add it to the Home Screen again).
+
 ## [0.2.0] - 2026-10-13
 
 ### Added
@@ -108,7 +114,8 @@ First release of Velora, a personal finance app.
 - A production Docker image is published to GitHub Container Registry for each release.
 
 
-[Unreleased]: https://github.com/prabhuakshay/velora/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/prabhuakshay/velora/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/prabhuakshay/velora/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/prabhuakshay/velora/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/prabhuakshay/velora/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/prabhuakshay/velora/releases/tag/v0.1.0
