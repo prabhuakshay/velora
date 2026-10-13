@@ -19,11 +19,12 @@
   <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
     <p class="text-sm text-slate-500">Market Value</p>
     <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color value.market_value %}">{% amount value.market_value %}</p>
-    <dl class="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+    <dl class="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
       <div><dt class="text-slate-500">Cash</dt> <dd class="mt-0.5 font-semibold tabular-nums {% amount_color value.cash %}">{% amount value.cash %}</dd></div>
       <div><dt class="text-slate-500">Cost Basis</dt> <dd class="mt-0.5 font-semibold tabular-nums">{% amount value.cost_basis %}</dd></div>
       <div><dt class="text-slate-500">Unrealized Gain</dt> <dd class="mt-0.5 font-semibold tabular-nums">{% signed_amount value.unrealized %}</dd></div>
       <div><dt class="text-slate-500">Realized Gain</dt> <dd class="mt-0.5 font-semibold tabular-nums">{% signed_amount value.realized %}</dd></div>
+      <div><dt class="text-slate-500">XIRR</dt> <dd class="mt-0.5 font-semibold tabular-nums">{% signed_percent value.xirr %}</dd></div>
     </dl>
     <div class="mt-5 flex flex-wrap gap-2">
       <a href="{% url 'investment_event_create' account.pk %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Record an Investment Event</a>
@@ -44,7 +45,8 @@
               <th scope="col" class="px-3 py-2 text-right font-medium">Unrealized</th>
               <th scope="col" class="px-3 py-2 text-right font-medium">Realized</th>
               <th scope="col" class="px-3 py-2 text-right font-medium">Dividends</th>
-              <th scope="col" class="px-4 py-2 text-right font-medium md:px-5">Price date</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Price date</th>
+              <th scope="col" class="px-4 py-2 text-right font-medium md:px-5">XIRR</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -57,7 +59,8 @@
                 <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.unrealized %}</td>
                 <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.realized %}</td>
                 <td class="px-3 py-3 text-right tabular-nums">{% amount row.dividends %}</td>
-                <td class="px-4 py-3 text-right whitespace-nowrap text-slate-500 md:px-5">{% if row.price %}{{ row.price.date|date:"j M Y" }}{% if row.stale %} <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700" title="More than five days old">Stale</span>{% endif %}{% else %}No Price yet{% endif %}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-slate-500">{% if row.price %}{{ row.price.date|date:"j M Y" }}{% if row.stale %} <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700" title="More than five days old">Stale</span>{% endif %}{% else %}No Price yet{% endif %}</td>
+                <td class="px-4 py-3 text-right tabular-nums md:px-5">{% signed_percent row.xirr %}</td>
               </tr>
             {% endfor %}
           </tbody>
