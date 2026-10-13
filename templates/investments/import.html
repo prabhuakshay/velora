@@ -1,0 +1,31 @@
+{% extends "app_base.html" %}
+
+{% block title %}Investment Import · Velora{% endblock %}
+
+{% block main_width %}max-w-2xl{% endblock %}
+
+{% block main %}
+  {% url 'investments_overview' as back_url %}
+  <div class="flex items-center gap-2">
+    <a href="{{ back_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to Investments">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Investment Import</h1>
+  </div>
+
+  <section class="mt-4 space-y-3 rounded-2xl bg-white p-4 text-sm text-slate-600 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-label="How it works">
+    <p>Fill in the template from your statements, one Investment Event per row, then upload it. Velora checks every row and shows a preview; nothing changes until you confirm.</p>
+    <p>Rows on or before an Investment Account's Opening Balance date only build Lot history. A later Buy, Sell or Dividend that moves bank money is linked to the Transaction you already recorded for it. Rows already recorded are skipped, so uploading a file again is safe.</p>
+    <p>For a Merger, <code>instrument_name</code> names the new Instrument.</p>
+    <div class="flex flex-wrap gap-2 pt-1">
+      <a href="{% url 'investment_import_template' %}" class="btn-secondary py-2 text-sm">Download the template</a>
+      <a href="{% url 'investment_export' %}" class="btn-secondary py-2 text-sm">Export Investment Events</a>
+    </div>
+  </section>
+
+  <form method="post" enctype="multipart/form-data" class="mt-4 space-y-4">
+    {% csrf_token %}
+    <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Upload">
+      {% include "partials/field.html" with field=form.file %}
+    </section>
+    <div class="md:w-40">{% include "partials/submit.html" with label="Preview" %}</div>
+  </form>
+{% endblock %}
