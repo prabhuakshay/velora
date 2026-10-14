@@ -37,6 +37,16 @@ urlpatterns = [
         name="instrument_add_price",
     ),
     path(
+        "investments/prices/<int:pk>/edit/",
+        views.price_edit,
+        name="price_edit",
+    ),
+    path(
+        "investments/prices/<int:pk>/delete/",
+        views.price_delete,
+        name="price_delete",
+    ),
+    path(
         "accounts/asset/<int:pk>/holdings/",
         views.account_holdings,
         name="account_holdings",

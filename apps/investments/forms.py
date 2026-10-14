@@ -14,7 +14,13 @@ from apps.investments.dividends import (
     save_unlinked,
 )
 from apps.investments.ledger import transaction_forms
-from apps.investments.models import NEEDS, Instrument, InvestmentEvent, Price
+from apps.investments.models import (
+    NEEDS,
+    Instrument,
+    InvestmentEvent,
+    Price,
+    PriceSource,
+)
 from apps.investments.overselling import oversell_refusal
 from apps.investments.replay import TRADES
 
@@ -54,9 +60,37 @@ class ManualPriceForm(forms.Form):
         price, _ = Price.objects.update_or_create(
             instrument=self.instrument,
             date=self.cleaned_data["date"],
-            defaults={"price": self.cleaned_data["price"]},
+            defaults={
+                "price": self.cleaned_data["price"],
+                "source": PriceSource.MANUAL,
+                "fetch": None,
+                "entered_at": timezone.now(),
+            },
         )
         return price
+
+
+class EditPriceForm(forms.ModelForm[Price]):
+    """Fix a Manual Price's day or value; it can't land on another Price's day."""
+
+    class Meta:
+        model = Price
+        fields = ("date", "price")
+        widgets: ClassVar = {"date": forms.DateInput(attrs={"type": "date"})}
+
+    def clean_date(self) -> datetime.date:
+        """Refuse a day after today or one that already has a Price."""
+        when = _future_refused(self.cleaned_data["date"])
+        others = Price.objects.filter(instrument=self.instance.instrument_id)
+        if others.filter(date=when).exclude(pk=self.instance.pk).exists():
+            message = "There's already a Price for that day."
+            raise forms.ValidationError(message)
+        return when
+
+    def save(self, commit: bool = True) -> Price:  # noqa: FBT001, FBT002
+        """Store the change as entered now."""
+        self.instance.entered_at = timezone.now()
+        return super().save(commit=commit)
 
 
 def _future_refused(when: datetime.date) -> datetime.date:

@@ -88,10 +88,11 @@ def test_prices_list_newest_first_with_their_change(signed_in: Client) -> None:
     enter_price(signed_in, instrument, "2026-10-03", "90.5")
     enter_price(signed_in, instrument, "2026-10-02", "110")
 
+    entered = f"Manual · entered {timezone.localdate():%-d %b}"
     assert price_rows(signed_in) == [
-        "3 Oct 2026 ₹90.5000 -₹19.5000 Manual",
-        "2 Oct 2026 ₹110.0000 +₹10.0000 Manual",
-        "1 Oct 2026 ₹100.0000 — Manual",
+        f"3 Oct 2026 ₹90.5000 -₹19.5000 {entered}",
+        f"2 Oct 2026 ₹110.0000 +₹10.0000 {entered}",
+        f"1 Oct 2026 ₹100.0000 — {entered}",
     ]
 
 

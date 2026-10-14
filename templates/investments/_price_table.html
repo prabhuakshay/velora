@@ -12,6 +12,7 @@
             <th scope="col" class="px-2 py-2 text-right font-medium">Price</th>
             <th scope="col" class="px-2 py-2 text-right font-medium">Change</th>
             <th scope="col" class="px-5 py-2 font-medium md:px-6">From</th>
+            <th scope="col" class="py-2 pr-5 md:pr-6"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -21,7 +22,18 @@
                 <td class="whitespace-nowrap px-5 py-2 md:px-6">{{ p.date|date:"j M Y" }}</td>
                 <td class="whitespace-nowrap px-2 py-2 text-right tabular-nums">{% price p.price %}</td>
                 <td class="whitespace-nowrap px-2 py-2 text-right tabular-nums {% if row.change < 0 %}text-red-600{% elif row.change > 0 %}text-emerald-600{% endif %}">{% if row.change is None %}—{% else %}{% if row.change > 0 %}+{% endif %}{% price row.change %}{% endif %}</td>
-                <td class="px-5 py-2 text-xs text-slate-500 md:px-6">{{ p.get_source_display }}{% if fetch %} · {{ p.date|date:"j M" }} file · fetched {{ fetch.finished_at|default:fetch.started_at|date:"j M H:i" }} by {{ fetch.get_trigger_display }}{% endif %}</td>
+                <td class="px-5 py-2 text-xs text-slate-500 md:px-6">{{ p.get_source_display }}{% if p.entered_at %} · entered {{ p.entered_at|date:"j M" }}{% endif %}{% if fetch %} · {{ p.date|date:"j M" }} file · fetched {{ fetch.finished_at|default:fetch.started_at|date:"j M H:i" }} by {{ fetch.get_trigger_display }}{% endif %}</td>
+                <td class="py-1 pr-5 md:pr-6">
+                  {% if p.source == "Manual" %}
+                    <div class="flex justify-end gap-1">
+                      <a href="{% url 'price_edit' p.pk %}" aria-label="Edit the Price for {{ p.date|date:'j M Y' }}" class="flex size-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900">{% include "shell/icon.html" with name="pencil" class="size-4" %}</a>
+                      <form method="post" action="{% url 'price_delete' p.pk %}" aria-label="Delete the Price for {{ p.date|date:'j M Y' }}">
+                        {% csrf_token %}
+                        <button type="submit" aria-label="Delete the Price for {{ p.date|date:'j M Y' }}" class="flex size-8 items-center justify-center rounded-full text-red-700 hover:bg-red-50">{% include "shell/icon.html" with name="trash" class="size-4" %}</button>
+                      </form>
+                    </div>
+                  {% endif %}
+                </td>
               </tr>
             {% endwith %}
           {% endfor %}

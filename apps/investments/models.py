@@ -81,6 +81,8 @@ class Price(models.Model):
         blank=True,
         related_name="prices",
     )
+    # When a Manual Price was entered; fetched ones have their Price Fetch.
+    entered_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = (

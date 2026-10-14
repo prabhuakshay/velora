@@ -13,9 +13,19 @@ from django.views.decorators.http import require_POST
 from apps.accounts.models import Account
 from apps.home.charts import line
 from apps.investments.fetches import latest_files, recent, statuses
-from apps.investments.forms import InvestmentEventForm, ManualPriceForm
+from apps.investments.forms import (
+    EditPriceForm,
+    InvestmentEventForm,
+    ManualPriceForm,
+)
 from apps.investments.history import last_each_month, value_chart, value_history
-from apps.investments.models import Instrument, InvestmentEvent, Price, PriceFetch
+from apps.investments.models import (
+    Instrument,
+    InvestmentEvent,
+    Price,
+    PriceFetch,
+    PriceSource,
+)
 from apps.investments.overselling import oversell_refusal
 from apps.investments.portfolio import COLUMNS, Column, portfolio, sorting
 from apps.investments.tasks import queue_backfill, queue_refresh
@@ -113,6 +123,41 @@ def instrument_add_price(request: HttpRequest, pk: int) -> HttpResponseBase:
     price = form.save()
     messages.success(request, f"Saved the Price for {price.date:%-d %b %Y}.")
     return redirect("instrument_detail", pk=pk)
+
+
+def _manual_price(pk: int) -> Price:
+    """A Manual Price, or 404: a fetched one would be undone by the next fetch."""
+    return get_object_or_404(
+        Price.objects.select_related("instrument"), pk=pk, source=PriceSource.MANUAL
+    )
+
+
+@login_required
+@blocked_in_privacy_mode
+def price_edit(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Fix a Price entered by hand."""
+    price = _manual_price(pk)
+    form = EditPriceForm(request.POST or None, instance=price)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"Saved the Price for {price.date:%-d %b %Y}.")
+        return redirect("instrument_detail", pk=price.instrument_id)
+    return render(
+        request,
+        "investments/price_form.html",
+        {"form": form, "instrument": price.instrument},
+    )
+
+
+@login_required
+@require_POST
+@blocked_in_privacy_mode
+def price_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
+    """Delete a Price entered by hand."""
+    price = _manual_price(pk)
+    price.delete()
+    messages.success(request, f"Deleted the Price for {price.date:%-d %b %Y}.")
+    return redirect("instrument_detail", pk=price.instrument_id)
 
 
 def investment_account(pk: int) -> Account:
