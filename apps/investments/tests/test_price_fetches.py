@@ -48,6 +48,12 @@ def status(client: Client, source: str) -> str:
     return unescape(page_text(found.group(1)))
 
 
+def overview(client: Client) -> str:
+    return unescape(
+        page_text(client.get(reverse("investments_overview")).content.decode())
+    )
+
+
 def test_the_overview_shows_what_the_nightly_run_fetched(
     signed_in: Client, fake_prices: FakePriceSource
 ) -> None:
@@ -55,11 +61,9 @@ def test_the_overview_shows_what_the_nightly_run_fetched(
 
     run_nightly_prices(TODAY)
 
-    line = status(signed_in, "AMFI")
-    assert "AMFI Prices for 14 Oct 2026" in line
-    assert f"fetched {timezone.localtime():%-d %b %Y}" in line
-    assert "Worked" in line
-    assert "2 Prices stored" in line
+    assert status(signed_in, "AMFI") == (
+        f"AMFI · Prices for 14 Oct · checked {timezone.localtime():%H:%M} · 2 new"
+    )
 
 
 def not_published() -> HTTPError:
@@ -74,9 +78,9 @@ def not_published() -> HTTPError:
 @pytest.mark.parametrize(
     ("error", "reason"),
     [
-        (not_published(), "Failed: NSE has no file for 14 Oct"),
-        (URLError("timed out"), "Failed: NSE couldn't be reached"),
-        (ValueError("bad zip"), "Failed: unexpected error: bad zip"),
+        (not_published(), "NSE has no file for 14 Oct"),
+        (URLError("timed out"), "NSE couldn't be reached"),
+        (ValueError("bad zip"), "unexpected error: bad zip"),
     ],
 )
 def test_a_failed_fetch_shows_why_and_the_other_source_still_runs(
@@ -88,8 +92,9 @@ def test_a_failed_fetch_shows_why_and_the_other_source_still_runs(
     with pytest.raises(PriceFetchError, match="NSE"):
         run_nightly_prices(TODAY)
 
-    assert reason in status(signed_in, "NSE")
-    assert "Worked, 1 Prices stored" in status(signed_in, "AMFI")
+    assert f"NSE Price Fetch failed: {reason}" in overview(signed_in)
+    assert "last check failed" in status(signed_in, "NSE")
+    assert "1 new" in status(signed_in, "AMFI")
 
 
 def test_nse_falling_back_to_an_earlier_file_shows_both_days(
@@ -99,9 +104,9 @@ def test_nse_falling_back_to_an_earlier_file_shows_both_days(
 
     run_nightly_prices(TODAY)
 
-    line = status(signed_in, "NSE")
-    assert "NSE Prices for 13 Oct 2026" in line
-    assert "used 13 Oct, 14 Oct not out yet" in line
+    assert "NSE · Prices for 13 Oct · 14 Oct not out yet · checked" in status(
+        signed_in, "NSE"
+    )
 
 
 def test_running_twice_stores_no_price_the_second_time(
@@ -112,7 +117,9 @@ def test_running_twice_stores_no_price_the_second_time(
 
     run_nightly_prices(TODAY)
 
-    assert "Worked, 0 Prices stored" in status(signed_in, "AMFI")
+    line = status(signed_in, "AMFI")
+    assert "checked" in line
+    assert "new" not in line
 
 
 def test_a_refresh_records_its_price_fetches_as_a_refresh(
@@ -124,8 +131,9 @@ def test_a_refresh_records_its_price_fetches_as_a_refresh(
 
     refresh_prices()
 
-    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "AMFI")
-    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "NSE")
+    assert "1 new" in status(signed_in, "AMFI")
+    assert "1 new" in status(signed_in, "NSE")
+    assert PriceFetch.objects.filter(trigger=PriceFetch.Trigger.REFRESH).count() == 2
 
 
 def test_privacy_mode_hides_how_many_prices_were_stored(
@@ -135,14 +143,19 @@ def test_privacy_mode_hides_how_many_prices_were_stored(
     run_nightly_prices(TODAY)
     turn_on(signed_in, reverse("index"))
 
-    line = status(signed_in, "AMFI")
-
-    assert "Worked, •••• Prices stored" in line
-    assert "AMFI Prices for 14 Oct 2026" in line
+    assert status(signed_in, "AMFI").endswith("· •••• new")
 
 
-def test_a_source_never_fetched_says_so(signed_in: Client) -> None:
-    assert status(signed_in, "NSE") == "NSE No Prices yet · not fetched yet"
+def test_a_source_with_nothing_to_show_is_left_out(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    fake_prices.nse = [stock()]
+    run_nightly_prices(TODAY)
+
+    html = signed_in.get(reverse("investments_overview")).content.decode()
+
+    assert 'data-source="NSE"' in html
+    assert 'data-source="AMFI"' not in html
 
 
 def test_after_refresh_each_source_shows_as_fetching(
@@ -153,9 +166,8 @@ def test_after_refresh_each_source_shows_as_fetching(
 
     signed_in.post(reverse("investments_refresh_prices"))
 
-    assert "fetching" in status(signed_in, "AMFI")
-    assert "fetching" in status(signed_in, "NSE")
-    assert "Worked" not in status(signed_in, "AMFI")
+    assert status(signed_in, "AMFI") == "AMFI · Prices for 14 Oct · checking…"
+    assert status(signed_in, "NSE") == "NSE · No Prices yet · checking…"
 
 
 POLL = 'hx-trigger="every 2s"'
@@ -186,7 +198,7 @@ def test_the_status_line_stops_polling_once_fetches_finish(
     partial = status_partial(signed_in)
 
     assert POLL not in partial
-    assert "Worked, 1 Prices stored" in unescape(page_text(partial))
+    assert "1 new" in unescape(page_text(partial))
     assert POLL not in signed_in.get(reverse("investments_overview")).content.decode()
 
 
@@ -204,7 +216,7 @@ def test_the_status_line_polls_while_a_fetch_runs(
     run_nightly_prices(TODAY)
 
     assert POLL in seen[0]
-    assert "AMFI No Prices yet · fetching since" in unescape(page_text(seen[0]))
+    assert "AMFI · No Prices yet · checking…" in unescape(page_text(seen[0]))
 
 
 def test_a_second_refresh_press_shows_the_one_already_waiting(
@@ -214,9 +226,9 @@ def test_a_second_refresh_press_shows_the_one_already_waiting(
     second = signed_in.post(reverse("investments_refresh_prices"), follow=True)
 
     assert "Refreshing Prices" in first.content.decode()
-    text = page_text(second.content.decode())
+    text = unescape(page_text(second.content.decode()))
     assert "A Refresh is already waiting to start" in text
-    assert text.count("Refresh waiting to start") == 1
+    assert "NSE · No Prices yet · checking…" in text
 
 
 def test_a_finished_refresh_shows_prices_stored_and_the_day_nse_used(
@@ -229,9 +241,9 @@ def test_a_finished_refresh_shows_prices_stored_and_the_day_nse_used(
     refresh_prices()
 
     text = unescape(page_text(status_partial(signed_in)))
-    assert "AMFI Prices for 14 Oct 2026" in text
-    assert "by Refresh · Worked, 1 Prices stored" in text
-    assert "Worked, 1 Prices stored, used 13 Oct, 14 Oct not out yet" in text
+    assert "AMFI · Prices for 14 Oct · checked" in text
+    assert "NSE · Prices for 13 Oct · 14 Oct not out yet · checked" in text
+    assert text.count("1 new") == 2
 
 
 def test_the_status_partial_needs_sign_in(client: Client) -> None:
@@ -247,9 +259,7 @@ def test_privacy_mode_hides_counts_in_the_status_partial(
     run_nightly_prices(TODAY)
     turn_on(signed_in, reverse("index"))
 
-    assert "Worked, •••• Prices stored" in unescape(
-        page_text(status_partial(signed_in))
-    )
+    assert "•••• new" in unescape(page_text(status_partial(signed_in)))
 
 
 def test_the_polled_status_line_carries_the_failure_banner(
@@ -284,8 +294,8 @@ def test_a_backfill_shows_the_range_it_filled_and_what_it_stored(
     backfill_prices(today=TODAY)
 
     line = status(signed_in, "AMFI")
-    assert "by Backfill of 12 Oct to 14 Oct · Worked, 3 Prices stored" in line
-    assert "AMFI Prices for 14 Oct 2026" in line
+    assert line.startswith("AMFI · Prices for 14 Oct · checked")
+    assert line.endswith("· 3 new")
 
 
 def test_a_failed_backfill_source_shows_why_and_the_other_still_fills(
@@ -299,10 +309,8 @@ def test_a_failed_backfill_source_shows_why_and_the_other_still_fills(
     with pytest.raises(PriceFetchError, match="AMFI"):
         backfill_prices(today=TODAY)
 
-    amfi = status(signed_in, "AMFI")
-    assert "by Backfill of 13 Oct to 14 Oct · Failed: AMFI couldn't be reached" in amfi
-    nse = status(signed_in, "NSE")
-    assert "by Backfill of 13 Oct to 14 Oct · Worked, 2 Prices stored" in nse
+    assert "AMFI Price Fetch failed: AMFI couldn't be reached" in overview(signed_in)
+    assert "2 new" in status(signed_in, "NSE")
 
 
 def test_a_backfill_keeps_the_windows_that_worked_when_a_later_one_fails(
@@ -315,9 +323,8 @@ def test_a_backfill_keeps_the_windows_that_worked_when_a_later_one_fails(
     with pytest.raises(PriceFetchError, match="AMFI"):
         backfill_prices(today=TODAY)
 
-    line = status(signed_in, "AMFI")
-    assert "AMFI Prices for 2 Sep 2026" in line
-    assert "by Backfill of 1 Sep to 14 Oct · Failed: AMFI couldn't be reached" in line
+    assert status(signed_in, "AMFI") == ("AMFI · Prices for 2 Sep · last check failed")
+    assert "AMFI Price Fetch failed: AMFI couldn't be reached" in overview(signed_in)
 
 
 def test_a_refresh_with_nothing_to_backfill_still_shows_the_refresh(
@@ -332,8 +339,8 @@ def test_a_refresh_with_nothing_to_backfill_still_shows_the_refresh(
     refresh_prices()
 
     assert fake_prices.fetched == []
-    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "AMFI")
-    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "NSE")
+    assert "1 new" in status(signed_in, "AMFI")
+    assert "1 new" in status(signed_in, "NSE")
 
 
 def test_a_refresh_keeps_its_result_on_the_status_line_after_its_backfill(
@@ -351,13 +358,9 @@ def test_a_refresh_keeps_its_result_on_the_status_line_after_its_backfill(
     refresh_prices()
 
     nse = status(signed_in, "NSE")
-    assert (
-        "by Refresh · Worked, 1 Prices stored, used 13 Oct, 14 Oct not out yet" in nse
-    )
-    assert "by Backfill of 12 Oct to 14 Oct · Worked, 1 Prices stored" in nse
-    amfi = status(signed_in, "AMFI")
-    assert "by Refresh · Worked, 1 Prices stored" in amfi
-    assert "by Backfill of 12 Oct to 13 Oct · Worked, 2 Prices stored" in amfi
+    assert "14 Oct not out yet" in nse
+    assert nse.endswith("· 2 new")
+    assert status(signed_in, "AMFI").endswith("· 3 new")
 
 
 def test_a_failed_backfill_after_a_working_refresh_still_shows_the_banner(
@@ -371,7 +374,7 @@ def test_a_failed_backfill_after_a_working_refresh_still_shows_the_banner(
     with pytest.raises(PriceFetchError):
         refresh_prices()
 
-    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "AMFI")
+    assert "last check failed" in status(signed_in, "AMFI")
     assert 'data-fetch-failed="AMFI"' in status_partial(signed_in)
 
 
@@ -391,9 +394,7 @@ def test_a_server_error_is_not_called_unreachable(
     with pytest.raises(PriceFetchError):
         run_nightly_prices(TODAY)
 
-    assert "Failed: unexpected error: HTTP Error 500: Server Error" in status(
-        signed_in, "NSE"
-    )
+    assert "unexpected error: HTTP Error 500: Server Error" in overview(signed_in)
 
 
 def test_a_backfill_with_no_file_names_the_range(
@@ -405,6 +406,4 @@ def test_a_backfill_with_no_file_names_the_range(
     with pytest.raises(PriceFetchError):
         backfill_prices(today=TODAY)
 
-    assert "Failed: NSE has no file for a day in 12 Oct to 14 Oct" in status(
-        signed_in, "NSE"
-    )
+    assert "NSE has no file for a day in 12 Oct to 14 Oct" in overview(signed_in)

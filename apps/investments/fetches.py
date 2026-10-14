@@ -36,6 +36,36 @@ class SourceStatus:
     backfill: PriceFetch | None
     fetching: bool = False
 
+    @property
+    def failed(self) -> bool:
+        """Whether the latest Price Fetch of any kind failed."""
+        return (
+            self.latest is not None and self.latest.outcome == PriceFetch.Outcome.FAILED
+        )
+
+    @property
+    def visible(self) -> bool:
+        """A source with no Prices only shows while it is fetching or failing."""
+        return bool(self.prices_for) or self.fetching or self.failed
+
+    @property
+    def new_prices(self) -> int:
+        """Prices stored by the shown Price Fetch and the Backfill after it."""
+        return sum(f.prices_stored for f in (self.shown, self.backfill) if f)
+
+    @property
+    def not_out_yet(self) -> date | None:
+        """The day asked for when NSE fell back to an earlier file."""
+        fetch = self.shown
+        if (
+            fetch
+            and fetch.day_used
+            and fetch.day_asked
+            and fetch.day_used < fetch.day_asked
+        ):
+            return fetch.day_asked
+        return None
+
 
 def latest_per_source(**filters: object) -> dict[PriceSource, PriceFetch]:
     """Each fetched Price Source's newest Price Fetch matching the filters."""
@@ -97,6 +127,8 @@ def status_line() -> dict[str, object]:
     return {
         "price_statuses": sources,
         "refresh_waiting": waiting,
+        "today": timezone.localdate(),
+        "price_shown": any(s.visible for s in sources),
         "price_polling": any(s.fetching for s in sources)
         or _refresh_jobs("todo", "doing"),
     }

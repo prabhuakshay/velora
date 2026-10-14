@@ -1,6 +1,0 @@
-{% load amounts %}· fetched {{ fetch.finished_at|date:"j M Y, H:i" }} by {{ fetch.get_trigger_display }}{% if fetch.range_start %} of {{ fetch.range_start|date:"j M" }} to {{ fetch.range_end|date:"j M" }}{% endif %}
-{% if fetch.outcome == fetch.Outcome.OK %}
-  · <span class="text-emerald-700">Worked</span>, {% count fetch.prices_stored %} Prices stored{% if fetch.day_used and fetch.day_asked and fetch.day_used < fetch.day_asked %}, used {{ fetch.day_used|date:"j M" }}, {{ fetch.day_asked|date:"j M" }} not out yet{% endif %}
-{% else %}
-  · <span class="text-red-700">Failed</span>: {{ fetch.reason }}
-{% endif %}
