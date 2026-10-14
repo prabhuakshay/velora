@@ -11,6 +11,11 @@ urlpatterns = [
     ),
     path("investments/price-fetches/", views.price_fetches, name="price_fetches"),
     path(
+        "investments/price-status/",
+        views.investments_price_status,
+        name="investments_price_status",
+    ),
+    path(
         "investments/import/", import_views.investment_import, name="investment_import"
     ),
     path(
