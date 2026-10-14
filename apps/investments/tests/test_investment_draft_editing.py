@@ -6,9 +6,11 @@ import pytest
 from django.urls import reverse
 
 from apps.accounts.tests.conftest import make_account, page_text
-from apps.investments.models import InvestmentEvent
+from apps.investments.instrument_field import INVALID_ISIN
+from apps.investments.models import Instrument, InvestmentEvent
 from apps.investments.tests.conftest import make_broker
 from apps.investments.tests.test_investment_drafts import (
+    FUND,
     bank,
     buy_draft,
     fund,
@@ -170,3 +172,70 @@ def test_editing_a_draft_posted_meanwhile_saves_nothing(
 
     assert "already posted or rejected" in text_of(response.content.decode())
     assert InvestmentEvent.objects.get().units == Decimal("10.000000")
+
+
+GOLD = "Gold 24K (per gram)"
+
+
+@pytest.mark.usefixtures("fund")
+def test_a_draft_is_posted_for_an_instrument_without_an_isin_picked_by_name(
+    signed_in: Client, kuvera: Account
+) -> None:
+    gold = Instrument.objects.create(name=GOLD, kind="gold")
+    draft = buy_draft(kuvera)
+
+    response = signed_in.post(
+        edit_url(draft), edit_data(instrument=GOLD.upper(), action="post")
+    )
+
+    assert response.status_code == 302
+    assert InvestmentEvent.objects.get().instrument == gold
+
+
+@pytest.mark.usefixtures("fund")
+def test_a_draft_saves_an_instrument_without_an_isin_added_with_it(
+    signed_in: Client, kuvera: Account
+) -> None:
+    draft = buy_draft(kuvera)
+
+    response = signed_in.post(
+        edit_url(draft),
+        edit_data(add_new="on", instrument_name=GOLD, instrument_kind="gold"),
+    )
+
+    assert response.status_code == 302
+    draft.refresh_from_db()
+    gold = draft.investment.instrument
+    assert (gold.name, gold.isin, gold.kind) == (GOLD, None, "gold")
+    edit = signed_in.get(edit_url(draft)).content.decode()
+    assert f'value="{GOLD}"' in edit
+
+
+@pytest.mark.usefixtures("fund")
+def test_a_draft_refuses_an_invalid_isin_like_the_event_forms(
+    signed_in: Client, kuvera: Account
+) -> None:
+    draft = buy_draft(kuvera)
+
+    response = signed_in.post(
+        edit_url(draft),
+        edit_data(add_new="on", instrument_name="Gold", isin="INF12345"),
+    )
+
+    assert response.status_code == 200
+    assert INVALID_ISIN in text_of(response.content.decode())
+    assert not Instrument.objects.filter(name="Gold").exists()
+
+
+@pytest.mark.usefixtures("fund")
+def test_a_draft_edited_without_its_instrument_field_keeps_its_instrument(
+    signed_in: Client, kuvera: Account
+) -> None:
+    draft = buy_draft(kuvera)
+    edit = signed_in.get(edit_url(draft)).content.decode()
+    assert f'value="{FUND}"' in edit
+
+    signed_in.post(edit_url(draft), edit_data(units="12"))
+
+    draft.refresh_from_db()
+    assert draft.investment.instrument.isin == FUND

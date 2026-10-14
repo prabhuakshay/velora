@@ -6,6 +6,7 @@ from croniter import croniter
 from django import forms
 from django.utils import timezone
 
+from apps.investments.instrument_field import InstrumentField
 from apps.investments.models import Instrument
 from apps.schedules.models import Schedule, ScheduleSplit
 from apps.schedules.repeat import cron_dates
@@ -19,6 +20,14 @@ REMINDER_DAYS: dict[str, int] = {
     Schedule.Unit.MONTH: 3,
     Schedule.Unit.YEAR: 14,
 }
+SIP_INSTRUMENT = InstrumentField(
+    search="sip_search",
+    add_new="sip_add_new",
+    isin="sip_isin",
+    name="sip_instrument_name",
+    kind="sip_instrument_kind",
+    creates_from_isin=False,
+)
 
 
 class ScheduleForm(forms.ModelForm[Schedule]):
@@ -29,7 +38,6 @@ class ScheduleForm(forms.ModelForm[Schedule]):
         required=False,
         help_text="It buys one Instrument in a Direct Investment Account.",
     )
-    sip_isin = forms.CharField(label="ISIN", max_length=12, required=False)
 
     class Meta:
         model = Schedule
@@ -93,13 +101,14 @@ class ScheduleForm(forms.ModelForm[Schedule]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
+        self.fields |= SIP_INSTRUMENT.fields()
         offer_parties(self)
         self.fields["reminder_days"].required = False
         if not self.instance.pk:
             self.initial["reminder_days"] = None
         if instrument := self.instance.sip_instrument:
             self.initial["is_sip"] = True
-            self.initial["sip_isin"] = instrument.isin
+            self.initial.update(SIP_INSTRUMENT.initial(instrument))
 
     def clean_cron(self) -> str:
         """Refuse an expression croniter can't read or that never falls due."""
@@ -132,7 +141,7 @@ class ScheduleForm(forms.ModelForm[Schedule]):
         return cleaned
 
     def _clean_sip(self) -> None:
-        """Require a SIP's Investment Account and a known Instrument."""
+        """Require a SIP's Investment Account and its Instrument."""
         cleaned = self.cleaned_data
         if not cleaned.get("is_sip"):
             cleaned["sip_account"] = None
@@ -140,11 +149,16 @@ class ScheduleForm(forms.ModelForm[Schedule]):
             return
         if "sip_account" in cleaned and cleaned["sip_account"] is None:
             self.add_error("sip_account", "Pick the Investment Account it buys in.")
-        isin = cleaned.get("sip_isin", "").strip().upper()
-        instrument = Instrument.objects.filter(isin=isin).first()
-        if instrument is None:
-            self.add_error("sip_isin", "Velora doesn't know this ISIN.")
-        self.instance.sip_instrument = instrument
+        self.instance.sip_instrument = SIP_INSTRUMENT.resolve(
+            self, default_kind=Instrument.Kind.MUTUAL_FUND
+        )
+
+    def save(self, commit: bool = True) -> Schedule:  # noqa: FBT001, FBT002
+        """Save a SIP's Instrument first when it was added with it."""
+        instrument = self.instance.sip_instrument
+        if commit and instrument is not None and not instrument.pk:
+            instrument.save()
+        return super().save(commit=commit)
 
 
 class ScheduleSplitForm(forms.ModelForm[ScheduleSplit]):

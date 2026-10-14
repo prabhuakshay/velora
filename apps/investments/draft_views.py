@@ -10,6 +10,7 @@ from django.shortcuts import redirect, render
 from apps.accounts.models import Account, AccountKind
 from apps.investments.dividends import income_account
 from apps.investments.drafts import save_investment
+from apps.investments.instrument_field import InstrumentField
 from apps.investments.models import DraftInvestment
 from apps.quick_add.forms import DraftEditForm
 from apps.quick_add.models import Draft
@@ -20,10 +21,21 @@ if TYPE_CHECKING:
     from django.http.response import HttpResponseBase
 
 BUY_SELL_FIELDS = ("units", "charges")
+INSTRUMENT = InstrumentField(
+    search="instrument",
+    add_new="add_new",
+    isin="isin",
+    name="instrument_name",
+    kind="instrument_kind",
+    creates_from_isin=False,
+)
 
 
 class DraftInvestmentForm(forms.ModelForm[DraftInvestment]):
-    """The Draft's Buy or Sell parts, or its Dividend and Income Account."""
+    """The Draft's Instrument, and its Buy or Sell parts or Dividend and Income.
+
+    Left out of the post, the Instrument stays as it is.
+    """
 
     income_account = forms.ModelChoiceField(
         queryset=Account.objects.filter(kind=AccountKind.INCOME, hidden=False),
@@ -41,6 +53,8 @@ class DraftInvestmentForm(forms.ModelForm[DraftInvestment]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
+        self.fields |= INSTRUMENT.fields()
+        self.initial.update(INSTRUMENT.initial(self.instance.instrument))
         if self.instance.kind == DraftInvestment.Kind.DIVIDEND:
             for name in BUY_SELL_FIELDS:
                 del self.fields[name]
@@ -48,8 +62,18 @@ class DraftInvestmentForm(forms.ModelForm[DraftInvestment]):
         else:
             del self.fields["income_account"]
 
+    def clean(self) -> dict[str, Any]:
+        """Pick the Instrument when one was entered."""
+        super().clean()
+        cleaned = self.cleaned_data
+        if INSTRUMENT.entered(cleaned) and (instrument := INSTRUMENT.resolve(self)):
+            self.instance.instrument = instrument
+        return cleaned
+
     def save(self, commit: bool = True) -> DraftInvestment:  # noqa: FBT001, FBT002, ARG002
-        """Save the parts and the Draft's Split that moves their money."""
+        """Save the parts, a new Instrument, and the Split that moves their money."""
+        if not self.instance.instrument.pk:
+            self.instance.instrument.save()
         save_investment(self.instance, self.cleaned_data.get("income_account"))
         return self.instance
 
