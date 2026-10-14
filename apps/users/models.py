@@ -60,11 +60,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=13, choices=NumberFormat, default=NumberFormat.INDIAN
     )
     privacy_mode = models.BooleanField(default=False)
+    # Kept here, not in the browser, so a tour seen once stays seen everywhere.
+    tours_seen = models.JSONField(default=list, blank=True)
 
     # Old password hashes in history would be a needless leak, and frequent
-    # Privacy Mode toggling would bury real changes.
+    # Privacy Mode toggling or tours seen would bury real changes.
     history = HistoricalRecords(
-        excluded_fields=["last_login", "password", "privacy_mode"]
+        excluded_fields=["last_login", "password", "privacy_mode", "tours_seen"]
     )
     save_without_historical_record: Callable[..., None]
 
@@ -91,6 +93,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         """Turn Privacy Mode on or off, leaving no history row."""
         self.privacy_mode = on
         self.save_without_historical_record(update_fields=["privacy_mode"])
+
+    def see_tour(self, tour: str) -> None:
+        """Remember the guided tour was shown, leaving no history row."""
+        if tour not in self.tours_seen:
+            self.tours_seen.append(tour)
+            self.save_without_historical_record(update_fields=["tours_seen"])
 
     def get_full_name(self) -> str:
         """The user's full name, for the admin."""
