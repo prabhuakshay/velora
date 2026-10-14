@@ -2,6 +2,6 @@
 {% for section in sections %}
 {{ section.title }}
 {% for item in section.items %}
-- {{ item.when|date:"j M Y" }}: {{ item.label }}, {% if item.amount is None %}₹?{% else %}{% amount item.amount as shown %}{{ shown|striptags }}{% endif %}
+- {{ item.when|date:"j M Y" }}: {{ item.label }}{% if section.amounts %}, {% if item.amount is None %}₹?{% else %}{% amount item.amount as shown %}{{ shown|striptags }}{% endif %}{% endif %}
   {{ site_url }}{{ item.url }}
 {% endfor %}{% endfor %}{% endautoescape %}
