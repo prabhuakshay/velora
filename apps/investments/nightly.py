@@ -2,6 +2,7 @@
 
 import logging
 import urllib.error
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from django.db import transaction
@@ -16,8 +17,6 @@ if TYPE_CHECKING:
     from datetime import date
 
 logger = logging.getLogger("nightly_prices")
-
-NOT_FOUND = 404
 
 
 class PriceFetchError(Exception):
@@ -62,12 +61,18 @@ def store(rows: list[price_source.PriceRow], fetch: PriceFetch) -> int:
         return stored.count() - before
 
 
-def reason(error: Exception, source: str, day: date | None) -> str:
+def reason(error: Exception, fetch: PriceFetch) -> str:
     """Why a Price Fetch failed, in plain language, from the error's type."""
-    if isinstance(error, urllib.error.HTTPError) and error.code == NOT_FOUND:
-        return (
-            f"{source} has no file for {day:%-d %b}" if day else f"{source} has no file"
+    source = fetch.source
+    if isinstance(error, urllib.error.HTTPError):
+        if error.code != HTTPStatus.NOT_FOUND:
+            return f"unexpected error: {error}"
+        day = (
+            f"a day in {fetch.range_start:%-d %b} to {fetch.range_end:%-d %b}"
+            if fetch.range_start
+            else f"{fetch.day_asked:%-d %b}"
         )
+        return f"{source} has no file for {day}"
     if isinstance(error, (urllib.error.URLError, TimeoutError)):
         return f"{source} couldn't be reached"
     return f"unexpected error: {error}"
@@ -113,7 +118,7 @@ def record(
             logger.exception("Fetching %s Prices failed", source)
             if price_fetch.outcome == PriceFetch.Outcome.OK:
                 price_fetch.outcome = PriceFetch.Outcome.FAILED
-                price_fetch.reason = reason(error, source, day_asked)
+                price_fetch.reason = reason(error, price_fetch)
             continue
         price_fetch.prices_stored += store(rows, price_fetch)
         isins.update(r.isin for r in rows)

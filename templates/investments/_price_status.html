@@ -1,26 +1,19 @@
-{% load amounts %}
 <div id="price-status"{% if price_polling %} hx-get="{% url 'investments_price_status' %}" hx-trigger="every 2s" hx-target="this" hx-swap="outerHTML transition:false"{% endif %}>
   {% if refresh_waiting %}<p class="mt-1 text-sm text-slate-500">Refresh waiting to start</p>{% endif %}
 <ul class="mt-1 space-y-0.5 text-sm text-slate-500" aria-label="Price Sources">
   {% for status in price_statuses %}
-    {% with fetch=status.latest %}
-      <li data-source="{{ status.source }}">
-        <span class="font-medium text-slate-700">{{ status.source }}</span>
-        {% if status.prices_for %}Prices for {{ status.prices_for|date:"j M Y" }}{% else %}No Prices yet{% endif %}
-        {% if status.fetching %}
-          · fetching{% if fetch.outcome == "running" %} since {{ fetch.started_at|date:"j M Y, H:i" }}{% endif %}
-        {% elif not fetch %}
-          · not fetched yet
-        {% else %}
-          · fetched {{ fetch.finished_at|date:"j M Y, H:i" }} by {{ fetch.get_trigger_display }}{% if fetch.range_start %} of {{ fetch.range_start|date:"j M" }} to {{ fetch.range_end|date:"j M" }}{% endif %}
-          {% if fetch.outcome == "ok" %}
-            · <span class="text-emerald-700">Worked</span>, {% count fetch.prices_stored %} Prices stored{% if fetch.day_used and fetch.day_asked and fetch.day_used < fetch.day_asked %}, used {{ fetch.day_used|date:"j M" }}, {{ fetch.day_asked|date:"j M" }} not out yet{% endif %}
-          {% else %}
-            · <span class="text-red-700">Failed</span>: {{ fetch.reason }}
-          {% endif %}
-        {% endif %}
-      </li>
-    {% endwith %}
+    <li data-source="{{ status.source }}">
+      <span class="font-medium text-slate-700">{{ status.source }}</span>
+      {% if status.prices_for %}Prices for {{ status.prices_for|date:"j M Y" }}{% else %}No Prices yet{% endif %}
+      {% if status.fetching %}
+        · fetching{% if status.latest.outcome == status.latest.Outcome.RUNNING %} since {{ status.latest.started_at|date:"j M Y, H:i" }}{% endif %}
+      {% elif not status.shown %}
+        · not fetched yet
+      {% else %}
+        {% include "investments/_price_fetch_result.html" with fetch=status.shown %}
+        {% if status.backfill %}{% include "investments/_price_fetch_result.html" with fetch=status.backfill %}{% endif %}
+      {% endif %}
+    </li>
   {% endfor %}
 </ul>
 <p class="mt-0.5 text-sm"><a href="{% url 'price_fetches' %}" class="text-slate-500 underline hover:text-slate-900">All Price Fetches</a></p>

@@ -334,3 +334,77 @@ def test_a_refresh_with_nothing_to_backfill_still_shows_the_refresh(
     assert fake_prices.fetched == []
     assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "AMFI")
     assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "NSE")
+
+
+def test_a_refresh_keeps_its_result_on_the_status_line_after_its_backfill(
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
+    hold(FUND, "mutual_fund", date(2026, 10, 12))
+    hold(STOCK, "stock", date(2026, 10, 12))
+    fake_prices.amfi = [fund()]
+    fake_prices.nse = [stock(date(2026, 10, 13))]
+    fake_prices.history = [fund(date(2026, 10, d)) for d in (12, 13)] + [
+        stock(date(2026, 10, 12))
+    ]
+
+    refresh_prices()
+
+    nse = status(signed_in, "NSE")
+    assert (
+        "by Refresh · Worked, 1 Prices stored, used 13 Oct, 14 Oct not out yet" in nse
+    )
+    assert "by Backfill of 12 Oct to 14 Oct · Worked, 1 Prices stored" in nse
+    amfi = status(signed_in, "AMFI")
+    assert "by Refresh · Worked, 1 Prices stored" in amfi
+    assert "by Backfill of 12 Oct to 13 Oct · Worked, 2 Prices stored" in amfi
+
+
+def test_a_failed_backfill_after_a_working_refresh_still_shows_the_banner(
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
+    hold(FUND, "mutual_fund", date(2026, 10, 12))
+    fake_prices.amfi = [fund()]
+    fake_prices.amfi_history = URLError("timed out")
+
+    with pytest.raises(PriceFetchError):
+        refresh_prices()
+
+    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "AMFI")
+    assert 'data-fetch-failed="AMFI"' in status_partial(signed_in)
+
+
+def server_error() -> HTTPError:
+    error = HTTPError(
+        "https://nse.example/file.zip", 500, "Server Error", Message(), BytesIO()
+    )
+    error.close()
+    return error
+
+
+def test_a_server_error_is_not_called_unreachable(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    fake_prices.nse = server_error()
+
+    with pytest.raises(PriceFetchError):
+        run_nightly_prices(TODAY)
+
+    assert "Failed: unexpected error: HTTP Error 500: Server Error" in status(
+        signed_in, "NSE"
+    )
+
+
+def test_a_backfill_with_no_file_names_the_range(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    hold(STOCK, "stock", date(2026, 10, 12))
+    fake_prices.nse_history = not_published()
+
+    with pytest.raises(PriceFetchError):
+        backfill_prices(today=TODAY)
+
+    assert "Failed: NSE has no file for a day in 12 Oct to 14 Oct" in status(
+        signed_in, "NSE"
+    )

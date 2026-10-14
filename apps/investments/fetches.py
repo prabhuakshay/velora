@@ -17,16 +17,34 @@ if TYPE_CHECKING:
 
 FETCHED = (PriceSource.AMFI, PriceSource.NSE)
 KEEP_DAYS = 90
+DAILY = (PriceFetch.Trigger.NIGHTLY, PriceFetch.Trigger.REFRESH)
 
 
 @dataclass(frozen=True)
 class SourceStatus:
-    """One fetched Price Source: its latest Prices' day and latest Price Fetch."""
+    """One fetched Price Source: its latest Prices' day and latest Price Fetches.
+
+    The status line shows the latest Nightly or Refresh result, and a newer
+    Backfill as a note beside it, so a Refresh's own result outlasts the
+    Backfill it starts. The banner follows the latest Price Fetch of any kind.
+    """
 
     source: PriceSource
     prices_for: date | None
     latest: PriceFetch | None
+    shown: PriceFetch | None
+    backfill: PriceFetch | None
     fetching: bool = False
+
+
+def latest_per_source(**filters: object) -> dict[PriceSource, PriceFetch]:
+    """Each fetched Price Source's newest Price Fetch matching the filters."""
+    fetches = {}
+    for source in FETCHED:
+        fetch = PriceFetch.objects.filter(source=source, **filters).first()
+        if fetch is not None:
+            fetches[source] = fetch
+    return fetches
 
 
 def _prices_for(source: PriceSource) -> date | None:
@@ -42,23 +60,31 @@ def _refresh_jobs(*states: str) -> bool:
     ).exists()
 
 
-def statuses() -> list[SourceStatus]:
+def statuses(*, waiting: bool) -> list[SourceStatus]:
     """The status of each fetched Price Source, AMFI first.
 
     A source is fetching while its latest Price Fetch runs or a Refresh waits
     to start.
     """
-    waiting = refresh_waiting()
+    latest = latest_per_source()
+    daily = latest_per_source(trigger__in=DAILY)
+    backfills = latest_per_source(trigger=PriceFetch.Trigger.BACKFILL)
     result = []
     for source in FETCHED:
-        latest = PriceFetch.objects.filter(source=source).first()
-        running = latest is not None and latest.outcome == PriceFetch.Outcome.RUNNING
+        fetch = latest.get(source)
+        shown = daily.get(source) or backfills.get(source)
+        backfill = backfills.get(source)
         result.append(
             SourceStatus(
                 source=source,
                 prices_for=_prices_for(source),
-                latest=latest,
-                fetching=waiting or running,
+                latest=fetch,
+                shown=shown,
+                backfill=backfill
+                if shown and backfill and backfill.started_at > shown.started_at
+                else None,
+                fetching=waiting
+                or (fetch is not None and fetch.outcome == PriceFetch.Outcome.RUNNING),
             )
         )
     return result
@@ -66,10 +92,11 @@ def statuses() -> list[SourceStatus]:
 
 def status_line() -> dict[str, object]:
     """The status line's context: it polls until no Price Fetch is in flight."""
-    sources = statuses()
+    waiting = refresh_waiting()
+    sources = statuses(waiting=waiting)
     return {
         "price_statuses": sources,
-        "refresh_waiting": refresh_waiting(),
+        "refresh_waiting": waiting,
         "price_polling": any(s.fetching for s in sources)
         or _refresh_jobs("todo", "doing"),
     }
@@ -82,28 +109,21 @@ def refresh_waiting() -> bool:
 
 def latest_files() -> dict[PriceSource, date]:
     """The day of the file each fetched source's latest working Price Fetch used."""
-    files: dict[PriceSource, date] = {}
-    for source in FETCHED:
-        fetch = PriceFetch.objects.filter(
-            source=source, outcome=PriceFetch.Outcome.OK, day_used__isnull=False
-        ).first()
-        if fetch and fetch.day_used:
-            files[source] = fetch.day_used
-    return files
+    return {
+        source: fetch.day_used
+        for source, fetch in latest_per_source(
+            outcome=PriceFetch.Outcome.OK, day_used__isnull=False
+        ).items()
+        if fetch.day_used
+    }
 
 
 def failed_nightly() -> list[PriceFetch]:
     """Each fetched Price Source's latest nightly Price Fetch, when it failed."""
-    latest = (
-        PriceFetch.objects.filter(
-            source=source, trigger=PriceFetch.Trigger.NIGHTLY
-        ).first()
-        for source in FETCHED
-    )
     return [
         fetch
-        for fetch in latest
-        if fetch is not None and fetch.outcome == PriceFetch.Outcome.FAILED
+        for fetch in latest_per_source(trigger=PriceFetch.Trigger.NIGHTLY).values()
+        if fetch.outcome == PriceFetch.Outcome.FAILED
     ]
 
 
