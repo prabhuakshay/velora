@@ -85,7 +85,7 @@ def test_a_sip_shows_its_instrument_and_can_be_unmarked(
 @pytest.mark.parametrize(
     ("fields", "reason"),
     [
-        ({"sip_isin": "INF999999999"}, "Velora doesn't know this ISIN."),
+        ({"sip_isin": "INF999999990"}, "Velora doesn't know this ISIN."),
         ({"sip_account": ""}, "Pick the Investment Account it buys in."),
     ],
 )

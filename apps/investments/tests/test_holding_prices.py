@@ -28,7 +28,7 @@ pytestmark = pytest.mark.django_db
 
 FUND = "INF209KA12Z1"
 STOCK = "INE002A01018"
-OTHER = "INE000000099"
+OTHER = "INE000000997"
 
 
 def holding(client: Client, isin: str, name: str, kind: str) -> Account:

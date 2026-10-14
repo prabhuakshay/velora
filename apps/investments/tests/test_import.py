@@ -28,13 +28,13 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 NEW_FUND = "INF000000002"
-STOCK = "INE000000001"
+STOCK = "INE000000013"
 
 
 @pytest.fixture(autouse=True)
 def _fund() -> None:
     Instrument.objects.create(
-        isin="INF000000001", name="Nifty Fund", kind="mutual_fund"
+        isin="INF000000010", name="Nifty Fund", kind="mutual_fund"
     )
 
 
@@ -98,7 +98,7 @@ def test_each_error_row_gives_its_reason(signed_in: Client) -> None:
         buy(account="Groww"),
         import_line("SWAP"),
         import_line("BUY", units="10", price="100"),
-        buy(isin="INE999999999"),
+        buy(isin="INE999999993"),
         buy(ref="x" * 101),
         buy(units="ten"),
     )

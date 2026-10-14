@@ -25,9 +25,9 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-FUND = "INF000000001"
-SOLD = "INE000000002"
-ETF = "INF000000003"
+FUND = "INF000000010"
+SOLD = "INE000000021"
+ETF = "INF000000036"
 
 
 def three_holdings(client: Client) -> None:
@@ -164,9 +164,9 @@ def test_the_overview_groups_gold_bonds_reits_and_other_holdings(
 ) -> None:
     zerodha = make_broker("Zerodha", opening="10000")
     for isin, name, kind in (
-        ("INE000000101", "Gold 24K (per gram)", "gold"),
+        ("INE000001011", "Gold 24K (per gram)", "gold"),
         ("IN0020230085", "SGB 2023-24 SR-III", "bond"),
-        ("INE000000103", "Embassy Office Parks REIT", "reit_invit"),
+        ("INE000001037", "Embassy Office Parks REIT", "reit_invit"),
         ("INE000000104", "Unlisted Co", "other"),
     ):
         record_event(

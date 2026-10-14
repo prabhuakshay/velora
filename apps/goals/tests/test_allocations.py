@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-FUND = "INF000000001"
-STOCK = "INE000000002"
+FUND = "INF000000010"
+STOCK = "INE000000021"
 
 
 @pytest.fixture

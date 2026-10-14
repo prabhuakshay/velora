@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-FUND = "INF000000001"
-STOCK = "INE000000002"
+FUND = "INF000000010"
+STOCK = "INE000000021"
 # A Monday; the weekend after it is 7 and 8 March.
 MONDAY = date(2026, 3, 2)
 
@@ -154,7 +154,7 @@ def test_instruments_not_held_or_without_an_isin_are_left_alone(
 def test_an_instrument_held_through_a_merger_is_backfilled_from_the_merger(
     fake_prices: FakePriceSource,
 ) -> None:
-    new = Instrument.objects.create(isin="INF000000009", name="New", kind="mutual_fund")
+    new = Instrument.objects.create(isin="INF000000093", name="New", kind="mutual_fund")
     buy(FUND, day(0))
     InvestmentEvent.objects.create(
         account=InvestmentEvent.objects.get().account,
@@ -164,12 +164,12 @@ def test_an_instrument_held_through_a_merger_is_backfilled_from_the_merger(
         date=day(2),
     )
     fake_prices.history = [
-        row("INF000000009", "New", "mutual_fund", "20", day(n)) for n in range(4)
+        row("INF000000093", "New", "mutual_fund", "20", day(n)) for n in range(4)
     ]
 
     backfill_prices(today=day(3))
 
-    assert set(prices("INF000000009")) == {day(2), day(3)}
+    assert set(prices("INF000000093")) == {day(2), day(3)}
 
 
 def test_a_day_with_no_file_is_not_fetched_again(fake_prices: FakePriceSource) -> None:

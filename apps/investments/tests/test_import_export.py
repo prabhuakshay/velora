@@ -31,13 +31,13 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 NEW_FUND = "INF000000002"
-STOCK = "INE000000001"
+STOCK = "INE000000013"
 
 
 @pytest.fixture(autouse=True)
 def _fund() -> None:
     Instrument.objects.create(
-        isin="INF000000001", name="Nifty Fund", kind="mutual_fund"
+        isin="INF000000010", name="Nifty Fund", kind="mutual_fund"
     )
 
 
@@ -214,7 +214,7 @@ def test_the_preview_shows_units_and_amounts_in_the_number_format(
         ).encode(),
     )
 
-    assert f"INF000000001 {shown}" in page
+    assert f"INF000000010 {shown}" in page
 
 
 def test_the_preview_shows_a_value_it_cant_read_as_written(signed_in: Client) -> None:
@@ -224,4 +224,4 @@ def test_the_preview_shows_a_value_it_cant_read_as_written(signed_in: Client) ->
         signed_in, import_text(import_line("BUY", units="NaN", amount="1x")).encode()
     )
 
-    assert "INF000000001 NaN 1x" in page
+    assert "INF000000010 NaN 1x" in page

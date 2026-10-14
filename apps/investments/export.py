@@ -38,7 +38,7 @@ EXAMPLES = (
      "2", "", "", "", "", "", "1 unit became 2"),
     ("2024-10-28", "Zerodha", "INE002A01018", "Reliance Industries", "BONUS", "6",
      "", "", "", "", "", ""),
-    ("2025-01-15", "Kuvera", "INF000000001", "New Fund (name of the new ISIN)",
+    ("2025-01-15", "Kuvera", "INF000000010", "New Fund (name of the new ISIN)",
      "MERGER", "", "", "", "", "INF000000002", "", "Old Fund merged into New Fund"),
 )  # fmt: skip
 

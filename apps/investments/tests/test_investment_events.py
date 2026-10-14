@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-FUND = "INF000000001"
-STOCK = "INE000000002"
+FUND = "INF000000010"
+STOCK = "INE000000021"
 
 
 @pytest.fixture(autouse=True)
@@ -172,13 +172,13 @@ def test_a_buy_with_an_unknown_isin_creates_an_instrument_priced_by_its_source(
         signed_in,
         broker,
         "buy",
-        "INE999999999",
+        "INE999999993",
         units="1",
         amount="10",
         instrument_name="Unlisted Co",
     )
 
-    instrument = Instrument.objects.get(isin="INE999999999")
+    instrument = Instrument.objects.get(isin="INE999999993")
     assert instrument.name == "Unlisted Co"
     assert instrument.price_source == PriceSource.NSE
     assert "Unlisted Co 1 ₹10.00" in holdings_text(signed_in, broker)
@@ -191,7 +191,7 @@ def test_an_unknown_isin_needs_an_instrument_name(signed_in: Client) -> None:
         signed_in,
         broker,
         "buy",
-        "INE999999999",
+        "INE999999993",
         units="1",
         amount="10",
         expect=200,
@@ -200,7 +200,7 @@ def test_an_unknown_isin_needs_an_instrument_name(signed_in: Client) -> None:
     assert "Velora doesn&#x27;t know this ISIN; enter the Instrument&#x27;s name." in (
         page_text(response.content.decode())
     )
-    assert not Instrument.objects.filter(isin="INE999999999").exists()
+    assert not Instrument.objects.filter(isin="INE999999993").exists()
 
 
 def test_editing_a_past_buy_recomputes_lots_cash_and_gains(signed_in: Client) -> None:

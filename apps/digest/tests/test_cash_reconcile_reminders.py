@@ -23,7 +23,7 @@ pytestmark = pytest.mark.django_db
 
 def bought(broker: Account, when: date, amount: str) -> None:
     fund, _ = Instrument.objects.get_or_create(
-        isin="INF000000001", defaults={"name": "Nifty Fund", "kind": "mutual_fund"}
+        isin="INF000000010", defaults={"name": "Nifty Fund", "kind": "mutual_fund"}
     )
     InvestmentEvent.objects.create(
         account=broker,

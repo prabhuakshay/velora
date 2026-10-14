@@ -57,7 +57,7 @@ def overview(client: Client) -> str:
 def test_the_overview_shows_what_the_nightly_run_fetched(
     signed_in: Client, fake_prices: FakePriceSource
 ) -> None:
-    fake_prices.amfi = [fund(), fund(isin="INF000000009")]
+    fake_prices.amfi = [fund(), fund(isin="INF000000093")]
 
     run_nightly_prices(TODAY)
 

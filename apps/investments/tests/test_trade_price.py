@@ -33,7 +33,7 @@ pytestmark = pytest.mark.django_db
 
 __all__ = ["bank", "kuvera"]
 
-FUND = "INF000000001"
+FUND = "INF000000010"
 
 
 @pytest.fixture(autouse=True)
