@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Max
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -13,10 +14,10 @@ from apps.accounts.models import Account
 from apps.home.charts import line
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
 from apps.investments.history import last_each_month, value_chart, value_history
-from apps.investments.models import Instrument, InvestmentEvent
+from apps.investments.models import Instrument, InvestmentEvent, Price
 from apps.investments.overselling import oversell_refusal
 from apps.investments.portfolio import COLUMNS, Column, portfolio, sorting
-from apps.investments.tasks import queue_backfill
+from apps.investments.tasks import queue_backfill, queue_refresh
 from apps.investments.valuation import account_value
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
@@ -198,5 +199,15 @@ def investments_overview(request: HttpRequest) -> HttpResponseBase:
             "holdings": held.holdings(column, descending=descending),
             "history": history,
             "chart": value_chart(history),
+            "prices_as_of": Price.objects.aggregate(latest=Max("date"))["latest"],
         },
     )
+
+
+@login_required
+@require_POST
+def investments_refresh_prices(request: HttpRequest) -> HttpResponseBase:
+    """Queue a fetch of today's Prices and the missing past ones."""
+    queue_refresh()
+    messages.success(request, "Refreshing Prices. They will update shortly.")
+    return redirect("investments_overview")

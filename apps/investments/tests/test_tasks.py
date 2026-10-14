@@ -1,15 +1,22 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 from django.conf import settings
+from django.urls import reverse
 from django.utils import timezone
 from procrastinate.contrib.django import app
 from procrastinate.contrib.django.models import ProcrastinateJob
 
 from apps.core.jobs import daily_cron
 from apps.investments.models import Instrument, InvestmentEvent
-from apps.investments.tasks import NIGHT_HOUR, backfill_prices, nightly_prices
+from apps.investments.nightly import PriceFetchError
+from apps.investments.tasks import (
+    NIGHT_HOUR,
+    backfill_prices,
+    nightly_prices,
+    refresh_prices,
+)
 from apps.investments.tests.conftest import make_broker, record_event, row
 
 if TYPE_CHECKING:
@@ -93,4 +100,93 @@ def test_recording_a_sell_queues_no_backfill(signed_in: Client) -> None:
 
     record_event(signed_in, broker, "sell", FUND, units="1", price="10", amount="10")
 
+    assert not ProcrastinateJob.objects.exists()
+
+
+def held_fund(today: date) -> None:
+    InvestmentEvent.objects.create(
+        account=make_broker(),
+        instrument=Instrument.objects.create(
+            isin=FUND, name="A fund", kind="mutual_fund"
+        ),
+        kind="buy",
+        date=today - timedelta(days=3),
+        units=1,
+        price=10,
+        amount=10,
+    )
+
+
+def test_refreshing_fetches_today_and_fills_past_prices(
+    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePriceSource
+) -> None:
+    today = date(2026, 3, 4)
+    monkeypatch.setattr(timezone, "localdate", lambda: today)
+    held_fund(today)
+    fake_prices.amfi = [row(FUND, "A fund", "mutual_fund", "12", today)]
+    fake_prices.history = [row(FUND, "A fund", "mutual_fund", "10", date(2026, 3, 2))]
+
+    refresh_prices()
+
+    prices = Instrument.objects.get().prices.order_by("date")
+    assert list(prices.values_list("date", flat=True)) == [date(2026, 3, 2), today]
+
+
+def test_refreshing_still_backfills_when_today_fetch_fails(
+    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePriceSource
+) -> None:
+    today = date(2026, 3, 4)
+    monkeypatch.setattr(timezone, "localdate", lambda: today)
+    held_fund(today)
+    fake_prices.amfi = OSError("AMFI is down")
+    fake_prices.history = [row(FUND, "A fund", "mutual_fund", "10", date(2026, 3, 2))]
+
+    with pytest.raises(PriceFetchError):
+        refresh_prices()
+
+    assert Instrument.objects.get().prices.get().date == date(2026, 3, 2)
+
+
+def test_refreshing_raises_when_the_backfill_fails(
+    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePriceSource
+) -> None:
+    today = date(2026, 3, 4)
+    monkeypatch.setattr(timezone, "localdate", lambda: today)
+    held_fund(today)
+    fake_prices.amfi_history = OSError("AMFI archive is down")
+
+    with pytest.raises(PriceFetchError):
+        refresh_prices()
+
+
+def test_refreshing_names_both_failures(
+    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePriceSource
+) -> None:
+    today = date(2026, 3, 4)
+    monkeypatch.setattr(timezone, "localdate", lambda: today)
+    held_fund(today)
+    fake_prices.nse = OSError("NSE is down")
+    fake_prices.amfi_history = OSError("AMFI archive is down")
+
+    with pytest.raises(PriceFetchError, match="NSE, AMFI"):
+        refresh_prices()
+
+
+def test_the_refresh_button_queues_one_refresh(signed_in: Client) -> None:
+    for _ in range(2):
+        response = signed_in.post(reverse("investments_refresh_prices"), follow=True)
+
+    assert response.redirect_chain == [(reverse("investments_overview"), 302)]
+    assert "Refreshing Prices" in response.content.decode()
+    assert ProcrastinateJob.objects.get().task_name == "investments.refresh_prices"
+
+
+def test_refreshing_is_post_only(signed_in: Client) -> None:
+    assert signed_in.get(reverse("investments_refresh_prices")).status_code == 405
+
+
+def test_refreshing_needs_sign_in(client: Client) -> None:
+    response = client.post(reverse("investments_refresh_prices"))
+
+    assert response["Location"].startswith(reverse("login"))
     assert not ProcrastinateJob.objects.exists()

@@ -1,6 +1,10 @@
-"""The nightly Price fetch and the Price backfill as Procrastinate tasks (ADR 0005)."""
+"""The nightly Price fetch, the Price backfill and a refresh as Procrastinate tasks.
+
+See ADR 0005.
+"""
 
 from contextlib import suppress
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.db import transaction
@@ -10,11 +14,15 @@ from procrastinate.exceptions import AlreadyEnqueued
 
 from apps.core.jobs import daily_cron
 from apps.investments.backfill import backfill_prices as run_backfill
-from apps.investments.nightly import run_nightly_prices
+from apps.investments.nightly import PriceFetchError, run_nightly_prices
+
+if TYPE_CHECKING:
+    from procrastinate.tasks import Task
 
 # NSE publishes its bhavcopy in the evening and AMFI its NAVs by 11 pm.
 NIGHT_HOUR = 23
 BACKFILL_LOCK = "investments.backfill_prices"
+REFRESH_LOCK = "investments.refresh_prices"
 
 
 @app.periodic(cron=daily_cron(settings.TIME_ZONE, NIGHT_HOUR))
@@ -30,8 +38,32 @@ def backfill_prices() -> None:
     run_backfill(timezone.localdate())
 
 
-def queue_backfill() -> None:
-    """Queue a backfill, unless one is already waiting to run."""
+def _queue_once(task: Task[..., None, ...], lock: str) -> None:
+    """Queue the task, unless one is already waiting to run."""
     # The savepoint keeps a refused duplicate from aborting the request's transaction.
     with suppress(AlreadyEnqueued), transaction.atomic():
-        backfill_prices.configure(queueing_lock=BACKFILL_LOCK).defer()
+        task.configure(queueing_lock=lock).defer()
+
+
+def queue_backfill() -> None:
+    """Queue a backfill, unless one is already waiting to run."""
+    _queue_once(backfill_prices, BACKFILL_LOCK)
+
+
+@app.task(name="investments.refresh_prices")
+def refresh_prices() -> None:
+    """Fetch today's Prices, then fill past ones, as the user asked."""
+    today = timezone.localdate()
+    failed = []
+    for step in (run_nightly_prices, run_backfill):
+        try:
+            step(today)
+        except PriceFetchError as error:
+            failed.append(str(error))
+    if failed:
+        raise PriceFetchError(", ".join(failed))
+
+
+def queue_refresh() -> None:
+    """Queue a refresh, unless one is already waiting to run."""
+    _queue_once(refresh_prices, REFRESH_LOCK)

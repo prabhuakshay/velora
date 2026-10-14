@@ -7,8 +7,15 @@
 {% block main %}
   <div class="flex flex-wrap items-center justify-between gap-3">
     <h1 class="text-xl font-semibold tracking-tight md:text-2xl">Investments</h1>
-    <a href="{% url 'investment_import' %}" class="btn-secondary py-2 text-sm">Import or export</a>
+    <div class="flex flex-wrap items-center gap-3">
+      <form method="post" action="{% url 'investments_refresh_prices' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-secondary py-2 text-sm">Refresh Prices</button>
+      </form>
+      <a href="{% url 'investment_import' %}" class="btn-secondary py-2 text-sm">Import or export</a>
+    </div>
   </div>
+  <p class="mt-1 text-sm text-slate-500">{% if prices_as_of %}Prices as of {{ prices_as_of|date:"j M Y" }}{% else %}No Prices yet{% endif %}</p>
 
   {% if accounts %}
     <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-label="Totals">

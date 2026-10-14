@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -246,3 +246,24 @@ def test_an_unknown_sort_lists_holdings_by_instrument(signed_in: Client) -> None
         "Gold ETF",
         "Nifty Fund",
     ]
+
+
+def test_the_overview_has_a_refresh_prices_button(signed_in: Client) -> None:
+    html = overview(signed_in)
+
+    assert f'action="{reverse("investments_refresh_prices")}"' in html
+    assert "csrfmiddlewaretoken" in html
+
+
+def test_the_overview_shows_the_latest_price_date(signed_in: Client) -> None:
+    Instrument.objects.create(isin=FUND, name="Nifty Fund", kind="mutual_fund")
+    Instrument.objects.create(isin=SOLD, name="Acme Ltd", kind="stock")
+    add_price(FUND, date(2026, 3, 2), "10")
+    add_price(SOLD, date(2026, 3, 4), "10")
+    add_price(FUND, date(2026, 3, 3), "10")
+
+    assert "Prices as of 4 Mar 2026" in page_text(overview(signed_in))
+
+
+def test_the_overview_says_when_there_are_no_prices(signed_in: Client) -> None:
+    assert "No Prices yet" in page_text(overview(signed_in))

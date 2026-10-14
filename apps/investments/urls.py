@@ -5,6 +5,11 @@ from apps.investments import import_views, views
 urlpatterns = [
     path("investments/", views.investments_overview, name="investments_overview"),
     path(
+        "investments/refresh-prices/",
+        views.investments_refresh_prices,
+        name="investments_refresh_prices",
+    ),
+    path(
         "investments/import/", import_views.investment_import, name="investment_import"
     ),
     path(
