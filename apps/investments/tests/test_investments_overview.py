@@ -68,7 +68,11 @@ def test_the_overview_lists_investment_accounts_and_instruments_held(
 
     text = page_text(html)
     assert "Zerodha ₹10,510.00" in text
-    assert "Nifty Fund Zerodha 10 ₹100.0000 ₹1,000.00 ₹1,500.00" in text
+    today = f"{timezone.localdate():%-d %b %Y}"
+    assert (
+        f"Nifty Fund ₹150.0000 · {today} · AMFI Zerodha 10 ₹100.0000 ₹1,000.00 "
+        "₹1,500.00"
+    ) in text
     assert "Bank" not in text
     assert "Acme Ltd" not in text
     assert f'href="{account_url("account_transactions", broker)}"' in html
@@ -99,7 +103,7 @@ def test_privacy_mode_masks_the_overview(signed_in: Client) -> None:
     assert "₹1" not in text
     assert "₹4" not in text
     assert "%" not in text.replace("••••%", "")
-    assert "Nifty Fund Zerodha 10" not in text
+    assert "Zerodha 10" not in text
     assert 'aria-label="Percentage hidden"' in html
 
 
@@ -112,7 +116,7 @@ def test_the_overview_follows_the_number_format(signed_in: Client, user: User) -
 
     assert "Market Value ₹1,59,500.00" not in text
     assert "Market Value ₹159,500.00" in text
-    assert "Nifty Fund Zerodha 10 ₹100.0000 ₹1,000.00 ₹150,000.00" in text
+    assert "AMFI Zerodha 10 ₹100.0000 ₹1,000.00 ₹150,000.00" in text
 
 
 def test_the_overview_market_value_includes_uninvested_cash(
@@ -162,8 +166,8 @@ def test_holdings_with_a_stale_price_are_flagged(signed_in: Client) -> None:
 
     text = page_text(overview(signed_in))
 
-    assert "Acme Ltd Stale Zerodha" in text
-    assert "Nifty Fund Zerodha" in text
+    assert "Stale NSE Price Zerodha" in text
+    assert "AMFI Zerodha" in text
 
 
 def holdings_order(client: Client, sort: str = "") -> list[str]:
@@ -181,9 +185,9 @@ def test_the_holdings_table_shows_each_holding_with_its_account(
     html = overview(signed_in)
 
     text = page_text(html)
-    assert "Acme Ltd Zerodha 1 ₹50.0000 ₹50.00 ₹40.00 -₹10.00 -20.00%" in text
-    assert "Gold ETF No Price yet Groww 5 ₹20.0000 ₹100.00 ₹100.00 ₹0.00 0.00%" in text
-    assert "Nifty Fund Zerodha 10 ₹100.0000 ₹1,000.00 ₹1,500.00 +₹500.00" in text
+    assert "NSE Zerodha 1 ₹50.0000 ₹50.00 ₹40.00 -₹10.00 -20.00%" in text
+    assert "Gold ETF No Price yet · NSE Groww 5 ₹20.0000 ₹100.00 ₹100.00" in text
+    assert "AMFI Zerodha 10 ₹100.0000 ₹1,000.00 ₹1,500.00 +₹500.00" in text
     groww = Account.objects.get(name="Groww")
     assert f'href="{reverse("account_holdings", args=[groww.pk])}"' in html
 

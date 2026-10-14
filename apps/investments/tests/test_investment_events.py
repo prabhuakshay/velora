@@ -68,7 +68,8 @@ def test_market_value_counts_units_at_the_latest_price(signed_in: Client) -> Non
 
     assert "Market Value ₹10,205.00" in holdings
     assert (
-        "Nifty Fund 10 ₹1,000.00 ₹1,205.00 +₹205.00 ₹0.00 ₹0.00 2 Mar 2026" in holdings
+        "Nifty Fund 10 ₹1,000.00 ₹1,205.00 +₹205.00 ₹0.00 ₹0.00 "
+        "₹120.5000 · 2 Mar 2026 · AMFI" in holdings
     )
 
 

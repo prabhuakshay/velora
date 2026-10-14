@@ -1,5 +1,6 @@
 from datetime import timedelta
 from email.message import Message
+from io import BytesIO
 from typing import TYPE_CHECKING
 from urllib.error import HTTPError
 
@@ -14,8 +15,6 @@ from apps.investments.tests.conftest import FakePriceSource, row
 from apps.schedules.daily_job import run_daily_job
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from pytest_django import Settings
 
 pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("user")]
@@ -28,19 +27,17 @@ def _site(settings: Settings) -> None:
     settings.SITE_URL = SITE
 
 
-@pytest.fixture
-def not_published() -> Iterator[HTTPError]:
-    error = HTTPError("https://nse.example/file.zip", 404, "Not Found", Message(), None)
-    yield error
-    # Left open, it warns when garbage-collected, failing whichever test runs then.
-    error.close()
+def not_published() -> HTTPError:
+    return HTTPError(
+        "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
+    )
 
 
 def test_a_failed_nightly_price_fetch_is_in_the_digest(
-    fake_prices: FakePriceSource, not_published: HTTPError
+    fake_prices: FakePriceSource,
 ) -> None:
     today = timezone.localdate()
-    fake_prices.nse = not_published
+    fake_prices.nse = not_published()
     with pytest.raises(PriceFetchError):
         run_nightly_prices(today)
 
@@ -72,10 +69,10 @@ def test_the_digest_is_silent_when_every_price_fetch_worked(
 
 
 def test_a_later_nightly_price_fetch_that_worked_clears_the_line(
-    fake_prices: FakePriceSource, not_published: HTTPError
+    fake_prices: FakePriceSource,
 ) -> None:
     today = timezone.localdate()
-    fake_prices.nse = not_published
+    fake_prices.nse = not_published()
     with pytest.raises(PriceFetchError):
         run_nightly_prices(today - timedelta(days=1))
     fake_prices.nse = [row("INE002A01018", "Reliance", "stock", "2950", today)]

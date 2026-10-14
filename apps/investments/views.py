@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
 from apps.home.charts import line
-from apps.investments.fetches import status_line
+from apps.investments.fetches import latest_files, recent, status_line
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
 from apps.investments.history import last_each_month, value_chart, value_history
 from apps.investments.models import Instrument, InvestmentEvent
@@ -113,6 +113,7 @@ def account_holdings(request: HttpRequest, pk: int) -> HttpResponseBase:
             ),
             "tabs": investment_tabs(account, "account_holdings"),
             "today": timezone.localdate(),
+            "price_files": latest_files(),
         },
     )
 
@@ -201,6 +202,7 @@ def investments_overview(request: HttpRequest) -> HttpResponseBase:
             "history": history,
             "chart": value_chart(history),
             **status_line(),
+            "price_files": latest_files(),
         },
     )
 
@@ -209,6 +211,16 @@ def investments_overview(request: HttpRequest) -> HttpResponseBase:
 def investments_price_status(request: HttpRequest) -> HttpResponseBase:
     """The overview's status line alone, which polls itself while fetching."""
     return render(request, "investments/_price_status.html", status_line())
+
+
+@login_required
+def price_fetches(request: HttpRequest) -> HttpResponseBase:
+    """Every Price Fetch of the last 90 days, newest first."""
+    return render(
+        request,
+        "investments/price_fetches.html",
+        {"fetches": recent(timezone.localdate())},
+    )
 
 
 @login_required

@@ -9,6 +9,7 @@ urlpatterns = [
         views.investments_refresh_prices,
         name="investments_refresh_prices",
     ),
+    path("investments/price-fetches/", views.price_fetches, name="price_fetches"),
     path(
         "investments/price-status/",
         views.investments_price_status,
