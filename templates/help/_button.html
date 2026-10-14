@@ -6,7 +6,7 @@
 {% endcomment %}
 {% if area %}{% url 'help_area' area as help_url %}{% else %}{% url 'help_index' as help_url %}{% endif %}
 <button type="button" popovertarget="help-menu" class="flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Help" title="Help"{% if tour %} data-tour-step="99" data-tour-text="Take this tour again or read Help from here, any time."{% endif %}>{% include "shell/icon.html" with name="help" class="size-5" %}</button>
-<div id="help-menu" popover data-help-menu{% if tour %} data-tour="{{ tour }}" data-tour-help="{{ help_url }}"{% endif %} class="inset-auto m-0 w-56 rounded-xl border-0 bg-white p-1 text-sm text-slate-900 shadow-lg ring-1 shadow-slate-900/10 ring-slate-200">
+<div id="help-menu" popover data-help-menu{% if tour %} data-tour="{{ tour }}" data-tour-help="{{ help_url }}" data-tour-seen-url="{% url 'tour_seen' tour %}"{% if tour in user.tours_seen %} data-tour-seen{% endif %}{% endif %} class="inset-auto m-0 w-56 rounded-xl border-0 bg-white p-1 text-sm text-slate-900 shadow-lg ring-1 shadow-slate-900/10 ring-slate-200">
   <ul>
     {% if tour %}
       <li>

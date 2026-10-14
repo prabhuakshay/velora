@@ -4,6 +4,7 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 import pytest
+from django.test import Client
 from django.urls import reverse
 
 from apps.accounts.tests.conftest import make_account
@@ -15,7 +16,7 @@ from apps.investments.tests.conftest import make_broker
 from apps.schedules.daily_job import run_daily_job
 
 if TYPE_CHECKING:
-    from django.test import Client
+    from apps.users.models import User
 
 pytestmark = pytest.mark.django_db
 
@@ -140,3 +141,34 @@ def test_every_page_loads_the_tour_engine(signed_in: Client) -> None:
 
     assert "js/driver.js" in body
     assert "js/tour.js" in body
+
+
+def _tour_seen(client: Client, url: str) -> bool:
+    body = client.get(url).content.decode()
+    menu = body.split('id="help-menu"', 1)[1].split(">", 1)[0]
+    return re.search(r"data-tour-seen(?!-)", menu) is not None
+
+
+def test_a_tour_starts_unseen(signed_in: Client) -> None:
+    assert not _tour_seen(signed_in, reverse("budget_list"))
+
+
+def test_a_seen_tour_is_kept_with_the_user_for_every_browser(
+    signed_in: Client, user: User
+) -> None:
+    response = signed_in.post(reverse("tour_seen", args=["budgets"]))
+    assert response.status_code == 204
+    signed_in.post(reverse("tour_seen", args=["budgets"]))
+
+    user.refresh_from_db()
+    assert user.tours_seen == ["budgets"]
+    other_browser = Client()
+    other_browser.force_login(user)
+    assert _tour_seen(other_browser, reverse("budget_list"))
+    assert not _tour_seen(other_browser, reverse("goal_list"))
+
+
+def test_marking_a_tour_seen_takes_a_post(signed_in: Client) -> None:
+    response = signed_in.get(reverse("tour_seen", args=["budgets"]))
+
+    assert response.status_code == 405

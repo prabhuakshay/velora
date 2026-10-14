@@ -1,24 +1,9 @@
 // Guided tours. The "?" menu names the page's tour and its Help page, and each
 // highlighted element carries its step's number and text. A tour starts on its
-// own the first time its page is opened on this device; "Take the tour" in the
-// "?" menu replays it.
+// own the first time its page is opened, on any device: the user's record
+// keeps which tours were seen. "Take the tour" in the "?" menu replays it.
 
 let tour = null;
-
-// Storage can be blocked, as in some private windows; the tour then shows again.
-function seen(id) {
-  try {
-    return localStorage.getItem(`tour:${id}`) !== null;
-  } catch {
-    return false;
-  }
-}
-
-function markSeen(id) {
-  try {
-    localStorage.setItem(`tour:${id}`, "1");
-  } catch {}
-}
 
 function escapeHTML(text) {
   const p = document.createElement("p");
@@ -62,9 +47,12 @@ function startTour() {
 }
 
 function startUnseenTour() {
-  const id = document.querySelector("[data-tour]")?.dataset.tour;
-  if (!id || seen(id)) return;
-  if (startTour()) markSeen(id);
+  const menu = document.querySelector("[data-tour]");
+  if (!menu || "tourSeen" in menu.dataset) return;
+  if (!startTour()) return;
+  menu.dataset.tourSeen = "";
+  // As the menu's, so it carries the page's CSRF header.
+  htmx.ajax("POST", menu.dataset.tourSeenUrl, { source: menu, swap: "none" });
 }
 
 document.addEventListener("click", (e) => {
