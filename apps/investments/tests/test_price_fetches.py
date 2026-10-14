@@ -179,3 +179,34 @@ def test_a_failed_backfill_source_shows_why_and_the_other_still_fills(
     assert "by Backfill of 13 Oct to 14 Oct · Failed: AMFI couldn't be reached" in amfi
     nse = status(signed_in, "NSE")
     assert "by Backfill of 13 Oct to 14 Oct · Worked, 2 Prices stored" in nse
+
+
+def test_a_backfill_keeps_the_windows_that_worked_when_a_later_one_fails(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    hold(FUND, "mutual_fund", date(2026, 9, 1))
+    fake_prices.history = [fund(date(2026, 9, d)) for d in (1, 2)] + [fund()]
+    fake_prices.history_failures = {TODAY: URLError("timed out")}
+
+    with pytest.raises(PriceFetchError, match="AMFI"):
+        backfill_prices(today=TODAY)
+
+    line = status(signed_in, "AMFI")
+    assert "AMFI Prices for 2 Sep 2026" in line
+    assert "by Backfill of 1 Sep to 14 Oct · Failed: AMFI couldn't be reached" in line
+
+
+def test_a_refresh_with_nothing_to_backfill_still_shows_the_refresh(
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
+    hold(FUND, "mutual_fund", TODAY)
+    hold(STOCK, "stock", TODAY)
+    fake_prices.amfi = [fund()]
+    fake_prices.nse = [stock()]
+
+    refresh_prices()
+
+    assert fake_prices.fetched == []
+    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "AMFI")
+    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "NSE")

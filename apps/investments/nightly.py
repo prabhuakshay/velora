@@ -12,7 +12,7 @@ from apps.investments import price_source
 from apps.investments.models import Instrument, Price, PriceFetch, PriceSource
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
     from datetime import date
 
 logger = logging.getLogger("nightly_prices")
@@ -77,14 +77,16 @@ def _held_isins() -> set[str]:
 def record(
     source: PriceSource,
     trigger: PriceFetch.Trigger,
-    fetch: Callable[[], list[price_source.PriceRow]],
+    fetches: Iterable[Callable[[], list[price_source.PriceRow]]],
     *,
     day_asked: date | None = None,
     days: tuple[date, date] | None = None,
 ) -> PriceFetch:
     """Run one Price Fetch, store its rows and record how it went.
 
-    It asks for one day, or for a backfill the range of days it fills.
+    It asks for one day, or for a backfill the range of days it fills, in
+    one or more fetches. Each fetch's rows are stored as they come, so one
+    that fails leaves the others' Prices, and the Price Fetch is Failed.
     """
     range_start, range_end = days or (None, None)
     price_fetch = PriceFetch.objects.create(
@@ -95,18 +97,22 @@ def record(
         range_start=range_start,
         range_end=range_end,
     )
-    try:
-        rows = fetch()
-    except Exception as error:
-        logger.exception("Fetching %s Prices failed", source)
-        price_fetch.outcome = PriceFetch.Outcome.FAILED
-        price_fetch.reason = reason(error, source, day_asked)
-    else:
-        price_fetch.prices_stored = store(rows)
-        price_fetch.instruments_priced = len({r.isin for r in rows} & _held_isins())
+    price_fetch.outcome = PriceFetch.Outcome.OK
+    isins: set[str] = set()
+    for fetch in fetches:
+        try:
+            rows = fetch()
+        except Exception as error:
+            logger.exception("Fetching %s Prices failed", source)
+            if price_fetch.outcome == PriceFetch.Outcome.OK:
+                price_fetch.outcome = PriceFetch.Outcome.FAILED
+                price_fetch.reason = reason(error, source, day_asked)
+            continue
+        price_fetch.prices_stored += store(rows)
+        isins.update(r.isin for r in rows)
         if day_asked:
             price_fetch.day_used = max((r.date for r in rows), default=None)
-        price_fetch.outcome = PriceFetch.Outcome.OK
+    price_fetch.instruments_priced = len(isins & _held_isins())
     price_fetch.finished_at = timezone.now()
     price_fetch.save()
     return price_fetch
@@ -128,7 +134,7 @@ def run_nightly_prices(
     failed = [
         source
         for source, fetch in sources.items()
-        if record(source, trigger, fetch, day_asked=today).outcome
+        if record(source, trigger, [fetch], day_asked=today).outcome
         == PriceFetch.Outcome.FAILED
     ]
     if failed:

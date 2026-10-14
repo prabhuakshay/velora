@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 from datetime import date, timedelta
+from functools import partial
 from typing import TYPE_CHECKING
 
 from django.db.models import Min
@@ -83,8 +84,9 @@ def backfill_prices(today: date) -> None:
 
     Only weekdays with no Price are fetched, and a stored Price is never
     replaced, so running again is safe. Each source's run is recorded as a
-    Price Fetch over the days it fills. A source that fails is skipped and
-    the others still run; the job raises afterwards so it shows as failed.
+    Price Fetch over the days it fills; a source with nothing missing records
+    none. A failed window is skipped and the rest still run and store; the
+    job raises afterwards so it shows as failed.
     """
     failed = []
     missing = _missing(today)
@@ -94,19 +96,22 @@ def backfill_prices(today: date) -> None:
         isins, days = missing[name]
 
         def rows(
+            start: date,
+            end: date,
             fetch: Callable[[date, date], list[price_source.PriceRow]] = fetch,
             isins: dict[str, date] = isins,
-            days: set[date] = days,
         ) -> list[price_source.PriceRow]:
             return [
                 r
-                for start, end in _windows(days)
                 for r in fetch(start, end)
                 if r.isin in isins and r.date >= isins[r.isin]
             ]
 
         price_fetch = record(
-            name, PriceFetch.Trigger.BACKFILL, rows, days=(min(days), max(days))
+            name,
+            PriceFetch.Trigger.BACKFILL,
+            [partial(rows, start, end) for start, end in _windows(days)],
+            days=(min(days), max(days)),
         )
         if price_fetch.outcome == PriceFetch.Outcome.FAILED:
             failed.append(name)
