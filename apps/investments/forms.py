@@ -113,7 +113,9 @@ REQUIRED = "This field is required."
 
 def _same(a: Instrument, b: Instrument) -> bool:
     # Either may be unsaved, so compare what identifies an Instrument.
-    return a.isin == b.isin and (a.isin is not None or a.name == b.name)
+    return a.isin == b.isin and (
+        a.isin is not None or a.name.casefold() == b.name.casefold()
+    )
 
 
 class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):

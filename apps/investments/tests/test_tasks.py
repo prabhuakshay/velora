@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from apps.investments.tests.conftest import FakePriceSource
 
 FUND = "INF209KA12Z1"
+MERGED = "INF209KA13Z9"
 
 pytestmark = pytest.mark.django_db
 
@@ -91,15 +92,23 @@ def test_recording_a_buy_queues_one_backfill(signed_in: Client) -> None:
     assert ProcrastinateJob.objects.get().task_name == "investments.backfill_prices"
 
 
-def test_recording_a_sell_queues_no_backfill(signed_in: Client) -> None:
+def test_recording_a_merger_queues_a_backfill(signed_in: Client) -> None:
     Instrument.objects.create(isin=FUND, name="A fund", kind="mutual_fund")
+    Instrument.objects.create(isin=MERGED, name="The merged fund", kind="mutual_fund")
     broker = make_broker()
     record_event(signed_in, broker, "buy", FUND, units="1", amount="10")
     ProcrastinateJob.objects.all().delete()
 
-    record_event(signed_in, broker, "sell", FUND, units="1", amount="10")
+    record_event(
+        signed_in,
+        broker,
+        "merger",
+        FUND,
+        new_isin=MERGED,
+        date="2026-03-02",
+    )
 
-    assert not ProcrastinateJob.objects.exists()
+    assert ProcrastinateJob.objects.get().task_name == "investments.backfill_prices"
 
 
 def held_fund(today: date) -> None:
