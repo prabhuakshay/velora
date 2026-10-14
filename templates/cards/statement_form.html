@@ -15,15 +15,15 @@
       <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Statement due {{ statement.due_date|date:"j M Y" }}</h1>
       <p class="truncate text-sm text-slate-500">{{ card }} · {{ statement.period_start|date:"j M" }} to {{ statement.period_end|date:"j M Y" }}</p>
     </div>
-    {% include "help/_button.html" with area="cards" title="Cards" %}
-    <nav class="-mr-2 flex shrink-0" aria-label="Other Statements">
+    {% include "help/_button.html" with area="cards" title="Cards" tour="statement" %}
+    <nav data-tour-step="5" data-tour-text="Step to the older or newer Statements." class="-mr-2 flex shrink-0" aria-label="Other Statements">
       {% if older %}<a href="{% url 'statement_edit' older.pk %}" class="flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Older Statement, due {{ older.due_date|date:'j M Y' }}">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>{% else %}<span class="flex size-10 items-center justify-center text-slate-300" aria-hidden="true">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</span>{% endif %}
       {% if newer %}<a href="{% url 'statement_edit' newer.pk %}" class="flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Newer Statement, due {{ newer.due_date|date:'j M Y' }}">{% include "shell/icon.html" with name="chevron-right" class="size-5" %}</a>{% else %}<span class="flex size-10 items-center justify-center text-slate-300" aria-hidden="true">{% include "shell/icon.html" with name="chevron-right" class="size-5" %}</span>{% endif %}
     </nav>
   </div>
 
   <div class="mt-4 space-y-4 md:mt-6">
-    <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
+    <section data-tour-step="1" data-tour-text="The Statement Amount, whether it’s an estimate or the actual amount, and whether it’s Paid." class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
       <div class="flex flex-wrap gap-1.5">
         {% if statement.is_paid %}<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">{% include "shell/icon.html" with name="check" class="size-3.5" %}Paid</span>
         {% elif not statement.needs_payment %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Nothing to pay</span>
@@ -65,7 +65,7 @@
     {% endif %}
 
     {% if not statement.is_paid %}
-      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="link-title">
+      <section data-tour-step="2" data-tour-text="Already paid it? Link the Transaction that paid it. Paid in parts? Link each one." class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="link-title">
         <h2 id="link-title" class="font-semibold">Link payment</h2>
         <p class="mt-0.5 text-sm text-slate-500">Already paid it? Pick the payment into {{ card }}. Paid in parts? Link each one; it is paid once they cover it.</p>
         {% if candidates %}
@@ -91,7 +91,7 @@
       </section>
     {% endif %}
 
-    <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="estimate-title">
+    <section data-tour-step="3" data-tour-text="How Velora works out the estimate from what you charged on the card." class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="estimate-title">
       <h2 id="estimate-title" class="font-semibold">How it's estimated</h2>
       <p class="mt-0.5 text-sm text-slate-500">From what's recorded on {{ card }} in the period now.</p>
       <dl class="mt-3 space-y-2.5 text-sm">
@@ -108,7 +108,7 @@
       {% if credit.left %}<p class="mt-2 text-sm text-slate-500">{% amount credit.left %} credit carries to the next Statement.</p>{% endif %}
     </section>
 
-    <form method="post" class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="actual-title">
+    <form data-tour-step="4" data-tour-text="Enter the amount from your bank’s statement once you have it. It replaces the estimate." method="post" class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="actual-title">
       {% csrf_token %}
       <div>
         <h2 id="actual-title" class="font-semibold">Actual Statement Amount</h2>

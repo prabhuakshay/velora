@@ -25,6 +25,7 @@
         </p>
       {% endif %}
     </div>
+    {% include "help/_button.html" with area="transactions" title="Transactions" tour="transaction-form" %}
     {% if editing_draft %}
       <button type="submit" form="reject-draft" class="-mr-2 flex h-10 items-center gap-1 rounded-full px-3 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-700 active:bg-red-100" title="Reject this Draft">{% include "shell/icon.html" with name="x" class="size-4" %}Reject</button>
     {% endif %}
@@ -54,7 +55,7 @@
       </div>
     {% endif %}
 
-    <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6 lg:col-start-1" aria-labelledby="details-title">
+    <section data-tour-step="1" data-tour-text="When it happened, the Party it was with, and a description." class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6 lg:col-start-1" aria-labelledby="details-title">
       <h2 id="details-title" class="font-semibold">Details</h2>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {% include "partials/field.html" with field=form.date %}
@@ -64,7 +65,7 @@
       {% include "partials/field.html" with field=form.description %}
     </section>
 
-    <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6 lg:col-start-1" aria-labelledby="splits-title">
+    <section data-tour-step="2" data-tour-text="Each Split takes an amount from one Account to another. Add more Splits to share one Transaction across Accounts." class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6 lg:col-start-1" aria-labelledby="splits-title">
       <h2 id="splits-title" class="font-semibold">Splits</h2>
       <p class="mt-0.5 text-sm text-slate-500">Where the money came from and went. Add more to split one payment across Accounts.</p>
       {{ formset.management_form }}
@@ -83,7 +84,7 @@
               hx-swap="beforeend">{% include "shell/icon.html" with name="plus" class="size-4" %}Add split</button>
     </section>
 
-    <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6 lg:col-start-1" aria-labelledby="attachments-title">
+    <section data-tour-step="3" data-tour-text="Add photos or PDFs as Attachments." class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6 lg:col-start-1" aria-labelledby="attachments-title">
       <h2 id="attachments-title" class="font-semibold">Attachments</h2>
       <div class="mt-4 space-y-3">
         {% if form.remove_attachments.field.queryset %}{% include "transactions/attachment_list.html" with field=form.remove_attachments %}{% endif %}
@@ -95,7 +96,7 @@
     </section>
 
     {% comment %}-bottom-4 and -mb-4 offset main's padding, so the bar stays flush on the tab bar even at the end of the scroll.{% endcomment %}
-    <aside class="sticky -bottom-4 z-10 -mx-4 -mb-4 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-4 backdrop-blur md:bottom-0 md:mx-0 md:mb-0 md:rounded-2xl md:border md:shadow-lg lg:top-0 lg:bottom-auto lg:col-start-2 lg:row-span-4 lg:row-start-1 lg:mx-0 lg:mb-0 lg:rounded-2xl lg:border-0 lg:bg-white lg:p-5 lg:shadow-sm lg:ring-1 lg:ring-slate-200 lg:backdrop-blur-none" aria-label="Save">
+    <aside data-tour-step="4" data-tour-text="The Total of the Splits, and Save to record it." class="sticky -bottom-4 z-10 -mx-4 -mb-4 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-4 backdrop-blur md:bottom-0 md:mx-0 md:mb-0 md:rounded-2xl md:border md:shadow-lg lg:top-0 lg:bottom-auto lg:col-start-2 lg:row-span-4 lg:row-start-1 lg:mx-0 lg:mb-0 lg:rounded-2xl lg:border-0 lg:bg-white lg:p-5 lg:shadow-sm lg:ring-1 lg:ring-slate-200 lg:backdrop-blur-none" aria-label="Save">
       <div class="flex items-center gap-3 lg:block">
         <div class="min-w-0 flex-1">
           <p class="text-xs font-medium text-slate-500">Total</p>

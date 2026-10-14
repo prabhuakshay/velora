@@ -10,14 +10,14 @@
       <p class="mt-0.5 text-sm text-slate-500">What repeats, and what falls due next.</p>
     </div>
     <div class="flex shrink-0 items-center gap-1">
-      {% include "help/_button.html" with area="schedules" title="Schedules and Subscriptions" %}
-      <a href="{% url 'schedule_create' %}" class="btn-primary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Schedule</a>
+      {% include "help/_button.html" with area="schedules" title="Schedules and Subscriptions" tour="schedules" %}
+      <a data-tour-step="1" data-tour-text="Add something that repeats, such as rent, salary or a phone bill." href="{% url 'schedule_create' %}" class="btn-primary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Schedule</a>
     </div>
   </div>
 
   {% with count=suggested_schedule_count %}
     {% if count %}
-      <a href="{% url 'suggested_schedule_list' %}" class="mt-4 flex items-center gap-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
+      <a data-tour-step="4" data-tour-text="Suggested Schedules are repeated Transactions Velora noticed. Confirm one to track it." href="{% url 'suggested_schedule_list' %}" class="mt-4 flex items-center gap-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100">
         <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sky-600 ring-1 ring-sky-200">{% include "shell/icon.html" with name="sparkle" class="size-4" %}</span>
         <span class="min-w-0 flex-1"><span class="font-medium">{{ count }} Suggested Schedule{{ count|pluralize }} waiting for review</span><span class="block text-xs text-sky-700">Repeated payments Velora noticed. Confirm one to track it.</span></span>
         {% include "shell/icon.html" with name="chevron-right" class="size-4 text-sky-500" %}
@@ -27,7 +27,7 @@
 
   {% if on %}
     {% comment %}Swipes sideways on phones, where three tiles side by side would be too narrow.{% endcomment %}
-    <dl class="-mx-4 mt-4 flex snap-x gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:gap-3 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
+    <dl data-tour-step="3" data-tour-text="What your Schedules send out and bring in." class="-mx-4 mt-4 flex snap-x gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:gap-3 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
       {% for label, flow in stats %}
         <div class="w-44 min-w-0 shrink-0 snap-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:w-auto md:p-4" title="Money out and in. Transfers between your own Accounts and open amounts are left out.">
           <dt class="text-xs font-medium text-slate-500">{{ label }}</dt>
@@ -41,13 +41,13 @@
   {% endif %}
 
   {% if on %}
-    <ul class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+    <ul data-tour-step="2" data-tour-text="Your running Schedules and when each is next due. On each due date Velora proposes a Draft for you to post." class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
       {% for schedule in on %}
         {% include "schedules/_schedule_row.html" %}
       {% endfor %}
     </ul>
   {% elif not paused and not ended %}
-    <div class="mt-4 rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center">
+    <div data-tour-step="2" data-tour-text="Your Schedules show here. On each due date Velora proposes a Draft for you to post." class="mt-4 rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center">
       <span class="mx-auto flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="repeat" class="size-6" %}</span>
       <p class="mt-4 font-semibold">No Schedules yet</p>
       <p class="mx-auto mt-1 max-w-sm text-sm text-slate-500">Add rent, salary or a phone bill, and Velora proposes a Draft on each due date. You can also make one from any Transaction.</p>

@@ -8,12 +8,12 @@
   <div class="flex items-center justify-between gap-3">
     <h1 class="text-xl font-semibold tracking-tight md:text-2xl">Goals</h1>
     <div class="flex shrink-0 items-center gap-1">
-      {% include "help/_button.html" with area="goals" title="Goals" %}
-      <a href="{% url 'goal_create' %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Goal</a>
+      {% include "help/_button.html" with area="goals" title="Goals" tour="goals" %}
+      <a data-tour-step="1" data-tour-text="Add something you’re saving for, with an amount in today’s money and a date." href="{% url 'goal_create' %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Goal</a>
     </div>
   </div>
 
-  <ul class="mt-4 space-y-3 md:mt-6">
+  <ul data-tour-step="2" data-tour-text="Each Goal’s progress, and whether it’s on track. Tap one to allocate Accounts or Holdings to it." class="mt-4 space-y-3 md:mt-6">
     {% for summary in summaries %}
       <li>
         <a href="{% url 'goal_detail' summary.goal.pk %}" class="block rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 md:p-5">

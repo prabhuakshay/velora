@@ -10,13 +10,13 @@
       <p class="mt-0.5 text-sm text-slate-500">Mark a Schedule as a Subscription on its form to list it here.</p>
     </div>
     <div class="flex shrink-0 items-center gap-1">
-      {% include "help/_button.html" with area="schedules" title="Schedules and Subscriptions" %}
-      <a href="{% url 'schedule_create' %}" class="btn-secondary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New</a>
+      {% include "help/_button.html" with area="schedules" title="Schedules and Subscriptions" tour="subscriptions" %}
+      <a data-tour-step="3" data-tour-text="Add a Schedule, and tick Subscription for a streaming service or a domain." href="{% url 'schedule_create' %}" class="btn-secondary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New</a>
     </div>
   </div>
 
   {% if page.paginator.count %}
-    <section class="mt-4 rounded-2xl bg-slate-900 p-5 text-white shadow-lg shadow-slate-900/10" aria-label="Total">
+    <section data-tour-step="1" data-tour-text="What all your Subscriptions cost together, a month and a year." class="mt-4 rounded-2xl bg-slate-900 p-5 text-white shadow-lg shadow-slate-900/10" aria-label="Total">
       <p class="text-sm text-slate-400">Together, a month</p>
       <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{% amount monthly_total %}</p>
       <p class="mt-2 text-sm text-slate-300"><span class="tabular-nums">{% amount yearly_total %}</span> a year · {{ counted }} still paid for at a known amount</p>
@@ -24,7 +24,7 @@
   {% endif %}
 
   {% if trials %}
-    <section class="mt-4 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200" aria-labelledby="trials-title">
+    <section data-tour-step="4" data-tour-text="Trials running, so you can cancel before you have to pay." class="mt-4 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200" aria-labelledby="trials-title">
       <h2 id="trials-title" class="flex items-center gap-2 text-sm font-semibold text-amber-900">{% include "shell/icon.html" with name="clock" class="size-4" %}Trial{{ trials|length|pluralize }} running</h2>
       <ul class="mt-2 space-y-1 text-sm text-amber-900">
         {% for schedule in trials %}
@@ -38,7 +38,7 @@
     </section>
   {% endif %}
 
-  <ul class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+  <ul data-tour-step="2" data-tour-text="Your Subscriptions. Tick Subscription on a Schedule’s form to list it here." class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
     {% for row in page %}
       {% with schedule=row.schedule %}
         <li class="{% if not row.counted %}bg-slate-50/60 {% endif %}px-4 py-3.5">

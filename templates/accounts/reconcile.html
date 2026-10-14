@@ -14,10 +14,11 @@
       <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Reconcile {{ account.name }}</h1>
       <p class="truncate text-sm text-slate-500">{{ kind.label }} Account</p>
     </div>
+    {% include "help/_button.html" with area="accounts" title="Accounts and Reconciliation" tour="reconcile" %}
   </div>
 
   {% if difference %}
-    <section class="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-labelledby="difference-title">
+    <section data-tour-step="1" data-tour-text="How far Velora’s Balance is from your bank’s." class="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-labelledby="difference-title">
       <h2 id="difference-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Not reconciled</h2>
       <dl class="mt-3 space-y-2.5 text-sm">
         <div class="flex justify-between gap-3"><dt class="text-slate-500">Velora's {% if account.reconciles_cash %}Cash{% else %}Balance{% endif %}</dt> <dd class="text-right font-medium tabular-nums">{% balance velora_balance owes=account.owes %}</dd></div>
@@ -27,11 +28,11 @@
   {% endif %}
 
   <section class="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Reconcile">
-    {% include "accounts/_reconcile_form.html" %}
+    {% include "accounts/_reconcile_form.html" with tour=True %}
   </section>
 
   {% if difference %}
-    <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="since-title">
+    <section data-tour-step="4" data-tour-text="The Transactions since the last match, to help you find what is missing or wrong." class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="since-title">
       <h2 id="since-title" class="px-4 pt-4 font-semibold md:px-5">Since {% if previous %}the Reconciliation on {{ previous.date|date:"j M Y" }}{% else %}the Opening Balance on {{ account.opening_balance_date|date:"j M Y" }}{% endif %}</h2>
       <ul class="mt-2 divide-y divide-slate-100">
         {% for row in rows %}

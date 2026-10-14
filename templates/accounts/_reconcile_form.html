@@ -1,10 +1,10 @@
 <p class="mt-1 text-sm text-slate-500">{% if account.reconciles_cash %}Enter the Cash your broker shows for a day.{% else %}Enter the balance your {% if account.owes %}card issuer or lender{% else %}bank{% endif %} shows for a day.{% endif %}</p>
-<form method="post" action="{% url 'account_reconcile' account.kind account.pk %}" class="mt-3 space-y-3">
+<form{% if tour %} data-tour-step="2" data-tour-text="Enter a date and the Balance your bank showed that day."{% endif %} method="post" action="{% url 'account_reconcile' account.kind account.pk %}" class="mt-3 space-y-3">
   {% csrf_token %}
   {% for error in form.non_field_errors %}
     <p role="alert" class="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200">{% include "shell/icon.html" with name="alert" class="mt-0.5 size-4" %}<span>{{ error }}</span></p>
   {% endfor %}
   {% include "partials/field.html" with field=form.date %}
   {% include "partials/field.html" with field=form.balance %}
-  <button type="submit" class="btn-primary w-full py-2 text-sm">Reconcile</button>
+  <button{% if tour %} data-tour-step="3" data-tour-text="Velora records a Reconciliation only if its own Balance matches. If not, it shows how far off it is and the Transactions to check."{% endif %} type="submit" class="btn-primary w-full py-2 text-sm">Reconcile</button>
 </form>

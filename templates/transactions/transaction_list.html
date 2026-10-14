@@ -23,10 +23,10 @@
           <h1 class="text-lg font-semibold tracking-tight">Transactions <span class="ml-1 text-sm font-normal text-slate-400 tabular-nums">{{ page.paginator.count }}</span></h1>
           <div class="flex gap-1">
             {% if not user.privacy_mode %}<a href="{% url 'transaction_export' %}{{ export_query }}" hx-boost="false" download class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Export CSV" title="Export CSV">{% include "shell/icon.html" with name="download" class="size-4" %}</a>{% endif %}
-            <a href="{% url 'transaction_create' %}" class="rounded-lg bg-slate-900 p-2 text-white hover:bg-slate-700" aria-label="New Transaction" title="New Transaction">{% include "shell/icon.html" with name="plus" class="size-4" %}</a>
+            <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}" class="rounded-lg bg-slate-900 p-2 text-white hover:bg-slate-700" aria-label="New Transaction" title="New Transaction">{% include "shell/icon.html" with name="plus" class="size-4" %}</a>
           </div>
         </div>
-        <form method="get" action="{% url 'transaction_list' %}" class="flex gap-2">
+        <form data-tour-step="1" data-tour-text="Search your Transactions, or open Filters to narrow the list." method="get" action="{% url 'transaction_list' %}" class="flex gap-2">
           {% for field in filters %}{% if field.name != "q" and field.value %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}{% endfor %}
           <label class="relative min-w-0 flex-1">
             <span class="sr-only">{{ filters.q.label }}</span>
@@ -37,8 +37,8 @@
             {% include "shell/icon.html" with name="sliders" class="size-4" %}
             {% if filters.narrowing %}<span class="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-slate-900 text-[10px] font-semibold text-white">{{ filters.narrowing }}</span>{% endif %}
           </button>
-          <a href="{% url 'transaction_create' %}" class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white active:bg-slate-700 md:hidden" aria-label="New Transaction">{% include "shell/icon.html" with name="plus" class="size-5" %}</a>
-          {% include "help/_button.html" with area="transactions" title="Transactions" %}
+          <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}" class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white active:bg-slate-700 md:hidden" aria-label="New Transaction">{% include "shell/icon.html" with name="plus" class="size-5" %}</a>
+          {% include "help/_button.html" with area="transactions" title="Transactions" tour="transactions" %}
         </form>
         {% if filters.errors %}
           <p role="alert" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">A filter was invalid and ignored. <button type="button" data-dialog-open="transaction-filters" class="font-medium underline">Review filters</button></p>
@@ -59,7 +59,7 @@
       </div>
 
       {% comment %}hx-sync: selecting a row aborts the last row's fetch, so a slow response can't replace a newer one.{% endcomment %}
-      <ul hx-sync="this:replace" class="-mx-4 divide-y divide-slate-100 bg-white md:mx-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
+      <ul data-tour-step="2" data-tour-text="Every Transaction, newest first. Tap one to see it in full." hx-sync="this:replace" class="-mx-4 divide-y divide-slate-100 bg-white md:mx-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
         {% for transaction in page %}
           <li>
             <a href="{% url 'transaction_detail' transaction.pk %}?next={{ here|urlencode }}" hx-boost="false" data-transaction="{{ transaction.pk }}" data-dialog-open="transaction-sheet" aria-controls="transaction-pane" {% if forloop.first %}aria-current="true"{% endif %} class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-hidden active:bg-slate-100 md:hover:bg-slate-50 md:focus-visible:bg-slate-50 lg:border-l-2 lg:border-transparent lg:aria-[current=true]:border-slate-900 lg:aria-[current=true]:bg-slate-100">
@@ -105,7 +105,7 @@
       {% endif %}
     </section>
 
-    <section id="transaction-pane" data-transaction-pane class="hidden min-h-0 overflow-y-auto overscroll-contain transition-opacity data-loading:opacity-50 lg:block" aria-label="Selected Transaction">
+    <section data-tour-step="4" data-tour-text="The Transaction you picked, shown in full." id="transaction-pane" data-transaction-pane class="hidden min-h-0 overflow-y-auto overscroll-contain transition-opacity data-loading:opacity-50 lg:block" aria-label="Selected Transaction">
       {% with transaction=page.0 %}
         {% if transaction %}
           {% include "transactions/_transaction_panel.html" %}

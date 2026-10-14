@@ -11,11 +11,11 @@
 {% block main %}
   <div class="flex items-center justify-between gap-3">
     <h1 class="text-2xl font-bold tracking-tight">Budgets</h1>
-    {% include "help/_button.html" with area="budgets" title="Budgets" %}
+    {% include "help/_button.html" with area="budgets" title="Budgets" tour="budgets" %}
   </div>
 
   <div class="mt-4 flex flex-col gap-4 lg:grid lg:grid-cols-[24rem_minmax(0,1fr)] lg:items-start lg:gap-6">
-    <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6 lg:sticky lg:top-0" aria-labelledby="month-title">
+    <section data-tour-step="1" data-tour-text="The month at a glance: your Overall Budget, what’s Spent and Expected, and what’s Unbudgeted." class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6 lg:sticky lg:top-0" aria-labelledby="month-title">
       <div class="flex items-center justify-between gap-3">
         <nav class="-ml-2 flex items-center gap-0.5" aria-label="Month">
           <a href="{% url 'budget_list' %}?month={{ previous|date:'Y-m' }}" class="flex size-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="{{ previous|date:'F Y' }}">{% include "shell/icon.html" with name="chevron-left" class="size-4" %}</a>
@@ -53,7 +53,7 @@
       {% include "budgets/_note.html" %}
     </section>
 
-    <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="budgets-title">
+    <section data-tour-step="2" data-tour-text="A Budget for each Expense Account. Type an amount and it saves as you go." class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="budgets-title">
       <div class="px-4 pt-4 md:px-5">
         <h2 id="budgets-title" class="font-semibold">By Expense Account</h2>
         {% if editable %}
@@ -75,7 +75,7 @@
       {% endif %}
 
       {% if to_add %}
-        <details class="group/add border-t border-slate-100"{% if not rows %} open{% endif %}>
+        <details data-tour-step="3" data-tour-text="Give an Expense Account a Budget from here." class="group/add border-t border-slate-100"{% if not rows %} open{% endif %}>
           <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 hover:bg-slate-50 md:px-5 [&::-webkit-details-marker]:hidden">
             <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">{% include "shell/icon.html" with name="plus" class="size-4" %}</span>
             <span class="min-w-0 flex-1">

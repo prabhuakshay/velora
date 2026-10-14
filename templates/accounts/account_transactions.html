@@ -13,16 +13,16 @@
       <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{{ account.name }}</h1>
       <p class="truncate text-sm text-slate-500">{% if account.is_investment %}Investment Account · {{ account.get_investment_mode_display }}{% else %}{{ kind.label }} Account{% endif %}{% if account.is_card %} · Credit card{% endif %}</p>
     </div>
-    {% if account.is_card %}{% include "help/_button.html" with area="cards" title="Cards" %}{% elif account.is_investment %}{% include "help/_button.html" with area="investments" title="Investments" %}{% else %}{% include "help/_button.html" with area="accounts" title="Accounts and Reconciliation" %}{% endif %}
+    {% if account.is_card %}{% include "help/_button.html" with area="cards" title="Cards" tour="card" %}{% elif account.is_investment %}{% include "help/_button.html" with area="investments" title="Investments" tour="investment-account" %}{% else %}{% include "help/_button.html" with area="accounts" title="Accounts and Reconciliation" tour="account" %}{% endif %}
     <a href="{% url 'account_edit' kind account.pk %}" class="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
     <button type="button" data-dialog-open="account-actions" class="-mr-2 flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="More actions" title="More actions">{% include "shell/icon.html" with name="dots" class="size-5" stroke="stroke-[3]" %}</button>
   </div>
 
-  {% if tabs %}<div class="mt-4">{% include "partials/tabs.html" with label="Account views" %}</div>{% endif %}
+  {% if tabs %}<div data-tour-step="0" data-tour-text="Open Holdings to see the units this Account holds." class="mt-4">{% include "partials/tabs.html" with label="Account views" %}</div>{% endif %}
 
   <div class="mt-4 md:mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
     <div class="space-y-4">
-      <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
+      <section data-tour-step="1" data-tour-text="{% if balances %}This Account’s Balance now, and the Opening Balance it started from.{% else %}What was spent or earned here this month, and last month.{% endif %}" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
         {% if account.hidden or balances and not account.include_in_net_worth or balances and account.past_threshold %}
           <div class="mb-4 flex flex-wrap gap-1.5">
             {% if account.hidden %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Hidden</span>{% endif %}
@@ -116,7 +116,7 @@
         {% endif %}
       </section>
 
-      <section class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="transactions-title">
+      <section data-tour-step="2" data-tour-text="Every Transaction on this Account. Tap one to edit it." class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="transactions-title">
         <div class="flex items-baseline justify-between gap-3 px-4 pt-4 md:px-5">
           <h2 id="transactions-title" class="font-semibold">Transactions{% if count %} <span class="text-sm font-normal text-slate-400 tabular-nums">{{ count }}</span>{% endif %}</h2>
           {% if balances and rows %}<span class="text-xs text-slate-500">Balance after each</span>{% endif %}
@@ -168,7 +168,7 @@
     </div>
 
     <aside class="mt-4 space-y-4 lg:sticky lg:top-0 lg:mt-0">
-      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="details-title">
+      <section data-tour-step="3" data-tour-text="Its settings, such as whether it counts in Net Worth and when to warn you." class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="details-title">
         <h2 id="details-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Details</h2>
         <dl class="mt-3 space-y-2.5 text-sm">
           <div class="flex justify-between gap-3"><dt class="text-slate-500">Kind</dt> <dd class="text-right font-medium">{{ kind.label }}</dd></div>
@@ -188,7 +188,7 @@
       </section>
 
       {% if reconcile_form %}
-        <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="reconcile-title">
+        <section data-tour-step="4" data-tour-text="Check this Account against your bank: enter a date and the Balance the bank showed." class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5" aria-labelledby="reconcile-title">
           <h2 id="reconcile-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Reconcile</h2>
           {% include "accounts/_reconcile_form.html" with form=reconcile_form %}
         </section>
@@ -230,7 +230,7 @@
       {% endif %}
 
       {% if statements %}
-        <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="statements-title">
+        <section data-tour-step="5" data-tour-text="Each Statement with its Statement Amount and whether it’s Paid." class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="statements-title">
           <h2 id="statements-title" class="px-4 pt-4 text-xs font-semibold tracking-wide text-slate-500 uppercase md:px-5">Statements</h2>
           <ul class="mt-2 divide-y divide-slate-100">
             {% for statement in statements %}

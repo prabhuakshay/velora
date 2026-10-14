@@ -12,11 +12,12 @@
       <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{{ account.name }}</h1>
       <p class="truncate text-sm text-slate-500">Investment Account · {{ account.get_investment_mode_display }}</p>
     </div>
+    {% include "help/_button.html" with area="investments" title="Investments" tour="holdings" %}
   </div>
 
-  <div class="mt-4">{% include "partials/tabs.html" with label="Account views" %}</div>
+  <div data-tour-step="1" data-tour-text="Go between this Account’s Transactions and its Holdings." class="mt-4">{% include "partials/tabs.html" with label="Account views" %}</div>
 
-  <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
+  <section data-tour-step="2" data-tour-text="This Investment Account’s Market Value now, with its Cash and its Unrealized and Realized Gain." class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Summary">
     <p class="text-sm text-slate-500">Market Value</p>
     <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color value.market_value %}">{% amount value.market_value %}</p>
     <dl class="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
@@ -27,11 +28,11 @@
       <div><dt class="text-slate-500">XIRR</dt> <dd class="mt-0.5 font-semibold tabular-nums">{% signed_percent value.xirr %}</dd></div>
     </dl>
     <div class="mt-5 flex flex-wrap gap-2">
-      <a href="{% url 'investment_event_create' account.pk %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Record an Investment Event</a>
+      <a data-tour-step="3" data-tour-text="Record a Buy, Sell, Dividend or other Investment Event." href="{% url 'investment_event_create' account.pk %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Record an Investment Event</a>
     </div>
   </section>
 
-  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="holdings-title">
+  <section data-tour-step="4" data-tour-text="Each Instrument held, with its units, Cost Basis, Market Value and Unrealized Gain." class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="holdings-title">
     <h2 id="holdings-title" class="px-4 pt-4 font-semibold md:px-5">Holdings</h2>
     {% if value.holdings %}
       <div class="mt-2 overflow-x-auto">
@@ -71,7 +72,7 @@
     {% endif %}
   </section>
 
-  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="events-title">
+  <section data-tour-step="5" data-tour-text="Every Investment Event. The Holdings are worked out from these." class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="events-title">
     <h2 id="events-title" class="px-4 pt-4 font-semibold md:px-5">Investment Events</h2>
     <ul class="mt-2 divide-y divide-slate-100">
       {% for event in events %}

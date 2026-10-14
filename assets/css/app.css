@@ -2,6 +2,7 @@
 
 /* source(none) disables auto-detection so only the @source paths below are scanned for classes. */
 @import "tailwindcss" source(none);
+@import "driver.js/dist/driver.css";
 
 @source "../../templates";
 @source "../../apps";
@@ -29,6 +30,45 @@
  */
 html:has(#main) {
   overflow: hidden;
+}
+
+/* Unlayered, like driver.css, so these win over its defaults. */
+.driver-popover.tour-card {
+  @apply max-w-[min(20rem,calc(100vw-2rem))] min-w-0 rounded-2xl p-4 font-sans text-slate-900 shadow-lg ring-1 shadow-slate-900/10 ring-slate-200;
+
+  & * {
+    font-family: inherit;
+  }
+
+  & .driver-popover-description {
+    @apply pr-6 text-sm/6 text-slate-700;
+
+    & a {
+      @apply mt-2 block font-medium text-slate-900 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-900;
+    }
+  }
+
+  & .driver-popover-close-btn {
+    @apply top-1 right-1 size-8 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-900;
+  }
+
+  & .driver-popover-progress-text {
+    @apply text-xs text-slate-500 tabular-nums;
+  }
+
+  & .driver-popover-footer {
+    @apply mt-4;
+  }
+
+  & .driver-popover-footer-btn {
+    @apply rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-slate-300 hover:bg-slate-50;
+    border: 0;
+    text-shadow: none;
+  }
+
+  & .driver-popover-next-btn {
+    @apply bg-slate-900 text-white ring-slate-900 hover:bg-slate-700;
+  }
 }
 
 @layer components {

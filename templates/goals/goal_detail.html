@@ -12,18 +12,19 @@
         <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{{ goal.name }}</h1>
         <p class="truncate text-sm text-slate-500">Target {% amount goal.target_amount %} in today's money by {{ goal.target_date|date:"j M Y" }}</p>
       </div>
+      {% include "help/_button.html" with area="goals" title="Goals" tour="goal" %}
       <a href="{% url 'goal_edit' goal.pk %}" class="flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Edit Goal">{% include "shell/icon.html" with name="pencil" class="size-5" %}</a>
       <a href="{% url 'goal_delete' goal.pk %}" class="flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-red-700" aria-label="Delete Goal">{% include "shell/icon.html" with name="trash" class="size-5" %}</a>
     </div>
 
-    <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Goal Progress">
+    <section data-tour-step="1" data-tour-text="What your Allocations count toward this Goal now." class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Goal Progress">
       <p class="text-sm text-slate-500">Goal Progress</p>
       <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{% amount summary.progress %}</p>
       <p class="mt-1 text-sm text-slate-500">of {% amount goal.target_amount %} · {% percent summary.percent_done %}</p>
       <div class="mt-4">{% include "goals/_bar.html" %}</div>
     </section>
 
-    <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="projection-title">
+    <section data-tour-step="2" data-tour-text="What that is expected to grow to by the target date, and what to invest each month to get there." class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="projection-title">
       <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-5 pt-4 md:px-6">
         <h2 id="projection-title" class="font-semibold">Projection</h2>
         <p class="text-sm font-medium">{% include "goals/_status.html" %}</p>
@@ -60,7 +61,7 @@
       </div>
     </section>
 
-    <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="allocations-title">
+    <section data-tour-step="3" data-tour-text="Count a share of an Asset Account or a Holding toward this Goal." class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="allocations-title">
       <div class="flex items-center justify-between gap-3 px-4 pt-4 md:px-5">
         <h2 id="allocations-title" class="font-semibold">Allocations</h2>
         <a href="{% url 'allocation_create' goal.pk %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}Allocate</a>

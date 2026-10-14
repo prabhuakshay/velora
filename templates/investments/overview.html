@@ -8,18 +8,18 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <h1 class="text-xl font-semibold tracking-tight md:text-2xl">Investments</h1>
     <div class="flex flex-wrap items-center gap-3">
-      <form method="post" action="{% url 'investments_refresh_prices' %}">
+      <form data-tour-step="3" data-tour-text="Fetch the latest Prices for your Instruments." method="post" action="{% url 'investments_refresh_prices' %}">
         {% csrf_token %}
         <button type="submit" class="btn-secondary py-2 text-sm">Refresh Prices</button>
       </form>
-      <a href="{% url 'investment_import' %}" class="btn-secondary py-2 text-sm">Import or export</a>
-      {% include "help/_button.html" with area="investments" title="Investments" %}
+      <a data-tour-step="4" data-tour-text="Bring in Investment Events from a spreadsheet, or export them." href="{% url 'investment_import' %}" class="btn-secondary py-2 text-sm">Import or export</a>
+      {% include "help/_button.html" with area="investments" title="Investments" tour="investments" %}
     </div>
   </div>
   <p class="mt-1 text-sm text-slate-500">{% if prices_as_of %}Prices as of {{ prices_as_of|date:"j M Y" }}{% else %}No Prices yet{% endif %}</p>
 
   {% if accounts %}
-    <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-label="Totals">
+    <section data-tour-step="1" data-tour-text="The Market Value of all your Investment Accounts, what you invested, and your Unrealized and Realized Gain." class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-label="Totals">
       <p class="text-sm text-slate-500">Market Value</p>
       <p class="mt-1 text-4xl font-semibold tracking-tight tabular-nums {% amount_color totals.market_value %}">{% amount totals.market_value %}</p>
       <dl class="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
@@ -70,7 +70,7 @@
     {% endif %}
   {% endif %}
 
-  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="accounts-title">
+  <section data-tour-step="2" data-tour-text="Your Investment Accounts. Tap one to see its Holdings and record a Buy or Sell." class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="accounts-title">
     <h2 id="accounts-title" class="px-4 pt-4 font-semibold md:px-5">Investment Accounts</h2>
     <ul class="mt-2 divide-y divide-slate-100">
       {% for account, value in accounts %}
@@ -87,7 +87,7 @@
   </section>
 
   {% if holdings %}
-    <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="held-title">
+    <section data-tour-step="5" data-tour-text="Every Holding across your Investment Accounts. Tap a column to sort by it." class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="held-title">
       <h2 id="held-title" class="px-4 pt-4 font-semibold md:px-5">Holdings</h2>
       <div class="mt-2 overflow-x-auto">
         <table class="w-full text-sm">

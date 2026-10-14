@@ -9,9 +9,9 @@
       <h1 class="text-2xl font-bold tracking-tight">Good {% if hour < 12 %}morning{% elif hour < 17 %}afternoon{% else %}evening{% endif %}{% if user.full_name %}, {{ user.full_name }}{% endif %}</h1>
     </div>
     <div class="flex items-center gap-2">
-      <a href="{% url 'transaction_create' %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}<span>New<span class="hidden sm:inline"> Transaction</span></span></a>
-      <a href="{% url 'draft_list' %}" class="btn-secondary relative flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="inbox" class="size-4" %}Drafts{% with count=draft_count %}{% if count %} <span class="rounded-full bg-slate-900 px-1.5 text-xs text-white tabular-nums">{{ count }}</span>{% endif %}{% endwith %}</a>
-      {% include "help/_button.html" with title="Getting started" %}
+      <a data-tour-step="3" data-tour-text="Record a Transaction whenever money comes in or goes out." href="{% url 'transaction_create' %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}<span>New<span class="hidden sm:inline"> Transaction</span></span></a>
+      <a data-tour-step="4" data-tour-text="Drafts wait here for you to check and post them. The number shows how many are waiting." href="{% url 'draft_list' %}" class="btn-secondary relative flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="inbox" class="size-4" %}Drafts{% with count=draft_count %}{% if count %} <span class="rounded-full bg-slate-900 px-1.5 text-xs text-white tabular-nums">{{ count }}</span>{% endif %}{% endwith %}</a>
+      {% include "help/_button.html" with title="Getting started" tour="home" %}
     </div>
   </div>
 
@@ -29,7 +29,7 @@
   {% endcomment %}
   <div class="mt-4 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
     <div class="contents lg:block lg:space-y-4">
-      <div class="order-first">{% include "home/_net_worth.html" %}</div>
+      <div data-tour-step="1" data-tour-text="Net Worth is what your Asset Accounts hold less what you owe on Liability Accounts, and how it has changed." class="order-first">{% include "home/_net_worth.html" %}</div>
       {% include "home/_this_month.html" %}
       {% include "home/_budgets.html" %}
       {% include "home/_cash_flow.html" %}
@@ -37,7 +37,7 @@
       {% include "home/_recent.html" %}
     </div>
     <aside class="contents lg:block lg:space-y-4">
-      <div class="order-first">{% include "digest/_upcoming_panel.html" with sections=upcoming_sections %}</div>
+      <div data-tour-step="2" data-tour-text="Upcoming lists what needs you soon, such as Schedules coming up and card Statements to pay." class="order-first">{% include "digest/_upcoming_panel.html" with sections=upcoming_sections %}</div>
       {% include "home/_outlook.html" %}
       {% include "home/_cards.html" %}
       {% include "home/_subscriptions.html" %}

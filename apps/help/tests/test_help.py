@@ -1,11 +1,10 @@
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from django.conf import settings
 from django.urls import reverse
 
+from apps.help.tests.conftest import avoided_terms_in
 from apps.help.views import AREAS
 
 if TYPE_CHECKING:
@@ -80,34 +79,8 @@ def test_area_page_answers_what_happens_if(signed_in: Client, slug: str) -> None
     assert "What happens if" in text or "What happens to" in text
 
 
-# Labels Velora itself shows, which Help quotes so the user can find them.
-UI_LABELS = {"total", "confirm", "delete", "dismiss", "note", "overdue", "principal"}
-
-
-def _avoided_terms() -> list[str]:
-    """Avoided terms, less those the glossary's own definitions use as plain words."""
-    glossary = Path(settings.BASE_DIR, "GLOSSARY.md").read_text()
-    definitions = re.sub(r"^_Avoid_: .+$", "", glossary, flags=re.MULTILINE)
-    terms = []
-    for line in re.findall(r"^_Avoid_: (.+)$", glossary, re.MULTILINE):
-        # "Split (that is part of a Transaction)" avoids a sense, not a word.
-        terms += [t.strip() for t in line.split(",") if "(" not in t]
-    return [
-        term
-        for term in terms
-        if term.lower() not in UI_LABELS
-        and not re.search(rf"\b{re.escape(term)}\b", definitions, re.IGNORECASE)
-    ]
-
-
 @pytest.mark.parametrize("url", HELP_URLS)
 def test_no_page_uses_an_avoided_term(signed_in: Client, url: str) -> None:
     text = _text(signed_in.get(url).content.decode())
 
-    used = {
-        term
-        for term in _avoided_terms()
-        # Whole words only, so "cap" doesn't catch a flexi-cap fund.
-        if re.search(rf"(?<![\w-]){re.escape(term)}s?(?![\w-])", text, re.IGNORECASE)
-    }
-    assert used == set()
+    assert avoided_terms_in(text) == set()
