@@ -1,21 +1,23 @@
+{% load amounts %}
 <div id="price-status"{% if price_polling %} hx-get="{% url 'investments_price_status' %}" hx-trigger="every 2s" hx-target="this" hx-swap="outerHTML transition:false"{% endif %}>
-  {% if refresh_waiting %}<p class="mt-1 text-sm text-slate-500">Refresh waiting to start</p>{% endif %}
-<ul class="mt-1 space-y-0.5 text-sm text-slate-500" aria-label="Price Sources">
-  {% for status in price_statuses %}
+<ul class="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm text-slate-500" aria-label="Price Sources">
+  {% for status in price_statuses %}{% if status.visible %}
     <li data-source="{{ status.source }}">
       <span class="font-medium text-slate-700">{{ status.source }}</span>
-      {% if status.prices_for %}Prices for {{ status.prices_for|date:"j M Y" }}{% else %}No Prices yet{% endif %}
+      · {% if status.prices_for %}Prices for {{ status.prices_for|date:"j M" }}{% else %}No Prices yet{% endif %}
       {% if status.fetching %}
-        · fetching{% if status.latest.outcome == status.latest.Outcome.RUNNING %} since {{ status.latest.started_at|date:"j M Y, H:i" }}{% endif %}
-      {% elif not status.shown %}
-        · not fetched yet
+        · checking…
+      {% elif status.failed %}
+        · <span class="text-red-700">last check failed</span>
       {% else %}
-        {% include "investments/_price_fetch_result.html" with fetch=status.shown %}
-        {% if status.backfill %}{% include "investments/_price_fetch_result.html" with fetch=status.backfill %}{% endif %}
+        {% if status.not_out_yet %}· {{ status.not_out_yet|date:"j M" }} not out yet{% endif %}
+        {% if status.shown %}· checked {% if status.shown.finished_at|date:"Y-m-d" == today|date:"Y-m-d" %}{{ status.shown.finished_at|date:"H:i" }}{% else %}{{ status.shown.finished_at|date:"j M, H:i" }}{% endif %}{% endif %}
+        {% if status.new_prices %}· {% count status.new_prices %} new{% endif %}
       {% endif %}
     </li>
-  {% endfor %}
+  {% endif %}{% endfor %}
+  {% if not price_shown %}<li>No Prices yet</li>{% endif %}
+  <li><a href="{% url 'price_fetches' %}" class="underline hover:text-slate-900">Price Fetches</a></li>
 </ul>
-<p class="mt-0.5 text-sm"><a href="{% url 'price_fetches' %}" class="text-slate-500 underline hover:text-slate-900">All Price Fetches</a></p>
   {% include "investments/_price_fetch_banner.html" %}
 </div>
