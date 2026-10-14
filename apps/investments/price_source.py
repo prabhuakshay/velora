@@ -15,6 +15,7 @@ from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from http import HTTPStatus
 
+from apps.investments.isin import is_valid_isin
 from apps.investments.models import Instrument
 
 AMFI_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
@@ -70,7 +71,7 @@ def _price(text: str) -> Decimal | None:
 
 def _isin(text: str) -> str | None:
     text = text.strip().upper()
-    return text if len(text) == 12 and text.isalnum() else None  # noqa: PLR2004
+    return text if is_valid_isin(text) else None
 
 
 def _amfi_rows(isins: list[str], name: str, nav: str, when: str) -> list[PriceRow]:

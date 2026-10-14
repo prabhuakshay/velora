@@ -128,6 +128,15 @@ def test_nse_gives_a_sovereign_gold_bond_as_a_bond() -> None:
     )
 
 
+def test_nse_skips_a_row_whose_isin_fails_the_checksum() -> None:
+    bhavcopy = (
+        BHAVCOPY + "2026-10-12,2026-10-12,CM,NSE,STK,5,INE002A01019,TYPO,EQ,"
+        "TYPO LTD,10.00\n"
+    )
+
+    assert "INE002A01019" not in {r.isin for r in parse_nse(bhavcopy, ETF_LIST)}
+
+
 def _not_found(day: date) -> urllib.error.HTTPError:
     return urllib.error.HTTPError(
         f"bhavcopy {day}", 404, "Not Found", Message(), io.BytesIO()

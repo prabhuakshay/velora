@@ -140,6 +140,25 @@ def test_a_merger_can_turn_units_into_an_instrument_without_an_isin(
     assert "Gold 22K (per gram) 10 ₹60,000.00" in holdings_text(signed_in, broker)
 
 
+def test_a_merger_into_a_new_name_differing_only_in_case_is_refused(
+    signed_in: Client,
+) -> None:
+    broker = make_broker(opening="100000")
+
+    response = record_event(
+        signed_in,
+        broker,
+        "merger",
+        "",
+        expect=200,
+        instrument_name="Silver bar",
+        new_instrument_name="silver BAR",
+    )
+
+    assert "Pick a different Instrument to merge into." in response.content.decode()
+    assert not Instrument.objects.exists()
+
+
 def test_editing_an_event_without_an_isin_starts_from_the_names(
     signed_in: Client,
 ) -> None:

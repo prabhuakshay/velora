@@ -235,8 +235,7 @@ def _event_form(
     form = InvestmentEventForm(request.POST or None, instance=event, account=account)
     if form.is_valid():
         saved = form.save()
-        if saved.kind == InvestmentEvent.Kind.BUY:
-            queue_backfill()
+        queue_backfill()
         messages.success(request, f"Saved the {saved.get_kind_display()}.")
         return redirect("account_holdings", pk=account.pk)
     return render(
