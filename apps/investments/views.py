@@ -1,5 +1,6 @@
 """Instrument pages, Investment Account Holdings and their Investment Events."""
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
@@ -14,7 +15,7 @@ from apps.home.charts import line
 from apps.investments.fetches import statuses
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
 from apps.investments.history import last_each_month, value_chart, value_history
-from apps.investments.models import Instrument, InvestmentEvent
+from apps.investments.models import Instrument, InvestmentEvent, Price, PriceFetch
 from apps.investments.overselling import oversell_refusal
 from apps.investments.portfolio import COLUMNS, Column, portfolio, sorting
 from apps.investments.tasks import queue_backfill, queue_refresh
@@ -31,13 +32,48 @@ if TYPE_CHECKING:
     from apps.users.models import User
 
 
+PRICE_ROWS = 30
+
+
+@dataclass(frozen=True)
+class PriceRow:
+    """One row of an Instrument's Price table: a Price and its change."""
+
+    price: Price
+    change: Decimal | None
+
+
+def _price_rows(instrument: Instrument, shown: int) -> tuple[list[PriceRow], bool]:
+    """The newest Prices, each with its change from the one before, and if more."""
+    # One extra Price gives the last row its change and says there are more.
+    prices = list(
+        instrument.prices.select_related("fetch").order_by("-date")[: shown + 1]
+    )
+    rows = [
+        PriceRow(price, price.price - before.price if before else None)
+        for price, before in zip(prices[:shown], [*prices[1:], None], strict=False)
+    ]
+    return rows, len(prices) > shown
+
+
+def _shown(request: HttpRequest) -> int:
+    try:
+        return max(PRICE_ROWS, int(request.GET.get("prices", PRICE_ROWS)))
+    except ValueError:
+        return PRICE_ROWS
+
+
 def _page(
     request: HttpRequest, instrument: Instrument, form: ManualPriceForm | None
 ) -> HttpResponseBase:
     latest = instrument.latest_price()
     history: list[tuple[date, Decimal]] = []
+    rows: list[PriceRow] = []
+    more = False
+    shown = _shown(request)
     if not cast("User", request.user).privacy_mode:
         history = list(instrument.prices.order_by("date").values_list("date", "price"))
+        rows, more = _price_rows(instrument, shown)
     return render(
         request,
         "investments/instrument_detail.html",
@@ -49,6 +85,11 @@ def _page(
             "chart": line([p for _, p in history]) if len(history) > 1 else None,
             "month_ends": last_each_month(history),
             "chart_prices": [[day.isoformat(), f"{p:.4f}"] for day, p in history],
+            "last_fetch": PriceFetch.objects.filter(
+                source=instrument.price_source, outcome=PriceFetch.Outcome.OK
+            ).first(),
+            "price_rows": rows,
+            "more_prices": shown + PRICE_ROWS if more else None,
         },
     )
 

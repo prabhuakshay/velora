@@ -24,25 +24,34 @@ class PriceFetchError(Exception):
     """Some sources could not be fetched; their last known Prices stay."""
 
 
-def store(rows: list[price_source.PriceRow]) -> int:
+def store(rows: list[price_source.PriceRow], fetch: PriceFetch | None = None) -> int:
     """Create Instruments not seen before and add each row's Price.
 
     An Instrument already known keeps its name and kind, and a day already
-    priced keeps its Price, so running twice adds nothing. Returns how many
-    Prices were added.
+    priced keeps its Price, so running twice adds nothing. Each new Price
+    carries its Instrument's Price Source and the Price Fetch that stored it.
+    Returns how many Prices were added.
     """
     with transaction.atomic():
         Instrument.objects.bulk_create(
             [Instrument(isin=r.isin, name=r.name, kind=r.kind) for r in rows],
             ignore_conflicts=True,
         )
-        ids = dict(
-            Instrument.objects.filter(
+        known = {
+            i.isin: i
+            for i in Instrument.objects.filter(
                 isin__in={r.isin for r in rows}, manual_price=False
-            ).values_list("isin", "pk")
-        )
+            )
+        }
+        ids = {isin: i.pk for isin, i in known.items()}
         new = [
-            Price(instrument_id=ids[r.isin], date=r.date, price=r.price)
+            Price(
+                instrument_id=ids[r.isin],
+                date=r.date,
+                price=r.price,
+                source=known[r.isin].price_source,
+                fetch=fetch,
+            )
             for r in rows
             if r.isin in ids
         ]
@@ -92,7 +101,7 @@ def record(
         price_fetch.outcome = PriceFetch.Outcome.FAILED
         price_fetch.reason = reason(error, source, day_asked)
     else:
-        price_fetch.prices_stored = store(rows)
+        price_fetch.prices_stored = store(rows, price_fetch)
         price_fetch.instruments_priced = len({r.isin for r in rows} & _held_isins())
         price_fetch.day_used = max((r.date for r in rows), default=None)
         price_fetch.outcome = PriceFetch.Outcome.OK
