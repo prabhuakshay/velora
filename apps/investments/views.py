@@ -48,6 +48,7 @@ def _page(
             "form": form,
             "chart": line([p for _, p in history]) if len(history) > 1 else None,
             "month_ends": last_each_month(history),
+            "chart_prices": [[day.isoformat(), f"{p:.4f}"] for day, p in history],
         },
     )
 

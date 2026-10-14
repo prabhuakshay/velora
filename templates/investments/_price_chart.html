@@ -1,19 +1,32 @@
-{% comment %}An Instrument's Price history: the line over every Price, and each month-end's Price for screen readers.{% endcomment %}
+{% comment %}An Instrument's Price history: the line over every Price, and each month-end's Price for screen readers. price_chart.js adds hover and ranges over the embedded Prices.{% endcomment %}
 <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="price-history-title">
   <h2 id="price-history-title" class="text-base font-semibold">Price history</h2>
   {% if user.privacy_mode %}
     <p class="mt-4 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
   {% elif chart %}
     {% with first=month_ends|first last=month_ends|last %}
-      <div class="relative mt-4 h-40">
-        <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
-          <polygon points="{{ chart.area }}" class="fill-slate-100"/>
-          <polyline points="{{ chart.points }}" fill="none" class="stroke-slate-900" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
-        </svg>
-      </div>
-      <div class="mt-2 flex justify-between text-xs text-slate-500">
-        <span>{{ first.0|date:"M Y" }}</span>
-        <span>{{ last.0|date:"j M Y" }}</span>
+      <div data-price-chart data-number-format="{{ user.number_format }}">
+        <div class="mt-3 flex min-h-8 flex-wrap items-center justify-between gap-2">
+          <p class="text-sm text-slate-600 tabular-nums" data-price-chart-readout aria-live="polite"></p>
+          <div class="flex gap-1 rounded-lg bg-slate-100 p-0.5 text-xs" role="group" aria-label="Range" data-price-chart-ranges hidden>
+            <button type="button" data-range="1" aria-pressed="false" class="rounded-md px-2.5 py-1 font-medium text-slate-600 transition-colors hover:text-slate-900 aria-pressed:bg-white aria-pressed:text-slate-900 aria-pressed:shadow-sm">1M</button>
+            <button type="button" data-range="6" aria-pressed="false" class="rounded-md px-2.5 py-1 font-medium text-slate-600 transition-colors hover:text-slate-900 aria-pressed:bg-white aria-pressed:text-slate-900 aria-pressed:shadow-sm">6M</button>
+            <button type="button" data-range="12" aria-pressed="false" class="rounded-md px-2.5 py-1 font-medium text-slate-600 transition-colors hover:text-slate-900 aria-pressed:bg-white aria-pressed:text-slate-900 aria-pressed:shadow-sm">1Y</button>
+            <button type="button" data-range="all" aria-pressed="true" class="rounded-md px-2.5 py-1 font-medium text-slate-600 transition-colors hover:text-slate-900 aria-pressed:bg-white aria-pressed:text-slate-900 aria-pressed:shadow-sm">All</button>
+          </div>
+        </div>
+        <div class="relative mt-2 h-40 touch-pan-y" data-price-chart-plot>
+          <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+            <polygon points="{{ chart.area }}" class="fill-slate-100" data-price-chart-area/>
+            <polyline points="{{ chart.points }}" fill="none" class="stroke-slate-900" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" data-price-chart-line/>
+            <line x1="0" x2="0" y1="0" y2="{{ chart.height }}" class="stroke-slate-400" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden" data-price-chart-cursor/>
+          </svg>
+        </div>
+        <div class="mt-2 flex justify-between text-xs text-slate-500">
+          <span data-price-chart-start>{{ first.0|date:"M Y" }}</span>
+          <span>{{ last.0|date:"j M Y" }}</span>
+        </div>
+        {{ chart_prices|json_script:"price-chart-data" }}
       </div>
     {% endwith %}
     <div class="sr-only"><table>

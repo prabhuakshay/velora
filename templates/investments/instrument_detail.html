@@ -2,6 +2,10 @@
 
 {% block title %}{{ instrument }} · Velora{% endblock %}
 
+{% block scripts %}
+    <script src="{% static 'js/price_chart.js' %}" defer hx-preserve="true"></script>
+{% endblock %}
+
 {% block main_width %}max-w-xl{% endblock %}
 
 {% block main %}

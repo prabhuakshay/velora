@@ -90,6 +90,7 @@ PAGE_SCRIPTS = [
     "list_filter.js",
     "budget_sheet.js",
     "trade_price.js",
+    "price_chart.js",
 ]
 
 
