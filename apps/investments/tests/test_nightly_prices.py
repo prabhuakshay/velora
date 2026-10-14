@@ -47,6 +47,22 @@ def test_the_nightly_job_creates_instruments_with_their_price(
     assert "ETF" in instrument_page(signed_in, "INF204KB14I2")
 
 
+def test_the_nightly_job_creates_and_prices_a_sovereign_gold_bond(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    today = timezone.localdate()
+    fake_prices.nse = [
+        row("IN0020230085", "SGB 2023-24 SR-III", "bond", "6150", today),
+    ]
+
+    run_nightly_prices(today)
+
+    page = instrument_page(signed_in, "IN0020230085")
+    assert "SGB 2023-24 SR-III" in page
+    assert "Bond" in page
+    assert f"₹6,150.0000 on {today:%-d %b %Y}" in page
+
+
 def test_running_twice_on_the_same_day_adds_nothing(
     signed_in: Client, fake_prices: FakePriceSource
 ) -> None:

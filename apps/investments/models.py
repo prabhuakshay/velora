@@ -27,7 +27,7 @@ class PriceSource(models.TextChoices):
 
 
 class Instrument(models.Model):
-    """A mutual fund scheme, stock or ETF, identified by its ISIN.
+    """Something held in units, such as a fund, stock, ETF, gold or a bond.
 
     One with a manual Price is priced by hand; the nightly job leaves it alone.
     """
@@ -36,6 +36,10 @@ class Instrument(models.Model):
         MUTUAL_FUND = "mutual_fund", "Mutual fund"
         STOCK = "stock", "Stock"
         ETF = "etf", "ETF"
+        GOLD = "gold", "Gold"
+        BOND = "bond", "Bond"
+        REIT_INVIT = "reit_invit", "REIT/InvIT"
+        OTHER = "other", "Other"
 
     isin = models.CharField("ISIN", max_length=12, unique=True)
     name = models.CharField(max_length=200)

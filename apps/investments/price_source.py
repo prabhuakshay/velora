@@ -32,6 +32,8 @@ TIMEOUT_SECONDS = 60
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Velora"}
 # Series of ordinary shares; ETFs are listed under EQ too.
 EQUITY_SERIES = {"EQ", "BE"}
+# Sovereign Gold Bonds.
+BOND_SERIES = "GB"
 PLACES = Decimal("0.0001")
 # Covers a weekend plus a long run of market holidays.
 NSE_LOOKBACK_DAYS = 7
@@ -117,7 +119,7 @@ def parse_amfi_history(text: str) -> list[PriceRow]:
 
 
 def parse_nse(bhavcopy: str, etf_list: str) -> list[PriceRow]:
-    """Stock and ETF rows from NSE's equity bhavcopy and its ETF list."""
+    """Stock, ETF and SGB rows from NSE's equity bhavcopy and its ETF list."""
     etfs = {
         isin
         for line in csv.DictReader(io.StringIO(etf_list))
@@ -129,13 +131,19 @@ def parse_nse(bhavcopy: str, etf_list: str) -> list[PriceRow]:
         price = _price(_field(line, "ClsPric") or "")
         if isin is None or price is None:
             continue
-        if isin not in etfs and (_field(line, "SctySrs") or "") not in EQUITY_SERIES:
+        series = _field(line, "SctySrs") or ""
+        if isin not in etfs and series not in EQUITY_SERIES | {BOND_SERIES}:
             continue
         try:
             day = date.fromisoformat(_field(line, "TradDt") or "")
         except ValueError:
             continue
-        kind = Instrument.Kind.ETF if isin in etfs else Instrument.Kind.STOCK
+        if isin in etfs:
+            kind = Instrument.Kind.ETF
+        elif series == BOND_SERIES:
+            kind = Instrument.Kind.BOND
+        else:
+            kind = Instrument.Kind.STOCK
         name = _field(line, "FinInstrmNm") or _field(line, "TckrSymb") or isin
         rows.append(PriceRow(isin, name, kind, price, day))
     return rows
@@ -170,7 +178,7 @@ def _etf_list() -> str:
 
 
 def nse_rows(day: date) -> list[PriceRow]:
-    """Every NSE stock's and ETF's closing price on the latest trading day up to day.
+    """Every NSE stock, ETF and SGB's closing price on the latest trading day up to day.
 
     NSE publishes a day's bhavcopy only after the market closes, and none on
     holidays, so the latest earlier one stands in until then. Raises
@@ -188,7 +196,7 @@ def nse_rows(day: date) -> list[PriceRow]:
 
 
 def nse_history_rows(start: date, end: date) -> list[PriceRow]:
-    """Every NSE stock's and ETF's closing price on each weekday, start to end.
+    """Every NSE stock, ETF and SGB's closing price on each weekday, start to end.
 
     Days with no bhavcopy in NSE's archive, such as holidays, are skipped.
     """

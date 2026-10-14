@@ -159,6 +159,38 @@ def test_the_overview_splits_the_totals_by_mutual_funds_stocks_and_etfs(
     ) in text
 
 
+def test_the_overview_groups_gold_bonds_reits_and_other_holdings(
+    signed_in: Client,
+) -> None:
+    zerodha = make_broker("Zerodha", opening="10000")
+    for isin, name, kind in (
+        ("INE000000101", "Gold 24K (per gram)", "gold"),
+        ("IN0020230085", "SGB 2023-24 SR-III", "bond"),
+        ("INE000000103", "Embassy Office Parks REIT", "reit_invit"),
+        ("INE000000104", "Unlisted Co", "other"),
+    ):
+        record_event(
+            signed_in,
+            zerodha,
+            "buy",
+            isin,
+            units="1",
+            amount="100",
+            instrument_name=name,
+            instrument_kind=kind,
+        )
+
+    text = page_text(overview(signed_in))
+
+    assert (
+        "Gold ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
+        "Bonds ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
+        "REITs/InvITs ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
+        "Other ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
+        "Cash"
+    ) in text
+
+
 def test_holdings_with_a_stale_price_are_flagged(signed_in: Client) -> None:
     three_holdings(signed_in)
     add_price(SOLD, timezone.localdate() - timedelta(days=6), "45")
