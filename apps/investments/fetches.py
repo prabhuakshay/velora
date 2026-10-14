@@ -1,16 +1,21 @@
-"""What the overview's status line says about each fetched Price Source."""
+"""What Velora shows about Price Fetches, and how long it keeps them."""
 
 from dataclasses import dataclass
+from datetime import datetime, time, timedelta
 from typing import TYPE_CHECKING
 
 from django.db.models import Max, Q
+from django.utils import timezone
 
 from apps.investments.models import Instrument, Price, PriceFetch, PriceSource
 
 if TYPE_CHECKING:
     from datetime import date
 
+    from django.db.models.query import QuerySet
+
 FETCHED = (PriceSource.AMFI, PriceSource.NSE)
+KEEP_DAYS = 90
 
 
 @dataclass(frozen=True)
@@ -41,3 +46,19 @@ def statuses() -> list[SourceStatus]:
         )
         for source in FETCHED
     ]
+
+
+def _cutoff(today: date) -> datetime:
+    return timezone.make_aware(
+        datetime.combine(today - timedelta(days=KEEP_DAYS), time())
+    )
+
+
+def recent(today: date) -> QuerySet[PriceFetch]:
+    """The Price Fetches of the last 90 days, newest first."""
+    return PriceFetch.objects.filter(started_at__gte=_cutoff(today))
+
+
+def remove_old_price_fetches(today: date) -> None:
+    """Remove Price Fetches older than 90 days; their Prices stay."""
+    PriceFetch.objects.filter(started_at__lt=_cutoff(today)).delete()
