@@ -133,13 +133,13 @@ def test_add_new_creates_the_instrument_with_the_event(signed_in: Client) -> Non
     )
 
 
-def test_add_new_with_a_name_already_used_without_an_isin_is_refused(
+def test_add_new_with_a_name_already_used_without_an_isin_is_refused_in_any_case(
     signed_in: Client,
 ) -> None:
     known()
     broker = make_broker(opening="10000")
 
-    status, text = buy(signed_in, broker, add_new="on", instrument_name=GOLD)
+    status, text = buy(signed_in, broker, add_new="on", instrument_name=GOLD.upper())
 
     assert status == 200
     assert "There's already an Instrument without an ISIN named this" in text

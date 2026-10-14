@@ -218,3 +218,31 @@ def test_a_made_up_isin_is_cleared_and_the_instrument_keeps_its_records() -> Non
             "instrument__name", "instrument__isin"
         )
     ) == [("Gold", None)]
+
+
+AFTER_ANY_CASE = [("investments", "0018_instrument_name_unique_without_isin_any_case")]
+
+
+@pytest.mark.usefixtures("_back_to_latest")
+@pytest.mark.django_db(transaction=True)
+def test_a_cleared_isins_new_name_is_free_in_any_case() -> None:
+    others = [
+        node
+        for node in MigrationExecutor(connection).loader.graph.leaf_nodes()
+        if node[0] != "investments"
+    ]
+    old = (
+        migrate(BEFORE_ISIN_CHECK).loader.project_state(others + BEFORE_ISIN_CHECK).apps
+    )
+    Instrument = old.get_model("investments", "Instrument")
+    Instrument.objects.create(isin="GOLD24K", name="Gold", kind="gold")
+    Instrument.objects.create(isin="SOMEGOLD", name="Gold (GOLDCOIN)", kind="gold")
+    Instrument.objects.create(isin="GOLDCOIN", name="gold", kind="gold")
+
+    new = migrate(AFTER_ANY_CASE).loader.project_state(others + AFTER_ANY_CASE).apps
+
+    assert list(
+        new.get_model("investments", "Instrument")
+        .objects.order_by("pk")
+        .values_list("name", flat=True)
+    ) == ["Gold", "Gold (GOLDCOIN)", "gold (GOLDCOIN) 2"]

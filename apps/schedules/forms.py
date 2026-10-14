@@ -20,14 +20,7 @@ REMINDER_DAYS: dict[str, int] = {
     Schedule.Unit.MONTH: 3,
     Schedule.Unit.YEAR: 14,
 }
-SIP_INSTRUMENT = InstrumentField(
-    search="sip_search",
-    add_new="sip_add_new",
-    isin="sip_isin",
-    name="sip_instrument_name",
-    kind="sip_instrument_kind",
-    creates_from_isin=False,
-)
+SIP_INSTRUMENT = InstrumentField("sip_", creates_from_isin=False)
 
 
 class ScheduleForm(forms.ModelForm[Schedule]):
@@ -102,6 +95,7 @@ class ScheduleForm(forms.ModelForm[Schedule]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
         self.fields |= SIP_INSTRUMENT.fields()
+        self.sip_instrument_parts = SIP_INSTRUMENT.parts(self)
         offer_parties(self)
         self.fields["reminder_days"].required = False
         if not self.instance.pk:
@@ -155,9 +149,8 @@ class ScheduleForm(forms.ModelForm[Schedule]):
 
     def save(self, commit: bool = True) -> Schedule:  # noqa: FBT001, FBT002
         """Save a SIP's Instrument first when it was added with it."""
-        instrument = self.instance.sip_instrument
-        if commit and instrument is not None and not instrument.pk:
-            instrument.save()
+        if commit:
+            InstrumentField.save_if_new(self.instance.sip_instrument)
         return super().save(commit=commit)
 
 

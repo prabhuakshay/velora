@@ -4,6 +4,7 @@ import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
+from django.db.models.functions import Lower
 from simple_history.models import HistoricalRecords
 
 from apps.investments import replay
@@ -55,7 +56,7 @@ class Instrument(models.Model):
         ordering = ("name",)
         constraints = (
             models.UniqueConstraint(
-                fields=("name",),
+                Lower("name"),
                 condition=models.Q(isin__isnull=True),
                 name="instrument_name_unique_without_isin",
             ),

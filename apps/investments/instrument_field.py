@@ -23,6 +23,7 @@ INVALID_ISIN = (
     "blank and enter its name."
 )
 UNKNOWN_ISIN = "Velora doesn't know this ISIN; enter the Instrument's name."
+NOT_KNOWN = "Velora doesn't know this ISIN."
 NO_ISIN = "Enter the ISIN, or the name of an Instrument without one."
 NO_MATCH = "No Instrument matches this. Pick one from the list, or add a new one."
 NO_NAME = "Enter the new Instrument's name."
@@ -67,21 +68,57 @@ class IsinField(forms.CharField):
 
 @dataclass(frozen=True)
 class InstrumentField:
-    """The names of one Instrument field's parts in a form, and how to read them.
+    """One Instrument field's parts, named from a prefix, and how to read them.
 
     An unknown ISIN posted the older way is created under the posted name, or,
-    without creates_from_isin, refused on the ISIN with unknown_isin.
+    without creates_from_isin, refused on the ISIN.
     """
 
-    search: str
-    add_new: str
-    isin: str
-    name: str
-    kind: str
+    prefix: str = ""
     label: str = "Instrument"
     help_text: str = ""
     creates_from_isin: bool = True
-    unknown_isin: str = "Velora doesn't know this ISIN."
+
+    @property
+    def search(self) -> str:
+        """The search box's name."""
+        return f"{self.prefix}instrument"
+
+    @property
+    def add_new(self) -> str:
+        """The Add new checkbox's name."""
+        return f"{self.prefix}add_new"
+
+    @property
+    def isin(self) -> str:
+        """The ISIN's name."""
+        return f"{self.prefix}isin"
+
+    @property
+    def name(self) -> str:
+        """The new Instrument's name's name."""
+        return f"{self.prefix}instrument_name"
+
+    @property
+    def kind(self) -> str:
+        """The new Instrument's kind's name."""
+        return f"{self.prefix}instrument_kind"
+
+    @staticmethod
+    def save_if_new(instrument: Instrument | None) -> None:
+        """Save an Instrument resolve() added, before what refers to it."""
+        if instrument is not None and not instrument.pk:
+            instrument.save()
+
+    def parts(self, form: forms.BaseForm) -> dict[str, forms.BoundField]:
+        """The form's bound parts, by role, for the template to lay out."""
+        return {
+            "search": form[self.search],
+            "add_new": form[self.add_new],
+            "isin": form[self.isin],
+            "name": form[self.name],
+            "kind": form[self.kind],
+        }
 
     def fields(self) -> dict[str, forms.Field]:
         """The form fields, to add to a form's own."""
@@ -98,7 +135,12 @@ class InstrumentField:
             self.add_new: forms.BooleanField(
                 label="Add a new Instrument", required=False
             ),
-            self.name: forms.CharField(label="Name", max_length=200, required=False),
+            self.name: forms.CharField(
+                label="Name",
+                max_length=200,
+                required=False,
+                widget=forms.TextInput(attrs={"data-instrument-name": ""}),
+            ),
             self.kind: forms.ChoiceField(
                 label="Type",
                 choices=Instrument.Kind.choices,
@@ -160,7 +202,7 @@ class InstrumentField:
 
     def _posted(self, form: forms.BaseForm, new: Instrument) -> Instrument | None:
         if new.isin and not self.creates_from_isin:
-            return _refused(form, self.isin, self.unknown_isin)
+            return _refused(form, self.isin, NOT_KNOWN)
         if new.isin is None and (named := _without_isin(new.name)) is not None:
             return named
         if not new.name:
@@ -169,7 +211,7 @@ class InstrumentField:
 
 
 def _without_isin(name: str) -> Instrument | None:
-    return Instrument.objects.filter(isin=None, name=name).first()
+    return Instrument.objects.filter(isin=None, name__iexact=name).first()
 
 
 def _refused(form: forms.BaseForm, field: str, message: str) -> Instrument | None:

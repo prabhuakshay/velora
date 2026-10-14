@@ -30,7 +30,7 @@
         {% include "partials/field.html" with field=form.kind %}
         {% include "partials/field.html" with field=form.date %}
       </div>
-      {% include "investments/_instrument_field.html" with search=form.instrument add_new=form.add_new name=form.instrument_name kind=form.instrument_kind isin=form.isin %}
+      {% include "investments/_instrument_field.html" with parts=form.instrument_parts %}
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {% include "partials/field.html" with field=form.units %}
         {% include "partials/field.html" with field=form.amount %}
@@ -38,7 +38,7 @@
       </div>
       {% include "investments/_trade_price.html" with units=form.units amount=form.amount %}
       {% include "partials/field.html" with field=form.income_account %}
-      {% include "investments/_instrument_field.html" with search=form.new_instrument add_new=form.new_add_new name=form.new_instrument_name kind=form.new_instrument_kind isin=form.new_isin %}
+      {% include "investments/_instrument_field.html" with parts=form.new_instrument_parts %}
       {% include "partials/field.html" with field=form.note %}
     </section>
 

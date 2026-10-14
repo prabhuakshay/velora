@@ -1,9 +1,10 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.tests.conftest import make_account
 from apps.investments.instrument_field import INVALID_ISIN
@@ -271,7 +272,7 @@ def test_a_sip_picks_a_known_instrument_without_an_isin_by_its_name(
 
     response = signed_in.post(
         reverse("schedule_create"),
-        sip_form_data(kuvera, sip_isin="", sip_search=GOLD.lower()),
+        sip_form_data(kuvera, sip_isin="", sip_instrument=GOLD.lower()),
     )
 
     assert response.status_code == 302
@@ -292,3 +293,29 @@ def test_a_sip_refuses_an_invalid_isin_like_the_event_forms(
     assert response.status_code == 200
     assert INVALID_ISIN in page_text(response.content.decode())
     assert not Schedule.objects.exists()
+
+
+def test_a_sip_saved_on_an_instrument_without_an_isin_drafts_its_buy_when_due(
+    signed_in: Client, kuvera: Account
+) -> None:
+    # The form's Occurrences start from today, so the SIP falls due after it.
+    due = timezone.localdate() + timedelta(days=7)
+    signed_in.post(
+        reverse("schedule_create"),
+        sip_form_data(
+            kuvera,
+            start_date=due.isoformat(),
+            sip_isin="",
+            sip_add_new="on",
+            sip_instrument_name=GOLD,
+            sip_instrument_kind="gold",
+        ),
+    )
+    gold = Instrument.objects.get(name=GOLD)
+    Price.objects.create(instrument=gold, date=due, price=Decimal(8000))
+
+    run_daily_job(due)
+
+    assert f"Buy {GOLD} in Kuvera · 0.625 units at ₹8,000.0000" in drafts_text(
+        signed_in
+    )

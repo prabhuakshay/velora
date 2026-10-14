@@ -1,8 +1,11 @@
 """Clear every ISIN that is not a real one, so the Instrument is priced by hand.
 
-It keeps its name and its records. Should two then share a name, the later
-ones get their old ISIN appended to tell them apart.
+It keeps its name and its records. Should two then share a name, in any case,
+the later ones get their old ISIN appended to tell them apart, and a number
+too should that name be taken as well.
 """
+
+from itertools import chain, count
 
 from django.db import migrations
 
@@ -15,10 +18,19 @@ def clear_invalid_isins(apps, schema_editor):
     for instrument in Instrument.objects.exclude(isin=None).order_by("pk"):
         if is_valid_isin(instrument.isin):
             continue
-        if Instrument.objects.filter(isin=None, name=instrument.name).exists():
-            instrument.name = f"{instrument.name} ({instrument.isin})"
+        instrument.name = _free_name(Instrument, instrument.name, instrument.isin)
         instrument.isin = None
         instrument.save(update_fields=["isin", "name"])
+
+
+def _free_name(Instrument, name, isin):
+    tagged = f"{name} ({isin})"
+    names = chain([name, tagged], (f"{tagged} {n}" for n in count(2)))
+    return next(
+        candidate
+        for candidate in names
+        if not Instrument.objects.filter(isin=None, name__iexact=candidate).exists()
+    )
 
 
 class Migration(migrations.Migration):

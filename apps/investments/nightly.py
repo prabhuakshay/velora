@@ -3,7 +3,7 @@
 import logging
 import urllib.error
 from http import HTTPStatus
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.db.models import Q
@@ -79,15 +79,10 @@ def reason(error: Exception, fetch: PriceFetch) -> str:
 
 
 def _held_isins() -> set[str]:
-    return cast(
-        "set[str]",
-        set(
-            Instrument.objects.filter(
-                Q(events__isnull=False) | Q(merged_into_events__isnull=False),
-                isin__isnull=False,
-            ).values_list("isin", flat=True)
-        ),
+    held = Instrument.objects.filter(
+        Q(events__isnull=False) | Q(merged_into_events__isnull=False)
     )
+    return {isin for isin in held.values_list("isin", flat=True) if isin}
 
 
 def record(

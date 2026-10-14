@@ -3,7 +3,7 @@
 from collections import defaultdict
 from datetime import date, timedelta
 from functools import partial
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from django.db.models import Min
 from django.db.models.functions import Least
@@ -72,9 +72,9 @@ def _missing(today: date) -> dict[PriceSource, tuple[dict[str, date], set[date]]
             for d in _weekdays(instrument.first, today)
             if (instrument.pk, d) not in priced and not _checked(instrument, d)
         }
-        if days:
+        if days and instrument.isin:
             isins, gaps = missing[instrument.price_source]
-            isins[cast("str", instrument.isin)] = instrument.first
+            isins[instrument.isin] = instrument.first
             gaps.update(days)
     return missing
 

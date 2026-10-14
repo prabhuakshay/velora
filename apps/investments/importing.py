@@ -212,7 +212,7 @@ def _recorded(row: ImportRow, account: Account, kind: str, when: datetime.date) 
         "amount": _decimal(values["amount"]),
     }
     if not isin:
-        same["instrument__name"] = values["instrument_name"]
+        same["instrument__name__iexact"] = values["instrument_name"]
     return (
         InvestmentEvent.objects.filter(date=when, **same).exists()
         or drafts.filter(draft__date=when, **same).exists()
@@ -284,8 +284,6 @@ def _check_stated_price(row: ImportRow, kind: str) -> None:
 def _propose_draft(form: InvestmentEventForm) -> None:
     """Save the checked event as a Draft carrying it, to post once reviewed."""
     event = form.save(commit=False)
-    if form.new_instrument is not None:
-        event.instrument.save()
     draft = Draft.objects.create(
         source=Draft.Source.INVESTMENT_IMPORT,
         date=event.date,

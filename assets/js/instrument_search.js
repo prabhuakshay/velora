@@ -7,7 +7,7 @@
   const parts = (field) => ({
     query: field.querySelector("[data-instrument-query]"),
     matches: field.querySelector("[data-instrument-matches]"),
-    adding: field.querySelector('input[type="checkbox"]'),
+    adding: field.querySelector("[data-instrument-adding]"),
     added: field.querySelector("[data-instrument-new]"),
   });
 
@@ -61,7 +61,7 @@
     } else if (add) {
       query.value = "";
       adding.checked = true;
-      const name = added.querySelector('input[type="text"]');
+      const name = added.querySelector("[data-instrument-name]");
       name.value = add.dataset.instrumentAdd;
       name.focus();
     } else {

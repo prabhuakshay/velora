@@ -32,8 +32,7 @@ TIMEOUT_SECONDS = 60
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Velora"}
 # Series of ordinary shares; ETFs are listed under EQ too.
 EQUITY_SERIES = {"EQ", "BE"}
-# Sovereign Gold Bonds.
-BOND_SERIES = "GB"
+SGB_SERIES = "GB"
 PLACES = Decimal("0.0001")
 # Covers a weekend plus a long run of market holidays.
 NSE_LOOKBACK_DAYS = 7
@@ -132,7 +131,7 @@ def parse_nse(bhavcopy: str, etf_list: str) -> list[PriceRow]:
         if isin is None or price is None:
             continue
         series = _field(line, "SctySrs") or ""
-        if isin not in etfs and series not in EQUITY_SERIES | {BOND_SERIES}:
+        if isin not in etfs and series not in EQUITY_SERIES | {SGB_SERIES}:
             continue
         try:
             day = date.fromisoformat(_field(line, "TradDt") or "")
@@ -140,7 +139,7 @@ def parse_nse(bhavcopy: str, etf_list: str) -> list[PriceRow]:
             continue
         if isin in etfs:
             kind = Instrument.Kind.ETF
-        elif series == BOND_SERIES:
+        elif series == SGB_SERIES:
             kind = Instrument.Kind.BOND
         else:
             kind = Instrument.Kind.STOCK
