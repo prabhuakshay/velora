@@ -209,11 +209,19 @@ The money an Investment Account that Holds Cash has not put into Instruments, as
 _Avoid_: Funds, margin, free balance
 
 **Instrument**:
-Something the user can hold units of, identified by its ISIN: a mutual fund scheme, a stock or an ETF. Two Instruments are never the same thing under different names.
+Something the user can hold units of, each unit worth a Price: a mutual fund scheme, a stock, an ETF, gold, a bond and the like. It is identified by its ISIN when it has one, and by its name when it does not, such as physical gold. Two Instruments are never the same thing under different names. Something with no units, such as a house or a fixed deposit, is an Asset Account, not an Instrument.
 _Avoid_: Security, scrip, scheme, ticker, asset
 
+**Price Source**:
+Where an Instrument's Prices come from: AMFI or NSE for one with an ISIN, Manual for one without, whose Prices the user enters. The user never picks it.
+_Avoid_: Feed, provider, manual price flag
+
+**Price Fetch**:
+One time Velora fetched Prices from AMFI or NSE, started by the nightly run, a Refresh or a backfill. It records when it ran, whether it worked and why not, which day's Prices it used, and how many it stored. A Refresh is the user asking for Price Fetches now.
+_Avoid_: Sync, price sync, price update, job
+
 **Price**:
-What one unit of an Instrument was worth at the end of a day: a mutual fund's NAV or a stock's or ETF's closing price. The latest Price is used until a newer one arrives, and is Stale once it is more than five days old.
+What one unit of an Instrument was worth at the end of a day: a mutual fund's NAV, a stock's or ETF's closing price, or what the user entered for a Manual one. The latest Price is used until a newer one arrives, and is Stale once it is more than five days old.
 _Avoid_: NAV, quote, rate, LTP
 
 **Trade Price**:
