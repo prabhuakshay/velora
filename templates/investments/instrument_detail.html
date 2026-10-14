@@ -33,7 +33,7 @@
   {% include "investments/_price_chart.html" %}
 
   {% if form %}
-    <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Enter a Price">
+    <section id="enter-price" class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Enter a Price">
       <h2 class="text-base font-semibold">Enter a Price</h2>
       <p class="mt-1 text-sm text-slate-500">This Instrument has no automatic Price, so enter one by hand. A second Price for the same day replaces the first.</p>
       <form method="post" action="{% url 'instrument_add_price' instrument.pk %}" class="mt-3 space-y-3">

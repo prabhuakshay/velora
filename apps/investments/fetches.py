@@ -48,6 +48,18 @@ def statuses() -> list[SourceStatus]:
     ]
 
 
+def latest_files() -> dict[PriceSource, date]:
+    """The day of the file each fetched source's latest working Price Fetch used."""
+    files: dict[PriceSource, date] = {}
+    for source in FETCHED:
+        fetch = PriceFetch.objects.filter(
+            source=source, outcome=PriceFetch.Outcome.OK, day_used__isnull=False
+        ).first()
+        if fetch and fetch.day_used:
+            files[source] = fetch.day_used
+    return files
+
+
 def failed_nightly() -> list[PriceFetch]:
     """Each fetched Price Source's latest nightly Price Fetch, when it failed."""
     latest = (

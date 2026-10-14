@@ -66,10 +66,10 @@ def test_the_overview_shows_each_holdings_xirr(signed_in: Client) -> None:
 
     text = overview_text(signed_in)
 
-    assert "Nifty Fund Zerodha 10 ₹100.0000 ₹1,000.00 ₹1,100.00 +₹100.00" in text
+    assert "AMFI Zerodha 10 ₹100.0000 ₹1,000.00 ₹1,100.00 +₹100.00" in text
     assert "+10.00% +10.00%" in text
     # Bought today: under one day of history.
-    assert "Acme Ltd Zerodha 1 ₹50.0000 ₹50.00 ₹50.00 ₹0.00 0.00% —" in text
+    assert "NSE Zerodha 1 ₹50.0000 ₹50.00 ₹50.00 ₹0.00 0.00% —" in text
 
 
 def test_the_overview_shows_the_portfolios_xirr(signed_in: Client) -> None:
@@ -101,9 +101,10 @@ def test_the_holdings_tab_shows_the_account_and_each_holdings_xirr(
     assert "Realized Gain ₹0.00 XIRR +10.00%" in text
     today = f"{timezone.localdate():%-d %b %Y}"
     assert (
-        f"Nifty Fund 10 ₹1,000.00 ₹1,100.00 +₹100.00 ₹0.00 ₹0.00 {today} +10.00%"
+        f"Nifty Fund 10 ₹1,000.00 ₹1,100.00 +₹100.00 ₹0.00 ₹0.00 "
+        f"₹110.0000 · {today} · AMFI +10.00%"
     ) in text
-    assert f"Acme Ltd 1 ₹50.00 ₹50.00 ₹0.00 ₹0.00 ₹0.00 {today} —" in text
+    assert f"₹0.00 ₹0.00 ₹50.0000 · {today} · NSE —" in text
 
 
 def test_the_account_page_shows_the_accounts_xirr(signed_in: Client) -> None:
