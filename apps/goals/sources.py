@@ -10,7 +10,7 @@ from django.db.models.functions import Lower
 
 from apps.accounts.models import Account, AccountKind
 from apps.investments.models import InvestmentEvent
-from apps.investments.valuation import account_value
+from apps.investments.valuation import Valuer
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -59,11 +59,13 @@ def source_choices() -> list[tuple[str, list[tuple[str, str]]]]:
 def source_values(accounts: Collection[int]) -> dict[str, Decimal]:
     """What each of the accounts, and each Holding in them, is worth now."""
     values: dict[str, Decimal] = {}
-    for account in Account.objects.filter(pk__in=accounts).with_balance():
+    found = list(Account.objects.filter(pk__in=accounts).with_balance())
+    valuer = Valuer([account.pk for account in found if account.is_investment])
+    for account in found:
         if not account.is_investment:
             values[source_key(account.pk)] = account.balance
             continue
-        worth = account_value(account, account.balance)
+        worth = valuer.value(account, account.balance)
         values[source_key(account.pk)] = worth.market_value
         for row in worth.holdings:
             values[source_key(account.pk, row.instrument.pk)] = row.market_value

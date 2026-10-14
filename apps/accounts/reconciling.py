@@ -5,51 +5,40 @@ Account against its Balance. The database compares against the Balance, so
 for Holds Cash the gap between Balance and Cash is added in Python.
 """
 
-from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING, cast
 
-from apps.investments.models import InvestmentEvent
-from apps.investments.replay import cash, replay
+from apps.investments.valuation import Valuer
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable
     from datetime import date
 
     from apps.accounts.models import Account, Reconciliation
 
 
-def cash_events(
-    accounts: Iterable[Account],
-) -> defaultdict[int, list[InvestmentEvent]]:
-    """The Investment Events of those accounts that Hold Cash, in one query.
+def cash_valuer(accounts: Iterable[Account]) -> Valuer:
+    """A Valuer of those accounts that Hold Cash, in one query.
 
     Makes no query when none of them Holds Cash.
     """
-    found: defaultdict[int, list[InvestmentEvent]] = defaultdict(list)
-    holding = [account.pk for account in accounts if account.reconciles_cash]
-    if holding:
-        for event in InvestmentEvent.objects.filter(account__in=holding):
-            found[event.account_id].append(event)
-    return found
+    return Valuer([account.pk for account in accounts if account.reconciles_cash])
 
 
 def cash_gaps(
-    account: Account,
-    days: Iterable[date],
-    events: Sequence[InvestmentEvent] | None = None,
+    account: Account, days: Iterable[date], valuer: Valuer | None = None
 ) -> dict[date, Decimal]:
     """The account's Balance less its Cash at the end of each day.
 
-    Zero for an account that doesn't Hold Cash. Given no events, it loads them.
+    Zero for an account that doesn't Hold Cash. Given no Valuer, it loads one.
     """
     days = set(days)
     if not account.reconciles_cash or not days:
         return dict.fromkeys(days, Decimal(0))
-    if events is None:
-        events = list(account.investment_events.all())
+    if valuer is None:
+        valuer = Valuer([account.pk], max(days))
     opened = cast("date", account.opening_balance_date)
-    return {day: -cash(Decimal(0), replay(events, until=day), opened) for day in days}
+    return {day: -valuer.cash(account.pk, opened, Decimal(0), day) for day in days}
 
 
 def checked_on(account: Account, when: date) -> Decimal:

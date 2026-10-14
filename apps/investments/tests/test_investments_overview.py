@@ -2,13 +2,18 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import Account
+from apps.accounts.net_worth import net_worth
 from apps.accounts.tests.conftest import account_url, page_text
 from apps.accounts.tests.test_balance import opening
+from apps.accounts.tests.test_net_worth import home_text
 from apps.investments.models import Instrument, Price
+from apps.investments.portfolio import portfolio
 from apps.investments.tests.conftest import (
     add_price,
     instrument_url,
@@ -306,3 +311,38 @@ def test_the_overview_shows_each_source_latest_price_date(signed_in: Client) -> 
 
 def test_the_overview_says_when_there_are_no_prices(signed_in: Client) -> None:
     assert "No Prices yet" in page_text(overview(signed_in))
+
+
+def overview_queries(client: Client) -> int:
+    with CaptureQueriesContext(connection) as queries:
+        overview(client)
+    return len(queries)
+
+
+def test_the_overview_costs_the_same_queries_however_many_investment_accounts(
+    signed_in: Client,
+) -> None:
+    Instrument.objects.create(isin=FUND, name="Nifty Fund", kind="mutual_fund")
+    add_price(FUND, timezone.localdate(), "150")
+
+    def add_broker(name: str) -> None:
+        broker = make_broker(name, opening="1000")
+        record_event(signed_in, broker, "buy", FUND, units="1", amount="10")
+
+    add_broker("One")
+    one = overview_queries(signed_in)
+    for name in ("Two", "Three", "Four", "Five"):
+        add_broker(name)
+
+    assert overview_queries(signed_in) == one
+
+
+def test_net_worth_today_is_the_overviews_market_value(signed_in: Client) -> None:
+    three_holdings(signed_in)
+
+    text = page_text(overview(signed_in))
+
+    # Cash 9,360 and Holdings 1,640, the unpriced ETF at its Cost Basis.
+    assert "Market Value ₹11,000.00" in text
+    assert "Net Worth ₹11,000.00" in home_text(signed_in)
+    assert net_worth(timezone.localdate()).total == portfolio().totals.market_value

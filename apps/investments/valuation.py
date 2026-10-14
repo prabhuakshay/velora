@@ -4,16 +4,17 @@ from bisect import bisect_right
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import cached_property
 from typing import TYPE_CHECKING, cast
 
 from django.utils import timezone
 
 from apps.investments.models import InvestmentEvent, Price
-from apps.investments.replay import Book, cash, holding_value, market_value, replay
+from apps.investments.replay import CENT, Book, Holding, replay
 from apps.investments.xirr import returns
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Iterable
+    from collections.abc import Collection, Iterable, Mapping
     from datetime import date
 
     from apps.accounts.models import Account
@@ -22,16 +23,6 @@ if TYPE_CHECKING:
 
 
 HUNDRED = Decimal(100)
-
-
-def latest_prices(instruments: Collection[int]) -> dict[int, Price]:
-    """Each Instrument's newest Price, in one query."""
-    return {
-        price.instrument_id: price
-        for price in Price.objects.filter(instrument__in=instruments)
-        .order_by("instrument_id", "-date")
-        .distinct("instrument_id")
-    }
 
 
 @dataclass(frozen=True)
@@ -138,89 +129,75 @@ class AccountValue:
         return self.totals.xirr
 
 
-def account_value(account: Account, balance: Decimal) -> AccountValue:
-    """Value the Investment Account at its latest Prices, given its Balance now."""
-    events = list(
-        account.investment_events.select_related("instrument", "new_instrument")
-    )
-    book = replay(events)
-    instruments = {event.instrument_id: event.instrument for event in events} | {
-        event.new_instrument_id: event.new_instrument
-        for event in events
-        if event.new_instrument is not None
-    }
-    prices = latest_prices(book.holdings)
-    today = timezone.localdate()
-    rows = [
-        HoldingRow(
-            instrument=instruments[pk],
-            units=holding.units,
-            cost_basis=holding.cost_basis,
-            market_value=holding_value(holding, _value(prices.get(pk))),
-            realized=holding.realized,
-            dividends=holding.dividends,
-            price=prices.get(pk),
-            stale=pk in prices and prices[pk].is_stale(today),
-            flows=tuple(holding.flows),
-        )
-        for pk, holding in book.holdings.items()
-    ]
-    rows.sort(key=lambda row: row.instrument.name)
-    held = cash(balance, book, _opened(account))
-    return AccountValue(
-        cash=held,
-        market_value=market_value(held, book, _values(prices)),
-        holdings=rows,
-    )
-
-
-def _opened(account: Account) -> date:
-    # Asset Accounts always have one, by their check constraint.
-    return cast("date", account.opening_balance_date)
-
-
-def _value(price: Price | None) -> Decimal | None:
-    return None if price is None else price.price
-
-
-def _values(prices: dict[int, Price]) -> dict[int, Decimal]:
-    return {pk: price.price for pk, price in prices.items()}
-
-
 class Valuer:
     """Values Investment Accounts on any dates up to until, in two queries.
 
     Each date uses the Investment Events up to it and the latest Price on or
-    before it. Given no accounts, it makes no query at all.
+    before it. Prices load only once a value needs them; given no accounts,
+    it makes no query at all.
     """
 
-    def __init__(self, accounts: Collection[int], until: date) -> None:
-        """Load the accounts' Investment Events and Prices up to until."""
+    def __init__(self, accounts: Collection[int], until: date | None = None) -> None:
+        """Load the accounts' Investment Events up to until, by default today."""
+        self.until = until or timezone.localdate()
         self.events: dict[int, list[InvestmentEvent]] = defaultdict(list)
-        self.prices: dict[int, tuple[list[date], list[Decimal]]] = defaultdict(
-            lambda: ([], [])
-        )
+        self.instruments: dict[int, Instrument] = {}
         if not accounts:
             return
         for event in InvestmentEvent.objects.filter(
-            account__in=accounts, date__lte=until
-        ):
+            account__in=accounts, date__lte=self.until
+        ).select_related("instrument", "new_instrument"):
             self.events[event.account_id].append(event)
-        instruments = {
-            pk
-            for es in self.events.values()
-            for e in es
-            for pk in (e.instrument_id, e.new_instrument_id)
-            if pk is not None
-        }
-        for instrument, day, price in (
-            Price.objects.filter(instrument__in=instruments, date__lte=until)
+            for instrument in (event.instrument, event.new_instrument):
+                if instrument is not None:
+                    self.instruments[instrument.pk] = instrument
+
+    @cached_property
+    def prices(self) -> dict[int, tuple[list[date], list[Price]]]:
+        """Each Instrument's Prices up to until, oldest first, with their dates."""
+        found: dict[int, tuple[list[date], list[Price]]] = defaultdict(lambda: ([], []))
+        for price in (
+            Price.objects.filter(instrument__in=self.instruments, date__lte=self.until)
+            .only("instrument", "date", "price")
             .order_by("date")
-            .values_list("instrument", "date", "price")
         ):
-            days, values = self.prices[instrument]
-            days.append(day)
-            values.append(price)
+            days, prices = found[price.instrument_id]
+            days.append(price.date)
+            prices.append(price)
+        return found
+
+    def value(
+        self, account: Account, balance: Decimal, on: date | None = None
+    ) -> AccountValue:
+        """The account's Cash, Holdings and Market Value at the end of on.
+
+        Given its Balance then; on is until by default, and Prices are Stale
+        against on, or today when not given.
+        """
+        when = on or self.until
+        book = replay(self.events[account.pk], until=when)
+        prices = self._prices(book, when)
+        stale_on = on or timezone.localdate()
+        rows = [
+            HoldingRow(
+                instrument=self.instruments[pk],
+                units=holding.units,
+                cost_basis=holding.cost_basis,
+                market_value=_holding_value(holding, prices.get(pk)),
+                realized=holding.realized,
+                dividends=holding.dividends,
+                price=prices.get(pk),
+                stale=pk in prices and prices[pk].is_stale(stale_on),
+                flows=tuple(holding.flows),
+            )
+            for pk, holding in book.holdings.items()
+        ]
+        rows.sort(key=lambda row: row.instrument.name)
+        # Asset Accounts always have one, by their check constraint.
+        held = _cash(balance, book, cast("date", account.opening_balance_date))
+        return AccountValue(
+            cash=held, market_value=_market_value(held, book, prices), holdings=rows
+        )
 
     def market_value(
         self, account: int, opened: date, balance: Decimal, when: date
@@ -233,16 +210,51 @@ class Valuer:
     ) -> tuple[Decimal, Decimal]:
         """The account's Market Value and Cost Basis at the end of when."""
         book = replay(self.events[account], until=when)
-        value = market_value(
-            cash(balance, book, opened), book, self._prices(book, when)
+        value = _market_value(
+            _cash(balance, book, opened), book, self._prices(book, when)
         )
         return value, book.cost_basis
 
-    def _prices(self, book: Book, when: date) -> dict[int, Decimal]:
+    def cash(self, account: int, opened: date, balance: Decimal, on: date) -> Decimal:
+        """The account's Cash at the end of on, given its Balance then."""
+        return _cash(balance, replay(self.events[account], until=on), opened)
+
+    def _prices(self, book: Book, when: date) -> dict[int, Price]:
         found = {}
         for instrument in book.holdings:
-            days, values = self.prices[instrument]
+            days, prices = self.prices[instrument]
             at = bisect_right(days, when)
             if at:
-                found[instrument] = values[at - 1]
+                found[instrument] = prices[at - 1]
         return found
+
+
+def _cash(balance: Decimal, book: Book, opened: date) -> Decimal:
+    """An Investment Account's Cash (ADR 0015).
+
+    Its Balance less the Cost Basis still held, plus the Realized Gain of
+    Sells after its Opening Balance date; earlier events are already inside
+    its Opening Balance.
+    """
+    return (balance - book.cost_basis + book.realized_after(opened)).quantize(CENT)
+
+
+def _market_value(cash: Decimal, book: Book, prices: Mapping[int, Price]) -> Decimal:
+    """Cash plus each Holding's units at its Price.
+
+    A Holding with no Price yet counts at its Cost Basis.
+    """
+    return cash + sum(
+        (
+            _holding_value(h, prices.get(h.instrument_id))
+            for h in book.holdings.values()
+        ),
+        Decimal(0),
+    )
+
+
+def _holding_value(holding: Holding, price: Price | None) -> Decimal:
+    """The Holding's Market Value, its Cost Basis while it has no Price."""
+    if price is None:
+        return holding.cost_basis
+    return (holding.units * price.price).quantize(CENT)
