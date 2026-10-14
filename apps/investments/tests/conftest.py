@@ -21,6 +21,7 @@ class FakePriceSource:
 
     A source set to an exception raises it instead, as a failed fetch would.
     History is one list for both archives; each hands back its kinds in range.
+    A history window covering a day in history_failures raises its exception.
     """
 
     def __init__(self) -> None:
@@ -29,6 +30,7 @@ class FakePriceSource:
         self.history: list[price_source.PriceRow] = []
         self.amfi_history: Exception | None = None
         self.nse_history: Exception | None = None
+        self.history_failures: dict[date, Exception] = {}
         self.fetched: list[tuple[str, date, date]] = []
 
     def amfi_rows(self) -> list[price_source.PriceRow]:
@@ -48,6 +50,9 @@ class FakePriceSource:
         failure = self.amfi_history if funds else self.nse_history
         if failure is not None:
             raise failure
+        for day, error in self.history_failures.items():
+            if start <= day <= end:
+                raise error
         return [
             r
             for r in self.history
