@@ -255,14 +255,17 @@ def test_the_overview_has_a_refresh_prices_button(signed_in: Client) -> None:
     assert "csrfmiddlewaretoken" in html
 
 
-def test_the_overview_shows_the_latest_price_date(signed_in: Client) -> None:
+def test_the_overview_shows_each_source_latest_price_date(signed_in: Client) -> None:
     Instrument.objects.create(isin=FUND, name="Nifty Fund", kind="mutual_fund")
     Instrument.objects.create(isin=SOLD, name="Acme Ltd", kind="stock")
     add_price(FUND, date(2026, 3, 2), "10")
     add_price(SOLD, date(2026, 3, 4), "10")
     add_price(FUND, date(2026, 3, 3), "10")
 
-    assert "Prices as of 4 Mar 2026" in page_text(overview(signed_in))
+    text = page_text(overview(signed_in))
+
+    assert "AMFI Prices for 3 Mar 2026" in text
+    assert "NSE Prices for 4 Mar 2026" in text
 
 
 def test_the_overview_says_when_there_are_no_prices(signed_in: Client) -> None:

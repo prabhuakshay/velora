@@ -16,7 +16,7 @@
       {% include "help/_button.html" with area="investments" title="Investments" tour="investments" %}
     </div>
   </div>
-  <p class="mt-1 text-sm text-slate-500">{% if prices_as_of %}Prices as of {{ prices_as_of|date:"j M Y" }}{% else %}No Prices yet{% endif %}</p>
+  {% include "investments/_price_status.html" %}
 
   {% if accounts %}
     <section data-tour-step="1" data-tour-text="The Market Value of all your Investment Accounts, what you invested, and your Unrealized and Realized Gain." class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:mt-6 md:p-6" aria-label="Totals">

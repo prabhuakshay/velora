@@ -89,6 +89,48 @@ class Price(models.Model):
         return today - self.date > STALE_AFTER
 
 
+class PriceFetch(models.Model):
+    """One time Velora fetched Prices from AMFI or NSE (see GLOSSARY.md).
+
+    A nightly or Refresh one asks for one day and records the day its Prices
+    are for, which for NSE can be an earlier file; a backfill asks for a range.
+    """
+
+    class Trigger(models.TextChoices):
+        NIGHTLY = "nightly", "Nightly"
+        REFRESH = "refresh", "Refresh"
+        BACKFILL = "backfill", "Backfill"
+
+    class Outcome(models.TextChoices):
+        RUNNING = "running", "Running"
+        OK = "ok", "Worked"
+        FAILED = "failed", "Failed"
+
+    source = models.CharField(
+        max_length=8,
+        choices=[(s.value, s.label) for s in (PriceSource.AMFI, PriceSource.NSE)],
+    )
+    trigger = models.CharField(max_length=8, choices=Trigger.choices)
+    started_at = models.DateTimeField()
+    finished_at = models.DateTimeField(null=True, blank=True)
+    outcome = models.CharField(
+        max_length=8, choices=Outcome.choices, default=Outcome.RUNNING
+    )
+    reason = models.CharField(max_length=500, blank=True)
+    day_asked = models.DateField(null=True, blank=True)
+    day_used = models.DateField(null=True, blank=True)
+    range_start = models.DateField(null=True, blank=True)
+    range_end = models.DateField(null=True, blank=True)
+    prices_stored = models.PositiveIntegerField(default=0)
+    instruments_priced = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("-started_at", "-pk")
+
+    def __str__(self) -> str:
+        return f"{self.source} {self.get_trigger_display()} at {self.started_at}"
+
+
 class InvestmentEvent(models.Model):
     """One dated thing that happened to the units of an Instrument in an account.
 

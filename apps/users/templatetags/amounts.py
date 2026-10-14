@@ -140,6 +140,22 @@ def percent(context: Context, value: Decimal) -> str:
     return f"{plain_number(value.quantize(CENTS), _number_format(context))}%"
 
 
+COUNT_MASK: SafeString = mark_safe(
+    '<span role="img" aria-label="Count hidden">••••</span>'
+)
+
+
+@register.simple_tag(takes_context=True)
+def count(context: Context, value: int) -> str:
+    """A whole count grouped by Number Format, such as Prices stored.
+
+    Masked under Privacy Mode, as it hints at how much is held.
+    """
+    if _private(context):
+        return COUNT_MASK
+    return _group(str(value), _number_format(context))
+
+
 @register.simple_tag(takes_context=True)
 def signed_percent(context: Context, value: Decimal | None) -> str:
     """A gain as a percentage to two decimals, signed and coloured as signed_amount.
