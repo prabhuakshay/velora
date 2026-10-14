@@ -1,37 +1,33 @@
 """Backfilling the past Prices of every Instrument held, from its first event."""
 
-import logging
 from collections import defaultdict
 from datetime import date, timedelta
+from functools import partial
 from typing import TYPE_CHECKING
 
 from django.db.models import Min
 from django.db.models.functions import Least
 
 from apps.investments import price_source
-from apps.investments.models import Instrument, Price
-from apps.investments.nightly import PriceFetchError, store
+from apps.investments.models import Instrument, Price, PriceFetch, PriceSource
+from apps.investments.nightly import PriceFetchError, record
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-
-logger = logging.getLogger("nightly_prices")
 
 # Keeps each archive request small; AMFI refuses long history ranges.
 WINDOW_DAYS = 31
 WEEKDAYS = 5
 
 
-def _sources() -> dict[str, Callable[[date, date], list[price_source.PriceRow]]]:
+def _sources() -> dict[
+    PriceSource, Callable[[date, date], list[price_source.PriceRow]]
+]:
     # Looked up on each run so tests can swap the client's functions.
     return {
-        "AMFI": price_source.amfi_history_rows,
-        "NSE": price_source.nse_history_rows,
+        PriceSource.AMFI: price_source.amfi_history_rows,
+        PriceSource.NSE: price_source.nse_history_rows,
     }
-
-
-def _source(kind: str) -> str:
-    return "AMFI" if kind == Instrument.Kind.MUTUAL_FUND else "NSE"
 
 
 def _weekdays(start: date, end: date) -> Iterator[date]:
@@ -54,37 +50,53 @@ def _windows(days: set[date]) -> Iterator[tuple[date, date]]:
     yield start, last
 
 
-def _missing(today: date) -> dict[str, tuple[dict[str, date], set[date]]]:
+def _missing(today: date) -> dict[PriceSource, tuple[dict[str, date], set[date]]]:
     """Per source, each ISIN held from when, and the weekdays some have no Price."""
     # An Instrument a Merger turns Lots into is held from the Merger's date.
-    firsts = {
-        pk: (isin, kind, first)
-        for pk, isin, kind, first in Instrument.objects.filter(manual_price=False)
-        .annotate(first=Least(Min("events__date"), Min("merged_into_events__date")))
-        .filter(first__isnull=False)
-        .values_list("pk", "isin", "kind", "first")
-    }
+    held = [
+        i
+        for i in Instrument.objects.annotate(
+            first=Least(Min("events__date"), Min("merged_into_events__date"))
+        ).filter(first__isnull=False)
+        if i.price_source != PriceSource.MANUAL
+    ]
     priced = set(
-        Price.objects.filter(instrument__in=firsts).values_list("instrument", "date")
+        Price.objects.filter(instrument__in=held).values_list("instrument", "date")
     )
-    missing: dict[str, tuple[dict[str, date], set[date]]] = defaultdict(
+    missing: dict[PriceSource, tuple[dict[str, date], set[date]]] = defaultdict(
         lambda: ({}, set())
     )
-    for pk, (isin, kind, first) in firsts.items():
-        days = {d for d in _weekdays(first, today) if (pk, d) not in priced}
+    for instrument in held:
+        days = {
+            d
+            for d in _weekdays(instrument.first, today)
+            if (instrument.pk, d) not in priced
+        }
         if days:
-            isins, gaps = missing[_source(kind)]
-            isins[isin] = first
+            isins, gaps = missing[instrument.price_source]
+            isins[instrument.isin] = instrument.first
             gaps.update(days)
     return missing
+
+
+def _held_rows(
+    fetch: Callable[[date, date], list[price_source.PriceRow]],
+    isins: dict[str, date],
+    start: date,
+    end: date,
+) -> list[price_source.PriceRow]:
+    """The window's rows for the ISINs held, from when each was first held."""
+    return [r for r in fetch(start, end) if r.isin in isins and r.date >= isins[r.isin]]
 
 
 def backfill_prices(today: date) -> None:
     """Fetch and store the Prices held Instruments miss, up to today.
 
     Only weekdays with no Price are fetched, and a stored Price is never
-    replaced, so running again is safe. A failed fetch is skipped and the
-    rest still run; the job raises afterwards so it shows as failed.
+    replaced, so running again is safe. Each source's run is recorded as a
+    Price Fetch over the days it fills; a source with nothing missing records
+    none. A failed window is skipped and the rest still run and store; the
+    job raises afterwards so it shows as failed.
     """
     failed = []
     missing = _missing(today)
@@ -92,13 +104,13 @@ def backfill_prices(today: date) -> None:
         if name not in missing:
             continue
         isins, days = missing[name]
-        for start, end in _windows(days):
-            try:
-                rows = fetch(start, end)
-            except Exception:
-                logger.exception("Backfilling %s Prices failed", name)
-                failed.append(name)
-                continue
-            store([r for r in rows if r.isin in isins and r.date >= isins[r.isin]])
+        price_fetch = record(
+            name,
+            PriceFetch.Trigger.BACKFILL,
+            [partial(_held_rows, fetch, isins, *window) for window in _windows(days)],
+            days=(min(days), max(days)),
+        )
+        if price_fetch.outcome == PriceFetch.Outcome.FAILED:
+            failed.append(name)
     if failed:
-        raise PriceFetchError(", ".join(sorted(set(failed))))
+        raise PriceFetchError(", ".join(failed))

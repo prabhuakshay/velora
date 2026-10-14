@@ -9,6 +9,12 @@ urlpatterns = [
         views.investments_refresh_prices,
         name="investments_refresh_prices",
     ),
+    path("investments/price-fetches/", views.price_fetches, name="price_fetches"),
+    path(
+        "investments/price-status/",
+        views.investments_price_status,
+        name="investments_price_status",
+    ),
     path(
         "investments/import/", import_views.investment_import, name="investment_import"
     ),
@@ -34,6 +40,16 @@ urlpatterns = [
         "investments/instruments/<int:pk>/prices/",
         views.instrument_add_price,
         name="instrument_add_price",
+    ),
+    path(
+        "investments/prices/<int:pk>/edit/",
+        views.price_edit,
+        name="price_edit",
+    ),
+    path(
+        "investments/prices/<int:pk>/delete/",
+        views.price_delete,
+        name="price_delete",
     ),
     path(
         "accounts/asset/<int:pk>/holdings/",

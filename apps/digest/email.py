@@ -6,10 +6,14 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction as db_transaction
 from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils import timezone
 
+from apps.accounts.forecast import Item
 from apps.budgets.warnings import due_warnings, record_budget_warnings
 from apps.digest.models import Digest
 from apps.digest.upcoming import Section, upcoming
+from apps.investments.fetches import failed_nightly
 from apps.users.models import User
 
 if TYPE_CHECKING:
@@ -25,6 +29,8 @@ def send_digest(today: date) -> None:
     """
     warned = due_warnings(today)
     sections = upcoming(today, warned)
+    if failures := _price_fetch_failures():
+        sections.append(failures)
     if not sections:
         return
     sent = False
@@ -36,6 +42,23 @@ def send_digest(today: date) -> None:
                 sent = True
     if sent:
         record_budget_warnings(warned, today)
+
+
+def _price_fetch_failures() -> Section | None:
+    """A line per source whose latest nightly Price Fetch failed, if any.
+
+    Only the digest says this: the investments overview has its own banner.
+    """
+    items = [
+        Item(
+            timezone.localdate(fetch.started_at),
+            f"{fetch.source} Price Fetch failed: {fetch.reason}",
+            None,
+            reverse("investments_overview"),
+        )
+        for fetch in failed_nightly()
+    ]
+    return Section("Price Fetches", items, amounts=False) if items else None
 
 
 def _send(user: User, today: date, sections: list[Section]) -> None:

@@ -1,4 +1,5 @@
 {% extends "app_base.html" %}
+{% load holding_prices %}
 
 {% block title %}Holdings · {{ account.name }} · Velora{% endblock %}
 
@@ -46,7 +47,7 @@
               <th scope="col" class="px-3 py-2 text-right font-medium">Unrealized</th>
               <th scope="col" class="px-3 py-2 text-right font-medium">Realized</th>
               <th scope="col" class="px-3 py-2 text-right font-medium">Dividends</th>
-              <th scope="col" class="px-3 py-2 text-right font-medium">Price date</th>
+              <th scope="col" class="px-3 py-2 text-right font-medium">Price</th>
               <th scope="col" class="px-4 py-2 text-right font-medium md:px-5">XIRR</th>
             </tr>
           </thead>
@@ -60,7 +61,7 @@
                 <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.unrealized %}</td>
                 <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.realized %}</td>
                 <td class="px-3 py-3 text-right tabular-nums">{% amount row.dividends %}</td>
-                <td class="px-3 py-3 text-right whitespace-nowrap text-slate-500">{% if row.price %}{{ row.price.date|date:"j M Y" }}{% if row.stale %} <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700" title="More than five days old">Stale</span>{% endif %}{% else %}No Price yet{% endif %}</td>
+                <td class="px-3 py-3 text-right text-slate-500">{% holding_price row price_files %}</td>
                 <td class="px-4 py-3 text-right tabular-nums md:px-5">{% signed_percent row.xirr %}</td>
               </tr>
             {% endfor %}

@@ -1,7 +1,7 @@
 """Instruments, their Prices, and the Investment Events that build Lots."""
 
 import datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from simple_history.models import HistoricalRecords
@@ -16,6 +16,14 @@ if TYPE_CHECKING:
     from apps.transactions.models import Transaction
 
 STALE_AFTER = datetime.timedelta(days=5)
+
+
+class PriceSource(models.TextChoices):
+    """Where an Instrument's Prices come from."""
+
+    AMFI = "AMFI", "AMFI"
+    NSE = "NSE", "NSE"
+    MANUAL = "Manual", "Manual"
 
 
 class Instrument(models.Model):
@@ -40,19 +48,41 @@ class Instrument(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def price_source(self) -> PriceSource:
+        """Where its Prices come from: Manual if priced by hand, else AMFI or NSE."""
+        if self.manual_price:
+            return PriceSource.MANUAL
+        if self.kind == self.Kind.MUTUAL_FUND:
+            return PriceSource.AMFI
+        return PriceSource.NSE
+
     def latest_price(self) -> Price | None:
         """The newest Price, used until a newer one arrives."""
         return self.prices.order_by("-date").first()
 
 
 class Price(models.Model):
-    """What one unit of an Instrument was worth at the end of a day."""
+    """What one unit of an Instrument was worth at the end of a day.
+
+    It keeps its source itself, so removing old Price Fetches never loses it.
+    """
 
     instrument = models.ForeignKey(
         Instrument, on_delete=models.CASCADE, related_name="prices"
     )
     date = models.DateField()
     price = models.DecimalField(max_digits=16, decimal_places=4)
+    source = models.CharField(max_length=8, choices=PriceSource)
+    fetch = models.ForeignKey(
+        "PriceFetch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="prices",
+    )
+    # When a Manual Price was entered; fetched ones have their Price Fetch.
+    entered_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = (
@@ -67,9 +97,57 @@ class Price(models.Model):
     def __str__(self) -> str:
         return f"{self.instrument} on {self.date}"
 
+    def save(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        """Default the source to the Instrument's Price Source."""
+        if not self.source:
+            self.source = self.instrument.price_source
+        super().save(*args, **kwargs)
+
     def is_stale(self, today: datetime.date) -> bool:
         """Whether the Price is more than five days older than today."""
         return today - self.date > STALE_AFTER
+
+
+class PriceFetch(models.Model):
+    """One time Velora fetched Prices from AMFI or NSE (see GLOSSARY.md).
+
+    A nightly or Refresh one asks for one day and records the day its Prices
+    are for, which for NSE can be an earlier file; a backfill asks for a range.
+    """
+
+    class Trigger(models.TextChoices):
+        NIGHTLY = "nightly", "Nightly"
+        REFRESH = "refresh", "Refresh"
+        BACKFILL = "backfill", "Backfill"
+
+    class Outcome(models.TextChoices):
+        RUNNING = "running", "Running"
+        OK = "ok", "Worked"
+        FAILED = "failed", "Failed"
+
+    source = models.CharField(
+        max_length=8,
+        choices=[(s.value, s.label) for s in (PriceSource.AMFI, PriceSource.NSE)],
+    )
+    trigger = models.CharField(max_length=8, choices=Trigger.choices)
+    started_at = models.DateTimeField()
+    finished_at = models.DateTimeField(null=True, blank=True)
+    outcome = models.CharField(
+        max_length=8, choices=Outcome.choices, default=Outcome.RUNNING
+    )
+    reason = models.CharField(max_length=500, blank=True)
+    day_asked = models.DateField(null=True, blank=True)
+    day_used = models.DateField(null=True, blank=True)
+    range_start = models.DateField(null=True, blank=True)
+    range_end = models.DateField(null=True, blank=True)
+    prices_stored = models.PositiveIntegerField(default=0)
+    instruments_priced = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("-started_at", "-pk")
+
+    def __str__(self) -> str:
+        return f"{self.source} {self.get_trigger_display()} at {self.started_at}"
 
 
 class InvestmentEvent(models.Model):

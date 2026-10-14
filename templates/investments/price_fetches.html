@@ -1,0 +1,51 @@
+{% extends "app_base.html" %}
+{% load amounts %}
+
+{% block title %}Price Fetches · Velora{% endblock %}
+
+{% block main_width %}max-w-2xl lg:max-w-5xl{% endblock %}
+
+{% block main %}
+  <div class="flex items-center gap-2">
+    <a href="{% url 'investments_overview' %}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back to Investments">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Price Fetches</h1>
+      <p class="truncate text-sm text-slate-500">The last 90 days, newest first</p>
+    </div>
+  </div>
+
+  <section class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-label="Price Fetches">
+    {% if fetches %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs text-slate-500">
+            <tr>
+              <th scope="col" class="px-4 py-2 font-medium md:px-5">Ran</th>
+              <th scope="col" class="px-3 py-2 font-medium">Started by</th>
+              <th scope="col" class="px-3 py-2 font-medium">Source</th>
+              <th scope="col" class="px-3 py-2 font-medium">Outcome</th>
+              <th scope="col" class="px-3 py-2 font-medium">Reason</th>
+              <th scope="col" class="px-3 py-2 font-medium">Prices for</th>
+              <th scope="col" class="px-4 py-2 text-right font-medium md:px-5">Prices stored</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fetch in fetches %}
+              <tr class="border-t border-slate-100">
+                <td class="px-4 py-3 whitespace-nowrap md:px-5">{{ fetch.started_at|date:"j M Y, H:i" }}</td>
+                <td class="px-3 py-3">{{ fetch.get_trigger_display }}</td>
+                <td class="px-3 py-3">{{ fetch.source }}</td>
+                <td class="px-3 py-3 {% if fetch.outcome == fetch.Outcome.FAILED %}text-red-700{% elif fetch.outcome == fetch.Outcome.OK %}text-emerald-700{% endif %}">{{ fetch.get_outcome_display }}</td>
+                <td class="px-3 py-3 text-slate-500">{{ fetch.reason }}</td>
+                <td class="px-3 py-3 whitespace-nowrap text-slate-500">{% if fetch.range_start %}{{ fetch.range_start|date:"j M Y" }} to {{ fetch.range_end|date:"j M Y" }}{% elif fetch.day_used %}{{ fetch.day_used|date:"j M Y" }}{% if fetch.day_asked and fetch.day_used < fetch.day_asked %} ({{ fetch.day_asked|date:"j M" }} not out yet){% endif %}{% endif %}</td>
+                <td class="px-4 py-3 text-right tabular-nums md:px-5">{% count fetch.prices_stored %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="px-4 py-4 text-sm text-slate-500 md:px-5">No Price Fetches in the last 90 days.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "app_base.html" %}
+
+{% block title %}Edit a Price · {{ instrument }} · Velora{% endblock %}
+
+{% block main_width %}max-w-xl{% endblock %}
+
+{% block main %}
+  {% url 'instrument_detail' instrument.pk as cancel_url %}
+  <div class="flex items-center gap-2">
+    <a href="{{ cancel_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    <div class="min-w-0 flex-1">
+      <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Edit a Price</h1>
+      <p class="truncate text-sm text-slate-500">{{ instrument }}</p>
+    </div>
+  </div>
+
+  <form method="post" class="mt-4 space-y-4 md:mt-6">
+    {% csrf_token %}
+    <section class="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="Price">
+      {% include "partials/field.html" with field=form.date %}
+      {% include "partials/field.html" with field=form.price %}
+    </section>
+    <div class="flex items-center gap-3">
+      <a href="{{ cancel_url }}" class="btn-secondary flex flex-1 items-center justify-center py-2.5 md:flex-none">Cancel</a>
+      <div class="flex-1 md:w-40 md:flex-none">{% include "partials/submit.html" with label="Save" %}</div>
+    </div>
+  </form>
+{% endblock %}

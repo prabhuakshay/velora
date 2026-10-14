@@ -1,3 +1,5 @@
+import json
+import re
 from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -141,7 +143,8 @@ def test_the_page_needs_a_sign_in(client: Client) -> None:
 
 def price_history(client: Client) -> str:
     html = client.get(instrument_url(ISIN)).content.decode()
-    return page_text(html.split("<caption>Price at each month-end", 1)[1])
+    after = html.split("<caption>Price at each month-end", 1)[1]
+    return page_text(after.split("</table>", 1)[0])
 
 
 def test_the_page_charts_the_price_history(signed_in: Client) -> None:
@@ -178,3 +181,39 @@ def test_privacy_mode_hides_the_price_chart(signed_in: Client, user: User) -> No
 
     assert "<polyline" not in html
     assert "Hidden in Privacy Mode" in page_text(html)
+
+
+def chart_data(client: Client) -> object:
+    html = client.get(instrument_url(ISIN)).content.decode()
+    match = re.search(r'id="price-chart-data"[^>]*>(.*?)</script>', html, re.DOTALL)
+    return json.loads(match.group(1)) if match else None
+
+
+def test_the_chart_embeds_every_price_for_hover_and_ranges(signed_in: Client) -> None:
+    instrument = make_instrument(manual_price=False)
+    Price.objects.create(instrument=instrument, date="2026-01-12", price=Decimal(10))
+    Price.objects.create(
+        instrument=instrument, date="2026-02-04", price=Decimal("12.5")
+    )
+
+    html = signed_in.get(instrument_url(ISIN)).content.decode()
+
+    assert chart_data(signed_in) == [
+        ["2026-01-12", "10.0000"],
+        ["2026-02-04", "12.5000"],
+    ]
+    assert "js/price_chart.js" in html
+    assert "1M 6M 1Y All" in page_text(html)
+
+
+def test_privacy_mode_embeds_no_chart_data(signed_in: Client, user: User) -> None:
+    instrument = make_instrument(manual_price=False)
+    Price.objects.create(instrument=instrument, date="2026-01-12", price=Decimal(10))
+    Price.objects.create(instrument=instrument, date="2026-02-12", price=Decimal(11))
+    user.privacy_mode = True
+    user.save()
+
+    html = signed_in.get(instrument_url(ISIN)).content.decode()
+
+    assert chart_data(signed_in) is None
+    assert "2026-02-12" not in html

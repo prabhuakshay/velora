@@ -14,9 +14,12 @@ from procrastinate.exceptions import AlreadyEnqueued
 
 from apps.core.jobs import daily_cron
 from apps.investments.backfill import backfill_prices as run_backfill
+from apps.investments.models import PriceFetch
 from apps.investments.nightly import PriceFetchError, run_nightly_prices
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from procrastinate.tasks import Task
 
 # NSE publishes its bhavcopy in the evening and AMFI its NAVs by 11 pm.
@@ -38,11 +41,13 @@ def backfill_prices() -> None:
     run_backfill(timezone.localdate())
 
 
-def _queue_once(task: Task[..., None, ...], lock: str) -> None:
-    """Queue the task, unless one is already waiting to run."""
+def _queue_once(task: Task[..., None, ...], lock: str) -> bool:
+    """Queue the task, unless one is already waiting to run; say if it queued."""
     # The savepoint keeps a refused duplicate from aborting the request's transaction.
     with suppress(AlreadyEnqueued), transaction.atomic():
         task.configure(queueing_lock=lock).defer()
+        return True
+    return False
 
 
 def queue_backfill() -> None:
@@ -55,15 +60,19 @@ def refresh_prices() -> None:
     """Fetch today's Prices, then fill past ones, as the user asked."""
     today = timezone.localdate()
     failed = []
-    for step in (run_nightly_prices, run_backfill):
+    steps: tuple[Callable[[], None], ...] = (
+        lambda: run_nightly_prices(today, PriceFetch.Trigger.REFRESH),
+        lambda: run_backfill(today),
+    )
+    for step in steps:
         try:
-            step(today)
+            step()
         except PriceFetchError as error:
             failed.append(str(error))
     if failed:
         raise PriceFetchError(", ".join(failed))
 
 
-def queue_refresh() -> None:
-    """Queue a refresh, unless one is already waiting to run."""
-    _queue_once(refresh_prices, REFRESH_LOCK)
+def queue_refresh() -> bool:
+    """Queue a refresh, unless one is already waiting to run; say if it queued."""
+    return _queue_once(refresh_prices, REFRESH_LOCK)

@@ -145,6 +145,8 @@ def test_export_then_import_into_an_empty_database_round_trips(
                     price="120", amount="600", note="part"),
     )  # fmt: skip
     first = exported(signed_in)
+    # An import creates unknown Instruments priced by hand, so start the same way.
+    Instrument.objects.update(manual_price=True)
     holdings = holdings_text(signed_in, broker), holdings_text(signed_in, kuvera)
     InvestmentEvent.objects.all().delete()
     Instrument.objects.all().delete()
