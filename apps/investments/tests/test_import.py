@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from apps.accounts.tests.conftest import account_url, make_account, page_text
 from apps.accounts.tests.test_balance import opening, record
-from apps.investments.models import Instrument, InvestmentEvent
+from apps.investments.models import Instrument, InvestmentEvent, PriceSource
 from apps.investments.tests.conftest import (
     holdings_text,
     import_confirm,
@@ -28,13 +28,13 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 NEW_FUND = "INF000000002"
-STOCK = "INE000000001"
+STOCK = "INE000000013"
 
 
 @pytest.fixture(autouse=True)
 def _fund() -> None:
     Instrument.objects.create(
-        isin="INF000000001", name="Nifty Fund", kind="mutual_fund"
+        isin="INF000000010", name="Nifty Fund", kind="mutual_fund"
     )
 
 
@@ -98,7 +98,7 @@ def test_each_error_row_gives_its_reason(signed_in: Client) -> None:
         buy(account="Groww"),
         import_line("SWAP"),
         import_line("BUY", units="10", price="100"),
-        buy(isin="INE999999999"),
+        buy(isin="INE999999993"),
         buy(ref="x" * 101),
         buy(units="ten"),
     )
@@ -261,13 +261,13 @@ def test_a_later_dividend_links_its_income_transaction(signed_in: Client) -> Non
     assert "Balance ₹5,075.00" in account_text(signed_in, broker)
 
 
-def test_an_unknown_isin_creates_a_manual_price_instrument(signed_in: Client) -> None:
+def test_an_unknown_isin_creates_an_instrument(signed_in: Client) -> None:
     make_broker(opening="5000")
 
     imported(signed_in, buy(isin=STOCK.lower(), instrument_name="Unlisted Co"))
 
     assert "Unlisted Co" in instrument_page(signed_in, STOCK)
-    assert Instrument.objects.get(isin=STOCK).manual_price
+    assert Instrument.objects.get(isin=STOCK).price_source == PriceSource.NSE
 
 
 def test_a_merger_can_name_its_new_instrument(signed_in: Client) -> None:
@@ -380,4 +380,69 @@ def test_a_draft_row_can_bring_an_unknown_instrument(signed_in: Client) -> None:
     )
 
     assert "Buy Unlisted Co in Kuvera" in drafts_text(signed_in)
-    assert Instrument.objects.get(isin=STOCK).manual_price
+    assert Instrument.objects.get(isin=STOCK).price_source == PriceSource.NSE
+
+
+def test_a_row_without_an_isin_creates_a_manual_instrument_by_name(
+    signed_in: Client,
+) -> None:
+    broker = make_broker(opening="5000")
+
+    imported(
+        signed_in,
+        buy(isin="", instrument_name="Gold Coin"),
+        buy(isin="", instrument_name="Gold Coin", date="2026-03-03"),
+    )
+
+    gold = Instrument.objects.get(name="Gold Coin")
+    assert gold.isin is None
+    assert gold.price_source == PriceSource.MANUAL
+    assert "Gold Coin 20 ₹2,000.00" in holdings_text(signed_in, broker)
+
+
+def test_a_row_without_an_isin_is_recorded_once_whatever_is_uploaded_after(
+    signed_in: Client,
+) -> None:
+    make_broker(opening="5000")
+    row = buy(isin="", instrument_name="Gold Coin")
+    imported(signed_in, row)
+
+    page = import_preview(signed_in, row)
+
+    assert "0 to add · 1 already recorded · 0 with errors" in page
+
+
+def test_an_invalid_isin_is_a_row_error(signed_in: Client) -> None:
+    make_broker(opening="5000")
+
+    page = import_preview(signed_in, buy(isin="TEJASNET", instrument_name="Tejas"))
+
+    assert "1 with errors" in page
+    assert "isin: This isn&#x27;t a valid ISIN." in page
+
+
+def test_a_merger_can_turn_units_into_an_instrument_without_an_isin(
+    signed_in: Client,
+) -> None:
+    broker = make_broker(opening="5000")
+
+    imported(
+        signed_in,
+        buy(date="2026-02-01"),
+        import_line("MERGER", instrument_name="Merged Gold"),
+    )
+
+    assert Instrument.objects.get(name="Merged Gold").isin is None
+    assert "Merged Gold 10 ₹1,000.00" in holdings_text(signed_in, broker)
+
+
+def test_a_merger_into_an_invalid_isin_is_an_error(signed_in: Client) -> None:
+    make_broker(opening="5000")
+
+    page = import_preview(
+        signed_in,
+        buy(date="2026-02-01"),
+        import_line("MERGER", instrument_name="Bad", new_isin="INE000000001"),
+    )
+
+    assert "new_isin: This isn&#x27;t a valid ISIN." in page

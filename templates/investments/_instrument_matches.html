@@ -1,0 +1,15 @@
+<ul class="divide-y divide-slate-100 text-sm">
+  {% for instrument in instruments %}
+    <li>
+      <button type="button" data-instrument-choice="{{ instrument.isin|default:instrument.name }}" class="block w-full px-3 py-2 text-left hover:bg-slate-50 focus:bg-slate-50 focus:outline-none">
+        <span class="block truncate font-medium text-slate-900">{{ instrument.name }}</span>
+        <span class="block text-xs text-slate-500">{{ instrument.isin|default:"No ISIN" }} · {{ instrument.get_kind_display }}</span>
+      </button>
+    </li>
+  {% empty %}
+    <li class="px-3 py-2 text-slate-500">No Instrument matches.</li>
+  {% endfor %}
+  <li>
+    <button type="button" data-instrument-add="{{ query }}" class="block w-full px-3 py-2 text-left font-medium text-slate-700 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none">Add new{% if query %} “{{ query }}”{% endif %}</button>
+  </li>
+</ul>

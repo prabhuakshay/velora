@@ -31,13 +31,13 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 NEW_FUND = "INF000000002"
-STOCK = "INE000000001"
+STOCK = "INE000000013"
 
 
 @pytest.fixture(autouse=True)
 def _fund() -> None:
     Instrument.objects.create(
-        isin="INF000000001", name="Nifty Fund", kind="mutual_fund"
+        isin="INF000000010", name="Nifty Fund", kind="mutual_fund"
     )
 
 
@@ -145,8 +145,8 @@ def test_export_then_import_into_an_empty_database_round_trips(
                     price="120", amount="600", note="part"),
     )  # fmt: skip
     first = exported(signed_in)
-    # An import creates unknown Instruments priced by hand, so start the same way.
-    Instrument.objects.update(manual_price=True)
+    # An import creates unknown Instruments as stocks, so start the same way.
+    Instrument.objects.update(kind="stock")
     holdings = holdings_text(signed_in, broker), holdings_text(signed_in, kuvera)
     InvestmentEvent.objects.all().delete()
     Instrument.objects.all().delete()
@@ -157,6 +157,32 @@ def test_export_then_import_into_an_empty_database_round_trips(
     assert (holdings_text(signed_in, broker), holdings_text(signed_in, kuvera)) == (
         holdings
     )
+
+
+def test_instruments_without_an_isin_round_trip_by_name(signed_in: Client) -> None:
+    broker = make_broker(opening="5000", opened=date(2026, 6, 1))
+    imported(
+        signed_in,
+        import_line("BUY", date="2026-02-01", isin="", instrument_name="Gold Coin",
+                    units="2", price="6000", amount="12000"),
+        import_line("SELL", date="2026-02-05", isin="", instrument_name="Gold Coin",
+                    units="0.5", price="6100", amount="3050"),
+        import_line("BUY", date="2026-02-01", units="10", price="100",
+                    amount="1000"),
+        import_line("MERGER", date="2026-03-02", instrument_name="Merged Gold"),
+    )  # fmt: skip
+    first = exported(signed_in)
+    Instrument.objects.update(kind="stock")
+    holdings = holdings_text(signed_in, broker)
+    InvestmentEvent.objects.all().delete()
+    Instrument.objects.all().delete()
+
+    imported(signed_in, *first.decode().splitlines()[1:])
+
+    assert exported(signed_in) == first
+    assert ",,Gold Coin,BUY," in first.decode()
+    assert ",Merged Gold,MERGER,,,,,,," in first.decode()
+    assert holdings_text(signed_in, broker) == holdings
 
 
 def test_confirming_an_import_queues_one_price_backfill(signed_in: Client) -> None:
@@ -214,7 +240,7 @@ def test_the_preview_shows_units_and_amounts_in_the_number_format(
         ).encode(),
     )
 
-    assert f"INF000000001 {shown}" in page
+    assert f"INF000000010 {shown}" in page
 
 
 def test_the_preview_shows_a_value_it_cant_read_as_written(signed_in: Client) -> None:
@@ -224,4 +250,4 @@ def test_the_preview_shows_a_value_it_cant_read_as_written(signed_in: Client) ->
         signed_in, import_text(import_line("BUY", units="NaN", amount="1x")).encode()
     )
 
-    assert "INF000000001 NaN 1x" in page
+    assert "INF000000010 NaN 1x" in page

@@ -37,9 +37,9 @@ def store(rows: list[price_source.PriceRow], fetch: PriceFetch) -> int:
             ignore_conflicts=True,
         )
         ids = dict(
-            Instrument.objects.filter(
-                isin__in={r.isin for r in rows}, manual_price=False
-            ).values_list("isin", "pk")
+            Instrument.objects.filter(isin__in={r.isin for r in rows}).values_list(
+                "isin", "pk"
+            )
         )
         new = [
             Price(
@@ -79,11 +79,10 @@ def reason(error: Exception, fetch: PriceFetch) -> str:
 
 
 def _held_isins() -> set[str]:
-    return set(
-        Instrument.objects.filter(
-            Q(events__isnull=False) | Q(merged_into_events__isnull=False)
-        ).values_list("isin", flat=True)
+    held = Instrument.objects.filter(
+        Q(events__isnull=False) | Q(merged_into_events__isnull=False)
     )
+    return {isin for isin in held.values_list("isin", flat=True) if isin}
 
 
 def record(

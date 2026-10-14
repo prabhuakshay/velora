@@ -72,7 +72,7 @@ def _missing(today: date) -> dict[PriceSource, tuple[dict[str, date], set[date]]
             for d in _weekdays(instrument.first, today)
             if (instrument.pk, d) not in priced and not _checked(instrument, d)
         }
-        if days:
+        if days and instrument.isin:
             isins, gaps = missing[instrument.price_source]
             isins[instrument.isin] = instrument.first
             gaps.update(days)

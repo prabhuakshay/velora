@@ -21,6 +21,7 @@ from apps.accounts.models import Account
 from apps.investments.drafts import save_investment
 from apps.investments.export import COLUMNS
 from apps.investments.forms import InvestmentEventForm
+from apps.investments.isin import is_valid_isin
 from apps.investments.ledger import moves_ledger_money
 from apps.investments.matching import matching_transaction
 from apps.investments.models import DraftInvestment, Instrument, InvestmentEvent
@@ -37,7 +38,6 @@ TYPES = {kind.upper(): kind for kind in DAY_ORDER}
 COLUMN_OF = {"kind": "type"}
 HIDDEN_ERRORS = {"income_account"}
 REF_LENGTH = int(InvestmentEvent._meta.get_field("ref").max_length or 0)
-ISIN_LENGTH = int(Instrument._meta.get_field("isin").max_length or 0)
 NAME_LENGTH = int(Instrument._meta.get_field("name").max_length or 0)
 
 
@@ -203,13 +203,16 @@ def _recorded(row: ImportRow, account: Account, kind: str, when: datetime.date) 
             InvestmentEvent.objects.filter(ref=values["ref"]).exists()
             or drafts.filter(ref=values["ref"]).exists()
         )
+    isin = values["isin"].upper()
     same = {
         "account": account,
         "kind": kind,
-        "instrument__isin": values["isin"].upper(),
+        "instrument__isin": isin or None,
         "units": _decimal(values["units"]),
         "amount": _decimal(values["amount"]),
     }
+    if not isin:
+        same["instrument__name__iexact"] = values["instrument_name"]
     return (
         InvestmentEvent.objects.filter(date=when, **same).exists()
         or drafts.filter(draft__date=when, **same).exists()
@@ -281,8 +284,6 @@ def _check_stated_price(row: ImportRow, kind: str) -> None:
 def _propose_draft(form: InvestmentEventForm) -> None:
     """Save the checked event as a Draft carrying it, to post once reviewed."""
     event = form.save(commit=False)
-    if form.new_instrument is not None:
-        event.instrument.save()
     draft = Draft.objects.create(
         source=Draft.Source.INVESTMENT_IMPORT,
         date=event.date,
@@ -304,25 +305,25 @@ def _propose_draft(form: InvestmentEventForm) -> None:
 
 
 def _define_merger_target(values: dict[str, str]) -> None:
-    """Create a Merger's unknown new Instrument, named by the row.
+    """Create a Merger's unknown new Instrument with an ISIN, named by the row.
 
     A Merger's old Instrument is already held, so its instrument_name is free
-    to name the new one.
+    to name the new one. Without a new ISIN, the form picks or creates the
+    Instrument without one by that name.
     """
     isin = values["new_isin"].upper()
     name = values["instrument_name"]
     if (
         name
-        and 0 < len(isin) <= ISIN_LENGTH
+        and is_valid_isin(isin)
         and len(name) <= NAME_LENGTH
         and not Instrument.objects.filter(isin=isin).exists()
     ):
-        Instrument.objects.create(
-            isin=isin, name=name, kind=Instrument.Kind.STOCK, manual_price=True
-        )
+        Instrument.objects.create(isin=isin, name=name, kind=Instrument.Kind.STOCK)
 
 
 def _form_data(values: dict[str, str], kind: str) -> dict[str, str]:
+    merger_into_a_name = kind == MERGER and not values["new_isin"]
     return {
         "kind": kind,
         "date": values["date"],
@@ -332,6 +333,7 @@ def _form_data(values: dict[str, str], kind: str) -> dict[str, str]:
         "amount": values["amount"],
         "charges": values["charges"] or "0",
         "new_isin": values["new_isin"],
+        "new_instrument_name": values["instrument_name"] if merger_into_a_name else "",
         "note": values["note"],
     }
 

@@ -25,9 +25,9 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-FUND = "INF000000001"
-SOLD = "INE000000002"
-ETF = "INF000000003"
+FUND = "INF000000010"
+SOLD = "INE000000021"
+ETF = "INF000000036"
 
 
 def three_holdings(client: Client) -> None:
@@ -156,6 +156,38 @@ def test_the_overview_splits_the_totals_by_mutual_funds_stocks_and_etfs(
         "ETFs ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
         "Cash — ₹9,360.00 — — — "
         "Total ₹1,150.00 ₹11,000.00 +₹490.00 +42.61% +₹10.00"
+    ) in text
+
+
+def test_the_overview_groups_gold_bonds_reits_and_other_holdings(
+    signed_in: Client,
+) -> None:
+    zerodha = make_broker("Zerodha", opening="10000")
+    for isin, name, kind in (
+        ("INE000001011", "Gold 24K (per gram)", "gold"),
+        ("IN0020230085", "SGB 2023-24 SR-III", "bond"),
+        ("INE000001037", "Embassy Office Parks REIT", "reit_invit"),
+        ("INE000000104", "Unlisted Co", "other"),
+    ):
+        record_event(
+            signed_in,
+            zerodha,
+            "buy",
+            isin,
+            units="1",
+            amount="100",
+            instrument_name=name,
+            instrument_kind=kind,
+        )
+
+    text = page_text(overview(signed_in))
+
+    assert (
+        "Gold ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
+        "Bonds ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
+        "REITs/InvITs ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
+        "Other ₹100.00 ₹100.00 ₹0.00 0.00% ₹0.00 "
+        "Cash"
     ) in text
 
 

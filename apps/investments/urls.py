@@ -32,6 +32,11 @@ urlpatterns = [
         "investments/export/", import_views.investment_export, name="investment_export"
     ),
     path(
+        "investments/instruments/search/",
+        views.instrument_search,
+        name="instrument_search",
+    ),
+    path(
         "investments/instruments/<int:pk>/",
         views.instrument_detail,
         name="instrument_detail",

@@ -21,6 +21,10 @@ KIND_TITLES = {
     Instrument.Kind.MUTUAL_FUND: "Mutual funds",
     Instrument.Kind.STOCK: "Stocks",
     Instrument.Kind.ETF: "ETFs",
+    Instrument.Kind.GOLD: "Gold",
+    Instrument.Kind.BOND: "Bonds",
+    Instrument.Kind.REIT_INVIT: "REITs/InvITs",
+    Instrument.Kind.OTHER: "Other",
 }
 
 

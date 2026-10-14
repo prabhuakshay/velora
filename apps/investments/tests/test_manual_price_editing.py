@@ -30,14 +30,14 @@ pytestmark = pytest.mark.django_db
 def test_a_manual_price_shows_the_day_it_was_entered(signed_in: Client) -> None:
     enter_price(signed_in, manual_instrument(), "2026-10-01", "100")
 
-    (only,) = price_rows(signed_in, STOCK)
+    (only,) = price_rows(signed_in, None)
 
     assert f"Manual · entered {timezone.localdate():%-d %b}" in only
 
 
 def row_link(client: Client, action: str, day: str = "1 Oct 2026") -> str:
     """The URL behind a Price row's Edit or Delete, found as the user would."""
-    html = client.get(instrument_url(STOCK)).content.decode()
+    html = client.get(instrument_url(None)).content.decode()
     for found in re.findall(r"<tr data-price>(.*?)</tr>", html, re.DOTALL):
         if day in found:
             link = re.search(
@@ -56,7 +56,7 @@ def test_a_manual_price_can_be_deleted_from_the_table(signed_in: Client) -> None
     response = signed_in.post(row_link(signed_in, "Delete"))
 
     assert response.status_code == 302
-    assert [r[:10] for r in price_rows(signed_in, STOCK)] == ["2 Oct 2026"]
+    assert [r[:10] for r in price_rows(signed_in, None)] == ["2 Oct 2026"]
 
 
 def test_a_manual_price_can_be_edited_from_the_table(signed_in: Client) -> None:
@@ -67,7 +67,7 @@ def test_a_manual_price_can_be_edited_from_the_table(signed_in: Client) -> None:
     response = signed_in.post(edit_url, {"date": "2026-10-02", "price": "105.5"})
 
     assert response.status_code == 302
-    (only,) = price_rows(signed_in, STOCK)
+    (only,) = price_rows(signed_in, None)
     assert only.startswith("2 Oct 2026 ₹105.5000 — Manual · entered")
 
 
@@ -82,7 +82,7 @@ def test_editing_onto_another_prices_day_is_refused(signed_in: Client) -> None:
 
     assert response.status_code == 200
     assert "already a Price for that day" in unescape(response.content.decode())
-    assert [r[:20] for r in price_rows(signed_in, STOCK)] == [
+    assert [r[:20] for r in price_rows(signed_in, None)] == [
         "2 Oct 2026 ₹110.0000",
         "1 Oct 2026 ₹100.0000",
     ]
@@ -96,7 +96,7 @@ def test_editing_to_a_price_of_zero_is_refused(signed_in: Client) -> None:
     )
 
     assert response.status_code == 200
-    assert [r[:20] for r in price_rows(signed_in, STOCK)] == ["1 Oct 2026 ₹100.0000"]
+    assert [r[:20] for r in price_rows(signed_in, None)] == ["1 Oct 2026 ₹100.0000"]
 
 
 def fetched_price(fake_prices: FakePriceSource) -> Price:
@@ -149,7 +149,7 @@ def test_editing_and_deleting_wait_for_privacy_mode_to_be_off(
     assert deleted["Location"] == privacy_mode_off_url(delete_url)
     user.privacy_mode = False
     user.save()
-    assert [r[:20] for r in price_rows(signed_in, STOCK)] == ["1 Oct 2026 ₹100.0000"]
+    assert [r[:20] for r in price_rows(signed_in, None)] == ["1 Oct 2026 ₹100.0000"]
 
 
 def test_editing_and_deleting_need_a_sign_in(signed_in: Client) -> None:
@@ -166,4 +166,4 @@ def test_deleting_takes_a_post_only(signed_in: Client) -> None:
     _, delete_url = manual_price_urls(signed_in)
 
     assert signed_in.get(delete_url).status_code == 405
-    assert len(price_rows(signed_in, STOCK)) == 1
+    assert len(price_rows(signed_in, None)) == 1

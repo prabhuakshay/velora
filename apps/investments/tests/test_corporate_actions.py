@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-OLD = "INF000000001"
+OLD = "INF000000010"
 NEW = "INF000000002"
 
 
@@ -116,7 +116,7 @@ def test_a_merger_needs_a_known_and_different_new_isin(
     signed_in: Client, broker: Account
 ) -> None:
     unknown = record_event(
-        signed_in, broker, "merger", OLD, new_isin="INF999999999", expect=200
+        signed_in, broker, "merger", OLD, new_isin="INF999999990", expect=200
     )
     same = record_event(signed_in, broker, "merger", OLD, new_isin=OLD, expect=200)
 

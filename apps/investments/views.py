@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -24,6 +25,7 @@ from apps.investments.forms import (
     ManualPriceForm,
 )
 from apps.investments.history import last_each_month, value_chart, value_history
+from apps.investments.instrument_field import matches
 from apps.investments.models import (
     Instrument,
     InvestmentEvent,
@@ -111,6 +113,17 @@ def _page(
 
 
 @login_required
+def instrument_search(request: HttpRequest) -> HttpResponseBase:
+    """The Instruments matching what's typed in an Instrument field."""
+    query = request.GET.get("q", "")
+    return render(
+        request,
+        "investments/_instrument_matches.html",
+        {"instruments": matches(query), "query": query.strip()},
+    )
+
+
+@login_required
 def instrument_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
     """The Instrument, its latest Price and, if priced by hand, a Price form."""
     instrument = get_object_or_404(Instrument, pk=pk)
@@ -125,8 +138,10 @@ def instrument_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 @blocked_in_privacy_mode
 def instrument_add_price(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Record a Price entered by hand; only for an Instrument with a manual Price."""
-    instrument = get_object_or_404(Instrument, pk=pk, manual_price=True)
+    """Record a Price entered by hand; only for a Manual Instrument."""
+    instrument = get_object_or_404(Instrument, pk=pk)
+    if instrument.price_source != PriceSource.MANUAL:
+        raise Http404
     form = ManualPriceForm(request.POST, instrument=instrument)
     if not form.is_valid():
         return _page(request, instrument, form)

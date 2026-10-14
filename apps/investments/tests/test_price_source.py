@@ -113,6 +113,21 @@ def test_nse_gives_stocks_and_etfs_by_the_etf_list() -> None:
     ]
 
 
+def test_nse_gives_a_sovereign_gold_bond_as_a_bond() -> None:
+    bhavcopy = (
+        BHAVCOPY + "2026-10-12,2026-10-12,CM,NSE,STK,4,IN0020230085,SGBDE31III,GB,"
+        "SGB 2023-24 SR-III,6150.00\n"
+    )
+
+    assert parse_nse(bhavcopy, ETF_LIST)[-1] == PriceRow(
+        "IN0020230085",
+        "SGB 2023-24 SR-III",
+        Instrument.Kind.BOND,
+        Decimal("6150.00"),
+        date(2026, 10, 12),
+    )
+
+
 def _not_found(day: date) -> urllib.error.HTTPError:
     return urllib.error.HTTPError(
         f"bhavcopy {day}", 404, "Not Found", Message(), io.BytesIO()

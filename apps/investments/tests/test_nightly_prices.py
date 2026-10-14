@@ -47,6 +47,22 @@ def test_the_nightly_job_creates_instruments_with_their_price(
     assert "ETF" in instrument_page(signed_in, "INF204KB14I2")
 
 
+def test_the_nightly_job_creates_and_prices_a_sovereign_gold_bond(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    today = timezone.localdate()
+    fake_prices.nse = [
+        row("IN0020230085", "SGB 2023-24 SR-III", "bond", "6150", today),
+    ]
+
+    run_nightly_prices(today)
+
+    page = instrument_page(signed_in, "IN0020230085")
+    assert "SGB 2023-24 SR-III" in page
+    assert "Bond" in page
+    assert f"₹6,150.0000 on {today:%-d %b %Y}" in page
+
+
 def test_running_twice_on_the_same_day_adds_nothing(
     signed_in: Client, fake_prices: FakePriceSource
 ) -> None:
@@ -108,17 +124,14 @@ def test_a_price_more_than_five_days_old_is_stale(
     assert "Stale" in instrument_page(signed_in, FUND)
 
 
-def test_the_job_leaves_an_instrument_priced_by_hand_alone(
+def test_the_job_leaves_an_instrument_without_an_isin_alone(
     signed_in: Client, fake_prices: FakePriceSource
 ) -> None:
     today = timezone.localdate()
-    Instrument.objects.create(
-        isin=FUND, name="My fund", kind="mutual_fund", manual_price=True
-    )
+    gold = Instrument.objects.create(isin=None, name="My fund", kind="mutual_fund")
     fake_prices.amfi = [fund("101", today)]
 
     run_nightly_prices(today)
 
-    page = instrument_page(signed_in, FUND)
-    assert "My fund" in page
-    assert "No Price yet" in page
+    assert not gold.prices.exists()
+    assert Instrument.objects.get(isin=FUND).prices.exists()

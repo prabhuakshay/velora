@@ -1,12 +1,14 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.tests.conftest import make_account
-from apps.investments.models import InvestmentEvent
+from apps.investments.instrument_field import INVALID_ISIN
+from apps.investments.models import Instrument, InvestmentEvent, Price
 from apps.investments.tests.conftest import add_price
 from apps.investments.tests.test_investment_draft_editing import (
     drafts_text,
@@ -28,7 +30,6 @@ if TYPE_CHECKING:
     from django.test import Client
 
     from apps.accounts.models import Account
-    from apps.investments.models import Instrument
 
 pytestmark = pytest.mark.django_db
 
@@ -44,8 +45,7 @@ def sip_form_data(
         description="Nifty SIP",
         is_sip="on",
         sip_account=account.pk,
-        sip_isin=FUND,
-        **fields,
+        **({"sip_isin": FUND} | fields),
     )
 
 
@@ -85,7 +85,7 @@ def test_a_sip_shows_its_instrument_and_can_be_unmarked(
 @pytest.mark.parametrize(
     ("fields", "reason"),
     [
-        ({"sip_isin": "INF999999999"}, "Velora doesn't know this ISIN."),
+        ({"sip_isin": "INF999999990"}, "Velora doesn't know this ISIN."),
         ({"sip_account": ""}, "Pick the Investment Account it buys in."),
     ],
 )
@@ -227,3 +227,95 @@ def test_an_auto_post_sip_priced_after_its_grace_waits_for_the_user(
         Decimal("40.000000"),
     )
     assert not InvestmentEvent.objects.exists()
+
+
+GOLD = "Gold 24K (per gram)"
+
+
+def test_a_sip_buys_an_instrument_without_an_isin_added_with_it(
+    signed_in: Client, kuvera: Account
+) -> None:
+    data = sip_form_data(
+        kuvera,
+        sip_isin="",
+        sip_add_new="on",
+        sip_instrument_name=GOLD,
+        sip_instrument_kind="gold",
+    )
+
+    response = signed_in.post(reverse("schedule_create"), data)
+
+    assert response.status_code == 302
+    gold = Instrument.objects.get(name=GOLD)
+    assert (gold.isin, gold.kind) == (None, "gold")
+    assert Schedule.objects.get().sip_instrument == gold
+
+
+def test_a_sip_on_an_instrument_without_an_isin_drafts_its_buys(
+    signed_in: Client, kuvera: Account
+) -> None:
+    gold = Instrument.objects.create(name=GOLD, kind="gold")
+    make_sip(kuvera, gold)
+    Price.objects.create(instrument=gold, date=date(2026, 10, 5), price=Decimal(8000))
+
+    run_daily_job(date(2026, 10, 5))
+
+    assert f"Buy {GOLD} in Kuvera · 0.625 units at ₹8,000.0000" in drafts_text(
+        signed_in
+    )
+
+
+def test_a_sip_picks_a_known_instrument_without_an_isin_by_its_name(
+    signed_in: Client, kuvera: Account
+) -> None:
+    gold = Instrument.objects.create(name=GOLD, kind="gold")
+
+    response = signed_in.post(
+        reverse("schedule_create"),
+        sip_form_data(kuvera, sip_isin="", sip_instrument=GOLD.lower()),
+    )
+
+    assert response.status_code == 302
+    schedule = Schedule.objects.get()
+    assert schedule.sip_instrument == gold
+    edit = signed_in.get(reverse("schedule_edit", args=[schedule.pk]))
+    assert f'value="{GOLD}"' in edit.content.decode()
+
+
+@pytest.mark.usefixtures("fund")
+def test_a_sip_refuses_an_invalid_isin_like_the_event_forms(
+    signed_in: Client, kuvera: Account
+) -> None:
+    response = signed_in.post(
+        reverse("schedule_create"), sip_form_data(kuvera, sip_isin="INF12345")
+    )
+
+    assert response.status_code == 200
+    assert INVALID_ISIN in page_text(response.content.decode())
+    assert not Schedule.objects.exists()
+
+
+def test_a_sip_saved_on_an_instrument_without_an_isin_drafts_its_buy_when_due(
+    signed_in: Client, kuvera: Account
+) -> None:
+    # The form's Occurrences start from today, so the SIP falls due after it.
+    due = timezone.localdate() + timedelta(days=7)
+    signed_in.post(
+        reverse("schedule_create"),
+        sip_form_data(
+            kuvera,
+            start_date=due.isoformat(),
+            sip_isin="",
+            sip_add_new="on",
+            sip_instrument_name=GOLD,
+            sip_instrument_kind="gold",
+        ),
+    )
+    gold = Instrument.objects.get(name=GOLD)
+    Price.objects.create(instrument=gold, date=due, price=Decimal(8000))
+
+    run_daily_job(due)
+
+    assert f"Buy {GOLD} in Kuvera · 0.625 units at ₹8,000.0000" in drafts_text(
+        signed_in
+    )

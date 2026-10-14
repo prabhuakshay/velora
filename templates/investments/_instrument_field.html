@@ -1,0 +1,13 @@
+{# An InstrumentField's parts: search, then Add new. instrument_search.js drives the matches. #}
+<div data-instrument-field data-instrument-search="{% url 'instrument_search' %}" class="space-y-3">
+  <div class="relative">
+    {% include "partials/field.html" with field=parts.search %}
+    <div data-instrument-matches hidden class="absolute inset-x-0 z-20 mt-1 max-h-72 overflow-y-auto rounded-xl bg-white shadow-lg ring-1 ring-slate-200"></div>
+  </div>
+  {% include "partials/checkbox.html" with field=parts.add_new hook="data-instrument-adding" %}
+  <div data-instrument-new{% if parts.name.errors or parts.kind.errors or parts.isin.errors %} data-errors{% endif %} class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    {% include "partials/field.html" with field=parts.name %}
+    {% include "partials/field.html" with field=parts.kind %}
+    {% include "partials/field.html" with field=parts.isin %}
+  </div>
+</div>

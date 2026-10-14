@@ -4,6 +4,7 @@ import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
+from django.db.models.functions import Lower
 from simple_history.models import HistoricalRecords
 
 from apps.investments import replay
@@ -27,20 +28,24 @@ class PriceSource(models.TextChoices):
 
 
 class Instrument(models.Model):
-    """A mutual fund scheme, stock or ETF, identified by its ISIN.
+    """Something held in units, such as a fund, stock, ETF, gold or a bond.
 
-    One with a manual Price is priced by hand; the nightly job leaves it alone.
+    It is identified by its ISIN or, without one, by its name. One without an
+    ISIN is priced by hand; the nightly job leaves it alone.
     """
 
     class Kind(models.TextChoices):
         MUTUAL_FUND = "mutual_fund", "Mutual fund"
         STOCK = "stock", "Stock"
         ETF = "etf", "ETF"
+        GOLD = "gold", "Gold"
+        BOND = "bond", "Bond"
+        REIT_INVIT = "reit_invit", "REIT/InvIT"
+        OTHER = "other", "Other"
 
-    isin = models.CharField("ISIN", max_length=12, unique=True)
+    isin = models.CharField("ISIN", max_length=12, unique=True, null=True, blank=True)
     name = models.CharField(max_length=200)
     kind = models.CharField(max_length=20, choices=Kind.choices)
-    manual_price = models.BooleanField(default=False)
     # Days the backfill already read its source's archive for. A day in this
     # span still without a Price had no file or no row for it, so fetching it
     # again would find nothing.
@@ -49,14 +54,21 @@ class Instrument(models.Model):
 
     class Meta:
         ordering = ("name",)
+        constraints = (
+            models.UniqueConstraint(
+                Lower("name"),
+                condition=models.Q(isin__isnull=True),
+                name="instrument_name_unique_without_isin",
+            ),
+        )
 
     def __str__(self) -> str:
         return self.name
 
     @property
     def price_source(self) -> PriceSource:
-        """Where its Prices come from: Manual if priced by hand, else AMFI or NSE."""
-        if self.manual_price:
+        """Where its Prices come from: Manual without an ISIN, else AMFI or NSE."""
+        if not self.isin:
             return PriceSource.MANUAL
         if self.kind == self.Kind.MUTUAL_FUND:
             return PriceSource.AMFI

@@ -30,7 +30,9 @@ STOCK = "INE002A01018"
 FUND = "INF209KA12Z1"
 
 
-def price_rows(client: Client, isin: str = STOCK, url: str | None = None) -> list[str]:
+def price_rows(
+    client: Client, isin: str | None = STOCK, url: str | None = None
+) -> list[str]:
     """Each row of the Instrument page's Price table, newest first."""
     html = client.get(url or instrument_url(isin)).content.decode()
     return [
@@ -70,9 +72,7 @@ def test_a_price_keeps_its_source_once_its_fetch_is_removed(
 
 
 def manual_instrument() -> Instrument:
-    return Instrument.objects.create(
-        isin=STOCK, name="Unlisted Co", kind="stock", manual_price=True
-    )
+    return Instrument.objects.create(isin=None, name="Unlisted Co", kind="stock")
 
 
 def enter_price(client: Client, instrument: Instrument, day: str, price: str) -> None:
@@ -89,7 +89,7 @@ def test_prices_list_newest_first_with_their_change(signed_in: Client) -> None:
     enter_price(signed_in, instrument, "2026-10-02", "110")
 
     entered = f"Manual · entered {timezone.localdate():%-d %b}"
-    assert price_rows(signed_in) == [
+    assert price_rows(signed_in, None) == [
         f"3 Oct 2026 ₹90.5000 -₹19.5000 {entered}",
         f"2 Oct 2026 ₹110.0000 +₹10.0000 {entered}",
         f"1 Oct 2026 ₹100.0000 — {entered}",
@@ -102,19 +102,19 @@ def test_the_table_shows_30_prices_then_more_on_asking(signed_in: Client) -> Non
     for n in range(31):
         enter_price(signed_in, instrument, f"{first + timedelta(days=n)}", "10")
 
-    shown = price_rows(signed_in)
+    shown = price_rows(signed_in, None)
     assert len(shown) == 30
     assert shown[-1].startswith("2 Jan 2026 ₹10.0000 ₹0.0000")
-    html = signed_in.get(instrument_url(STOCK)).content.decode()
+    html = signed_in.get(instrument_url(None)).content.decode()
     more = re.search(r'href="([^"]*)"[^>]*>Show more<', html)
     assert more
-    more_url = instrument_url(STOCK) + unescape(more[1])
+    more_url = instrument_url(None) + unescape(more[1])
 
     assert len(price_rows(signed_in, url=more_url)) == 31
     assert "Show more" not in signed_in.get(more_url).content.decode()
 
 
-def source_line(client: Client, isin: str) -> str:
+def source_line(client: Client, isin: str | None) -> str:
     html = client.get(instrument_url(isin)).content.decode()
     found = re.search(r"<p data-price-source[^>]*>(.*?)</p>", html, re.DOTALL)
     assert found, html
@@ -137,7 +137,7 @@ def test_the_page_states_its_price_source_and_last_fetch(
 def test_a_manual_instrument_states_it_is_priced_by_hand(signed_in: Client) -> None:
     manual_instrument()
 
-    assert source_line(signed_in, STOCK) == "Price Source: Manual"
+    assert source_line(signed_in, None) == "Price Source: Manual"
 
 
 def test_privacy_mode_hides_the_table(signed_in: Client, user: User) -> None:
@@ -146,9 +146,9 @@ def test_privacy_mode_hides_the_table(signed_in: Client, user: User) -> None:
     user.privacy_mode = True
     user.save()
 
-    html = signed_in.get(instrument_url(STOCK)).content.decode()
+    html = signed_in.get(instrument_url(None)).content.decode()
 
-    assert price_rows(signed_in) == []
+    assert price_rows(signed_in, None) == []
     assert "4,321" not in html
 
 
@@ -177,4 +177,5 @@ def test_prices_stored_before_sources_show_their_instruments_source(
 
     assert price_rows(signed_in, FUND) == ["14 Oct 2026 ₹10.0000 — AMFI"]
     assert price_rows(signed_in, STOCK) == ["14 Oct 2026 ₹10.0000 — NSE"]
-    assert price_rows(signed_in, "INE000000001") == ["14 Oct 2026 ₹10.0000 — Manual"]
+    # The made-up ISIN is cleared later, so the Instrument is the one without.
+    assert price_rows(signed_in, None) == ["14 Oct 2026 ₹10.0000 — Manual"]

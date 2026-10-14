@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-FUND = "INF000000001"
+FUND = "INF000000010"
 TODAY = date(2026, 4, 2)
 
 

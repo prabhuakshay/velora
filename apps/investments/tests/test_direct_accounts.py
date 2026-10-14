@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-FUND = "INF000000001"
+FUND = "INF000000010"
 
 
 @pytest.fixture(autouse=True)

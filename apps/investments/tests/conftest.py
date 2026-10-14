@@ -85,7 +85,7 @@ def row(
     )
 
 
-def instrument_url(isin: str) -> str:
+def instrument_url(isin: str | None) -> str:
     return reverse("instrument_detail", args=[Instrument.objects.get(isin=isin).pk])
 
 
@@ -163,7 +163,7 @@ IMPORT_HEADER = (
     "date,account,isin,instrument_name,type,units,price,amount,charges,new_isin,"
     "ref,note"
 )
-IMPORT_DEFAULTS = {"date": "2026-03-02", "account": "Zerodha", "isin": "INF000000001"}
+IMPORT_DEFAULTS = {"date": "2026-03-02", "account": "Zerodha", "isin": "INF000000010"}
 
 
 def import_line(kind: str, **fields: str) -> str:

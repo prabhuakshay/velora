@@ -13,6 +13,7 @@ from apps.investments.dividends import (
     posts_dividend,
     save_unlinked,
 )
+from apps.investments.instrument_field import InstrumentField
 from apps.investments.ledger import transaction_forms
 from apps.investments.models import (
     NEEDS,
@@ -31,7 +32,13 @@ if TYPE_CHECKING:
     from apps.transactions.recording import TransactionForms
 
 REPLAYED = ("kind", "date", "units", "amount", "charges")
-UNKNOWN_ISIN = "Velora doesn't know this ISIN; enter the Instrument's name."
+INSTRUMENT = InstrumentField()
+NEW_INSTRUMENT = InstrumentField(
+    "new_",
+    label="New Instrument",
+    help_text="For a Merger: the Instrument the units turn into.",
+    creates_from_isin=False,
+)
 
 
 class ManualPriceForm(forms.Form):
@@ -100,15 +107,20 @@ def _future_refused(when: datetime.date) -> datetime.date:
     return when
 
 
-OPTIONAL = ("units", "amount", "income_account", "new_isin")
+OPTIONAL = ("units", "amount", "income_account")
 REQUIRED = "This field is required."
+
+
+def _same(a: Instrument, b: Instrument) -> bool:
+    # Either may be unsaved, so compare what identifies an Instrument.
+    return a.isin == b.isin and (a.isin is not None or a.name == b.name)
 
 
 class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
     """Record or edit an Investment Event inside an Investment Account.
 
-    The Instrument is picked by ISIN; an ISIN Velora doesn't know becomes an
-    Instrument with a manual Price, named by the form. An event that would
+    The Instrument, and a Merger's new one, is an InstrumentField: a known
+    one searched for or a new one added with the event. An event that would
     leave a Sell taking more units than held on its date, counting every
     other event, is refused. A Dividend also records its Income Transaction.
     Given a matched Transaction, the event is linked to it as it is instead.
@@ -116,29 +128,10 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
     Draft it is proposed as.
     """
 
-    isin = forms.CharField(label="ISIN", max_length=12)
-    instrument_name = forms.CharField(
-        label="Instrument name",
-        max_length=200,
-        required=False,
-        help_text="Only needed when Velora doesn't know the ISIN.",
-    )
-    instrument_kind = forms.ChoiceField(
-        label="Instrument type",
-        choices=Instrument.Kind.choices,
-        initial=Instrument.Kind.STOCK,
-        required=False,
-    )
     income_account = forms.ModelChoiceField(
         queryset=Account.objects.filter(kind=AccountKind.INCOME),
         required=False,
         help_text="For a Dividend: the Income Account it is recorded from.",
-    )
-    new_isin = forms.CharField(
-        label="New ISIN",
-        max_length=12,
-        required=False,
-        help_text="For a Merger: the Instrument the units turn into.",
     )
 
     class Meta:
@@ -165,40 +158,35 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         self.matched = matched
         self.drafting = drafting
         self.instance.account = account
+        self.fields |= INSTRUMENT.fields() | NEW_INSTRUMENT.fields()
+        self.instrument_parts = INSTRUMENT.parts(self)
+        self.new_instrument_parts = NEW_INSTRUMENT.parts(self)
         for name in ("units", "amount"):
             self.fields[name].widget.attrs["min"] = "0"
         if self.instance.pk:
-            self.initial["isin"] = self.instance.instrument.isin
+            self.initial.update(INSTRUMENT.initial(self.instance.instrument))
             self.initial["income_account"] = income_account(self.instance.transaction)
-            if self.instance.new_instrument is not None:
-                self.initial["new_isin"] = self.instance.new_instrument.isin
+            if (merged := self.instance.new_instrument) is not None:
+                self.initial.update(NEW_INSTRUMENT.initial(merged))
         else:
             self.initial.setdefault("date", timezone.localdate())
-        self.new_instrument: Instrument | None = None
         self.ledger: TransactionForms | None = None
 
     def clean_date(self) -> datetime.date:
         """Refuse a day after today."""
         return _future_refused(self.cleaned_data["date"])
 
-    def clean_isin(self) -> str:
-        """ISINs are kept in capitals."""
-        return str(self.cleaned_data["isin"]).strip().upper()
-
-    def clean_new_isin(self) -> str:
-        """ISINs are kept in capitals."""
-        return str(self.cleaned_data["new_isin"]).strip().upper()
-
     def clean(self) -> dict[str, Any]:
         """Check the kind's parts, find the Instruments, then replay every event."""
         super().clean()
         cleaned = self.cleaned_data
         self._keep_what_the_kind_needs()
-        instrument = self._instrument(cleaned.get("isin"))
+        instrument = INSTRUMENT.resolve(self)
         if instrument is not None:
             self.instance.instrument = instrument
-        if cleaned.get("new_isin"):
-            self._merge_target(cleaned["new_isin"], instrument)
+        self.instance.new_instrument = None
+        if cleaned.get("kind") == InvestmentEvent.Kind.MERGER:
+            self._merge_target(instrument)
         if not self.errors and instrument is not None:
             self._refuse_overselling(instrument)
             if not self.drafting:
@@ -210,6 +198,10 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         needs = NEEDS.get(kind, ())
         if not self._posts_dividend():
             needs = tuple(name for name in needs if name != "income_account")
+        if kind != InvestmentEvent.Kind.MERGER:
+            self.cleaned_data |= NEW_INSTRUMENT.cleared()
+        elif not NEW_INSTRUMENT.entered(self.cleaned_data):
+            self.add_error("new_isin", REQUIRED)
         for name in OPTIONAL:
             if name not in needs:
                 self.cleaned_data[name] = None
@@ -234,39 +226,26 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
             )
         )
 
-    def _instrument(self, isin: str | None) -> Instrument | None:
-        if isin is None:
-            return None
-        instrument = Instrument.objects.filter(isin=isin).first()
-        if instrument is not None:
-            return instrument
-        name = self.cleaned_data.get("instrument_name", "").strip()
-        if not name:
-            self.add_error("instrument_name", UNKNOWN_ISIN)
-            return None
-        self.new_instrument = Instrument(
-            isin=isin,
-            name=name,
-            kind=self.cleaned_data.get("instrument_kind") or Instrument.Kind.STOCK,
-            manual_price=True,
-        )
-        return self.new_instrument
-
-    def _merge_target(self, isin: str, instrument: Instrument | None) -> None:
-        target = Instrument.objects.filter(isin=isin).first()
+    def _merge_target(self, instrument: Instrument | None) -> None:
+        if self.has_error("new_isin"):
+            return
+        kind = instrument.kind if instrument else Instrument.Kind.STOCK
+        target = NEW_INSTRUMENT.resolve(self, default_kind=kind)
         if target is None:
-            self.add_error("new_isin", "Velora doesn't know this ISIN.")
-        elif instrument is not None and target.isin == instrument.isin:
-            self.add_error("new_isin", "Pick a different Instrument to merge into.")
+            return
+        if instrument is not None and _same(target, instrument):
+            searched = self.cleaned_data.get("new_instrument")
+            field = "new_instrument" if searched else "new_isin"
+            self.add_error(field, "Pick a different Instrument to merge into.")
         else:
-            self.cleaned_data["new_instrument"] = target
+            self.instance.new_instrument = target
 
     def _candidate(self, instrument: Instrument) -> InvestmentEvent:
         # The instance only takes the form's values after clean(), so use a copy.
         return InvestmentEvent(
             account=self.account,
             instrument=instrument,
-            new_instrument=self.cleaned_data.get("new_instrument"),
+            new_instrument=self.instance.new_instrument,
             transaction=self.instance.transaction,
             **{name: self.cleaned_data[name] for name in REPLAYED},
         )
@@ -293,10 +272,8 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
 
     def save(self, commit: bool = True) -> InvestmentEvent:  # noqa: FBT001, FBT002
         """Save the event, any Instrument it brought and its Transaction."""
-        if self.new_instrument is not None:
-            self.new_instrument.save()
-            self.instance.instrument = self.new_instrument
-        self.instance.new_instrument = self.cleaned_data.get("new_instrument")
+        InstrumentField.save_if_new(self.instance.instrument)
+        InstrumentField.save_if_new(self.instance.new_instrument)
         event = super().save(commit=False)
         if commit:
             if self.matched is not None:
