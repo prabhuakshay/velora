@@ -79,11 +79,21 @@ def record(
     trigger: PriceFetch.Trigger,
     fetch: Callable[[], list[price_source.PriceRow]],
     *,
-    day_asked: date,
+    day_asked: date | None = None,
+    days: tuple[date, date] | None = None,
 ) -> PriceFetch:
-    """Run one Price Fetch, store its rows and record how it went."""
+    """Run one Price Fetch, store its rows and record how it went.
+
+    It asks for one day, or for a backfill the range of days it fills.
+    """
+    range_start, range_end = days or (None, None)
     price_fetch = PriceFetch.objects.create(
-        source=source, trigger=trigger, started_at=timezone.now(), day_asked=day_asked
+        source=source,
+        trigger=trigger,
+        started_at=timezone.now(),
+        day_asked=day_asked,
+        range_start=range_start,
+        range_end=range_end,
     )
     try:
         rows = fetch()
@@ -94,7 +104,8 @@ def record(
     else:
         price_fetch.prices_stored = store(rows)
         price_fetch.instruments_priced = len({r.isin for r in rows} & _held_isins())
-        price_fetch.day_used = max((r.date for r in rows), default=None)
+        if day_asked:
+            price_fetch.day_used = max((r.date for r in rows), default=None)
         price_fetch.outcome = PriceFetch.Outcome.OK
     price_fetch.finished_at = timezone.now()
     price_fetch.save()

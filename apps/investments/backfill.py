@@ -1,6 +1,5 @@
 """Backfilling the past Prices of every Instrument held, from its first event."""
 
-import logging
 from collections import defaultdict
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
@@ -9,13 +8,11 @@ from django.db.models import Min
 from django.db.models.functions import Least
 
 from apps.investments import price_source
-from apps.investments.models import Instrument, Price, PriceSource
-from apps.investments.nightly import PriceFetchError, store
+from apps.investments.models import Instrument, Price, PriceFetch, PriceSource
+from apps.investments.nightly import PriceFetchError, record
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-
-logger = logging.getLogger("nightly_prices")
 
 # Keeps each archive request small; AMFI refuses long history ranges.
 WINDOW_DAYS = 31
@@ -85,8 +82,9 @@ def backfill_prices(today: date) -> None:
     """Fetch and store the Prices held Instruments miss, up to today.
 
     Only weekdays with no Price are fetched, and a stored Price is never
-    replaced, so running again is safe. A failed fetch is skipped and the
-    rest still run; the job raises afterwards so it shows as failed.
+    replaced, so running again is safe. Each source's run is recorded as a
+    Price Fetch over the days it fills. A source that fails is skipped and
+    the others still run; the job raises afterwards so it shows as failed.
     """
     failed = []
     missing = _missing(today)
@@ -94,13 +92,23 @@ def backfill_prices(today: date) -> None:
         if name not in missing:
             continue
         isins, days = missing[name]
-        for start, end in _windows(days):
-            try:
-                rows = fetch(start, end)
-            except Exception:
-                logger.exception("Backfilling %s Prices failed", name)
-                failed.append(name)
-                continue
-            store([r for r in rows if r.isin in isins and r.date >= isins[r.isin]])
+
+        def rows(
+            fetch: Callable[[date, date], list[price_source.PriceRow]] = fetch,
+            isins: dict[str, date] = isins,
+            days: set[date] = days,
+        ) -> list[price_source.PriceRow]:
+            return [
+                r
+                for start, end in _windows(days)
+                for r in fetch(start, end)
+                if r.isin in isins and r.date >= isins[r.isin]
+            ]
+
+        price_fetch = record(
+            name, PriceFetch.Trigger.BACKFILL, rows, days=(min(days), max(days))
+        )
+        if price_fetch.outcome == PriceFetch.Outcome.FAILED:
+            failed.append(name)
     if failed:
-        raise PriceFetchError(", ".join(sorted(set(failed))))
+        raise PriceFetchError(", ".join(failed))
