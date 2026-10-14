@@ -26,9 +26,12 @@ YESTERDAY = TODAY - timedelta(days=1)
 
 
 def not_published() -> HTTPError:
-    return HTTPError(
+    error = HTTPError(
         "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
     )
+    # Nothing reads its body, and one left open warns whenever it is collected.
+    error.close()
+    return error
 
 
 def banners(client: Client) -> list[str]:

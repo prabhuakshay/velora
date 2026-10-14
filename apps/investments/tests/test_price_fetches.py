@@ -62,9 +62,12 @@ def test_the_overview_shows_what_the_nightly_run_fetched(
 
 
 def not_published() -> HTTPError:
-    return HTTPError(
+    error = HTTPError(
         "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
     )
+    # Nothing reads its body, and one left open warns whenever it is collected.
+    error.close()
+    return error
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 """Instruments, their Prices, and the Investment Events that build Lots."""
 
 import datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from simple_history.models import HistoricalRecords
@@ -63,13 +63,24 @@ class Instrument(models.Model):
 
 
 class Price(models.Model):
-    """What one unit of an Instrument was worth at the end of a day."""
+    """What one unit of an Instrument was worth at the end of a day.
+
+    It keeps its source itself, so removing old Price Fetches never loses it.
+    """
 
     instrument = models.ForeignKey(
         Instrument, on_delete=models.CASCADE, related_name="prices"
     )
     date = models.DateField()
     price = models.DecimalField(max_digits=16, decimal_places=4)
+    source = models.CharField(max_length=8, choices=PriceSource)
+    fetch = models.ForeignKey(
+        "PriceFetch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="prices",
+    )
 
     class Meta:
         constraints = (
@@ -83,6 +94,12 @@ class Price(models.Model):
 
     def __str__(self) -> str:
         return f"{self.instrument} on {self.date}"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        """Default the source to the Instrument's Price Source."""
+        if not self.source:
+            self.source = self.instrument.price_source
+        super().save(*args, **kwargs)
 
     def is_stale(self, today: datetime.date) -> bool:
         """Whether the Price is more than five days older than today."""

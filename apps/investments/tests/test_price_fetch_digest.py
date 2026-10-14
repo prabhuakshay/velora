@@ -28,9 +28,12 @@ def _site(settings: Settings) -> None:
 
 
 def not_published() -> HTTPError:
-    return HTTPError(
+    error = HTTPError(
         "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
     )
+    # Nothing reads its body, and one left open warns whenever it is collected.
+    error.close()
+    return error
 
 
 def test_a_failed_nightly_price_fetch_is_in_the_digest(

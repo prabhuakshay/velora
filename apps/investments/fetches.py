@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from typing import TYPE_CHECKING
 
-from django.db.models import Max, Q
+from django.db.models import Max
 from django.utils import timezone
 
-from apps.investments.models import Instrument, Price, PriceFetch, PriceSource
+from apps.investments.models import Price, PriceFetch, PriceSource
 
 if TYPE_CHECKING:
     from datetime import date
@@ -28,11 +28,9 @@ class SourceStatus:
 
 
 def _prices_for(source: PriceSource) -> date | None:
-    funds = Q(instrument__kind=Instrument.Kind.MUTUAL_FUND)
-    prices = Price.objects.filter(instrument__manual_price=False).filter(
-        funds if source == PriceSource.AMFI else ~funds
-    )
-    latest: date | None = prices.aggregate(latest=Max("date"))["latest"]
+    latest: date | None = Price.objects.filter(source=source).aggregate(
+        latest=Max("date")
+    )["latest"]
     return latest
 
 
