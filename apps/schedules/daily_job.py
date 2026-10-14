@@ -10,6 +10,7 @@ from apps.cards.emis import propose_card_emi_drafts
 from apps.cards.statements import create_statements, match_card_payments
 from apps.core.jobs import ItemsFailedError
 from apps.digest.email import send_digest
+from apps.investments.fetches import remove_old_price_fetches
 from apps.investments.sips import fill_sip_units
 from apps.schedules.matching import mark_missed, match_transactions
 from apps.schedules.occurrences import materialise_occurrences, propose_due_drafts
@@ -33,6 +34,7 @@ STEPS: tuple[Callable[[date], None], ...] = (
     create_statements,
     propose_card_emi_drafts,
     suggest_schedules,
+    remove_old_price_fetches,
     # Last, so the digest reports what every other step left.
     send_digest,
 )

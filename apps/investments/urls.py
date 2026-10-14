@@ -9,6 +9,7 @@ urlpatterns = [
         views.investments_refresh_prices,
         name="investments_refresh_prices",
     ),
+    path("investments/price-fetches/", views.price_fetches, name="price_fetches"),
     path(
         "investments/import/", import_views.investment_import, name="investment_import"
     ),
