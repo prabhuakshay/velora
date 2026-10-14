@@ -7,15 +7,9 @@ from django import forms
 from django.utils import timezone
 
 from apps.accounts.models import Account, AccountKind
-from apps.investments import instruments
-from apps.investments.dividends import (
-    income_account,
-    linking,
-    posts_dividend,
-    save_unlinked,
-)
+from apps.investments import events, instruments
+from apps.investments.dividends import income_account, posts_dividend
 from apps.investments.instrument_field import InstrumentField
-from apps.investments.ledger import transaction_forms
 from apps.investments.models import (
     NEEDS,
     Instrument,
@@ -23,14 +17,12 @@ from apps.investments.models import (
     Price,
     PriceSource,
 )
-from apps.investments.overselling import oversell_refusal
 from apps.investments.replay import TRADES
 
 if TYPE_CHECKING:
     import datetime
 
     from apps.transactions.models import Transaction
-    from apps.transactions.recording import TransactionForms
 
 REPLAYED = ("kind", "date", "units", "amount", "charges")
 INSTRUMENT = InstrumentField()
@@ -154,6 +146,8 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         self.matched = matched
         self.drafting = drafting
         self.instance.account = account
+        if matched is not None:
+            self.instance.transaction = matched
         self.fields |= INSTRUMENT.fields() | NEW_INSTRUMENT.fields()
         self.instrument_parts = INSTRUMENT.parts(self)
         self.new_instrument_parts = NEW_INSTRUMENT.parts(self)
@@ -166,7 +160,6 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
                 self.initial.update(NEW_INSTRUMENT.initial(merged))
         else:
             self.initial.setdefault("date", timezone.localdate())
-        self.ledger: TransactionForms | None = None
 
     def clean_date(self) -> datetime.date:
         """Refuse a day after today."""
@@ -184,9 +177,12 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         if cleaned.get("kind") == InvestmentEvent.Kind.MERGER:
             self._merge_target(instrument)
         if not self.errors and instrument is not None:
-            self._refuse_overselling(instrument)
-            if not self.drafting:
-                self._check_ledger(instrument)
+            for problem in events.check(
+                self._candidate(instrument),
+                cleaned["income_account"],
+                as_draft=self.drafting,
+            ):
+                self.add_error(None, problem)
         return cleaned
 
     def _keep_what_the_kind_needs(self) -> None:
@@ -239,6 +235,7 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
     def _candidate(self, instrument: Instrument) -> InvestmentEvent:
         # The instance only takes the form's values after clean(), so use a copy.
         return InvestmentEvent(
+            pk=self.instance.pk,
             account=self.account,
             instrument=instrument,
             new_instrument=self.instance.new_instrument,
@@ -246,37 +243,11 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
             **{name: self.cleaned_data[name] for name in REPLAYED},
         )
 
-    def _refuse_overselling(self, instrument: Instrument) -> None:
-        if refusal := oversell_refusal(
-            self.account,
-            adding=self._candidate(instrument),
-            leaving_out=self.instance.pk,
-            with_drafts=self.drafting,
-        ):
-            raise forms.ValidationError(refusal)
-
-    def _check_ledger(self, instrument: Instrument) -> None:
-        if self.matched is not None:
-            self.ledger = None
-        else:
-            self.ledger = transaction_forms(
-                self._candidate(instrument), self.cleaned_data["income_account"]
-            )
-        if self.ledger is not None and not self.ledger.is_valid():
-            for error in self.ledger.errors():
-                self.add_error(None, error)
-
     def save(self, commit: bool = True) -> InvestmentEvent:  # noqa: FBT001, FBT002
         """Save the event, any Instrument it brought and its Transaction."""
         InstrumentField.save_if_new(self.instance.instrument)
         InstrumentField.save_if_new(self.instance.new_instrument)
         event = super().save(commit=False)
         if commit:
-            if self.matched is not None:
-                event.transaction = self.matched
-                event.save()
-            elif self.ledger is None:
-                save_unlinked(event)
-            else:
-                self.ledger.save(within=linking(event, self.ledger))
+            events.record(event, self.cleaned_data["income_account"])
         return event

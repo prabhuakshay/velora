@@ -7,8 +7,7 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from apps.classification.models import Party
-from apps.investments.drafts import buys_units, investment_problems
-from apps.investments.tasks import queue_backfill
+from apps.investments import events
 from apps.quick_add.models import Draft
 from apps.transactions.models import Transaction
 from apps.transactions.recording import TransactionForms
@@ -63,7 +62,7 @@ def missing_parts(draft: Draft) -> list[str]:
         missing += [
             f"Split {number}: missing {what}." for what, value in gaps if value is None
         ]
-    return missing or investment_problems(draft)
+    return missing or events.draft_problems(draft)
 
 
 def form_data(draft: Draft, party: Party | None) -> dict[str, Any]:
@@ -117,10 +116,7 @@ def post_draft(draft: Draft) -> Transaction:
     forms = TransactionForms(form_data(draft, party_for(draft)), instance=Transaction())
     if not forms.is_valid():
         raise DraftNotPostableError(forms.errors())
-    transaction = forms.save(within=marking_posted(draft, forms.form.instance))
-    if buys_units(draft):
-        queue_backfill()
-    return transaction
+    return forms.save(within=marking_posted(draft, forms.form.instance))
 
 
 def try_posting(draft: Draft) -> None:
