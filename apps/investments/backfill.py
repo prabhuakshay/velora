@@ -70,13 +70,27 @@ def _missing(today: date) -> dict[PriceSource, tuple[dict[str, date], set[date]]
         days = {
             d
             for d in _weekdays(instrument.first, today)
-            if (instrument.pk, d) not in priced
+            if (instrument.pk, d) not in priced and not _checked(instrument, d)
         }
         if days:
             isins, gaps = missing[instrument.price_source]
             isins[instrument.isin] = instrument.first
             gaps.update(days)
     return missing
+
+
+def _checked(instrument: Instrument, day: date) -> bool:
+    start, end = instrument.history_checked_from, instrument.history_checked_until
+    return start is not None and end is not None and start <= day <= end
+
+
+def _mark_checked(isins: dict[str, date], today: date) -> None:
+    """Every day before today from first held is now priced or read."""
+    # Today's file can still be published later, so it stays unread.
+    for isin, first in isins.items():
+        Instrument.objects.filter(isin=isin).update(
+            history_checked_from=first, history_checked_until=today - timedelta(days=1)
+        )
 
 
 def _held_rows(
@@ -92,11 +106,11 @@ def _held_rows(
 def backfill_prices(today: date) -> None:
     """Fetch and store the Prices held Instruments miss, up to today.
 
-    Only weekdays with no Price are fetched, and a stored Price is never
-    replaced, so running again is safe. Each source's run is recorded as a
-    Price Fetch over the days it fills; a source with nothing missing records
-    none. A failed window is skipped and the rest still run and store; the
-    job raises afterwards so it shows as failed.
+    Only weekdays with no Price that no earlier run read are fetched, and a
+    stored Price is never replaced, so running again is safe. Each source's
+    run is recorded as a Price Fetch over the days it fills; a source with
+    nothing missing records none. A failed window is skipped and the rest
+    still run and store; the job raises afterwards so it shows as failed.
     """
     failed = []
     missing = _missing(today)
@@ -112,5 +126,7 @@ def backfill_prices(today: date) -> None:
         )
         if price_fetch.outcome == PriceFetch.Outcome.FAILED:
             failed.append(name)
+        else:
+            _mark_checked(isins, today)
     if failed:
         raise PriceFetchError(", ".join(failed))

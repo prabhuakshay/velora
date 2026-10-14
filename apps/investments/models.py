@@ -41,6 +41,11 @@ class Instrument(models.Model):
     name = models.CharField(max_length=200)
     kind = models.CharField(max_length=20, choices=Kind.choices)
     manual_price = models.BooleanField(default=False)
+    # Days the backfill already read its source's archive for. A day in this
+    # span still without a Price had no file or no row for it, so fetching it
+    # again would find nothing.
+    history_checked_from = models.DateField(null=True, blank=True)
+    history_checked_until = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ("name",)

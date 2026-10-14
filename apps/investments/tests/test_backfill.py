@@ -163,3 +163,61 @@ def test_an_instrument_held_through_a_merger_is_backfilled_from_the_merger(
     backfill_prices(today=day(3))
 
     assert set(prices(new.isin)) == {day(2), day(3)}
+
+
+def test_a_day_with_no_file_is_not_fetched_again(fake_prices: FakePriceSource) -> None:
+    buy(FUND, day(0))
+    # day(2) is a market holiday: the archive has nothing for it.
+    fake_prices.history = [fund("10", day(n)) for n in (0, 1, 3, 4)]
+    backfill_prices(today=day(4))
+    fake_prices.fetched.clear()
+
+    backfill_prices(today=day(4))
+
+    assert fake_prices.fetched == []
+
+
+def test_an_instrument_missing_from_the_files_is_not_fetched_again(
+    fake_prices: FakePriceSource,
+) -> None:
+    buy(STOCK, day(0))
+    backfill_prices(today=day(4))
+    fake_prices.fetched.clear()
+
+    backfill_prices(today=day(7))
+
+    assert fake_prices.fetched == [("NSE", day(4), day(7))]
+
+
+def test_an_earlier_buy_recorded_later_is_still_backfilled(
+    fake_prices: FakePriceSource,
+) -> None:
+    buy(FUND, day(3))
+    fake_prices.history = [fund("10", day(n)) for n in range(5)]
+    backfill_prices(today=day(4))
+
+    first = InvestmentEvent.objects.get()
+    InvestmentEvent.objects.create(
+        account=first.account,
+        instrument=first.instrument,
+        kind="buy",
+        date=day(0),
+        units=1,
+        amount=10,
+    )
+    backfill_prices(today=day(4))
+
+    assert set(prices(FUND)) == {day(n) for n in range(5)}
+
+
+def test_a_failed_source_is_tried_again(fake_prices: FakePriceSource) -> None:
+    buy(FUND, day(0))
+    fake_prices.amfi_history = URLError("AMFI is down")
+    with pytest.raises(PriceFetchError):
+        backfill_prices(today=day(4))
+    fake_prices.amfi_history = None
+    fake_prices.history = [fund("10", day(n)) for n in range(5)]
+
+    backfill_prices(today=day(4))
+
+    assert len(prices(FUND)) == 5
