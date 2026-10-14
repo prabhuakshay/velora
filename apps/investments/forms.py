@@ -7,6 +7,7 @@ from django import forms
 from django.utils import timezone
 
 from apps.accounts.models import Account, AccountKind
+from apps.investments import instruments
 from apps.investments.dividends import (
     income_account,
     linking,
@@ -109,13 +110,6 @@ def _future_refused(when: datetime.date) -> datetime.date:
 
 OPTIONAL = ("units", "amount", "income_account")
 REQUIRED = "This field is required."
-
-
-def _same(a: Instrument, b: Instrument) -> bool:
-    # Either may be unsaved, so compare what identifies an Instrument.
-    return a.isin == b.isin and (
-        a.isin is not None or a.name.casefold() == b.name.casefold()
-    )
 
 
 class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
@@ -235,7 +229,7 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         target = NEW_INSTRUMENT.resolve(self, default_kind=kind)
         if target is None:
             return
-        if instrument is not None and _same(target, instrument):
+        if instrument is not None and instruments.same(target, instrument):
             searched = self.cleaned_data.get("new_instrument")
             field = "new_instrument" if searched else "new_isin"
             self.add_error(field, "Pick a different Instrument to merge into.")

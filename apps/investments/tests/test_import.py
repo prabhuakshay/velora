@@ -280,6 +280,8 @@ def test_a_merger_can_name_its_new_instrument(signed_in: Client) -> None:
     )
 
     assert "Merged Fund 10 ₹1,000.00" in holdings_text(signed_in, broker)
+    # It takes the old fund's kind, so its Prices come from AMFI.
+    assert Instrument.objects.get(isin=NEW_FUND).price_source == PriceSource.AMFI
 
 
 def test_a_merger_into_an_unknown_unnamed_isin_is_an_error(signed_in: Client) -> None:
