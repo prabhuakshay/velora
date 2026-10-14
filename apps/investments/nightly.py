@@ -24,11 +24,12 @@ class PriceFetchError(Exception):
     """Some sources could not be fetched; their last known Prices stay."""
 
 
-def store(rows: list[price_source.PriceRow]) -> int:
+def store(rows: list[price_source.PriceRow], fetch: PriceFetch) -> int:
     """Create Instruments not seen before and add each row's Price.
 
     An Instrument already known keeps its name and kind, and a day already
-    priced keeps its Price, so running twice adds nothing. Returns how many
+    priced keeps its Price, so running twice adds nothing. Each new Price
+    carries the Price Fetch that stored it and its source. Returns how many
     Prices were added.
     """
     with transaction.atomic():
@@ -42,7 +43,13 @@ def store(rows: list[price_source.PriceRow]) -> int:
             ).values_list("isin", "pk")
         )
         new = [
-            Price(instrument_id=ids[r.isin], date=r.date, price=r.price)
+            Price(
+                instrument_id=ids[r.isin],
+                date=r.date,
+                price=r.price,
+                source=fetch.source,
+                fetch=fetch,
+            )
             for r in rows
             if r.isin in ids
         ]
@@ -108,7 +115,7 @@ def record(
                 price_fetch.outcome = PriceFetch.Outcome.FAILED
                 price_fetch.reason = reason(error, source, day_asked)
             continue
-        price_fetch.prices_stored += store(rows)
+        price_fetch.prices_stored += store(rows, price_fetch)
         isins.update(r.isin for r in rows)
         if day_asked:
             price_fetch.day_used = max((r.date for r in rows), default=None)

@@ -143,7 +143,8 @@ def test_the_page_needs_a_sign_in(client: Client) -> None:
 
 def price_history(client: Client) -> str:
     html = client.get(instrument_url(ISIN)).content.decode()
-    return page_text(html.split("<caption>Price at each month-end", 1)[1])
+    after = html.split("<caption>Price at each month-end", 1)[1]
+    return page_text(after.split("</table>", 1)[0])
 
 
 def test_the_page_charts_the_price_history(signed_in: Client) -> None:
