@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
 from apps.home.charts import line
-from apps.investments.fetches import statuses
+from apps.investments.fetches import status_line
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
 from apps.investments.history import last_each_month, value_chart, value_history
 from apps.investments.models import Instrument, InvestmentEvent
@@ -200,15 +200,23 @@ def investments_overview(request: HttpRequest) -> HttpResponseBase:
             "holdings": held.holdings(column, descending=descending),
             "history": history,
             "chart": value_chart(history),
-            "price_statuses": statuses(),
+            **status_line(),
         },
     )
+
+
+@login_required
+def investments_price_status(request: HttpRequest) -> HttpResponseBase:
+    """The overview's status line alone, which polls itself while fetching."""
+    return render(request, "investments/_price_status.html", status_line())
 
 
 @login_required
 @require_POST
 def investments_refresh_prices(request: HttpRequest) -> HttpResponseBase:
     """Queue a fetch of today's Prices and the missing past ones."""
-    queue_refresh()
-    messages.success(request, "Refreshing Prices. They will update shortly.")
+    if queue_refresh():
+        messages.success(request, "Refreshing Prices. They will update shortly.")
+    else:
+        messages.info(request, "A Refresh is already waiting to start.")
     return redirect("investments_overview")

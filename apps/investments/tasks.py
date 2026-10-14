@@ -41,11 +41,13 @@ def backfill_prices() -> None:
     run_backfill(timezone.localdate())
 
 
-def _queue_once(task: Task[..., None, ...], lock: str) -> None:
-    """Queue the task, unless one is already waiting to run."""
+def _queue_once(task: Task[..., None, ...], lock: str) -> bool:
+    """Queue the task, unless one is already waiting to run; say if it queued."""
     # The savepoint keeps a refused duplicate from aborting the request's transaction.
     with suppress(AlreadyEnqueued), transaction.atomic():
         task.configure(queueing_lock=lock).defer()
+        return True
+    return False
 
 
 def queue_backfill() -> None:
@@ -71,6 +73,6 @@ def refresh_prices() -> None:
         raise PriceFetchError(", ".join(failed))
 
 
-def queue_refresh() -> None:
-    """Queue a refresh, unless one is already waiting to run."""
-    _queue_once(refresh_prices, REFRESH_LOCK)
+def queue_refresh() -> bool:
+    """Queue a refresh, unless one is already waiting to run; say if it queued."""
+    return _queue_once(refresh_prices, REFRESH_LOCK)

@@ -1,14 +1,16 @@
 {% load amounts %}
+<div id="price-status"{% if price_polling %} hx-get="{% url 'investments_price_status' %}" hx-trigger="every 2s" hx-target="this" hx-swap="outerHTML transition:false"{% endif %}>
+  {% if refresh_waiting %}<p class="mt-1 text-sm text-slate-500">Refresh waiting to start</p>{% endif %}
 <ul class="mt-1 space-y-0.5 text-sm text-slate-500" aria-label="Price Sources">
   {% for status in price_statuses %}
     {% with fetch=status.latest %}
       <li data-source="{{ status.source }}">
         <span class="font-medium text-slate-700">{{ status.source }}</span>
         {% if status.prices_for %}Prices for {{ status.prices_for|date:"j M Y" }}{% else %}No Prices yet{% endif %}
-        {% if not fetch %}
+        {% if status.fetching %}
+          · fetching{% if fetch.outcome == "running" %} since {{ fetch.started_at|date:"j M Y, H:i" }}{% endif %}
+        {% elif not fetch %}
           · not fetched yet
-        {% elif fetch.outcome == "running" %}
-          · fetching since {{ fetch.started_at|date:"j M Y, H:i" }}
         {% else %}
           · fetched {{ fetch.finished_at|date:"j M Y, H:i" }} by {{ fetch.get_trigger_display }}
           {% if fetch.outcome == "ok" %}
@@ -21,3 +23,4 @@
     {% endwith %}
   {% endfor %}
 </ul>
+</div>

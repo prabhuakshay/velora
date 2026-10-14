@@ -175,7 +175,7 @@ def test_the_refresh_button_queues_one_refresh(signed_in: Client) -> None:
         response = signed_in.post(reverse("investments_refresh_prices"), follow=True)
 
     assert response.redirect_chain == [(reverse("investments_overview"), 302)]
-    assert "Refreshing Prices" in response.content.decode()
+    assert "A Refresh is already waiting" in response.content.decode()
     assert ProcrastinateJob.objects.get().task_name == "investments.refresh_prices"
 
 

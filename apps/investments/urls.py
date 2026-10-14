@@ -10,6 +10,11 @@ urlpatterns = [
         name="investments_refresh_prices",
     ),
     path(
+        "investments/price-status/",
+        views.investments_price_status,
+        name="investments_price_status",
+    ),
+    path(
         "investments/import/", import_views.investment_import, name="investment_import"
     ),
     path(
