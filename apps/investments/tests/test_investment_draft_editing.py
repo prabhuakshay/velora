@@ -48,7 +48,6 @@ def edit_data(**fields: str) -> dict[str, str]:
         "date": "2026-03-01",
         "description": "",
         "units": "10",
-        "price": "100",
         "amount": "1000",
         "charges": "5",
     } | fields
@@ -118,10 +117,10 @@ def test_posting_an_edit_that_is_refused_keeps_it_waiting_and_says_why(
 ) -> None:
     draft = buy_draft(kuvera)
 
-    response = signed_in.post(edit_url(draft), edit_data(price="", action="post"))
+    response = signed_in.post(edit_url(draft), edit_data(units="", action="post"))
 
     assert response.status_code == 200
-    assert "Couldn't post: Missing the Price." in text_of(response.content.decode())
+    assert "Couldn't post: Missing units." in text_of(response.content.decode())
     draft.refresh_from_db()
     assert draft.status == Draft.Status.WAITING
     assert not InvestmentEvent.objects.exists()

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest
     from django.http.response import HttpResponseBase
 
-BUY_SELL_FIELDS = ("units", "price", "charges")
+BUY_SELL_FIELDS = ("units", "charges")
 
 
 class DraftInvestmentForm(forms.ModelForm[DraftInvestment]):
@@ -33,9 +33,9 @@ class DraftInvestmentForm(forms.ModelForm[DraftInvestment]):
 
     class Meta:
         model = DraftInvestment
-        fields = ("units", "price", "amount", "charges")
+        fields = ("units", "amount", "charges")
         help_texts: ClassVar = {
-            "amount": "Units times Price, before charges; or the Dividend paid.",
+            "amount": "The trade value before charges; or the Dividend paid.",
             "charges": "Brokerage, STT, stamp duty and other charges.",
         }
 

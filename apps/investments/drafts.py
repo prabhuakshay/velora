@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from apps.investments.models import DraftInvestment, InvestmentEvent
     from apps.quick_add.models import Draft
 
-PART_LABELS = {"units": "units", "price": "the Price", "amount": "the amount"}
+PART_LABELS = {"units": "units", "amount": "the amount"}
 
 
 def save_investment(detail: DraftInvestment, income: Account | None = None) -> None:

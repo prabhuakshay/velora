@@ -54,7 +54,7 @@ def test_goals_change_no_balance_market_value_net_worth_or_budget(
     record(signed_in, bank, food, "500")
     Instrument.objects.create(isin=FUND, name="Nifty Fund", kind="mutual_fund")
     broker = make_broker(opening="5000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
     add_price(FUND, date(2026, 3, 5), "150")
     goals_text(signed_in)  # shows and clears the flash messages so far
     before = records(signed_in, broker)

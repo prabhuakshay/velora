@@ -22,9 +22,7 @@ FUND = "INF000000001"
 def bought(signed_in: Client) -> InvestmentEvent:
     Instrument.objects.create(isin=FUND, name="Nifty Fund", kind="mutual_fund")
     account = make_direct(opening("HDFC", "asset", "5000"))
-    record_event(
-        signed_in, account, "buy", FUND, units="10", price="100", amount="1000"
-    )
+    record_event(signed_in, account, "buy", FUND, units="10", amount="1000")
     return InvestmentEvent.objects.get()
 
 
@@ -85,7 +83,7 @@ def test_the_event_itself_can_still_be_edited(
 ) -> None:
     response = signed_in.post(
         reverse("investment_event_edit", args=[bought.pk]),
-        event_data("buy", FUND, units="10", price="120", amount="1200"),
+        event_data("buy", FUND, units="10", amount="1200"),
     )
 
     assert response.status_code == 302

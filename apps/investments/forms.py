@@ -16,6 +16,7 @@ from apps.investments.dividends import (
 from apps.investments.ledger import transaction_forms
 from apps.investments.models import NEEDS, Instrument, InvestmentEvent, Price
 from apps.investments.overselling import oversell_refusal
+from apps.investments.replay import TRADES
 
 if TYPE_CHECKING:
     import datetime
@@ -65,7 +66,7 @@ def _future_refused(when: datetime.date) -> datetime.date:
     return when
 
 
-OPTIONAL = ("units", "price", "amount", "income_account", "new_isin")
+OPTIONAL = ("units", "amount", "income_account", "new_isin")
 REQUIRED = "This field is required."
 
 
@@ -108,11 +109,11 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
 
     class Meta:
         model = InvestmentEvent
-        fields = ("kind", "date", "units", "price", "amount", "charges", "note")
+        fields = ("kind", "date", "units", "amount", "charges", "note")
         labels: ClassVar = {"kind": "Type"}
         help_texts: ClassVar = {
             "units": "For a Stock Split, the ratio: 5 when 1 unit becomes 5.",
-            "amount": "Units times Price, before charges; or the Dividend paid.",
+            "amount": "The trade value before charges; or the Dividend paid.",
             "charges": "Brokerage, STT, stamp duty and other charges.",
         }
         widgets: ClassVar = {"date": forms.DateInput(attrs={"type": "date"})}
@@ -130,7 +131,7 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         self.matched = matched
         self.drafting = drafting
         self.instance.account = account
-        for name in ("units", "price", "amount"):
+        for name in ("units", "amount"):
             self.fields[name].widget.attrs["min"] = "0"
         if self.instance.pk:
             self.initial["isin"] = self.instance.instrument.isin
@@ -171,7 +172,8 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
         return cleaned
 
     def _keep_what_the_kind_needs(self) -> None:
-        needs = NEEDS.get(self.cleaned_data.get("kind", ""), ())
+        kind = self.cleaned_data.get("kind", "")
+        needs = NEEDS.get(kind, ())
         if not self._posts_dividend():
             needs = tuple(name for name in needs if name != "income_account")
         for name in OPTIONAL:
@@ -179,7 +181,7 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
                 self.cleaned_data[name] = None
             elif self.cleaned_data.get(name) in (None, ""):
                 self.add_error(name, REQUIRED)
-        if "price" not in needs:
+        if kind not in TRADES:
             self.cleaned_data["charges"] = Decimal(0)
 
     def _posts_dividend(self) -> bool:

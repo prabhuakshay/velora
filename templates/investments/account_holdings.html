@@ -79,7 +79,7 @@
         <li class="flex items-center gap-3 px-4 py-3 text-sm md:px-5">
           <span class="min-w-0 flex-1">
             <span class="block truncate font-medium">{{ event.get_kind_display }} {{ event.instrument.name }}</span>
-            <span class="block text-xs text-slate-500">{{ event.date|date:"j M Y" }}{% if event.price %} · {% units event.units %} units at {% price event.price %}{% elif event.kind == "stock_split" %} · 1 unit became {% units event.units %}{% elif event.kind == "bonus" %} · {% units event.units %} free units{% elif event.new_instrument %} · into {{ event.new_instrument.name }}{% endif %}{% if event.charges %} · charges {% amount event.charges %}{% endif %}{% if event.note %} · {{ event.note }}{% endif %}</span>
+            <span class="block text-xs text-slate-500">{{ event.date|date:"j M Y" }}{% if event.trade_price %} · {% units event.units %} units at {% price event.trade_price %}{% elif event.kind == "stock_split" %} · 1 unit became {% units event.units %}{% elif event.kind == "bonus" %} · {% units event.units %} free units{% elif event.new_instrument %} · into {{ event.new_instrument.name }}{% endif %}{% if event.charges %} · charges {% amount event.charges %}{% endif %}{% if event.note %} · {{ event.note }}{% endif %}</span>
           </span>
           {% if event.amount %}<span class="shrink-0 font-semibold tabular-nums">{% amount event.amount %}</span>{% endif %}
           <a href="{% url 'investment_event_edit' event.pk %}" class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">Edit</a>

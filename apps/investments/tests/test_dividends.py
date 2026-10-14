@@ -56,7 +56,7 @@ def test_a_dividend_posts_income_into_an_account_that_holds_cash(
     signed_in: Client, dividends: Account
 ) -> None:
     broker = make_broker(opening="10000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
 
     record_dividend(signed_in, broker, dividends, "250")
 

@@ -54,7 +54,7 @@ def buy(client: Client, account: Account, **fields: str) -> None:
         client,
         account,
         "buy",
-        {"units": "10", "price": "100", "amount": "1000"} | fields,
+        {"units": "10", "amount": "1000"} | fields,
     )
 
 
@@ -140,7 +140,6 @@ def test_a_sell_pays_its_net_proceeds_into_pays_into(signed_in: Client) -> None:
         "sell",
         FUND,
         units="4",
-        price="120",
         amount="480",
         charges="5",
         date="2026-03-02",
@@ -163,7 +162,6 @@ def test_editing_a_buy_updates_its_transaction(signed_in: Client) -> None:
         InvestmentEvent.objects.get(),
         "buy",
         units="10",
-        price="150",
         amount="1500",
     )
 
@@ -208,7 +206,6 @@ def test_moving_a_buy_onto_the_opening_date_removes_its_transaction(
         InvestmentEvent.objects.get(),
         "buy",
         units="10",
-        price="100",
         amount="1000",
         date="2026-02-01",
     )
@@ -224,7 +221,7 @@ def test_a_buy_its_bank_cant_pay_for_yet_is_refused(signed_in: Client) -> None:
     kuvera = make_direct(bank)
 
     response = record_event(
-        signed_in, kuvera, "buy", FUND, expect=200, units="1", price="1", amount="1"
+        signed_in, kuvera, "buy", FUND, expect=200, units="1", amount="1"
     )
 
     assert "before the Opening Balance date of HDFC" in response.content.decode()
@@ -233,20 +230,19 @@ def test_a_buy_its_bank_cant_pay_for_yet_is_refused(signed_in: Client) -> None:
 
 # Each step's events, all after the Opening Balance date of 1 Jan 2026.
 STEPS = (
-    ("buy", {"units": "10", "price": "100", "amount": "1000", "charges": "15"}),
-    ("buy", {"units": "5.5", "price": "110", "amount": "605", "date": "2026-03-03"}),
+    ("buy", {"units": "10", "amount": "1000", "charges": "15"}),
+    ("buy", {"units": "5.5", "amount": "605", "date": "2026-03-03"}),
     (
         "sell",
         {
             "units": "12",
-            "price": "120",
             "amount": "1440",
             "charges": "7.5",
             "date": "2026-03-04",
         },
     ),
-    ("buy", {"units": "2", "price": "90", "amount": "180", "date": "2026-02-02"}),
-    ("sell", {"units": "5.5", "price": "95", "amount": "522.5", "date": "2026-04-01"}),
+    ("buy", {"units": "2", "amount": "180", "date": "2026-02-02"}),
+    ("sell", {"units": "5.5", "amount": "522.5", "date": "2026-04-01"}),
 )
 
 
@@ -261,7 +257,7 @@ def test_cash_stays_zero_through_any_mix_of_buys_and_sells(
         assert "Cash ₹0.00" in account_text(signed_in, kuvera)
 
     first_buy = InvestmentEvent.objects.filter(kind="buy").earliest("date", "pk")
-    edit(signed_in, first_buy, "buy", units="10", price="80", amount="800", charges="3")
+    edit(signed_in, first_buy, "buy", units="10", amount="800", charges="3")
     assert "Cash ₹0.00" in account_text(signed_in, kuvera)
 
     last_sell = InvestmentEvent.objects.filter(kind="sell").latest("date")

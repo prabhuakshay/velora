@@ -21,6 +21,7 @@ STOCK_SPLIT = "stock_split"
 MERGER = "merger"
 DIVIDEND = "dividend"
 SELL = "sell"
+TRADES = (BUY, SELL)
 CENT = Decimal("0.01")
 # Events on one day apply in this order, so a same-day Sell can take what
 # that day's Buy or Bonus added.

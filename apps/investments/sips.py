@@ -24,7 +24,7 @@ UNIT = Decimal("0.000001")
 
 
 def draft_sip_buy(draft: Draft, schedule: Schedule) -> None:
-    """Make the Schedule's Draft a Buy, priced if its Price is out yet."""
+    """Make the Schedule's Draft a Buy, with units if its Price is out yet."""
     detail = DraftInvestment(
         draft=draft,
         account=schedule.sip_account,
@@ -46,7 +46,6 @@ def fill_sip_units(today: date) -> None:
         draft__occurrence__schedule__sip_account__isnull=False,
         kind=BUY,
         units__isnull=True,
-        price__isnull=True,
         amount__isnull=False,
     ).select_related("draft__occurrence__schedule", "account", "instrument")
     run_each("fill_sip_units", waiting, lambda detail: _fill(detail, today))
@@ -73,6 +72,5 @@ def _price(detail: DraftInvestment) -> bool:
     )
     if price is None or detail.amount is None:
         return False
-    detail.price = price.price
     detail.units = (detail.amount / price.price).quantize(UNIT)
     return True

@@ -31,7 +31,6 @@ def bought(broker: Account, when: date, amount: str) -> None:
         kind="buy",
         date=when,
         units=Decimal(10),
-        price=Decimal(1),
         amount=Decimal(amount),
     )
 

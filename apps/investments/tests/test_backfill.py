@@ -33,7 +33,6 @@ def buy(isin: str, on: date) -> None:
         kind="buy",
         date=on,
         units=1,
-        price=10,
         amount=10,
     )
 

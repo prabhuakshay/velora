@@ -34,11 +34,10 @@ def record_history(
     client: Client, broker: Account, kuvera: Account, dividends: Account
 ) -> None:
     history: tuple[tuple[Account, str, str, dict[str, Any]], ...] = (
-        (broker, "buy", FUND, {"units": "10", "price": "100", "amount": "1000"}),
-        (kuvera, "buy", STOCK, {"units": "4", "price": "250", "amount": "1000",
-                                "charges": "2.5"}),
-        (kuvera, "sell", STOCK, {"date": "2026-03-05", "units": "1",
-                                 "price": "300", "amount": "300", "charges": "1"}),
+        (broker, "buy", FUND, {"units": "10", "amount": "1000"}),
+        (kuvera, "buy", STOCK, {"units": "4", "amount": "1000", "charges": "2.5"}),
+        (kuvera, "sell", STOCK, {"date": "2026-03-05", "units": "1", "amount": "300",
+                                 "charges": "1"}),
         (broker, "dividend", FUND, {"date": "2026-03-10", "amount": "40",
                                     "income_account": str(dividends.pk)}),
         (kuvera, "dividend", STOCK, {"date": "2026-03-11", "amount": "12",

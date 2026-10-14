@@ -63,7 +63,7 @@ def investment_draft(
 
 
 def buy_draft(account: Account, **detail: Any) -> Draft:
-    parts = {"units": "10", "price": "100", "amount": "1000", "charges": "5"}
+    parts = {"units": "10", "amount": "1000", "charges": "5"}
     return investment_draft(account, "buy", **(parts | detail))
 
 
@@ -90,11 +90,10 @@ def test_posting_a_buy_draft_records_the_transaction_and_the_buy(
 
     assert draft.status == Draft.Status.POSTED
     event = InvestmentEvent.objects.get()
-    assert (event.kind, event.date, event.units, event.price, event.amount) == (
+    assert (event.kind, event.date, event.units, event.amount) == (
         "buy",
         date(2026, 3, 1),
         Decimal("10.000000"),
-        Decimal("100.0000"),
         Decimal("1000.00"),
     )
     assert event.charges == Decimal("5.00")
@@ -104,9 +103,10 @@ def test_posting_a_buy_draft_records_the_transaction_and_the_buy(
 
 @pytest.mark.usefixtures("fund")
 @pytest.mark.parametrize(
-    ("gap", "reason"), [("units", "Missing units."), ("price", "Missing the Price.")]
+    ("gap", "reason"),
+    [("units", "Missing units."), ("amount", "Split 1: missing amount.")],
 )
-def test_posting_is_refused_while_units_or_price_are_missing(
+def test_posting_is_refused_while_units_or_amount_are_missing(
     signed_in: Client, kuvera: Account, gap: str, reason: str
 ) -> None:
     draft = buy_draft(kuvera, **{gap: None})
@@ -159,9 +159,7 @@ def test_posting_a_sell_draft_pays_its_net_proceeds_into_pays_into(
     savings = opening("SBI", "asset", "0")
     kuvera = make_direct(bank, savings)
     post(signed_in, buy_draft(kuvera))
-    draft = investment_draft(
-        kuvera, "sell", units="4", price="120", amount="480", charges="2"
-    )
+    draft = investment_draft(kuvera, "sell", units="4", amount="480", charges="2")
 
     post(signed_in, draft)
 
@@ -174,7 +172,7 @@ def test_posting_a_sell_draft_pays_its_net_proceeds_into_pays_into(
 def test_a_sell_draft_of_more_units_than_held_is_refused(
     signed_in: Client, kuvera: Account
 ) -> None:
-    draft = investment_draft(kuvera, "sell", units="4", price="120", amount="480")
+    draft = investment_draft(kuvera, "sell", units="4", amount="480")
 
     post(signed_in, draft)
 

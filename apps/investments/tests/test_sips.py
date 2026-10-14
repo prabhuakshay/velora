@@ -174,7 +174,6 @@ def test_edited_units_are_posted_and_the_occurrence_is_paid(
             "date": "2026-10-05",
             "description": "Monthly Nifty",
             "units": "39.987",
-            "price": "125",
             "amount": "5000",
             "charges": "0",
             "action": "post",

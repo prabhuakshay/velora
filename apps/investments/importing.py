@@ -24,7 +24,8 @@ from apps.investments.forms import InvestmentEventForm
 from apps.investments.ledger import moves_ledger_money
 from apps.investments.matching import matching_transaction
 from apps.investments.models import DraftInvestment, Instrument, InvestmentEvent
-from apps.investments.replay import DAY_ORDER, MERGER
+from apps.investments.replay import DAY_ORDER, MERGER, TRADES
+from apps.investments.trade_price import agrees, trade_price
 from apps.quick_add.models import Draft
 
 if TYPE_CHECKING:
@@ -245,10 +246,36 @@ def _import(row: ImportRow) -> None:
     )
     if not form.is_valid():
         row.errors.extend(_messages(form))
-    elif row.unmatched:
+    _check_stated_price(row, kind)
+    if row.errors:
+        return
+    if row.unmatched:
         _propose_draft(form)
     else:
         form.save()
+
+
+def _check_stated_price(row: ImportRow, kind: str) -> None:
+    """Refuse a stated price that disagrees with the units and amount.
+
+    The price is optional and never stored: the Trade Price comes from the
+    units and amount (ADR 0016), so this only catches a typo in either.
+    """
+    text = row.values["price"]
+    if not text or kind not in TRADES:
+        return
+    price = _decimal(text)
+    if price is None:
+        row.errors.append("price: Enter a number.")
+        return
+    units, amount = row.units, row.amount
+    if units is None or amount is None:
+        return
+    expected = trade_price(units, amount)
+    if expected is not None and not agrees(units, price, amount):
+        row.errors.append(
+            f"price: Doesn't agree with units and amount, which give {expected}."
+        )
 
 
 def _propose_draft(form: InvestmentEventForm) -> None:
@@ -268,7 +295,6 @@ def _propose_draft(form: InvestmentEventForm) -> None:
             instrument=event.instrument,
             kind=event.kind,
             units=event.units,
-            price=event.price,
             amount=event.amount,
             charges=event.charges,
             ref=event.ref,
@@ -303,7 +329,6 @@ def _form_data(values: dict[str, str], kind: str) -> dict[str, str]:
         "isin": values["isin"],
         "instrument_name": "" if kind == MERGER else values["instrument_name"],
         "units": values["units"],
-        "price": values["price"],
         "amount": values["amount"],
         "charges": values["charges"] or "0",
         "new_isin": values["new_isin"],

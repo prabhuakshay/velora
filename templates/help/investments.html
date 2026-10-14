@@ -29,7 +29,7 @@
     <ol>
       <li>Open the Investment Account and its <strong>Holdings</strong> tab.</li>
       <li>Choose <strong>Record an Investment Event</strong> and pick <strong>Type</strong> "Buy".</li>
-      <li>Enter the date, the ISIN, the <strong>Units</strong>, the <strong>Price</strong>, the <strong>Amount</strong> (units times Price) and any <strong>Charges</strong> such as brokerage, STT or stamp duty.</li>
+      <li>Enter the date, the ISIN, the <strong>Units</strong>, the <strong>Amount</strong> (the trade value before charges) and any <strong>Charges</strong> such as brokerage, STT or stamp duty. Velora shows the <strong>Trade Price</strong>, Amount ÷ units, as you type, so you can compare it with the NAV or contract note.</li>
       <li>Choose <strong>Save</strong>.</li>
     </ol>
     <p>The ISIN is the 12-character code on the fund's or share's statement, such as INF… for a mutual fund. For one Velora doesn't know yet, also give its name.</p>
@@ -75,7 +75,7 @@
   </details>
   <details>
     <summary>How do I bring in my past history?</summary>
-    <p>Choose <strong>Import or export</strong> on the Investments page and <strong>Download the template</strong>. Fill in one row per Investment Event from your statements, and upload it. Velora checks every row and shows a preview; nothing is imported while any row has an error, and rows already recorded are skipped, so uploading the same file twice is safe.</p>
+    <p>Choose <strong>Import or export</strong> on the Investments page and <strong>Download the template</strong>. Fill in one row per Investment Event from your statements, and upload it. The <strong>price</strong> column is optional: when given, it must agree with the units and amount to within ₹1 or 0.1% of the amount, whichever is larger, to catch typos. Velora checks every row and shows a preview; nothing is imported while any row has an error, and rows already recorded are skipped, so uploading the same file twice is safe.</p>
   </details>
   <details>
     <summary>What happens if a fund house merges two schemes?</summary>
@@ -96,6 +96,8 @@
   <dd>Something you can hold units of, known by its ISIN: a mutual fund, a stock or an ETF.</dd>
   <dt>Price</dt>
   <dd>What one unit of an Instrument was worth at the end of a day. It is Stale once more than five days old.</dd>
+  <dt>Trade Price</dt>
+  <dd>What one unit changed hands at in a Buy or Sell: its Amount divided by its units.</dd>
   <dt>Investment Event</dt>
   <dd>One dated thing that happened to your units: a Buy, Sell, Dividend, Stock Split, Bonus or Merger.</dd>
   <dt>Buy, Sell and Dividend</dt>

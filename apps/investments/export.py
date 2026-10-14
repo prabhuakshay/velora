@@ -74,7 +74,7 @@ def event_row(event: InvestmentEvent) -> list[str]:
         named.name if named else "",
         event.kind.upper(),
         _number(event.units),
-        _number(event.price),
+        _number(event.trade_price),
         _number(event.amount),
         _number(event.charges or None),
         event.new_instrument.isin if event.new_instrument else "",

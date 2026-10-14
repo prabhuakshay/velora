@@ -27,7 +27,7 @@ def _instrument() -> None:
 
 def test_reconciling_a_holds_cash_account_checks_its_cash(signed_in: Client) -> None:
     broker = make_broker(opening="10000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
 
     page = page_text(reconcile(signed_in, broker, date(2026, 3, 1), "9000"))
 
@@ -38,7 +38,7 @@ def test_a_holds_cash_account_matching_its_balance_is_off_by_its_cost_basis(
     signed_in: Client,
 ) -> None:
     broker = make_broker(opening="10000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
 
     page = page_text(reconcile(signed_in, broker, date(2026, 3, 1), "10000"))
 
@@ -51,7 +51,7 @@ def test_a_holds_cash_account_matching_its_balance_is_off_by_its_cost_basis(
 def reconciled_broker(client: Client) -> Account:
     """Holds ₹9,000 Cash and 10 units on 1 Mar 2026, reconciled that day."""
     broker = make_broker(opening="10000")
-    record_event(client, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(client, broker, "buy", FUND, units="10", amount="1000")
     reconcile(client, broker, date(2026, 3, 1), "9000")
     return broker
 
@@ -72,7 +72,6 @@ def test_a_later_buy_dated_before_it_shows_how_far_off_it_is(
         "buy",
         FUND,
         units="5",
-        price="100",
         amount="500",
         date="2026-02-15",
     )
@@ -86,7 +85,7 @@ def test_a_later_buy_dated_before_it_shows_how_far_off_it_is(
 def test_a_later_sell_on_its_date_shows_how_far_off_it_is(signed_in: Client) -> None:
     broker = reconciled_broker(signed_in)
 
-    record_event(signed_in, broker, "sell", FUND, units="4", price="150", amount="600")
+    record_event(signed_in, broker, "sell", FUND, units="4", amount="600")
 
     page = page_text(view_page(signed_in, broker))
     assert "Reconciliation on 1 Mar 2026 is off by -₹600.00" in page
@@ -101,7 +100,6 @@ def test_a_buy_after_it_leaves_it_matching(signed_in: Client) -> None:
         "buy",
         FUND,
         units="5",
-        price="100",
         amount="500",
         date="2026-03-02",
     )

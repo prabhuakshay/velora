@@ -35,7 +35,6 @@ def buy(account: Account, on: date, units: int, amount: int) -> None:
         kind="buy",
         date=on,
         units=units,
-        price=amount / units,
         amount=amount,
     )
 

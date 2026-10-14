@@ -50,12 +50,8 @@ def broker(signed_in: Client) -> Account:
     Instrument.objects.create(isin=FUND, name="Nifty Fund", kind="mutual_fund")
     Instrument.objects.create(isin=STOCK, name="Acme Ltd", kind="stock")
     account = make_broker(opening="6000")
-    record_event(
-        signed_in, account, "buy", FUND, units="10", price="100", amount="1000"
-    )
-    record_event(
-        signed_in, account, "buy", STOCK, units="5", price="200", amount="1000"
-    )
+    record_event(signed_in, account, "buy", FUND, units="10", amount="1000")
+    record_event(signed_in, account, "buy", STOCK, units="5", amount="1000")
     add_price(FUND, date(2026, 3, 5), "150")
     add_price(STOCK, date(2026, 3, 5), "200")
     return account

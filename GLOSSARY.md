@@ -69,7 +69,7 @@ A short line of free text the user writes about a money event, such as "lunch at
 _Avoid_: Prompt, quick entry, note
 
 **Draft**:
-A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, a credit card's Statement proposed as its payment, a Card EMI proposed for the interest, GST and fees billed with an installment, an Investment Import proposed for a Buy, Sell or Dividend with no matching Transaction, or the user started by hand as a placeholder. A Draft can carry a Buy, Sell or Dividend; posting it records the Transaction and the linked Investment Event together, and is refused while its units or Price are missing. Every Draft shows which of these it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it. The user can edit it and save it still waiting, gaps and all, or save and post it in one go, which is refused while anything is missing; the user can also reject it. A Draft dated after today can be posted early on its own, and is then recorded on today's date; posting all ready Drafts at once leaves it waiting for its day.
+A Transaction not yet posted, which the AI proposed from a Quick Add, a Schedule proposed on its due date, a credit card's Statement proposed as its payment, a Card EMI proposed for the interest, GST and fees billed with an installment, an Investment Import proposed for a Buy, Sell or Dividend with no matching Transaction, or the user started by hand as a placeholder. A Draft can carry a Buy, Sell or Dividend; posting it records the Transaction and the linked Investment Event together, and is refused while its units or Amount are missing. Every Draft shows which of these it came from. It needs only a date until it is posted, so it can wait for an amount the user does not know yet. It touches no Balance until the user posts it. The user can edit it and save it still waiting, gaps and all, or save and post it in one go, which is refused while anything is missing; the user can also reject it. A Draft dated after today can be posted early on its own, and is then recorded on today's date; posting all ready Drafts at once leaves it waiting for its day.
 _Avoid_: Pending transaction, suggestion, draft entry
 
 **Processing**:
@@ -216,16 +216,20 @@ _Avoid_: Security, scrip, scheme, ticker, asset
 What one unit of an Instrument was worth at the end of a day: a mutual fund's NAV or a stock's or ETF's closing price. The latest Price is used until a newer one arrives, and is Stale once it is more than five days old.
 _Avoid_: NAV, quote, rate, LTP
 
+**Trade Price**:
+What one unit changed hands at in a Buy or Sell: its amount, before charges, divided by its units. It is worked out, never entered or stored, and shown to four decimals like a Price. It is not the day's Price, though for a mutual fund it is usually close to that day's NAV.
+_Avoid_: Price (on its own), rate, cost per unit
+
 **Investment Event**:
 One dated thing that happened to the user's units of an Instrument in an Investment Account: a Buy, Sell, Dividend, Stock Split, Bonus or Merger.
 _Avoid_: Trade, investment transaction, order
 
 **Buy**:
-An Investment Event that adds units at a Price, costing their amount plus charges such as brokerage, STT and stamp duty. Every Buy starts a Lot.
+An Investment Event that adds units at a Trade Price, costing their amount plus charges such as brokerage, STT and stamp duty. Every Buy starts a Lot.
 _Avoid_: Purchase, investment, subscription
 
 **Sell**:
-An Investment Event that removes units at a Price, taken from the oldest Lots first. What it brings in less the Cost Basis of those units is its Realized Gain.
+An Investment Event that removes units at a Trade Price, taken from the oldest Lots first. What it brings in less the Cost Basis of those units is its Realized Gain.
 _Avoid_: Redemption, withdrawal, exit
 
 **Dividend**:

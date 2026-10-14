@@ -39,7 +39,6 @@ def a_year_of_ten_percent(client: Client) -> Account:
         FUND,
         date=str(today - timedelta(365)),
         units="10",
-        price="100",
         amount="1000",
     )
     record_event(
@@ -49,7 +48,6 @@ def a_year_of_ten_percent(client: Client) -> Account:
         STOCK,
         date=str(today),
         units="1",
-        price="50",
         amount="50",
     )
     add_price(FUND, today, "110")

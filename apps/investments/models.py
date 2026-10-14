@@ -7,9 +7,11 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from apps.investments import replay
+from apps.investments.trade_price import trade_price
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from decimal import Decimal
 
     from apps.transactions.models import Transaction
 
@@ -74,9 +76,9 @@ class InvestmentEvent(models.Model):
     """One dated thing that happened to the units of an Instrument in an account.
 
     Lots are never stored: they come from replaying these (apps.investments.replay).
-    Which fields a kind needs is in NEEDS, checked by its form and Drafts; units,
-    amount and price stay optional here because a Dividend or Stock Split has no
-    use for some.
+    Which fields a kind needs is in NEEDS, checked by its form and Drafts; units
+    and amount stay optional here because a Dividend or Stock Split has no use
+    for one of them. A Buy or Sell's Trade Price is derived, not stored (ADR 0016).
     A Stock Split keeps its ratio in units.
     """
 
@@ -108,7 +110,6 @@ class InvestmentEvent(models.Model):
     kind = models.CharField(max_length=16, choices=Kind.choices)
     date = models.DateField()
     units = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
-    price = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
     amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     note = models.CharField(max_length=200, blank=True)
@@ -130,11 +131,11 @@ class InvestmentEvent(models.Model):
         ordering = ("-date", "-pk")
         constraints: ClassVar = [
             models.CheckConstraint(
-                condition=~models.Q(kind__in=(replay.BUY, replay.SELL))
-                | models.Q(units__gt=0, price__gt=0, amount__gt=0),
+                condition=~models.Q(kind__in=replay.TRADES)
+                | models.Q(units__gt=0, amount__gt=0),
                 name="investments_investmentevent_buy_sell_parts",
                 violation_error_message=(
-                    "A Buy or Sell needs units, a Price and an amount above 0."
+                    "A Buy or Sell needs units and an amount above 0."
                 ),
             ),
             models.CheckConstraint(
@@ -174,11 +175,16 @@ class InvestmentEvent(models.Model):
     def __str__(self) -> str:
         return f"{self.get_kind_display()} {self.instrument} on {self.date}"
 
+    @property
+    def trade_price(self) -> Decimal | None:
+        """What one unit changed hands at; None for kinds without units and amount."""
+        return trade_price(self.units, self.amount)
+
 
 # What each kind of Investment Event needs; its other optional parts stay blank.
 NEEDS: dict[str, tuple[str, ...]] = {
-    InvestmentEvent.Kind.BUY: ("units", "price", "amount"),
-    InvestmentEvent.Kind.SELL: ("units", "price", "amount"),
+    InvestmentEvent.Kind.BUY: ("units", "amount"),
+    InvestmentEvent.Kind.SELL: ("units", "amount"),
     InvestmentEvent.Kind.DIVIDEND: ("amount", "income_account"),
     InvestmentEvent.Kind.STOCK_SPLIT: ("units",),
     InvestmentEvent.Kind.BONUS: ("units",),
@@ -189,8 +195,8 @@ NEEDS: dict[str, tuple[str, ...]] = {
 class DraftInvestment(models.Model):
     """The Buy, Sell or Dividend a Draft records when it is posted (ADR 0006).
 
-    It builds no Lot and moves no Cash until then. Units and Price may wait
-    for a Price not yet published; posting is refused until they are given.
+    It builds no Lot and moves no Cash until then. Units may wait for a Price
+    not yet published; posting is refused until units and amount are given.
     A Dividend's Income Account is the From of the Draft's Split, so merging
     Accounts repoints it like any Draft.
     """
@@ -216,7 +222,6 @@ class DraftInvestment(models.Model):
     )
     kind = models.CharField(max_length=16, choices=Kind.choices)
     units = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
-    price = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
     amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     # From an Investment Import row, passed on to the event when posted, so
@@ -236,6 +241,11 @@ class DraftInvestment(models.Model):
     def __str__(self) -> str:
         return f"{self.get_kind_display()} {self.instrument}"
 
+    @property
+    def trade_price(self) -> Decimal | None:
+        """What one unit would change hands at; None while units or amount wait."""
+        return trade_price(self.units, self.amount)
+
     def event_on(self, day: datetime.date) -> InvestmentEvent:
         """The Investment Event it becomes when posted on that day, unsaved."""
         return InvestmentEvent(
@@ -244,7 +254,6 @@ class DraftInvestment(models.Model):
             kind=self.kind,
             date=day,
             units=self.units,
-            price=self.price,
             amount=self.amount,
             charges=self.charges,
             ref=self.ref,

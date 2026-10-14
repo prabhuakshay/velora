@@ -72,7 +72,6 @@ def test_the_backfill_task_fills_prices_up_to_today(
         kind="buy",
         date=today,
         units=1,
-        price=10,
         amount=10,
     )
     fake_prices.history = [row(FUND, "A fund", "mutual_fund", "10", today)]
@@ -87,7 +86,7 @@ def test_recording_a_buy_queues_one_backfill(signed_in: Client) -> None:
     broker = make_broker()
 
     for _ in range(2):
-        record_event(signed_in, broker, "buy", FUND, units="1", price="10", amount="10")
+        record_event(signed_in, broker, "buy", FUND, units="1", amount="10")
 
     assert ProcrastinateJob.objects.get().task_name == "investments.backfill_prices"
 
@@ -95,10 +94,10 @@ def test_recording_a_buy_queues_one_backfill(signed_in: Client) -> None:
 def test_recording_a_sell_queues_no_backfill(signed_in: Client) -> None:
     Instrument.objects.create(isin=FUND, name="A fund", kind="mutual_fund")
     broker = make_broker()
-    record_event(signed_in, broker, "buy", FUND, units="1", price="10", amount="10")
+    record_event(signed_in, broker, "buy", FUND, units="1", amount="10")
     ProcrastinateJob.objects.all().delete()
 
-    record_event(signed_in, broker, "sell", FUND, units="1", price="10", amount="10")
+    record_event(signed_in, broker, "sell", FUND, units="1", amount="10")
 
     assert not ProcrastinateJob.objects.exists()
 
@@ -112,7 +111,6 @@ def held_fund(today: date) -> None:
         kind="buy",
         date=today - timedelta(days=3),
         units=1,
-        price=10,
         amount=10,
     )
 

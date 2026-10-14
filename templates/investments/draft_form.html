@@ -4,6 +4,10 @@
 
 {% block quick_add_button %}{% endblock %}
 
+{% block scripts %}
+    <script src="{% static 'js/trade_price.js' %}" defer hx-preserve="true"></script>
+{% endblock %}
+
 {% block main_width %}max-w-2xl{% endblock %}
 
 {% block main %}
@@ -35,11 +39,11 @@
     <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-6" aria-label="{{ investment.get_kind_display }}">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {% if details.units %}{% include "partials/field.html" with field=details.units %}{% endif %}
-        {% if details.price %}{% include "partials/field.html" with field=details.price %}{% endif %}
         {% include "partials/field.html" with field=details.amount %}
         {% if details.charges %}{% include "partials/field.html" with field=details.charges %}{% endif %}
         {% if details.income_account %}{% include "partials/field.html" with field=details.income_account %}{% endif %}
       </div>
+      {% if details.units %}{% include "investments/_trade_price.html" with units=details.units amount=details.amount %}{% endif %}
     </section>
 
     <div class="sticky -bottom-4 z-10 -mx-4 -mb-4 flex items-center gap-3 border-t border-slate-200 bg-white/90 px-4 pt-3 pb-4 backdrop-blur md:static md:mx-0 md:mb-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">

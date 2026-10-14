@@ -46,7 +46,6 @@ def test_a_buy_moves_cash_into_a_lot_and_leaves_the_balance(
         "buy",
         FUND,
         units="10",
-        price="100",
         amount="1000",
         charges="15",
     )
@@ -61,7 +60,7 @@ def test_a_buy_moves_cash_into_a_lot_and_leaves_the_balance(
 
 def test_market_value_counts_units_at_the_latest_price(signed_in: Client) -> None:
     broker = make_broker(opening="10000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
     add_price(FUND, date(2026, 2, 1), "90")
     add_price(FUND, date(2026, 3, 2), "120.5")
 
@@ -77,7 +76,7 @@ def test_a_holding_without_a_price_counts_at_its_cost_basis(
     signed_in: Client,
 ) -> None:
     broker = make_broker(opening="5000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
 
     assert "Market Value ₹5,000.00" in holdings_text(signed_in, broker)
 
@@ -92,7 +91,6 @@ def test_a_sell_takes_the_oldest_lots_first_and_shows_its_realized_gain(
         "buy",
         FUND,
         units="10",
-        price="100",
         amount="1000",
         date="2026-02-01",
     )
@@ -102,7 +100,6 @@ def test_a_sell_takes_the_oldest_lots_first_and_shows_its_realized_gain(
         "buy",
         FUND,
         units="10",
-        price="150",
         amount="1500",
         date="2026-02-02",
     )
@@ -113,7 +110,6 @@ def test_a_sell_takes_the_oldest_lots_first_and_shows_its_realized_gain(
         "sell",
         FUND,
         units="15",
-        price="160",
         amount="2400",
         charges="10",
         date="2026-02-03",
@@ -136,7 +132,6 @@ def test_a_sell_of_more_units_than_held_on_its_date_is_refused(
         "buy",
         FUND,
         units="3.5",
-        price="100",
         amount="350",
         date="2026-02-01",
     )
@@ -146,7 +141,6 @@ def test_a_sell_of_more_units_than_held_on_its_date_is_refused(
         "buy",
         FUND,
         units="10",
-        price="100",
         amount="1000",
         date="2026-03-01",
     )
@@ -157,7 +151,6 @@ def test_a_sell_of_more_units_than_held_on_its_date_is_refused(
         "sell",
         FUND,
         units="4",
-        price="100",
         amount="400",
         date="2026-02-15",
         expect=200,
@@ -180,7 +173,6 @@ def test_a_buy_with_an_unknown_isin_creates_a_manual_price_instrument(
         "buy",
         "INE999999999",
         units="1",
-        price="10",
         amount="10",
         instrument_name="Unlisted Co",
     )
@@ -200,7 +192,6 @@ def test_an_unknown_isin_needs_an_instrument_name(signed_in: Client) -> None:
         "buy",
         "INE999999999",
         units="1",
-        price="10",
         amount="10",
         expect=200,
     )
@@ -219,7 +210,6 @@ def test_editing_a_past_buy_recomputes_lots_cash_and_gains(signed_in: Client) ->
         "buy",
         FUND,
         units="10",
-        price="100",
         amount="1000",
         date="2026-02-01",
     )
@@ -229,7 +219,6 @@ def test_editing_a_past_buy_recomputes_lots_cash_and_gains(signed_in: Client) ->
         "sell",
         FUND,
         units="5",
-        price="120",
         amount="600",
         date="2026-02-05",
     )
@@ -237,9 +226,7 @@ def test_editing_a_past_buy_recomputes_lots_cash_and_gains(signed_in: Client) ->
 
     response = signed_in.post(
         reverse("investment_event_edit", args=[first.pk]),
-        event_data(
-            "buy", FUND, units="10", price="80", amount="800", date="2026-02-01"
-        ),
+        event_data("buy", FUND, units="10", amount="800", date="2026-02-01"),
     )
 
     assert response.status_code == 302
@@ -251,8 +238,8 @@ def test_editing_a_past_buy_recomputes_lots_cash_and_gains(signed_in: Client) ->
 
 def test_deleting_a_past_buy_recomputes_lots_and_cash(signed_in: Client) -> None:
     broker = make_broker(opening="10000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
-    record_event(signed_in, broker, "buy", STOCK, units="2", price="50", amount="100")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
+    record_event(signed_in, broker, "buy", STOCK, units="2", amount="100")
     fund_buy = InvestmentEvent.objects.get(instrument__isin=FUND)
 
     response = signed_in.post(reverse("investment_event_delete", args=[fund_buy.pk]))
@@ -271,7 +258,6 @@ def test_deleting_a_buy_a_later_sell_needs_is_refused(signed_in: Client) -> None
         "buy",
         FUND,
         units="10",
-        price="100",
         amount="1000",
         date="2026-02-01",
     )
@@ -281,7 +267,6 @@ def test_deleting_a_buy_a_later_sell_needs_is_refused(signed_in: Client) -> None
         "sell",
         FUND,
         units="5",
-        price="120",
         amount="600",
         date="2026-02-05",
     )
@@ -309,7 +294,6 @@ def test_events_on_or_before_the_opening_date_change_lots_not_cash(
         "buy",
         FUND,
         units="10",
-        price="100",
         amount="1000",
         date="2025-06-01",
     )
@@ -319,7 +303,6 @@ def test_events_on_or_before_the_opening_date_change_lots_not_cash(
         "sell",
         FUND,
         units="2",
-        price="110",
         amount="220",
         date="2026-02-01",
     )
@@ -332,7 +315,6 @@ def test_events_on_or_before_the_opening_date_change_lots_not_cash(
         "sell",
         FUND,
         units="2",
-        price="130",
         amount="260",
         date="2026-02-10",
     )
@@ -349,7 +331,6 @@ def test_a_future_dated_event_is_refused(signed_in: Client) -> None:
         "buy",
         FUND,
         units="1",
-        price="10",
         amount="10",
         date="2099-01-01",
         expect=200,

@@ -42,7 +42,6 @@ def broker(signed_in: Client) -> Account:
         "buy",
         OLD,
         units="10",
-        price="100",
         amount="1000",
         date="2026-02-01",
     )
@@ -103,7 +102,6 @@ def test_after_a_merger_the_old_instrument_cant_be_sold(
         "sell",
         OLD,
         units="1",
-        price="100",
         amount="100",
         date="2026-02-11",
         expect=200,
@@ -166,7 +164,6 @@ def test_deleting_a_bonus_a_later_sell_needs_is_refused(
         "sell",
         OLD,
         units="12",
-        price="100",
         amount="1200",
         date="2026-02-11",
     )

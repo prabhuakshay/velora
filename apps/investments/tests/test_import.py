@@ -45,7 +45,7 @@ def buy(**fields: str) -> str:
 
 
 def sell(units: str, amount: str, **fields: str) -> str:
-    return import_line("SELL", units=units, price="100", amount=amount, **fields)
+    return import_line("SELL", units=units, amount=amount, **fields)
 
 
 def drafts_text(client: Client) -> str:

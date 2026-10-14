@@ -106,7 +106,7 @@ def test_export_writes_every_event_in_the_import_format(signed_in: Client) -> No
     make_broker(opening="5000")
     rows = (
         import_line("BUY", date="2026-02-01", instrument_name="Nifty Fund",
-                    units="10.5", price="100.25", amount="1052.63", charges="1.5",
+                    units="10.5", price="100.2505", amount="1052.63", charges="1.5",
                     ref="B-1", note="First"),
         import_line("DIVIDEND", date="2025-12-01", instrument_name="Nifty Fund",
                     amount="5"),

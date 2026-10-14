@@ -37,7 +37,7 @@ def test_home_net_worth_counts_an_investment_account_at_market_value(
 ) -> None:
     opening("Bank", "asset", "500")
     broker = make_broker(opening="10000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
     add_price(FUND, date(2026, 3, 5), "150")
 
     page = home_text(signed_in)
@@ -50,7 +50,7 @@ def test_an_excluded_investment_account_stays_out_of_net_worth(
     signed_in: Client,
 ) -> None:
     broker = make_broker(opening="10000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
     add_price(FUND, date(2026, 3, 5), "150")
 
     edit_account(signed_in, broker, include_in_net_worth=False)
@@ -66,7 +66,6 @@ def test_past_net_worth_uses_the_events_and_prices_of_that_day() -> None:
         kind="buy",
         date=date(2026, 2, 10),
         units=10,
-        price=100,
         amount=1000,
     )
     add_price(FUND, date(2026, 2, 27), "110")
@@ -82,7 +81,7 @@ def test_past_net_worth_uses_the_events_and_prices_of_that_day() -> None:
 
 def test_an_investment_account_with_events_cant_be_deleted(signed_in: Client) -> None:
     broker = make_broker()
-    record_event(signed_in, broker, "buy", FUND, units="1", price="10", amount="10")
+    record_event(signed_in, broker, "buy", FUND, units="1", amount="10")
 
     response = signed_in.post(account_url("account_delete", broker), follow=True)
 
@@ -107,7 +106,7 @@ def test_merging_investment_accounts_is_refused(signed_in: Client) -> None:
 
 def test_privacy_mode_masks_every_new_amount(signed_in: Client) -> None:
     broker = make_broker(opening="10000")
-    record_event(signed_in, broker, "buy", FUND, units="10", price="100", amount="1000")
+    record_event(signed_in, broker, "buy", FUND, units="10", amount="1000")
     turn_on(signed_in, reverse("index"))
 
     holdings = holdings_text(signed_in, broker)
@@ -131,7 +130,7 @@ def test_home_costs_the_same_queries_however_many_investment_accounts(
 ) -> None:
     def add_broker(name: str) -> None:
         broker = make_broker(name, opening="1000")
-        record_event(signed_in, broker, "buy", FUND, units="1", price="10", amount="10")
+        record_event(signed_in, broker, "buy", FUND, units="1", amount="10")
 
     add_broker("One")
     one = home_queries(signed_in)
