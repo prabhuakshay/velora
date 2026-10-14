@@ -1,6 +1,12 @@
+import io
+import urllib.error
 from datetime import date
 from decimal import Decimal
+from email.message import Message
 
+import pytest
+
+from apps.investments import price_source
 from apps.investments.models import Instrument
 from apps.investments.price_source import (
     PriceRow,
@@ -105,3 +111,43 @@ def test_nse_gives_stocks_and_etfs_by_the_etf_list() -> None:
             day,
         ),
     ]
+
+
+def _not_found(day: date) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        f"bhavcopy {day}", 404, "Not Found", Message(), io.BytesIO()
+    )
+
+
+def test_nse_falls_back_to_the_latest_published_bhavcopy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    published = {date(2026, 10, 12): BHAVCOPY}
+    asked: list[date] = []
+
+    def bhavcopy(day: date) -> str:
+        asked.append(day)
+        if day not in published:
+            raise _not_found(day)
+        return published[day]
+
+    monkeypatch.setattr(price_source, "_bhavcopy", bhavcopy)
+    monkeypatch.setattr(price_source, "_etf_list", lambda: ETF_LIST)
+
+    rows = price_source.nse_rows(date(2026, 10, 14))
+
+    assert asked == [date(2026, 10, 14), date(2026, 10, 13), date(2026, 10, 12)]
+    assert {r.date for r in rows} == {date(2026, 10, 12)}
+
+
+def test_nse_gives_up_after_a_week_without_a_bhavcopy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def bhavcopy(day: date) -> str:
+        raise _not_found(day)
+
+    monkeypatch.setattr(price_source, "_bhavcopy", bhavcopy)
+
+    with pytest.raises(urllib.error.HTTPError) as raised:
+        price_source.nse_rows(date(2026, 10, 14))
+    raised.value.close()

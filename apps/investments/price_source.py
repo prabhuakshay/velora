@@ -33,6 +33,8 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Velora"}
 # Series of ordinary shares; ETFs are listed under EQ too.
 EQUITY_SERIES = {"EQ", "BE"}
 PLACES = Decimal("0.0001")
+# Covers a weekend plus a long run of market holidays.
+NSE_LOOKBACK_DAYS = 7
 
 
 @dataclass(frozen=True)
@@ -168,12 +170,21 @@ def _etf_list() -> str:
 
 
 def nse_rows(day: date) -> list[PriceRow]:
-    """Every NSE stock's and ETF's closing price on the day.
+    """Every NSE stock's and ETF's closing price on the latest trading day up to day.
 
-    Raises urllib.error.HTTPError when NSE has no bhavcopy for the day, such
-    as on a holiday.
+    NSE publishes a day's bhavcopy only after the market closes, and none on
+    holidays, so the latest earlier one stands in until then. Raises
+    urllib.error.HTTPError when NSE has none in the last NSE_LOOKBACK_DAYS.
     """
-    return parse_nse(_bhavcopy(day), _etf_list())
+    for back in range(NSE_LOOKBACK_DAYS):
+        try:
+            bhavcopy = _bhavcopy(day - timedelta(days=back))
+            break
+        except urllib.error.HTTPError as error:
+            if error.code != HTTPStatus.NOT_FOUND or back == NSE_LOOKBACK_DAYS - 1:
+                raise
+            error.close()
+    return parse_nse(bhavcopy, _etf_list())
 
 
 def nse_history_rows(start: date, end: date) -> list[PriceRow]:
