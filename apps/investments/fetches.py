@@ -39,3 +39,18 @@ def statuses() -> list[SourceStatus]:
         )
         for source in FETCHED
     ]
+
+
+def failed_nightly() -> list[PriceFetch]:
+    """Each fetched Price Source's latest nightly Price Fetch, when it failed."""
+    latest = (
+        PriceFetch.objects.filter(
+            source=source, trigger=PriceFetch.Trigger.NIGHTLY
+        ).first()
+        for source in FETCHED
+    )
+    return [
+        fetch
+        for fetch in latest
+        if fetch is not None and fetch.outcome == PriceFetch.Outcome.FAILED
+    ]
