@@ -110,7 +110,9 @@ def test_every_script_a_template_names_exists() -> None:
     assert set(PAGE_SCRIPTS) <= named
     # Vendored by npm, which CI doesn't run.
     assert [
-        name for name in named - {"htmx.min.js"} if not finders.find(f"js/{name}")
+        name
+        for name in named - {"htmx.min.js", "driver.js"}
+        if not finders.find(f"js/{name}")
     ] == []
 
 
