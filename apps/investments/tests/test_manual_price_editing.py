@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.investments.models import Price
-from apps.investments.nightly import run_nightly_prices
+from apps.investments.prices import fetch_today
 from apps.investments.tests.conftest import instrument_url, row
 from apps.investments.tests.test_price_table import (
     STOCK,
@@ -21,7 +21,7 @@ from apps.users.tests.conftest import privacy_mode_off_url
 if TYPE_CHECKING:
     from django.test import Client
 
-    from apps.investments.tests.conftest import FakePriceSource
+    from apps.investments.tests.conftest import FakePrices
     from apps.users.models import User
 
 pytestmark = pytest.mark.django_db
@@ -99,14 +99,14 @@ def test_editing_to_a_price_of_zero_is_refused(signed_in: Client) -> None:
     assert [r[:20] for r in price_rows(signed_in, None)] == ["1 Oct 2026 ₹100.0000"]
 
 
-def fetched_price(fake_prices: FakePriceSource) -> Price:
+def fetched_price(fake_prices: FakePrices) -> Price:
     fake_prices.nse = [row(STOCK, "Reliance", "stock", "2950", TODAY)]
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
     return Price.objects.get()
 
 
 def test_a_fetched_price_offers_no_edit_or_delete(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fetched_price(fake_prices)
 
@@ -117,7 +117,7 @@ def test_a_fetched_price_offers_no_edit_or_delete(
 
 
 def test_editing_or_deleting_a_fetched_price_is_refused(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     pk = fetched_price(fake_prices).pk
 

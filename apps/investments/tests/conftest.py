@@ -9,15 +9,16 @@ from django.urls import reverse
 from apps.accounts.models import Account
 from apps.accounts.tests.conftest import page_text
 from apps.investments import price_source
-from apps.investments.models import Instrument, Price
+from apps.investments.models import Instrument, Price, PriceSource
+from apps.investments.prices import SOURCES
 
 if TYPE_CHECKING:
     from django.test import Client
     from django.test.client import _MonkeyPatchedWSGIResponse as Response
 
 
-class FakePriceSource:
-    """Stands in for the price-source client: hands back the rows it is given.
+class FakePrices:
+    """Stands in for AMFI and NSE: each hands back the rows it is given.
 
     A source set to an exception raises it instead, as a failed fetch would.
     History is one list for both archives; each hands back its kinds in range.
@@ -33,48 +34,53 @@ class FakePriceSource:
         self.history_failures: dict[date, Exception] = {}
         self.fetched: list[tuple[str, date, date]] = []
 
-    def amfi_rows(self) -> list[price_source.PriceRow]:
-        if isinstance(self.amfi, Exception):
-            raise self.amfi
-        return self.amfi
 
-    def nse_rows(self, day: date) -> list[price_source.PriceRow]:
-        if isinstance(self.nse, Exception):
-            raise self.nse
-        return self.nse
+class FakeSource:
+    """One Price Source in memory, reading what its FakePrices holds."""
 
-    def _history(
-        self, source: str, start: date, end: date, *, funds: bool
-    ) -> list[price_source.PriceRow]:
-        self.fetched.append((source, start, end))
-        failure = self.amfi_history if funds else self.nse_history
+    def __init__(self, prices: FakePrices, *, funds: bool) -> None:
+        self.prices = prices
+        self.funds = funds
+
+    def latest(self, day: date) -> list[price_source.PriceRow]:
+        rows = self.prices.amfi if self.funds else self.prices.nse
+        if isinstance(rows, Exception):
+            raise rows
+        return rows
+
+    def history(self, start: date, end: date) -> list[price_source.PriceRow]:
+        prices = self.prices
+        prices.fetched.append(("AMFI" if self.funds else "NSE", start, end))
+        failure = prices.amfi_history if self.funds else prices.nse_history
         if failure is not None:
             raise failure
-        for day, error in self.history_failures.items():
+        for day, error in prices.history_failures.items():
             if start <= day <= end:
                 raise error
         return [
             r
-            for r in self.history
+            for r in prices.history
             if start <= r.date <= end
-            and (r.kind == Instrument.Kind.MUTUAL_FUND) == funds
+            and (r.kind == Instrument.Kind.MUTUAL_FUND) == self.funds
         ]
-
-    def amfi_history_rows(self, start: date, end: date) -> list[price_source.PriceRow]:
-        return self._history("AMFI", start, end, funds=True)
-
-    def nse_history_rows(self, start: date, end: date) -> list[price_source.PriceRow]:
-        return self._history("NSE", start, end, funds=False)
 
 
 @pytest.fixture
-def fake_prices(monkeypatch: pytest.MonkeyPatch) -> FakePriceSource:
-    fake = FakePriceSource()
-    monkeypatch.setattr(price_source, "amfi_rows", fake.amfi_rows)
-    monkeypatch.setattr(price_source, "nse_rows", fake.nse_rows)
-    monkeypatch.setattr(price_source, "amfi_history_rows", fake.amfi_history_rows)
-    monkeypatch.setattr(price_source, "nse_history_rows", fake.nse_history_rows)
+def fake_prices(monkeypatch: pytest.MonkeyPatch) -> FakePrices:
+    fake = FakePrices()
+    monkeypatch.setitem(SOURCES, PriceSource.AMFI, FakeSource(fake, funds=True))
+    monkeypatch.setitem(SOURCES, PriceSource.NSE, FakeSource(fake, funds=False))
     return fake
+
+
+def not_published() -> price_source.SourceUnavailable:
+    return price_source.SourceUnavailable(price_source.SourceUnavailable.Reason.NO_FILE)
+
+
+def unreachable() -> price_source.SourceUnavailable:
+    return price_source.SourceUnavailable(
+        price_source.SourceUnavailable.Reason.UNREACHABLE
+    )
 
 
 def row(

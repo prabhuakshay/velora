@@ -1,19 +1,28 @@
 import io
 import urllib.error
+import urllib.request
+import zipfile
 from datetime import date
 from decimal import Decimal
 from email.message import Message
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 
 from apps.investments import price_source
 from apps.investments.models import Instrument
 from apps.investments.price_source import (
+    Amfi,
+    Nse,
     PriceRow,
+    SourceUnavailable,
     parse_amfi,
     parse_amfi_history,
     parse_nse,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 NAV_ALL = """\
 Scheme Code;ISIN Div Payout/ ISIN Growth;ISIN Div Reinvestment;Scheme Name;Net Asset Value;Date
@@ -137,41 +146,120 @@ def test_nse_skips_a_row_whose_isin_fails_the_checksum() -> None:
     assert "INE002A01019" not in {r.isin for r in parse_nse(bhavcopy, ETF_LIST)}
 
 
-def _not_found(day: date) -> urllib.error.HTTPError:
-    return urllib.error.HTTPError(
-        f"bhavcopy {day}", 404, "Not Found", Message(), io.BytesIO()
+class FakeGet:
+    """Serves files by URL; a URL it has no file for is a 404."""
+
+    def __init__(self, files: dict[str, bytes]) -> None:
+        self.files = files
+        self.asked: list[str] = []
+
+    def __call__(self, url: str) -> bytes:
+        self.asked.append(url)
+        if url not in self.files:
+            raise SourceUnavailable(SourceUnavailable.Reason.NO_FILE, url)
+        return self.files[url]
+
+
+def bhavcopy_url(day: date) -> str:
+    return price_source.NSE_BHAVCOPY_URL.format(day=day)
+
+
+def zipped(text: str) -> bytes:
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as z:
+        z.writestr("bhavcopy.csv", text)
+    return archive.getvalue()
+
+
+def nse_files(*days: date) -> FakeGet:
+    files = {bhavcopy_url(d): zipped(BHAVCOPY) for d in days}
+    return FakeGet(files | {price_source.NSE_ETF_URL: ETF_LIST.encode()})
+
+
+def failing_urlopen(error: Exception) -> Callable[..., NoReturn]:
+    def urlopen(*args: object, **kwargs: object) -> NoReturn:
+        raise error
+
+    return urlopen
+
+
+def test_amfi_latest_reads_navall() -> None:
+    amfi = Amfi(FakeGet({price_source.AMFI_URL: NAV_ALL.encode()}))
+
+    assert amfi.latest(date(2026, 10, 14)) == parse_amfi(NAV_ALL)
+
+
+def test_amfi_history_reads_the_report_for_the_range() -> None:
+    start, end = date(2026, 3, 2), date(2026, 3, 3)
+    url = price_source.AMFI_HISTORY_URL.format(start=start, end=end)
+    amfi = Amfi(FakeGet({url: NAV_HISTORY.encode()}))
+
+    assert amfi.history(start, end) == parse_amfi_history(NAV_HISTORY)
+
+
+def test_nse_falls_back_to_the_latest_published_bhavcopy() -> None:
+    get = nse_files(date(2026, 10, 12))
+
+    rows = Nse(get).latest(date(2026, 10, 14))
+
+    assert {r.date for r in rows} == {date(2026, 10, 12)}
+    assert get.asked[:3] == [bhavcopy_url(date(2026, 10, d)) for d in (14, 13, 12)]
+
+
+def test_nse_gives_up_after_a_week_without_a_bhavcopy() -> None:
+    get = nse_files()
+
+    with pytest.raises(SourceUnavailable) as raised:
+        Nse(get).latest(date(2026, 10, 14))
+
+    assert raised.value.reason == SourceUnavailable.Reason.NO_FILE
+    assert len(get.asked) == price_source.NSE_LOOKBACK_DAYS
+
+
+def test_nse_history_skips_weekends_and_days_with_no_file() -> None:
+    # 12 to 19 Oct 2026; the 16th is a holiday and the 17th and 18th a weekend.
+    get = nse_files(*(date(2026, 10, d) for d in (12, 13, 14, 15, 19)))
+
+    rows = Nse(get).history(date(2026, 10, 12), date(2026, 10, 19))
+
+    assert len(rows) == 10
+    assert bhavcopy_url(date(2026, 10, 16)) in get.asked
+    assert bhavcopy_url(date(2026, 10, 17)) not in get.asked
+    assert bhavcopy_url(date(2026, 10, 18)) not in get.asked
+
+
+def test_a_network_failure_is_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    error = urllib.error.URLError("timed out")
+    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen(error))
+
+    with pytest.raises(SourceUnavailable) as raised:
+        Amfi().latest(date(2026, 10, 14))
+
+    assert raised.value.reason == SourceUnavailable.Reason.UNREACHABLE
+
+
+def http_error(code: int, message: str) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(price_source.AMFI_URL, code, message, Message(), None)
+
+
+def test_a_missing_file_is_no_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        urllib.request, "urlopen", failing_urlopen(http_error(404, "Not Found"))
     )
 
+    with pytest.raises(SourceUnavailable) as raised:
+        Amfi().latest(date(2026, 10, 14))
 
-def test_nse_falls_back_to_the_latest_published_bhavcopy(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    published = {date(2026, 10, 12): BHAVCOPY}
-    asked: list[date] = []
-
-    def bhavcopy(day: date) -> str:
-        asked.append(day)
-        if day not in published:
-            raise _not_found(day)
-        return published[day]
-
-    monkeypatch.setattr(price_source, "_bhavcopy", bhavcopy)
-    monkeypatch.setattr(price_source, "_etf_list", lambda: ETF_LIST)
-
-    rows = price_source.nse_rows(date(2026, 10, 14))
-
-    assert asked == [date(2026, 10, 14), date(2026, 10, 13), date(2026, 10, 12)]
-    assert {r.date for r in rows} == {date(2026, 10, 12)}
+    assert raised.value.reason == SourceUnavailable.Reason.NO_FILE
 
 
-def test_nse_gives_up_after_a_week_without_a_bhavcopy(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def bhavcopy(day: date) -> str:
-        raise _not_found(day)
-
-    monkeypatch.setattr(price_source, "_bhavcopy", bhavcopy)
+def test_a_server_error_is_raised_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
+    error = http_error(500, "Server Error")
+    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen(error))
 
     with pytest.raises(urllib.error.HTTPError) as raised:
-        price_source.nse_rows(date(2026, 10, 14))
-    raised.value.close()
+        Amfi().latest(date(2026, 10, 14))
+    # Nothing reads its body, and one left open warns whenever it is collected.
+    error.close()
+
+    assert raised.value is error

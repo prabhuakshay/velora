@@ -1,29 +1,34 @@
 import re
 from datetime import date
-from email.message import Message
 from html import unescape
-from io import BytesIO
 from typing import TYPE_CHECKING
-from urllib.error import HTTPError, URLError
 
 import pytest
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.tests.conftest import page_text
-from apps.investments import price_source
-from apps.investments.backfill import backfill_prices
-from apps.investments.models import Instrument, InvestmentEvent, PriceFetch
-from apps.investments.nightly import PriceFetchError, run_nightly_prices
+from apps.investments.models import (
+    Instrument,
+    InvestmentEvent,
+    PriceFetch,
+    PriceSource,
+)
+from apps.investments.prices import SOURCES, PriceFetchError, backfill, fetch_today
 from apps.investments.tasks import refresh_prices
-from apps.investments.tests.conftest import make_broker, row
+from apps.investments.tests.conftest import (
+    make_broker,
+    not_published,
+    row,
+    unreachable,
+)
 from apps.users.tests.conftest import turn_on
 
 if TYPE_CHECKING:
     from django.test import Client
 
     from apps.investments.price_source import PriceRow
-    from apps.investments.tests.conftest import FakePriceSource
+    from apps.investments.tests.conftest import FakePrices
 
 pytestmark = pytest.mark.django_db
 
@@ -55,42 +60,33 @@ def overview(client: Client) -> str:
 
 
 def test_the_overview_shows_what_the_nightly_run_fetched(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.amfi = [fund(), fund(isin="INF000000093")]
 
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
     assert status(signed_in, "AMFI") == (
         f"AMFI · Prices for 14 Oct · checked {timezone.localtime():%H:%M} · 2 new"
     )
 
 
-def not_published() -> HTTPError:
-    error = HTTPError(
-        "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
-    )
-    # Nothing reads its body, and one left open warns whenever it is collected.
-    error.close()
-    return error
-
-
 @pytest.mark.parametrize(
     ("error", "reason"),
     [
         (not_published(), "NSE has no file for 14 Oct"),
-        (URLError("timed out"), "NSE couldn't be reached"),
+        (unreachable(), "NSE couldn't be reached"),
         (ValueError("bad zip"), "unexpected error: bad zip"),
     ],
 )
 def test_a_failed_fetch_shows_why_and_the_other_source_still_runs(
-    signed_in: Client, fake_prices: FakePriceSource, error: Exception, reason: str
+    signed_in: Client, fake_prices: FakePrices, error: Exception, reason: str
 ) -> None:
     fake_prices.nse = error
     fake_prices.amfi = [fund()]
 
     with pytest.raises(PriceFetchError, match="NSE"):
-        run_nightly_prices(TODAY)
+        fetch_today(TODAY)
 
     assert f"NSE Price Fetch failed: {reason}" in overview(signed_in)
     assert "last check failed" in status(signed_in, "NSE")
@@ -98,11 +94,11 @@ def test_a_failed_fetch_shows_why_and_the_other_source_still_runs(
 
 
 def test_nse_falling_back_to_an_earlier_file_shows_both_days(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.nse = [stock(date(2026, 10, 13))]
 
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
     assert "NSE · Prices for 13 Oct · 14 Oct not out yet · checked" in status(
         signed_in, "NSE"
@@ -110,12 +106,12 @@ def test_nse_falling_back_to_an_earlier_file_shows_both_days(
 
 
 def test_running_twice_stores_no_price_the_second_time(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.amfi = [fund()]
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
     line = status(signed_in, "AMFI")
     assert "checked" in line
@@ -123,7 +119,7 @@ def test_running_twice_stores_no_price_the_second_time(
 
 
 def test_a_refresh_records_its_price_fetches_as_a_refresh(
-    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePrices
 ) -> None:
     monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
     fake_prices.amfi = [fund()]
@@ -137,20 +133,20 @@ def test_a_refresh_records_its_price_fetches_as_a_refresh(
 
 
 def test_privacy_mode_hides_how_many_prices_were_stored(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.amfi = [fund()]
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
     turn_on(signed_in, reverse("index"))
 
     assert status(signed_in, "AMFI").endswith("· •••• new")
 
 
 def test_a_source_with_nothing_to_show_is_left_out(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.nse = [stock()]
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
     html = signed_in.get(reverse("investments_overview")).content.decode()
 
@@ -159,10 +155,10 @@ def test_a_source_with_nothing_to_show_is_left_out(
 
 
 def test_after_refresh_each_source_shows_as_fetching(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.amfi = [fund()]
-    run_nightly_prices(TODAY, PriceFetch.Trigger.NIGHTLY)
+    fetch_today(TODAY, PriceFetch.Trigger.NIGHTLY)
 
     signed_in.post(reverse("investments_refresh_prices"))
 
@@ -190,10 +186,10 @@ def test_the_status_line_polls_while_a_refresh_is_queued(signed_in: Client) -> N
 
 
 def test_the_status_line_stops_polling_once_fetches_finish(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.amfi = [fund()]
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
     partial = status_partial(signed_in)
 
@@ -203,17 +199,17 @@ def test_the_status_line_stops_polling_once_fetches_finish(
 
 
 def test_the_status_line_polls_while_a_fetch_runs(
-    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePrices
 ) -> None:
     seen = []
 
-    def amfi_rows() -> list[PriceRow]:
+    def latest(day: date) -> list[PriceRow]:
         seen.append(status_partial(signed_in))
         return [fund()]
 
-    monkeypatch.setattr(price_source, "amfi_rows", amfi_rows)
+    monkeypatch.setattr(SOURCES[PriceSource.AMFI], "latest", latest)
 
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
     assert POLL in seen[0]
     assert "AMFI · No Prices yet · checking…" in unescape(page_text(seen[0]))
@@ -232,7 +228,7 @@ def test_a_second_refresh_press_shows_the_one_already_waiting(
 
 
 def test_a_finished_refresh_shows_prices_stored_and_the_day_nse_used(
-    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePrices
 ) -> None:
     monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
     fake_prices.amfi = [fund()]
@@ -253,21 +249,21 @@ def test_the_status_partial_needs_sign_in(client: Client) -> None:
 
 
 def test_privacy_mode_hides_counts_in_the_status_partial(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.amfi = [fund()]
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
     turn_on(signed_in, reverse("index"))
 
     assert "•••• new" in unescape(page_text(status_partial(signed_in)))
 
 
 def test_the_polled_status_line_carries_the_failure_banner(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
-    fake_prices.nse = URLError("timed out")
+    fake_prices.nse = unreachable()
     with pytest.raises(PriceFetchError):
-        run_nightly_prices(TODAY)
+        fetch_today(TODAY)
 
     assert 'data-fetch-failed="NSE"' in status_partial(signed_in)
 
@@ -286,12 +282,12 @@ def hold(isin: str, kind: str, since: date) -> None:
 
 
 def test_a_backfill_shows_the_range_it_filled_and_what_it_stored(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     hold(FUND, "mutual_fund", date(2026, 10, 12))
     fake_prices.history = [fund(date(2026, 10, d)) for d in (12, 13, 14)]
 
-    backfill_prices(today=TODAY)
+    backfill(today=TODAY)
 
     line = status(signed_in, "AMFI")
     assert line.startswith("AMFI · Prices for 14 Oct · checked")
@@ -299,36 +295,36 @@ def test_a_backfill_shows_the_range_it_filled_and_what_it_stored(
 
 
 def test_a_failed_backfill_source_shows_why_and_the_other_still_fills(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     hold(FUND, "mutual_fund", date(2026, 10, 13))
     hold(STOCK, "stock", date(2026, 10, 13))
-    fake_prices.amfi_history = URLError("timed out")
+    fake_prices.amfi_history = unreachable()
     fake_prices.history = [stock(date(2026, 10, 13)), stock()]
 
     with pytest.raises(PriceFetchError, match="AMFI"):
-        backfill_prices(today=TODAY)
+        backfill(today=TODAY)
 
     assert "AMFI Price Fetch failed: AMFI couldn't be reached" in overview(signed_in)
     assert "2 new" in status(signed_in, "NSE")
 
 
 def test_a_backfill_keeps_the_windows_that_worked_when_a_later_one_fails(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     hold(FUND, "mutual_fund", date(2026, 9, 1))
     fake_prices.history = [fund(date(2026, 9, d)) for d in (1, 2)] + [fund()]
-    fake_prices.history_failures = {TODAY: URLError("timed out")}
+    fake_prices.history_failures = {TODAY: unreachable()}
 
     with pytest.raises(PriceFetchError, match="AMFI"):
-        backfill_prices(today=TODAY)
+        backfill(today=TODAY)
 
     assert status(signed_in, "AMFI") == ("AMFI · Prices for 2 Sep · last check failed")
     assert "AMFI Price Fetch failed: AMFI couldn't be reached" in overview(signed_in)
 
 
 def test_a_refresh_with_nothing_to_backfill_still_shows_the_refresh(
-    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePrices
 ) -> None:
     monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
     hold(FUND, "mutual_fund", TODAY)
@@ -344,7 +340,7 @@ def test_a_refresh_with_nothing_to_backfill_still_shows_the_refresh(
 
 
 def test_a_refresh_keeps_its_result_on_the_status_line_after_its_backfill(
-    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePrices
 ) -> None:
     monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
     hold(FUND, "mutual_fund", date(2026, 10, 12))
@@ -364,12 +360,12 @@ def test_a_refresh_keeps_its_result_on_the_status_line_after_its_backfill(
 
 
 def test_a_failed_backfill_after_a_working_refresh_still_shows_the_banner(
-    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePrices
 ) -> None:
     monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
     hold(FUND, "mutual_fund", date(2026, 10, 12))
     fake_prices.amfi = [fund()]
-    fake_prices.amfi_history = URLError("timed out")
+    fake_prices.amfi_history = unreachable()
 
     with pytest.raises(PriceFetchError):
         refresh_prices()
@@ -378,32 +374,13 @@ def test_a_failed_backfill_after_a_working_refresh_still_shows_the_banner(
     assert 'data-fetch-failed="AMFI"' in status_partial(signed_in)
 
 
-def server_error() -> HTTPError:
-    error = HTTPError(
-        "https://nse.example/file.zip", 500, "Server Error", Message(), BytesIO()
-    )
-    error.close()
-    return error
-
-
-def test_a_server_error_is_not_called_unreachable(
-    signed_in: Client, fake_prices: FakePriceSource
-) -> None:
-    fake_prices.nse = server_error()
-
-    with pytest.raises(PriceFetchError):
-        run_nightly_prices(TODAY)
-
-    assert "unexpected error: HTTP Error 500: Server Error" in overview(signed_in)
-
-
 def test_a_backfill_with_no_file_names_the_range(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     hold(STOCK, "stock", date(2026, 10, 12))
     fake_prices.nse_history = not_published()
 
     with pytest.raises(PriceFetchError):
-        backfill_prices(today=TODAY)
+        backfill(today=TODAY)
 
     assert "NSE has no file for a day in 12 Oct to 14 Oct" in overview(signed_in)

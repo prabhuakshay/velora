@@ -10,7 +10,7 @@ from procrastinate.contrib.django.models import ProcrastinateJob
 
 from apps.core.jobs import daily_cron
 from apps.investments.models import Instrument, InvestmentEvent
-from apps.investments.nightly import PriceFetchError
+from apps.investments.prices import PriceFetchError
 from apps.investments.tasks import (
     NIGHT_HOUR,
     backfill_prices,
@@ -22,7 +22,7 @@ from apps.investments.tests.conftest import make_broker, record_event, row
 if TYPE_CHECKING:
     from django.test import Client
 
-    from apps.investments.tests.conftest import FakePriceSource
+    from apps.investments.tests.conftest import FakePrices
 
 FUND = "INF209KA12Z1"
 MERGED = "INF209KA13Z9"
@@ -52,7 +52,7 @@ def test_prices_are_fetched_every_night_in_velora_time_zone() -> None:
     assert periodic == [daily_cron(settings.TIME_ZONE, NIGHT_HOUR)]
 
 
-def test_the_task_stores_today_prices(fake_prices: FakePriceSource) -> None:
+def test_the_task_stores_today_prices(fake_prices: FakePrices) -> None:
     today = timezone.localdate()
     fake_prices.amfi = [row("INF209KA12Z1", "A fund", "mutual_fund", "10", today)]
 
@@ -62,7 +62,7 @@ def test_the_task_stores_today_prices(fake_prices: FakePriceSource) -> None:
 
 
 def test_the_backfill_task_fills_prices_up_to_today(
-    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePrices
 ) -> None:
     today = date(2026, 3, 4)
     monkeypatch.setattr(timezone, "localdate", lambda: today)
@@ -125,7 +125,7 @@ def held_fund(today: date) -> None:
 
 
 def test_refreshing_fetches_today_and_fills_past_prices(
-    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePrices
 ) -> None:
     today = date(2026, 3, 4)
     monkeypatch.setattr(timezone, "localdate", lambda: today)
@@ -140,7 +140,7 @@ def test_refreshing_fetches_today_and_fills_past_prices(
 
 
 def test_refreshing_still_backfills_when_today_fetch_fails(
-    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePrices
 ) -> None:
     today = date(2026, 3, 4)
     monkeypatch.setattr(timezone, "localdate", lambda: today)
@@ -155,7 +155,7 @@ def test_refreshing_still_backfills_when_today_fetch_fails(
 
 
 def test_refreshing_raises_when_the_backfill_fails(
-    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePrices
 ) -> None:
     today = date(2026, 3, 4)
     monkeypatch.setattr(timezone, "localdate", lambda: today)
@@ -167,7 +167,7 @@ def test_refreshing_raises_when_the_backfill_fails(
 
 
 def test_refreshing_names_both_failures(
-    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePriceSource
+    monkeypatch: pytest.MonkeyPatch, fake_prices: FakePrices
 ) -> None:
     today = date(2026, 3, 4)
     monkeypatch.setattr(timezone, "localdate", lambda: today)

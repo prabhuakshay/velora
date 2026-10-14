@@ -2,22 +2,21 @@ import re
 from datetime import date, timedelta
 from html import unescape
 from typing import TYPE_CHECKING
-from urllib.error import URLError
 
 import pytest
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.tests.conftest import page_text
-from apps.investments.nightly import PriceFetchError, run_nightly_prices
-from apps.investments.tests.conftest import row
+from apps.investments.prices import PriceFetchError, fetch_today
+from apps.investments.tests.conftest import row, unreachable
 from apps.schedules.daily_job import run_daily_job
 from apps.users.tests.conftest import turn_on
 
 if TYPE_CHECKING:
     from django.test import Client
 
-    from apps.investments.tests.conftest import FakePriceSource
+    from apps.investments.tests.conftest import FakePrices
 
 pytestmark = pytest.mark.django_db
 
@@ -37,13 +36,13 @@ def fetch_rows(client: Client) -> list[str]:
 
 
 def test_the_page_lists_each_price_fetch_with_what_it_did(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.amfi = [row("INF209KA12Z1", "A fund", "mutual_fund", "10", TODAY)]
-    fake_prices.nse = URLError("timed out")
+    fake_prices.nse = unreachable()
 
     with pytest.raises(PriceFetchError):
-        run_nightly_prices(TODAY)
+        fetch_today(TODAY)
 
     nse, amfi = fetch_rows(signed_in)
     now = f"{timezone.localtime():%-d %b %Y}"
@@ -62,11 +61,11 @@ def test_the_status_line_links_to_the_page(signed_in: Client) -> None:
 
 @pytest.mark.parametrize(("days_later", "kept"), [(90, 1), (91, 0)])
 def test_the_daily_job_removes_price_fetches_older_than_90_days(
-    signed_in: Client, fake_prices: FakePriceSource, days_later: int, kept: int
+    signed_in: Client, fake_prices: FakePrices, days_later: int, kept: int
 ) -> None:
     fake_prices.amfi = []
     fake_prices.nse = []
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
     run_daily_job(timezone.localdate() + timedelta(days=days_later))
 
@@ -80,11 +79,11 @@ def test_the_page_needs_sign_in(client: Client) -> None:
 
 
 def test_privacy_mode_hides_how_many_prices_were_stored(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.amfi = [row("INF209KA12Z1", "A fund", "mutual_fund", "10", TODAY)]
     fake_prices.nse = []
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
     turn_on(signed_in)
 
     _, amfi = fetch_rows(signed_in)

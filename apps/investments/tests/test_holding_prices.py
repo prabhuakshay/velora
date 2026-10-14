@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apps.accounts.tests.conftest import page_text
 from apps.investments.models import Instrument
-from apps.investments.nightly import run_nightly_prices
+from apps.investments.prices import fetch_today
 from apps.investments.tests.conftest import (
     add_price,
     make_broker,
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from django.test import Client
 
     from apps.accounts.models import Account
-    from apps.investments.tests.conftest import FakePriceSource
+    from apps.investments.tests.conftest import FakePrices
 
 pytestmark = pytest.mark.django_db
 
@@ -56,13 +56,13 @@ def _row(html: str, name: str) -> str:
 
 
 def test_an_unpriced_fetched_holding_says_it_was_not_in_the_latest_file(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     today = timezone.localdate()
     yesterday = today - timedelta(days=1)
     account = holding(signed_in, STOCK, "Tejas Networks", "stock")
     fake_prices.nse = [row(OTHER, "Other Ltd", "stock", "10", yesterday)]
-    run_nightly_prices(today)
+    fetch_today(today)
 
     expected = f"Not in NSE's {yesterday:%-d %b} file"
     assert expected in overview_row(signed_in, "Tejas Networks")
