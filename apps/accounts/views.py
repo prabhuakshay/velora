@@ -22,7 +22,7 @@ from apps.accounts.reconciliation_views import reconciliation_status
 from apps.core.dates import months_after
 from apps.core.forms import MergeForm
 from apps.core.views import paginate, redirect_in_use_to_merge, save_unique_name
-from apps.investments.valuation import account_value
+from apps.investments.valuation import Valuer
 from apps.investments.views import investment_tabs
 from apps.transactions.models import Split
 from apps.users.privacy_mode import blocked_in_privacy_mode
@@ -244,7 +244,7 @@ def account_transactions(request: HttpRequest, kind: str, pk: int) -> HttpRespon
                 owes=account.owes,
             ),
             "forecast": _account_forecast(account),
-            "investment": account_value(account, account.balance)
+            "investment": Valuer([account.pk]).value(account, account.balance)
             if account.is_investment
             else None,
             "tabs": investment_tabs(account, "account_transactions")

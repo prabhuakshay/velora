@@ -36,7 +36,7 @@ from apps.investments.models import (
 from apps.investments.overselling import oversell_refusal
 from apps.investments.portfolio import COLUMNS, Column, portfolio, sorting
 from apps.investments.tasks import queue_backfill, queue_refresh
-from apps.investments.valuation import account_value
+from apps.investments.valuation import Valuer
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
 if TYPE_CHECKING:
@@ -218,7 +218,7 @@ def account_holdings(request: HttpRequest, pk: int) -> HttpResponseBase:
         "investments/account_holdings.html",
         {
             "account": account,
-            "value": account_value(account, account.balance),
+            "value": Valuer([account.pk]).value(account, account.balance),
             "events": account.investment_events.select_related(
                 "instrument", "new_instrument"
             ),

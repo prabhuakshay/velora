@@ -8,7 +8,7 @@ from django.db.models.functions import Lower
 
 from apps.accounts.models import Account
 from apps.investments.models import Instrument
-from apps.investments.valuation import Totals, account_value
+from apps.investments.valuation import Totals, Valuer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -135,10 +135,10 @@ class Portfolio:
 
 def portfolio() -> Portfolio:
     """Value every Investment Account at its latest Prices."""
-    accounts = Account.objects.investment().with_balance()
+    accounts = list(Account.objects.investment().with_balance().order_by(Lower("name")))
+    valuer = Valuer([account.pk for account in accounts])
     return Portfolio(
         accounts=[
-            (account, account_value(account, account.balance))
-            for account in accounts.order_by(Lower("name"))
+            (account, valuer.value(account, account.balance)) for account in accounts
         ]
     )

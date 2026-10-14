@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Protocol, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Mapping
+    from collections.abc import Callable, Iterable
     from datetime import date
 
     from apps.investments.xirr import Flow
@@ -219,33 +219,3 @@ APPLY: dict[str, Callable[[Book, Holding, Event], None]] = {
     MERGER: _merger,
     DIVIDEND: _dividend,
 }
-
-
-def cash(balance: Decimal, book: Book, opened: date) -> Decimal:
-    """An Investment Account's Cash (ADR 0015).
-
-    Its Balance less the Cost Basis still held, plus the Realized Gain of
-    Sells after its Opening Balance date; earlier events are already inside
-    its Opening Balance.
-    """
-    return (balance - book.cost_basis + book.realized_after(opened)).quantize(CENT)
-
-
-def market_value(
-    cash_held: Decimal, book: Book, prices: Mapping[int, Decimal]
-) -> Decimal:
-    """Cash plus each Holding's units at its Price.
-
-    A Holding with no Price yet counts at its Cost Basis.
-    """
-    return cash_held + sum(
-        (holding_value(h, prices.get(h.instrument_id)) for h in book.holdings.values()),
-        Decimal(0),
-    )
-
-
-def holding_value(holding: Holding, price: Decimal | None) -> Decimal:
-    """The Holding's Market Value, its Cost Basis while it has no Price."""
-    if price is None:
-        return holding.cost_basis
-    return (holding.units * price).quantize(CENT)

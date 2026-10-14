@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.investments.replay import OversoldError, cash, market_value, replay
+from apps.investments.replay import OversoldError, replay
 
 FUND = 1
 NEW_FUND = 2
@@ -93,33 +93,6 @@ def test_replay_until_a_date_leaves_later_events_out() -> None:
     book = replay([buy(1, "10", "1000"), buy(9, "5", "600")], until=date(2026, 1, 8))
 
     assert book.holdings[FUND].units == Decimal(10)
-
-
-def test_cash_is_balance_less_cost_basis_plus_gains_after_the_opening_date() -> None:
-    book = replay(
-        [
-            buy(1, "10", "1000"),
-            sell(2, "2", "260"),  # on the Opening Balance date: gain 60 inside it
-            sell(5, "3", "390"),  # gain 90 after it
-        ]
-    )
-
-    # Balance 2000 less 500 still held, plus the later gain.
-    assert cash(Decimal(2000), book, opened=date(2026, 1, 2)) == Decimal(1590)
-
-
-def test_cash_without_events_is_the_balance() -> None:
-    assert cash(Decimal(500), replay([]), opened=date(2026, 1, 1)) == Decimal(500)
-
-
-def test_market_value_is_cash_plus_units_at_their_price() -> None:
-    other = Event("buy", date(2026, 1, 1), Decimal(2), Decimal(50), instrument_id=2)
-    book = replay([buy(1, "3.5", "300"), other])
-
-    value = market_value(Decimal(100), book, {FUND: Decimal("120.1234")})
-
-    # 3.5 x 120.1234 = 420.43, plus 50 at cost for the unpriced one.
-    assert value == Decimal("570.43")
 
 
 def split(day: int, ratio: str) -> Event:

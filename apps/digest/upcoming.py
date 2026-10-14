@@ -9,7 +9,7 @@ from django.urls import reverse
 
 from apps.accounts.forecast import Forecast, Item, forecast
 from apps.accounts.models import BALANCE_KINDS, Account
-from apps.accounts.reconciling import cash_events, cash_gaps
+from apps.accounts.reconciling import cash_gaps, cash_valuer
 from apps.budgets.warnings import due_warnings, warning_items
 from apps.cards.models import Statement
 from apps.quick_add.models import Draft
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from datetime import date
 
     from apps.budgets.picture import Row
-    from apps.investments.models import InvestmentEvent
+    from apps.investments.valuation import Valuer
 
 # Days before a card's Due Day it starts showing.
 CARD_REMINDER_DAYS = 3
@@ -181,12 +181,12 @@ def reconcile_due(today: date) -> list[Item]:
         .with_used(since, today)
         .order_by("name")
     )
-    events = cash_events(accounts)
+    valuer = cash_valuer(accounts)
     due = []
     for account in accounts:
         if not account.offers_reconciliation:
             continue
-        _check_cash(account, today, events[account.pk])
+        _check_cash(account, today, valuer)
         reconciled_on = account.reconciled_on
         unreconciled = account.used and (
             reconciled_on is None or reconciled_on <= since
@@ -196,13 +196,13 @@ def reconcile_due(today: date) -> list[Item]:
     return due
 
 
-def _check_cash(account: Account, today: date, events: list[InvestmentEvent]) -> None:
+def _check_cash(account: Account, today: date, valuer: Valuer) -> None:
     """Make an account that Holds Cash show its Cash and how far off from it."""
     if not account.reconciles_cash:
         return
     reconciled_on = account.reconciled_on
     days = [today] if reconciled_on is None else [today, reconciled_on]
-    gaps = cash_gaps(account, days, events)
+    gaps = cash_gaps(account, days, valuer)
     account.balance -= gaps[today]
     if reconciled_on is not None and account.off_by is not None:
         account.off_by += gaps[reconciled_on]
