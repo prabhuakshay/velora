@@ -381,3 +381,68 @@ def test_a_draft_row_can_bring_an_unknown_instrument(signed_in: Client) -> None:
 
     assert "Buy Unlisted Co in Kuvera" in drafts_text(signed_in)
     assert Instrument.objects.get(isin=STOCK).price_source == PriceSource.NSE
+
+
+def test_a_row_without_an_isin_creates_a_manual_instrument_by_name(
+    signed_in: Client,
+) -> None:
+    broker = make_broker(opening="5000")
+
+    imported(
+        signed_in,
+        buy(isin="", instrument_name="Gold Coin"),
+        buy(isin="", instrument_name="Gold Coin", date="2026-03-03"),
+    )
+
+    gold = Instrument.objects.get(name="Gold Coin")
+    assert gold.isin is None
+    assert gold.price_source == PriceSource.MANUAL
+    assert "Gold Coin 20 ₹2,000.00" in holdings_text(signed_in, broker)
+
+
+def test_a_row_without_an_isin_is_recorded_once_whatever_is_uploaded_after(
+    signed_in: Client,
+) -> None:
+    make_broker(opening="5000")
+    row = buy(isin="", instrument_name="Gold Coin")
+    imported(signed_in, row)
+
+    page = import_preview(signed_in, row)
+
+    assert "0 to add · 1 already recorded · 0 with errors" in page
+
+
+def test_an_invalid_isin_is_a_row_error(signed_in: Client) -> None:
+    make_broker(opening="5000")
+
+    page = import_preview(signed_in, buy(isin="TEJASNET", instrument_name="Tejas"))
+
+    assert "1 with errors" in page
+    assert "isin: This isn&#x27;t a valid ISIN." in page
+
+
+def test_a_merger_can_turn_units_into_an_instrument_without_an_isin(
+    signed_in: Client,
+) -> None:
+    broker = make_broker(opening="5000")
+
+    imported(
+        signed_in,
+        buy(date="2026-02-01"),
+        import_line("MERGER", instrument_name="Merged Gold"),
+    )
+
+    assert Instrument.objects.get(name="Merged Gold").isin is None
+    assert "Merged Gold 10 ₹1,000.00" in holdings_text(signed_in, broker)
+
+
+def test_a_merger_into_an_invalid_isin_is_an_error(signed_in: Client) -> None:
+    make_broker(opening="5000")
+
+    page = import_preview(
+        signed_in,
+        buy(date="2026-02-01"),
+        import_line("MERGER", instrument_name="Bad", new_isin="INE000000001"),
+    )
+
+    assert "new_isin: This isn&#x27;t a valid ISIN." in page
