@@ -1,7 +1,8 @@
-"""The price-source client: the only code that talks HTTP to AMFI and NSE.
+"""The Price Sources: the only code that talks HTTP to AMFI and NSE.
 
-It hands back plain parsed rows. Tests replace `amfi_rows` and `nse_rows` with
-a fake, so nothing else here needs faking. When AMFI or NSE change their file
+Each Price Source hands back plain parsed rows and raises SourceUnavailable
+when it has no file or can't be reached. Tests swap in an in-memory Source,
+so nothing else here needs faking. When AMFI or NSE change their file
 formats, only this module should need to change.
 """
 
@@ -13,10 +14,15 @@ import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from enum import StrEnum
 from http import HTTPStatus
+from typing import TYPE_CHECKING, Protocol
 
 from apps.investments.isin import is_valid_isin
 from apps.investments.models import Instrument
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 AMFI_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
 AMFI_HISTORY_URL = (
@@ -50,11 +56,48 @@ class PriceRow:
     date: date
 
 
+class SourceUnavailable(Exception):  # noqa: N818
+    """A Price Source had no file for what was asked, or couldn't be reached."""
+
+    class Reason(StrEnum):
+        NO_FILE = "no file"
+        UNREACHABLE = "unreachable"
+
+    def __init__(self, reason: Reason, url: str = "") -> None:
+        """Say why, and for which file if known."""
+        super().__init__(f"{reason}: {url}" if url else reason)
+        self.reason = reason
+
+
+class Source(Protocol):
+    """Where Prices are fetched from: AMFI or NSE, or a fake in tests."""
+
+    def latest(self, day: date) -> list[PriceRow]:
+        """The latest Prices published up to the day."""
+        ...
+
+    def history(self, start: date, end: date) -> list[PriceRow]:
+        """The Prices on each day from start to end."""
+        ...
+
+
 def _get(url: str) -> bytes:
-    """The body at the URL; raises urllib.error.URLError on network failures."""
+    """The body at the URL; raises SourceUnavailable on a 404 or a network failure.
+
+    Other HTTP errors are unexpected and raised as they are.
+    """
     request = urllib.request.Request(url, headers=HEADERS)  # noqa: S310
-    with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
-        body: bytes = response.read()
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
+            body: bytes = response.read()
+    except urllib.error.HTTPError as error:
+        if error.code != HTTPStatus.NOT_FOUND:
+            raise
+        # Nothing reads its body, and one left open warns whenever it is collected.
+        error.close()
+        raise SourceUnavailable(SourceUnavailable.Reason.NO_FILE, url) from None
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise SourceUnavailable(SourceUnavailable.Reason.UNREACHABLE, url) from error
     return body
 
 
@@ -157,58 +200,70 @@ def _field(line: dict[str, str | None], name: str) -> str | None:
     return None
 
 
-def amfi_rows() -> list[PriceRow]:
-    """Every mutual fund scheme's latest NAV from AMFI."""
-    return parse_amfi(_get(AMFI_URL).decode("utf-8", errors="replace"))
+def _text(get: Callable[[str], bytes], url: str) -> str:
+    return get(url).decode("utf-8", errors="replace")
 
 
-def amfi_history_rows(start: date, end: date) -> list[PriceRow]:
-    """Every mutual fund scheme's NAV on each day from start to end."""
-    url = AMFI_HISTORY_URL.format(start=start, end=end)
-    return parse_amfi_history(_get(url).decode("utf-8", errors="replace"))
+class Amfi:
+    """AMFI's NAVs for every mutual fund scheme."""
+
+    def __init__(self, get: Callable[[str], bytes] = _get) -> None:
+        """Fetch files with get, which raises SourceUnavailable as _get does."""
+        self._get = get
+
+    def latest(self, day: date) -> list[PriceRow]:  # noqa: ARG002
+        """Every scheme's latest NAV; AMFI publishes only its newest file."""
+        return parse_amfi(_text(self._get, AMFI_URL))
+
+    def history(self, start: date, end: date) -> list[PriceRow]:
+        """Every scheme's NAV on each day from start to end."""
+        url = AMFI_HISTORY_URL.format(start=start, end=end)
+        return parse_amfi_history(_text(self._get, url))
 
 
-def _bhavcopy(day: date) -> str:
-    archive = zipfile.ZipFile(io.BytesIO(_get(NSE_BHAVCOPY_URL.format(day=day))))
-    return archive.read(archive.namelist()[0]).decode("utf-8", errors="replace")
+class Nse:
+    """NSE's closing prices for every stock, ETF and SGB."""
 
+    def __init__(self, get: Callable[[str], bytes] = _get) -> None:
+        """Fetch files with get, which raises SourceUnavailable as _get does."""
+        self._get = get
 
-def _etf_list() -> str:
-    return _get(NSE_ETF_URL).decode("utf-8", errors="replace")
+    def _bhavcopy(self, day: date) -> str:
+        body = self._get(NSE_BHAVCOPY_URL.format(day=day))
+        archive = zipfile.ZipFile(io.BytesIO(body))
+        return archive.read(archive.namelist()[0]).decode("utf-8", errors="replace")
 
+    def latest(self, day: date) -> list[PriceRow]:
+        """Closing prices on the latest trading day up to day.
 
-def nse_rows(day: date) -> list[PriceRow]:
-    """Every NSE stock, ETF and SGB's closing price on the latest trading day up to day.
-
-    NSE publishes a day's bhavcopy only after the market closes, and none on
-    holidays, so the latest earlier one stands in until then. Raises
-    urllib.error.HTTPError when NSE has none in the last NSE_LOOKBACK_DAYS.
-    """
-    for back in range(NSE_LOOKBACK_DAYS):
-        try:
-            bhavcopy = _bhavcopy(day - timedelta(days=back))
-            break
-        except urllib.error.HTTPError as error:
-            if error.code != HTTPStatus.NOT_FOUND or back == NSE_LOOKBACK_DAYS - 1:
-                raise
-            error.close()
-    return parse_nse(bhavcopy, _etf_list())
-
-
-def nse_history_rows(start: date, end: date) -> list[PriceRow]:
-    """Every NSE stock, ETF and SGB's closing price on each weekday, start to end.
-
-    Days with no bhavcopy in NSE's archive, such as holidays, are skipped.
-    """
-    etf_list = _etf_list()
-    rows: list[PriceRow] = []
-    day = start
-    while day <= end:
-        if day.weekday() < 5:  # noqa: PLR2004
+        NSE publishes a day's bhavcopy only after the market closes, and none on
+        holidays, so the latest earlier one stands in until then. Raises
+        SourceUnavailable when NSE has none in the last NSE_LOOKBACK_DAYS.
+        """
+        for back in range(NSE_LOOKBACK_DAYS):
             try:
-                rows.extend(parse_nse(_bhavcopy(day), etf_list))
-            except urllib.error.HTTPError as error:
-                if error.code != HTTPStatus.NOT_FOUND:
+                bhavcopy = self._bhavcopy(day - timedelta(days=back))
+                break
+            except SourceUnavailable as error:
+                no_file = error.reason == SourceUnavailable.Reason.NO_FILE
+                if not no_file or back == NSE_LOOKBACK_DAYS - 1:
                     raise
-        day += timedelta(days=1)
-    return rows
+        return parse_nse(bhavcopy, _text(self._get, NSE_ETF_URL))
+
+    def history(self, start: date, end: date) -> list[PriceRow]:
+        """Closing prices on each weekday from start to end.
+
+        Days with no bhavcopy in NSE's archive, such as holidays, are skipped.
+        """
+        etf_list = _text(self._get, NSE_ETF_URL)
+        rows: list[PriceRow] = []
+        day = start
+        while day <= end:
+            if day.weekday() < 5:  # noqa: PLR2004
+                try:
+                    rows.extend(parse_nse(self._bhavcopy(day), etf_list))
+                except SourceUnavailable as error:
+                    if error.reason != SourceUnavailable.Reason.NO_FILE:
+                        raise
+            day += timedelta(days=1)
+        return rows

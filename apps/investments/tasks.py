@@ -13,9 +13,8 @@ from procrastinate.contrib.django import app
 from procrastinate.exceptions import AlreadyEnqueued
 
 from apps.core.jobs import daily_cron
-from apps.investments.backfill import backfill_prices as run_backfill
 from apps.investments.models import PriceFetch
-from apps.investments.nightly import PriceFetchError, run_nightly_prices
+from apps.investments.prices import PriceFetchError, backfill, fetch_today
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -32,13 +31,13 @@ REFRESH_LOCK = "investments.refresh_prices"
 @app.task(name="investments.nightly_prices", queueing_lock="investments.nightly_prices")
 def nightly_prices(timestamp: int) -> None:  # noqa: ARG001
     """Fetch and store today's Prices in Velora's time zone."""
-    run_nightly_prices(timezone.localdate())
+    fetch_today(timezone.localdate())
 
 
 @app.task(name="investments.backfill_prices")
 def backfill_prices() -> None:
     """Fill the past Prices held Instruments miss, up to today."""
-    run_backfill(timezone.localdate())
+    backfill(timezone.localdate())
 
 
 def _queue_once(task: Task[..., None, ...], lock: str) -> bool:
@@ -61,8 +60,8 @@ def refresh_prices() -> None:
     today = timezone.localdate()
     failed = []
     steps: tuple[Callable[[], None], ...] = (
-        lambda: run_nightly_prices(today, PriceFetch.Trigger.REFRESH),
-        lambda: run_backfill(today),
+        lambda: fetch_today(today, PriceFetch.Trigger.REFRESH),
+        lambda: backfill(today),
     )
     for step in steps:
         try:

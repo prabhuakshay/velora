@@ -1,8 +1,5 @@
 from datetime import timedelta
-from email.message import Message
-from io import BytesIO
 from typing import TYPE_CHECKING
-from urllib.error import HTTPError
 
 import pytest
 from django.core import mail
@@ -10,8 +7,8 @@ from django.core.mail import EmailMultiAlternatives
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.investments.nightly import PriceFetchError, run_nightly_prices
-from apps.investments.tests.conftest import FakePriceSource, row
+from apps.investments.prices import PriceFetchError, fetch_today
+from apps.investments.tests.conftest import FakePrices, not_published, row
 from apps.schedules.daily_job import run_daily_job
 
 if TYPE_CHECKING:
@@ -27,22 +24,13 @@ def _site(settings: Settings) -> None:
     settings.SITE_URL = SITE
 
 
-def not_published() -> HTTPError:
-    error = HTTPError(
-        "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
-    )
-    # Nothing reads its body, and one left open warns whenever it is collected.
-    error.close()
-    return error
-
-
 def test_a_failed_nightly_price_fetch_is_in_the_digest(
-    fake_prices: FakePriceSource,
+    fake_prices: FakePrices,
 ) -> None:
     today = timezone.localdate()
     fake_prices.nse = not_published()
     with pytest.raises(PriceFetchError):
-        run_nightly_prices(today)
+        fetch_today(today)
 
     run_daily_job(today + timedelta(days=1))
 
@@ -60,11 +48,11 @@ def test_a_failed_nightly_price_fetch_is_in_the_digest(
 
 
 def test_the_digest_is_silent_when_every_price_fetch_worked(
-    fake_prices: FakePriceSource,
+    fake_prices: FakePrices,
 ) -> None:
     today = timezone.localdate()
     fake_prices.nse = [row("INE002A01018", "Reliance", "stock", "2950", today)]
-    run_nightly_prices(today)
+    fetch_today(today)
 
     run_daily_job(today + timedelta(days=1))
 
@@ -72,14 +60,14 @@ def test_the_digest_is_silent_when_every_price_fetch_worked(
 
 
 def test_a_later_nightly_price_fetch_that_worked_clears_the_line(
-    fake_prices: FakePriceSource,
+    fake_prices: FakePrices,
 ) -> None:
     today = timezone.localdate()
     fake_prices.nse = not_published()
     with pytest.raises(PriceFetchError):
-        run_nightly_prices(today - timedelta(days=1))
+        fetch_today(today - timedelta(days=1))
     fake_prices.nse = [row("INE002A01018", "Reliance", "stock", "2950", today)]
-    run_nightly_prices(today)
+    fetch_today(today)
 
     run_daily_job(today + timedelta(days=1))
 

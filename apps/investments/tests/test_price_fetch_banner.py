@@ -1,37 +1,25 @@
 import re
 from datetime import date, timedelta
-from email.message import Message
 from html import unescape
-from io import BytesIO
 from typing import TYPE_CHECKING
-from urllib.error import HTTPError
 
 import pytest
 from django.urls import reverse
 from procrastinate.contrib.django.models import ProcrastinateJob
 
 from apps.accounts.tests.conftest import page_text
-from apps.investments.nightly import PriceFetchError, run_nightly_prices
-from apps.investments.tests.conftest import row
+from apps.investments.prices import PriceFetchError, fetch_today
+from apps.investments.tests.conftest import not_published, row
 
 if TYPE_CHECKING:
     from django.test import Client
 
-    from apps.investments.tests.conftest import FakePriceSource
+    from apps.investments.tests.conftest import FakePrices
 
 pytestmark = pytest.mark.django_db
 
 TODAY = date(2026, 10, 14)
 YESTERDAY = TODAY - timedelta(days=1)
-
-
-def not_published() -> HTTPError:
-    error = HTTPError(
-        "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
-    )
-    # Nothing reads its body, and one left open warns whenever it is collected.
-    error.close()
-    return error
 
 
 def banners(client: Client) -> list[str]:
@@ -41,20 +29,19 @@ def banners(client: Client) -> list[str]:
     return [unescape(page_text(banner)) for banner in found]
 
 
-def fetch(fake_prices: FakePriceSource, day: date, *, nse_fails: bool = False) -> None:
+def fetch(fake_prices: FakePrices, day: date, *, nse_fails: bool = False) -> None:
     fake_prices.amfi = [row("INF209KA12Z1", "A fund", "mutual_fund", "10", day)]
     if nse_fails:
-        error = fake_prices.nse = not_published()
+        fake_prices.nse = not_published()
         with pytest.raises(PriceFetchError):
-            run_nightly_prices(day)
-        error.close()
+            fetch_today(day)
     else:
         fake_prices.nse = [row("INE002A01018", "Reliance", "stock", "2950", day)]
-        run_nightly_prices(day)
+        fetch_today(day)
 
 
 def test_a_failed_fetch_shows_a_banner_with_its_reason_and_the_day_shown(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fetch(fake_prices, YESTERDAY)
     fetch(fake_prices, TODAY, nse_fails=True)
@@ -65,7 +52,7 @@ def test_a_failed_fetch_shows_a_banner_with_its_reason_and_the_day_shown(
 
 
 def test_the_banner_is_gone_once_a_later_fetch_works(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fetch(fake_prices, YESTERDAY, nse_fails=True)
     fetch(fake_prices, TODAY)
@@ -74,16 +61,14 @@ def test_the_banner_is_gone_once_a_later_fetch_works(
 
 
 def test_no_banner_shows_when_every_fetch_worked(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fetch(fake_prices, TODAY)
 
     assert banners(signed_in) == []
 
 
-def test_retry_queues_a_refresh(
-    signed_in: Client, fake_prices: FakePriceSource
-) -> None:
+def test_retry_queues_a_refresh(signed_in: Client, fake_prices: FakePrices) -> None:
     fetch(fake_prices, TODAY, nse_fails=True)
     html = signed_in.get(reverse("investments_overview")).content.decode()
     banner = re.search(r'<div data-fetch-failed="NSE".*?</div>', html, re.DOTALL)

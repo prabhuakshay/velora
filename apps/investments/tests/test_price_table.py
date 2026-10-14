@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from apps.accounts.tests.conftest import page_text
 from apps.investments.models import Instrument, PriceFetch
-from apps.investments.nightly import run_nightly_prices
+from apps.investments.prices import fetch_today
 from apps.investments.tasks import refresh_prices
 from apps.investments.tests.conftest import instrument_url, row
 from apps.quick_add.tests.test_migrations import migrate
@@ -20,7 +20,7 @@ from apps.quick_add.tests.test_migrations import migrate
 if TYPE_CHECKING:
     from django.test import Client
 
-    from apps.investments.tests.conftest import FakePriceSource
+    from apps.investments.tests.conftest import FakePrices
     from apps.users.models import User
 
 pytestmark = pytest.mark.django_db
@@ -46,7 +46,7 @@ def fetched_at() -> str:
 
 
 def test_a_fetched_price_shows_its_file_and_fetch(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     file_day = timezone.localdate() - timedelta(days=1)
     fake_prices.nse = [row(STOCK, "Reliance", "stock", "2950", file_day)]
@@ -61,10 +61,10 @@ def test_a_fetched_price_shows_its_file_and_fetch(
 
 
 def test_a_price_keeps_its_source_once_its_fetch_is_removed(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.amfi = [row(FUND, "A fund", "mutual_fund", "10", TODAY)]
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
     PriceFetch.objects.all().delete()
 
@@ -122,11 +122,11 @@ def source_line(client: Client, isin: str | None) -> str:
 
 
 def test_the_page_states_its_price_source_and_last_fetch(
-    signed_in: Client, fake_prices: FakePriceSource
+    signed_in: Client, fake_prices: FakePrices
 ) -> None:
     fake_prices.nse = [row(STOCK, "Reliance", "stock", "2950", TODAY)]
     fake_prices.amfi = [row(FUND, "A fund", "mutual_fund", "10", TODAY)]
-    run_nightly_prices(TODAY)
+    fetch_today(TODAY)
 
     assert source_line(signed_in, STOCK).startswith(
         f"Price Source: NSE · last {fetched_at()}"
