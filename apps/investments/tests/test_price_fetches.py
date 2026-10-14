@@ -2,6 +2,7 @@ import re
 from datetime import date
 from email.message import Message
 from html import unescape
+from io import BytesIO
 from typing import TYPE_CHECKING
 from urllib.error import HTTPError, URLError
 
@@ -10,9 +11,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.tests.conftest import page_text
+from apps.investments.backfill import backfill_prices
+from apps.investments.models import Instrument, InvestmentEvent
 from apps.investments.nightly import PriceFetchError, run_nightly_prices
 from apps.investments.tasks import refresh_prices
-from apps.investments.tests.conftest import row
+from apps.investments.tests.conftest import make_broker, row
 from apps.users.tests.conftest import turn_on
 
 if TYPE_CHECKING:
@@ -59,7 +62,9 @@ def test_the_overview_shows_what_the_nightly_run_fetched(
 
 
 def not_published() -> HTTPError:
-    return HTTPError("https://nse.example/file.zip", 404, "Not Found", Message(), None)
+    return HTTPError(
+        "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
+    )
 
 
 @pytest.mark.parametrize(
@@ -134,3 +139,77 @@ def test_privacy_mode_hides_how_many_prices_were_stored(
 
 def test_a_source_never_fetched_says_so(signed_in: Client) -> None:
     assert status(signed_in, "NSE") == "NSE No Prices yet · not fetched yet"
+
+
+def hold(isin: str, kind: str, since: date) -> None:
+    InvestmentEvent.objects.create(
+        account=make_broker(f"Broker {isin}"),
+        instrument=Instrument.objects.get_or_create(
+            isin=isin, defaults={"name": isin, "kind": kind}
+        )[0],
+        kind="buy",
+        date=since,
+        units=1,
+        amount=10,
+    )
+
+
+def test_a_backfill_shows_the_range_it_filled_and_what_it_stored(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    hold(FUND, "mutual_fund", date(2026, 10, 12))
+    fake_prices.history = [fund(date(2026, 10, d)) for d in (12, 13, 14)]
+
+    backfill_prices(today=TODAY)
+
+    line = status(signed_in, "AMFI")
+    assert "by Backfill of 12 Oct to 14 Oct · Worked, 3 Prices stored" in line
+    assert "AMFI Prices for 14 Oct 2026" in line
+
+
+def test_a_failed_backfill_source_shows_why_and_the_other_still_fills(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    hold(FUND, "mutual_fund", date(2026, 10, 13))
+    hold(STOCK, "stock", date(2026, 10, 13))
+    fake_prices.amfi_history = URLError("timed out")
+    fake_prices.history = [stock(date(2026, 10, 13)), stock()]
+
+    with pytest.raises(PriceFetchError, match="AMFI"):
+        backfill_prices(today=TODAY)
+
+    amfi = status(signed_in, "AMFI")
+    assert "by Backfill of 13 Oct to 14 Oct · Failed: AMFI couldn't be reached" in amfi
+    nse = status(signed_in, "NSE")
+    assert "by Backfill of 13 Oct to 14 Oct · Worked, 2 Prices stored" in nse
+
+
+def test_a_backfill_keeps_the_windows_that_worked_when_a_later_one_fails(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    hold(FUND, "mutual_fund", date(2026, 9, 1))
+    fake_prices.history = [fund(date(2026, 9, d)) for d in (1, 2)] + [fund()]
+    fake_prices.history_failures = {TODAY: URLError("timed out")}
+
+    with pytest.raises(PriceFetchError, match="AMFI"):
+        backfill_prices(today=TODAY)
+
+    line = status(signed_in, "AMFI")
+    assert "AMFI Prices for 2 Sep 2026" in line
+    assert "by Backfill of 1 Sep to 14 Oct · Failed: AMFI couldn't be reached" in line
+
+
+def test_a_refresh_with_nothing_to_backfill_still_shows_the_refresh(
+    monkeypatch: pytest.MonkeyPatch, signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
+    hold(FUND, "mutual_fund", TODAY)
+    hold(STOCK, "stock", TODAY)
+    fake_prices.amfi = [fund()]
+    fake_prices.nse = [stock()]
+
+    refresh_prices()
+
+    assert fake_prices.fetched == []
+    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "AMFI")
+    assert "by Refresh · Worked, 1 Prices stored" in status(signed_in, "NSE")

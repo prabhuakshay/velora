@@ -1,5 +1,6 @@
 from datetime import timedelta
 from email.message import Message
+from io import BytesIO
 from typing import TYPE_CHECKING
 from urllib.error import HTTPError
 
@@ -27,7 +28,9 @@ def _site(settings: Settings) -> None:
 
 
 def not_published() -> HTTPError:
-    return HTTPError("https://nse.example/file.zip", 404, "Not Found", Message(), None)
+    return HTTPError(
+        "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
+    )
 
 
 def test_a_failed_nightly_price_fetch_is_in_the_digest(
