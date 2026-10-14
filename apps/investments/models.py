@@ -18,6 +18,14 @@ if TYPE_CHECKING:
 STALE_AFTER = datetime.timedelta(days=5)
 
 
+class PriceSource(models.TextChoices):
+    """Where an Instrument's Prices come from."""
+
+    AMFI = "AMFI", "AMFI"
+    NSE = "NSE", "NSE"
+    MANUAL = "Manual", "Manual"
+
+
 class Instrument(models.Model):
     """A mutual fund scheme, stock or ETF, identified by its ISIN.
 
@@ -39,6 +47,15 @@ class Instrument(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def price_source(self) -> PriceSource:
+        """Where its Prices come from: Manual if priced by hand, else AMFI or NSE."""
+        if self.manual_price:
+            return PriceSource.MANUAL
+        if self.kind == self.Kind.MUTUAL_FUND:
+            return PriceSource.AMFI
+        return PriceSource.NSE
 
     def latest_price(self) -> Price | None:
         """The newest Price, used until a newer one arrives."""
