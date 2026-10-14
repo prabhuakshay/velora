@@ -44,6 +44,58 @@ html:has(#main) {
     @apply text-slate-600 underline hover:text-slate-900;
   }
 
+  /* Help pages are long-form text written as plain HTML, styled here once. */
+  .help-prose {
+    @apply text-sm/6 break-words text-slate-700;
+
+    & h2 {
+      @apply mb-2 text-lg font-semibold tracking-tight text-slate-900;
+    }
+
+    & h3 {
+      @apply mt-5 font-semibold text-slate-900;
+    }
+
+    & p,
+    & ul,
+    & ol {
+      @apply mt-2;
+    }
+
+    & ul {
+      @apply list-disc space-y-1 pl-5;
+    }
+
+    & ol {
+      @apply list-decimal space-y-1 pl-5;
+    }
+
+    & strong,
+    & dt {
+      @apply font-semibold text-slate-900;
+    }
+
+    & dt {
+      @apply mt-4 first:mt-0;
+    }
+
+    & a {
+      @apply text-slate-900 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-900;
+    }
+
+    & details {
+      @apply border-t border-slate-100 py-3 first:border-t-0 first:pt-0 last:pb-0;
+    }
+
+    & summary {
+      @apply cursor-pointer font-medium text-slate-900 marker:text-slate-400;
+    }
+
+    & .example {
+      @apply mt-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200;
+    }
+  }
+
   .field-control :is(input, select, textarea) {
     @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base focus:border-slate-900 focus:ring-2 focus:ring-slate-900 focus:outline-hidden;
   }

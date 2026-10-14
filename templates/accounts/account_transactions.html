@@ -13,6 +13,7 @@
       <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{{ account.name }}</h1>
       <p class="truncate text-sm text-slate-500">{% if account.is_investment %}Investment Account · {{ account.get_investment_mode_display }}{% else %}{{ kind.label }} Account{% endif %}{% if account.is_card %} · Credit card{% endif %}</p>
     </div>
+    {% if account.is_card %}{% include "help/_button.html" with area="cards" title="Cards" %}{% elif account.is_investment %}{% include "help/_button.html" with area="investments" title="Investments" %}{% else %}{% include "help/_button.html" with area="accounts" title="Accounts and Reconciliation" %}{% endif %}
     <a href="{% url 'account_edit' kind account.pk %}" class="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
     <button type="button" data-dialog-open="account-actions" class="-mr-2 flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="More actions" title="More actions">{% include "shell/icon.html" with name="dots" class="size-5" stroke="stroke-[3]" %}</button>
   </div>

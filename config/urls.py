@@ -36,5 +36,6 @@ urlpatterns = [
     path("", include("apps.budgets.urls")),
     path("", include("apps.investments.urls")),
     path("", include("apps.goals.urls")),
+    path("", include("apps.help.urls")),
     path(settings.ADMIN_URL, admin.site.urls),
 ]

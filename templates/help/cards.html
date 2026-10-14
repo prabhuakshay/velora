@@ -1,0 +1,86 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>A credit card in Velora is a Liability Account that also knows its Statement Day and Due Day. Velora then keeps a Statement for every billing period, works out the Statement Amount from what you charged, proposes the payment as a Draft, and tells you whether each Statement is paid. Card EMIs track purchases the bank bills in monthly installments.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>One Liability Account per card</strong>, with its Statement Day, Due Day and the Account you pay it from all set.</li>
+    <li><strong>Record every purchase from the card's Account,</strong> on the day you made it. That's when it counts as spent, whatever day you pay the card.</li>
+    <li><strong>Enter the real Statement Amount when the statement arrives.</strong> Until then Velora's figure is an estimate.</li>
+    <li><strong>Pay the card by posting its payment Draft,</strong> so the payment is linked to its Statement for you.</li>
+    <li><strong>Set the card's limit as Warn when owing over,</strong> to be warned before you go over it.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I set up my credit card?</summary>
+    <ol>
+      <li>Open <a href="{% url 'account_list' 'liability' %}">Accounts</a>, Liabilities, and choose <strong>New Liability Account</strong>.</li>
+      <li>Enter its Opening Balance: what you owed on the day you start.</li>
+      <li>Open <strong>Credit card</strong> and set the <strong>Statement Day</strong>, <strong>Due Day</strong> and <strong>Pays from</strong>. All three go together.</li>
+      <li>Choose <strong>Add Account</strong>.</li>
+    </ol>
+    <p class="example">Asha's ICICI card: Statement Day 15, Due Day 5, Pays from "HDFC Savings", Warn when owing over ₹1,50,000.</p>
+  </details>
+  <details>
+    <summary>When does a Statement appear?</summary>
+    <p>The morning after the Statement Day, since spending on the Statement Day itself belongs to that period. Its payment Draft appears with it, dated on the Due Day.</p>
+    <p class="example">Asha's period 16 September to 15 October closes on the 15th. On the morning of 16 October a Statement appears, due 5 November, with a Draft to pay it from HDFC Savings.</p>
+  </details>
+  <details>
+    <summary>How do I enter the amount from my real statement?</summary>
+    <p>Open the Statement from the card's <strong>Statements</strong> panel and enter the <strong>Actual Statement Amount</strong>. It replaces Velora's estimate, and the payment Draft follows it. Clear it to go back to the estimate.</p>
+    <p class="example">Velora estimated ₹18,240, but the bank's statement says ₹18,889 because Asha forgot to post the ₹649 streaming Subscription's Draft. Asha enters ₹18,889 and posts the Draft.</p>
+  </details>
+  <details>
+    <summary>How is the Statement Amount estimated?</summary>
+    <p>What you charged to the card in the period, less payments and Refunds in it that aren't linked to a Statement, plus that month's Card EMI installments in place of the full purchases, less any Carried Credit from the Statement before. It is never below zero. The Statement page shows the working.</p>
+  </details>
+  <details>
+    <summary>How do I pay the card?</summary>
+    <p>Pay it at your bank, then post its payment Draft on Drafts. The Statement is Paid once the payments linked to it add up to its Statement Amount.</p>
+    <p>If you recorded the payment yourself, Velora links it the next morning and removes the Draft, as long as it came from the Pays from Account, is within 10% of what's still owed, and is dated after the period closed and no more than 5 days after the Due Day. Link any other payment by hand.</p>
+  </details>
+  <details>
+    <summary>What happens if I pay in parts?</summary>
+    <p>Velora links a part payment for you only when it is within 10% of what's still owed. For the others, open the Statement and use <strong>Link payment</strong> for each one: it is Paid once they add up to the Statement Amount. While its Draft is still waiting, the Draft shrinks to what's still owed. Once that Draft has been posted, no second Draft is proposed, and the rest shows only as the Statement still being unpaid.</p>
+    <p>Each payment pays at most one Statement.</p>
+  </details>
+  <details>
+    <summary>What happens if I pay more than the Statement Amount?</summary>
+    <p>The extra becomes Carried Credit: it lowers the next Statement Amount. If you owe nothing at all, the card's Balance shows as "in credit".</p>
+    <p class="example">Asha pays ₹20,000 against ₹18,889. The ₹1,111 extra carries to the November Statement.</p>
+  </details>
+  <details>
+    <summary>How do I turn a purchase into a Card EMI?</summary>
+    <ol>
+      <li>Record the purchase as usual, at its full price, from the card.</li>
+      <li>On the card's page, choose <strong>Make Card EMI</strong> next to the purchase.</li>
+      <li>Enter the months, the interest, any processing fee, the first Statement it's billed on, and the Expense Account for the interest.</li>
+      <li>Check the preview of every installment and choose <strong>Make Card EMI</strong>.</li>
+    </ol>
+    <p class="example">Asha buys a ₹60,000 phone and converts it into 6 months at 15% a year. The whole ₹60,000 counts as spent that day. Each Statement includes one month's installment, and each month's interest and GST arrives as a Draft to post. A no-cost EMI has no interest Drafts.</p>
+  </details>
+  <details>
+    <summary>What happens if I pay a Card EMI off early?</summary>
+    <p>Choose <strong>Foreclose</strong> on the Card EMI. What's left of the principal and the foreclosure fee go on the next Statement Amount, and no more installments are billed. Velora makes no Draft for the foreclosure fee, so record it yourself to keep the card's Balance matching the bank.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Statement Day</dt>
+  <dd>The day of the month a card's billing period closes.</dd>
+  <dt>Due Day</dt>
+  <dd>The day of the month the latest Statement must be paid by.</dd>
+  <dt>Statement</dt>
+  <dd>One billing period of a card, from the day after one Statement Day to the next, with its Due Day and Statement Amount. It is paid once the payments for it add up to its Statement Amount.</dd>
+  <dt>Statement Amount</dt>
+  <dd>What a card's Statement asks you to pay. Velora estimates it until you enter the real figure from the bank.</dd>
+  <dt>Carried Credit</dt>
+  <dd>What one Statement leaves for the next: how far its payments went beyond its Statement Amount, or how far its Refunds went beyond its spending. It lowers the next Statement Amount, never below zero.</dd>
+  <dt>Card EMI</dt>
+  <dd>A card purchase the bank bills in equal monthly installments with interest. The whole purchase counts as spent the day it was made; only the installments reach each Statement Amount.</dd>
+{% endblock %}

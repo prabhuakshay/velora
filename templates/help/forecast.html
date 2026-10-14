@@ -1,0 +1,62 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>The Forecast shows the Balance Velora expects each of your Asset and Liability Accounts to have on each of the coming days, from your Schedules, the Drafts waiting for you and your card payments. It answers "will I have enough when the rent goes out?" before it happens, and warns you when an Account is heading somewhere you don't want it.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>Set up your <a href="{% url 'help_area' 'schedules' %}">Schedules</a> first.</strong> The Forecast knows only what Velora expects, so salary, rent, SIPs and bills need to be there.</li>
+    <li><strong>Give your main savings account a Low-Balance Threshold</strong>: the least you want in it, such as a month's rent.</li>
+    <li><strong>Give each card its limit</strong> as the amount to warn when owing over.</li>
+    <li><strong>Glance at it once a week,</strong> or whenever Home shows a warning.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I read the Forecast?</summary>
+    <p>Open <a href="{% url 'forecast' %}">Forecast</a>. It starts with all your Asset Accounts together for the next 30 days; pick 7, 60 or 90 days above it. Tap one Account to follow just that one. The list below the chart shows each expected change on its day.</p>
+    <p class="example">On 25 October Asha's HDFC Savings is ₹38,000. The Forecast shows it rising to ₹1,23,000 with salary on 1 November, falling by ₹22,000 for rent on the 5th, by the ICICI card payment on the 5th, and by ₹5,000 for the SIP on the 10th.</p>
+  </details>
+  <details>
+    <summary>How do I get warned before my savings run low?</summary>
+    <p>Edit the Account and set its <strong>Low-Balance Threshold</strong>. When the Forecast expects the Balance to fall below it, the Forecast lists a warning, Home shows a red banner, and the morning email mentions it. Left at 0, it warns only when the Balance is expected to go below zero.</p>
+    <p class="example">Asha sets ₹20,000 on HDFC Savings. A ₹30,000 laptop drafted for the 28th would take it to ₹8,000, so Home warns "HDFC Savings is expected to run low on 28 Oct".</p>
+  </details>
+  <details>
+    <summary>How do I get warned before a card goes over its limit?</summary>
+    <p>Edit the card's Liability Account and set <strong>Warn when owing over</strong> to its limit. Leave it at 0 for no warning. Home's Credit cards card also uses it to show how much of the limit is used.</p>
+  </details>
+  <details>
+    <summary>Where do the card payments come from?</summary>
+    <p>For each card with a Statement Day, Velora works out the coming Statement from what you've charged so far, and expects it to be paid from the card's Pays from Account on its Due Day. See <a href="{% url 'help_area' 'cards' %}">Cards</a>.</p>
+  </details>
+  <details>
+    <summary>Why does an item say "Set its amount"?</summary>
+    <p>It comes from a Schedule with an open amount that has never been paid, so Velora has nothing to go on. It is left out of the Forecast's figures and counted under <strong>Amount unknown</strong>. Once you post it once, later ones use that amount as an estimate.</p>
+  </details>
+  <details>
+    <summary>How do I add a one-off I know is coming?</summary>
+    <p>Choose <strong>Plan a one-off</strong> on the Forecast. It starts a Draft dated the day you expect it, which the Forecast counts from then on.</p>
+  </details>
+  <details>
+    <summary>What happens if the 90-day view warns but Home doesn't?</summary>
+    <p>Home always looks 30 days ahead. A warning further out shows only on the Forecast when you pick 60 or 90 days.</p>
+  </details>
+  <details>
+    <summary>What happens to something already due that I haven't posted?</summary>
+    <p>The Forecast puts it on today, marked "Overdue since" its due date, as it's still expected to happen.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Forecast</dt>
+  <dd>The Balances Velora expects your Asset and Liability Accounts to have on each of the coming days.</dd>
+  <dt>Low-Balance Threshold</dt>
+  <dd>The point past which you want a warning. For a savings account, a floor the Balance shouldn't fall below. For a card or loan, a ceiling on what you owe, with 0 meaning no warning.</dd>
+  <dt>Occurrence</dt>
+  <dd>One dated instance of a Schedule. Upcoming ones are what the Forecast expects.</dd>
+  <dt>Draft</dt>
+  <dd>A Transaction waiting for you to post it. Waiting Drafts count in the Forecast on their dates.</dd>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>An Account is anything money moves from or to. Your bank accounts, cash and cards are Accounts, and so are the kinds of income and spending you want to see, such as Salary and Groceries. Everything else in Velora, from Budgets to Net Worth, is worked out from money moving between Accounts.</p>
+  <p>A Reconciliation is how you check that Velora agrees with your bank: you enter what the bank says an Account held on a day, and Velora records it only if its own Balance matches.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>One Asset Account per real account you own:</strong> each savings account, cash in hand, an EPF account, money lent to a friend. Asha has HDFC Savings, Cash and EPF.</li>
+    <li><strong>One Liability Account per card or loan.</strong> Asha has the ICICI card. A card has its own <a href="{% url 'help_area' 'cards' %}">Help page</a>.</li>
+    <li><strong>A handful of broad Expense Accounts, not dozens.</strong> Make one for each thing you want to budget or see on its own: Groceries, Rent, Eating out, Transport, Utilities, Shopping, Health, Travel. You can Merge two later if you split too finely.</li>
+    <li><strong>One Income Account per kind of money you earn:</strong> Salary, Interest, Dividends.</li>
+    <li><strong>Start from a recent date, not from the beginning of time.</strong> Give each Asset and Liability Account its Opening Balance on the day you start, read off your bank app, and record everything from that day on.</li>
+    <li><strong>Reconcile every Asset and Liability Account once a month,</strong> against its bank or card statement.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I add my bank account?</summary>
+    <ol>
+      <li>Open <a href="{% url 'account_list' 'asset' %}">Accounts</a> and choose <strong>New Asset Account</strong>.</li>
+      <li>Name it, such as "HDFC Savings". Leave <strong>Investment Account</strong> at "No".</li>
+      <li>Enter its <strong>Opening Balance</strong> and <strong>Opening Balance date</strong>: what the bank app showed at the end of the day you start.</li>
+      <li>Choose <strong>Add Account</strong>.</li>
+    </ol>
+    <p class="example">Asha starts on 1 October 2026 with ₹1,20,000 in HDFC Savings, so the Opening Balance is ₹1,20,000 dated 1 Oct 2026. Every Transaction into or out of HDFC Savings is dated on or after that day.</p>
+  </details>
+  <details>
+    <summary>How do I check that Velora matches my bank?</summary>
+    <ol>
+      <li>Open the Account from <a href="{% url 'account_list' 'asset' %}">Accounts</a>.</li>
+      <li>In the <strong>Reconcile</strong> panel, enter a <strong>Date</strong> and the <strong>Balance</strong> your bank shows for the end of that day. For a card or loan, enter <strong>What you owed</strong>.</li>
+      <li>Choose <strong>Reconcile</strong>.</li>
+    </ol>
+    <p>It must match to the paisa. When it does, the Account shows "Reconciled through" that date, and every Transaction up to it gets a tick.</p>
+    <p class="example">Asha's statement for October shows ₹96,450 in HDFC Savings on 31 Oct. Velora's Balance that day is also ₹96,450, so the Reconciliation goes through.</p>
+  </details>
+  <details>
+    <summary>What happens if my figure doesn't match?</summary>
+    <p>Velora doesn't record it. Instead, it shows its own Balance for that day and how far off yours is, and lists every Transaction since the last Reconciliation that still matches, each with the Balance after it. Look for one that's missing, recorded twice or for the wrong amount, fix it, and reconcile again.</p>
+    <p class="example">Asha enters ₹96,450 but Velora has ₹97,300: off by ₹850. Scanning the list, Asha finds a ₹850 dinner was never recorded, adds it, and the Reconciliation then goes through.</p>
+  </details>
+  <details>
+    <summary>What happens if I change an old Transaction after reconciling?</summary>
+    <p>Velora lets you. A Reconciliation is a check, not a lock. If the change moves the Balance on a reconciled day, that Reconciliation shows "Off by" the difference, and the Account's reconciled-through date falls back to the latest one that still matches. Fix the Transaction or delete the Reconciliation to clear it. The daily email and Home's Upcoming panel remind you about it until then.</p>
+  </details>
+  <details>
+    <summary>How do I see my Net Worth?</summary>
+    <p>It is the first card on <a href="{% url 'index' %}">Home</a>: everything in your Asset Accounts less everything you owe on your Liability Accounts, with its history at each month-end. Investment Accounts count at their Market Value, Cash included, not at what you paid.</p>
+  </details>
+  <details>
+    <summary>How do I keep my car out of Net Worth?</summary>
+    <p>Edit its Asset Account and untick <strong>Include in Net Worth</strong>. Net Worth's whole history is worked out again without it, not just from today.</p>
+  </details>
+  <details>
+    <summary>How do I tidy up an Account I no longer use?</summary>
+    <p>Open it and choose the <strong>More actions</strong> button:</p>
+    <ul>
+      <li><strong>Hide</strong> takes it off the Accounts list and off new Transactions. Its history stays, and it still counts in Net Worth.</li>
+      <li><strong>Merge into another</strong> moves everything it has into another Account of the same kind, then removes it. Use it when two Accounts are really one, such as "Food" and "Groceries".</li>
+      <li><strong>Delete</strong> works only for an Account nothing uses yet.</li>
+    </ul>
+  </details>
+  <details>
+    <summary>What happens if I merge an Account I've reconciled?</summary>
+    <p>Its Reconciliations are removed, because they checked a Balance that no longer exists on its own. The Opening Balances add up on the Account you merge into. Reconcile that Account again afterwards.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Account</dt>
+  <dd>Anything money moves from or to. Every Account is one of four kinds, Asset, Liability, Expense or Income, and keeps that kind for good.</dd>
+  <dt>Asset Account</dt>
+  <dd>Something you own or are owed, such as a savings account, cash or money lent to a friend.</dd>
+  <dt>Liability Account</dt>
+  <dd>Money you owe, such as a credit card or a home loan.</dd>
+  <dt>Expense Account</dt>
+  <dd>What you spend money on, such as Groceries or Rent. Budgets and spending reports use these.</dd>
+  <dt>Income Account</dt>
+  <dd>Where money you earn comes from, such as Salary or Interest.</dd>
+  <dt>Opening Balance</dt>
+  <dd>What an Asset or Liability Account held on the day you started recording it in Velora.</dd>
+  <dt>Balance</dt>
+  <dd>What an Asset or Liability Account holds now. For a card or loan it is what you owe, so a + means more charged and a − means paid off.</dd>
+  <dt>Reconciliation</dt>
+  <dd>Your check that an Account's Balance on a day matches what the bank says. Every one is kept, and one that stops matching later shows how far off it is.</dd>
+  <dt>Net Worth</dt>
+  <dd>What you own less what you owe, leaving out any Account you've excluded.</dd>
+  <dt>Merge</dt>
+  <dd>Folding one Account into another of the same kind. Everything that pointed at the first now points at the second.</dd>
+{% endblock %}

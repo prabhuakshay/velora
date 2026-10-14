@@ -1,0 +1,93 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>A Transaction is one real money event, such as buying groceries, getting paid or withdrawing cash, on the day it happened. Each one is made of Splits, and each Split moves an amount from one Account to another. Every Balance, Budget and report in Velora is worked out from these.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>Record money as it moves, dated the day it moved.</strong> A few seconds a day beats an evening of catching up. <a href="{% url 'help_area' 'drafts' %}">Quick Add</a> and <a href="{% url 'help_area' 'schedules' %}">Schedules</a> do most of the typing for you.</li>
+    <li><strong>One Transaction per real event.</strong> When one bill covers several things, give it one Split each rather than recording it twice.</li>
+    <li><strong>Always pick a Party</strong> for a shop, employer or person. It makes searching easy and lets Velora notice what repeats.</li>
+    <li><strong>Spend from where the money really left.</strong> A purchase on the card comes from the card's Account, not from your savings. Paying the card later is a separate Transfer.</li>
+    <li><strong>Keep Tags for things that cut across Accounts,</strong> such as a trip or "reimbursable". Don't use them as a second set of Expense Accounts.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I record something I bought?</summary>
+    <ol>
+      <li>Open <a href="{% url 'transaction_list' %}">Transactions</a> and choose <strong>New Transaction</strong> (the + button).</li>
+      <li>Set the <strong>Date</strong> and the <strong>Party</strong>.</li>
+      <li>In the Split, pick <strong>From</strong> (where the money came from), <strong>To</strong> (what it went on) and the <strong>Amount</strong>.</li>
+      <li>Choose <strong>Save</strong>.</li>
+    </ol>
+    <p class="example">Asha buys ₹2,340 of groceries at Nature's Basket on the ICICI card: Party "Nature's Basket", From "ICICI card", To "Groceries", ₹2,340.</p>
+  </details>
+  <details>
+    <summary>How do I record my salary?</summary>
+    <p>From the Income Account, to the Account it landed in. Asha's is From "Salary", To "HDFC Savings", ₹85,000, with the Party "Acme Technologies". Since it comes every month, make it a <a href="{% url 'help_area' 'schedules' %}">Schedule</a> instead, and Velora proposes it for you each payday.</p>
+  </details>
+  <details>
+    <summary>How do I split one bill across Expense Accounts?</summary>
+    <p>Choose <strong>Add split</strong> for each part. The Save bar adds them up so you can check it against the bill.</p>
+    <p class="example">Asha's ₹2,340 supermarket bill was ₹1,800 of food and ₹540 of cleaning things: one Split From "ICICI card" To "Groceries" ₹1,800, a second From "ICICI card" To "Household" ₹540.</p>
+    <p>All the Splits in one Transaction must come from the same Account or go to the same Account. If you need two different ones on both sides, record two Transactions.</p>
+  </details>
+  <details>
+    <summary>How do I record salary with deductions?</summary>
+    <p>One Split per place the money went, all from Salary. Asha's payslip puts ₹85,000 in the bank and ₹3,600 in EPF: From "Salary" To "HDFC Savings" ₹85,000, and From "Salary" To "EPF" ₹3,600. EPF is an Asset Account, as the money is still Asha's.</p>
+  </details>
+  <details>
+    <summary>How do I record withdrawing cash or paying my card?</summary>
+    <p>From one of your own Accounts to another. Velora sees that only Asset and Liability Accounts are involved and treats it as a Transfer, which is never counted as spending.</p>
+    <p class="example">Asha withdraws ₹5,000 at an ATM: From "HDFC Savings" To "Cash". Paying the card is From "HDFC Savings" To "ICICI card". The spending already counted when each purchase went on the card.</p>
+  </details>
+  <details>
+    <summary>How do I record a Refund?</summary>
+    <p>From the Expense Account, back to where the money landed. It lowers what was Spent under that Expense Account in the month of the Refund.</p>
+    <p class="example">Nature's Basket refunds ₹300 for a damaged item: From "Groceries" To "ICICI card", ₹300.</p>
+  </details>
+  <details>
+    <summary>How do I Tag a trip?</summary>
+    <p>First create the Tag, such as "Goa trip", on <a href="{% url 'tag_list' %}">Classification</a>. Then tick it on each Split for the trip. The Tags appear on a Split only once you have at least one Tag. The Tag's own page adds up everything tagged with it.</p>
+  </details>
+  <details>
+    <summary>How do I keep a bill or warranty card with a Transaction?</summary>
+    <p>Drop it into <strong>Attachments</strong> on the Transaction's form. Each Transaction can keep up to 10 files, 10 MB in all: photos, PDFs, text files, and Word or Excel sheets. Attachments are stored privately and open only for you.</p>
+  </details>
+  <details>
+    <summary>How do I find an old Transaction?</summary>
+    <p>Type in the search box: it looks in descriptions and in Party, Account and Tag names. The <strong>Filters</strong> button narrows by Account, Party, Tag, dates and amount. With filters set, <strong>Export CSV</strong> downloads just those Transactions, one row per Split.</p>
+  </details>
+  <details>
+    <summary>What happens if I date a Transaction tomorrow?</summary>
+    <p>Velora refuses: a Transaction records money that has already moved. For money you expect, start a <a href="{% url 'help_area' 'drafts' %}">Draft</a> instead, which can be dated ahead and waits until you post it.</p>
+  </details>
+  <details>
+    <summary>What happens if I edit a Transaction I reconciled?</summary>
+    <p>The edit goes through, and the Reconciliation it changes shows "Off by" the difference until you fix it. See <a href="{% url 'help_area' 'accounts' %}">Accounts and Reconciliation</a>.</p>
+  </details>
+  <details>
+    <summary>Why can't I edit the Transaction for a Buy?</summary>
+    <p>It belongs to an Investment Event, so Velora keeps the two together. Change the Buy on its Investment Account's <strong>Holdings</strong> tab, and its Transaction follows.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Transaction</dt>
+  <dd>One real money event, with a date and usually a Party, made of one or more Splits.</dd>
+  <dt>Split</dt>
+  <dd>One part of a Transaction: an amount moving from one Account to another. Tags go on Splits.</dd>
+  <dt>Party</dt>
+  <dd>Someone outside you that money goes to or comes from, such as a shop, an employer or a friend.</dd>
+  <dt>Tag</dt>
+  <dd>A name of your own you put on Splits, such as a trip, to group them across Parties and Accounts. Tags play no part in Budgets.</dd>
+  <dt>Transfer</dt>
+  <dd>A Transaction that only moves money between your own Asset and Liability Accounts, such as withdrawing cash or paying a card.</dd>
+  <dt>Refund</dt>
+  <dd>Money coming back from an Expense Account, which lowers what was Spent under it.</dd>
+  <dt>Attachment</dt>
+  <dd>A file kept with a Transaction, such as a receipt or a warranty card.</dd>
+{% endblock %}

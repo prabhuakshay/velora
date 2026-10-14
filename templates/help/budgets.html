@@ -1,0 +1,70 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>A Budget is the most you plan to spend under one Expense Account in a month, such as ₹12,000 on Groceries. Velora compares it with what you've Spent so far and what's still expected, so you can see how the month is going at a glance. An Overall Budget does the same for everything you spend in a month.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>Budget only what you want to watch.</strong> Groceries, Eating out and Shopping need a Budget; Rent, which is the same every month, doesn't. What you Spend on them still shows as Unbudgeted.</li>
+    <li><strong>Start from what you really spend.</strong> Each Expense Account's page shows its Monthly average; set the Budget a little below that.</li>
+    <li><strong>Set an Overall Budget</strong> for everything you spend in a month, including Rent and anything Unbudgeted. It shows whether the month works as a whole.</li>
+    <li><strong>Leave a Budget in place.</strong> It carries on every month until you change it, so you set it once.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I set a Budget?</summary>
+    <p>Open <a href="{% url 'budget_list' %}">Budgets</a>. Under <strong>Add a Budget</strong>, type an amount next to the Expense Account. It saves as you go. To change it, type a new amount; to remove it, empty the box.</p>
+    <p class="example">Asha sets Groceries ₹12,000, Eating out ₹6,000 and Shopping ₹5,000, and an Overall Budget of ₹60,000 out of an ₹85,000 salary.</p>
+  </details>
+  <details>
+    <summary>How do I read a Budget?</summary>
+    <p>Each row shows what's Spent so far as a solid bar, and what's Expected from Schedules and waiting Drafts as a lighter bar after it. A row is marked <strong>Close</strong> once Spent reaches 90% of its Budget, and <strong>Over</strong> once it passes it. Expected never changes the mark, only Spent does.</p>
+    <p class="example">By 20 October Asha has Spent ₹10,900 of the ₹12,000 Groceries Budget: 91%, so it shows Close with ₹1,100 left.</p>
+  </details>
+  <details>
+    <summary>Why doesn't my Budget stop me from spending?</summary>
+    <p>A Budget is the most you plan to spend, which you measure against, not money set aside. Velora never refuses a Transaction because a Budget is used up, and it doesn't move money around to cover it. Going over shows as Over, and the morning email tells you once when a Budget is Close and once when it is Over.</p>
+  </details>
+  <details>
+    <summary>What happens to what I didn't spend last month?</summary>
+    <p>Nothing. Each month starts fresh at the same Budget: what's left over or overspent never carries into the next month.</p>
+  </details>
+  <details>
+    <summary>What happens if I change a Budget in the middle of the month?</summary>
+    <p>The new amount applies to the whole of this month, back to the 1st, and every month after. Earlier months keep the amount they had.</p>
+  </details>
+  <details>
+    <summary>How do I look at last month?</summary>
+    <p>Use the arrows beside the month name. Past months are read-only: you can change only this month's Budgets.</p>
+  </details>
+  <details>
+    <summary>Does a Refund count?</summary>
+    <p>Yes. A Refund lowers what was Spent under its Expense Account in the month it comes back, which can take Spent below zero.</p>
+  </details>
+  <details>
+    <summary>Do my SIP and card payment count as spending?</summary>
+    <p>No. A SIP moves money into an Investment Account, and paying the card moves money from HDFC Savings to the card: both are between your own Accounts. The spending on the card counted on the day of each purchase.</p>
+  </details>
+  <details>
+    <summary>Why do my Budgets add up to more than the Overall Budget?</summary>
+    <p>Velora allows it and says so on the page. Budgets are each the most you'd spend on one thing; the Overall Budget is what you'd spend in all, and you rarely hit every Budget in the same month.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Budget</dt>
+  <dd>The most you plan to spend under one Expense Account in a calendar month. It holds every month until you change it.</dd>
+  <dt>Overall Budget</dt>
+  <dd>The most you plan to spend across all Expense Accounts in a month, Unbudgeted included.</dd>
+  <dt>Spent</dt>
+  <dd>What went out under an Expense Account in a month through posted Transactions, less Refunds that month.</dd>
+  <dt>Expected</dt>
+  <dd>What Upcoming Occurrences and waiting Drafts dated in the month are set to add to Spent once posted. It never counts as Spent.</dd>
+  <dt>Unbudgeted</dt>
+  <dd>What you Spent under Expense Accounts that have no Budget.</dd>
+  <dt>Refund</dt>
+  <dd>Money coming back from an Expense Account, which lowers what was Spent under it.</dd>
+{% endblock %}

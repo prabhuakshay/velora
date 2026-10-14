@@ -44,6 +44,7 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
         top("tag", label="Classification", url=reverse("party_list"))
         # The Parties and Tags tabs on the page switch lists, so both count as here.
         | {"active": path.startswith(("/parties/", "/tags/"))},
+        top("help", label="Help", url=reverse("help_index")),
     ]
     children = [
         leaf("Preferences", reverse("preferences")) | {"icon": "sliders"},

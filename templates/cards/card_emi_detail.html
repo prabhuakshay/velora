@@ -13,6 +13,7 @@
       <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">{% include "transactions/_transaction_title.html" with transaction=emi.purchase %}</h1>
       <p class="truncate text-sm text-slate-500">Card EMI · {{ emi.card }}</p>
     </div>
+    {% include "help/_button.html" with area="cards" title="Cards" %}
   </div>
 
   <div class="mt-4 md:mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">

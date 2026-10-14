@@ -1,0 +1,89 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>A Schedule is a Transaction you expect to repeat, such as salary, rent or a phone bill. On each due date it proposes a Draft for you to post, or records the Transaction itself if you trust it to. Schedules also feed the Forecast, remind you before money is due, and tell you when something you expected never happened.</p>
+  <p>A Subscription is a Schedule for an ongoing service, such as a streaming plan, so Velora can show what all of them cost you together.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>Add a Schedule for everything that repeats:</strong> salary, rent, SIPs, phone, electricity, insurance. Asha has salary on the 1st, rent on the 5th and the SIP on the 10th.</li>
+    <li><strong>Give each one its Party,</strong> so a Transaction you record yourself is recognised as paying it.</li>
+    <li><strong>Leave the amount open when it changes every time,</strong> such as a power bill. Velora suggests last time's amount on each Draft.</li>
+    <li><strong>Turn on Auto-post only for fixed amounts you never need to check,</strong> such as rent paid by standing instruction. Keep salary as a Draft, so you notice if it's short.</li>
+    <li><strong>Tick Subscription for services you could cancel,</strong> to see them all on <a href="{% url 'subscription_list' %}">Subscriptions</a>.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I set up my salary?</summary>
+    <ol>
+      <li>Open <a href="{% url 'schedule_list' %}">Schedules</a> and choose <strong>New Schedule</strong>.</li>
+      <li>Pick the Party, "Acme Technologies".</li>
+      <li>Set <strong>First due date</strong> to the next payday, 1 Nov 2026, and <strong>Repeat every</strong> 1 month.</li>
+      <li>Add the Split: From "Salary", To "HDFC Savings", ₹85,000.</li>
+      <li>Choose <strong>Save</strong>.</li>
+    </ol>
+    <p class="example">On 1 November a ₹85,000 Draft waits on Drafts. Asha checks the bank app, sees the money, and posts it.</p>
+  </details>
+  <details>
+    <summary>How do I make a Schedule from something I've already recorded?</summary>
+    <p>Open the Transaction and choose <strong>Schedule</strong>. The form starts with its Party, description and Splits, due again a month after it.</p>
+  </details>
+  <details>
+    <summary>When do Drafts appear?</summary>
+    <p>At 6 am on the due date, not before. Before that you get a reminder under Coming up, on Home and in the morning email, from <strong>Remind days before</strong> the due date: by default 3 days ahead for a monthly Schedule, 14 for a yearly one.</p>
+  </details>
+  <details>
+    <summary>How do I track a payment whose amount changes?</summary>
+    <p>Leave the Split's Amount blank. Each Draft then starts from the last amount you paid between the same Accounts, marked as an estimate, and waits for you to enter the real one.</p>
+    <p class="example">Asha's electricity is From "HDFC Savings" To "Utilities" with no amount. October's Draft starts at last month's ₹1,840; the bill says ₹2,110, so Asha edits it and posts.</p>
+  </details>
+  <details>
+    <summary>How do I add a Subscription?</summary>
+    <p>Make a Schedule for it and tick <strong>Subscription</strong>. Then fill in the plan, when a free trial ends, and how to cancel, so it's to hand when you want to stop.</p>
+    <p class="example">Asha's ₹649 streaming plan goes on the ICICI card on the 18th: From "ICICI card" To "Entertainment", ₹649, Subscription ticked. <a href="{% url 'subscription_list' %}">Subscriptions</a> shows what all of them cost together, a month and a year.</p>
+  </details>
+  <details>
+    <summary>What happens if I pay it myself before posting its Draft?</summary>
+    <p>Velora recognises your Transaction as paying the Occurrence when it moves every Split of the Schedule, is for its Party, has an amount within 10% of the Schedule's, and is dated within 5 days of the due date (3 for weekly Schedules, the same day for daily ones). The next morning it marks the Occurrence Paid and removes the waiting Draft, so nothing is counted twice.</p>
+  </details>
+  <details>
+    <summary>What happens if my salary doesn't arrive on time?</summary>
+    <p>The Occurrence waits through the Schedule's <strong>Grace days</strong>, 3 unless you change it. After that it is Missed, and Home and the morning email say so. When the money does come, post the waiting Draft and the Occurrence turns Paid. If you'd rather record it yourself, that works too as long as it is dated within 5 days of the due date and you record it within 30 days.</p>
+  </details>
+  <details>
+    <summary>How do I skip one month?</summary>
+    <p>Reject that month's Draft on Drafts. Its Occurrence is marked Skipped, not Missed. You can't skip ahead of time: wait for the Draft to appear.</p>
+  </details>
+  <details>
+    <summary>How do I stop a Schedule?</summary>
+    <p>Open it and choose <strong>Pause</strong> to stop for a while: nothing is proposed until you <strong>Resume</strong>, and due dates while it was paused are never proposed. Choose <strong>End</strong> to stop for good: its history stays.</p>
+  </details>
+  <details>
+    <summary>What happens if I change a Schedule's amount?</summary>
+    <p>It changes Upcoming Occurrences only. Drafts already proposed and past Occurrences stay as they were, so edit a waiting Draft yourself if it needs the new amount.</p>
+  </details>
+  <details>
+    <summary>Where do Suggested Schedules come from?</summary>
+    <p>When you've paid the same Party a similar amount between the same Accounts at least three times at a steady weekly, monthly or yearly gap, Velora offers to make it a Schedule. Choose <strong>Confirm</strong> to review it as a new Schedule, or <strong>Dismiss</strong>; a dismissed one never comes back.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Schedule</dt>
+  <dd>A Transaction you expect to repeat, with how often and, if you like, when it stops. Its amount can be left open.</dd>
+  <dt>Occurrence</dt>
+  <dd>One dated instance of a Schedule. It is Upcoming until it falls due, Drafted once its Draft waits for you, then Paid, Skipped or Missed.</dd>
+  <dt>Paid</dt>
+  <dd>An Occurrence whose Draft you posted, or that a Transaction you recorded yourself already covers.</dd>
+  <dt>Missed</dt>
+  <dd>An Occurrence nothing covered by the end of its grace days, such as salary that hasn't arrived.</dd>
+  <dt>Subscription</dt>
+  <dd>A Schedule you mark as paying for an ongoing service, which can carry a trial end, a plan and how to cancel.</dd>
+  <dt>Suggested Schedule</dt>
+  <dd>A Schedule Velora proposes after noticing a steady repeated payment. It does nothing until you confirm it.</dd>
+  <dt>SIP</dt>
+  <dd>A Schedule that buys one Instrument for a set amount on each due date. See <a href="{% url 'help_area' 'investments' %}">Investments</a>.</dd>
+{% endblock %}

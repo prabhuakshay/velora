@@ -96,6 +96,7 @@ INSTALLED_APPS = [
     "apps.home",
     "apps.investments",
     "apps.goals",
+    "apps.help",
 ]
 
 

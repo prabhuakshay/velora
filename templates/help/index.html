@@ -1,0 +1,45 @@
+{% extends "app_base.html" %}
+
+{% block title %}Help · Velora{% endblock %}
+
+{% block main %}
+  <h1 class="text-2xl font-bold tracking-tight">Help</h1>
+  <p class="mt-0.5 text-sm text-slate-500">How Velora works, and how we recommend using it.</p>
+
+  <div class="help-prose mt-4 space-y-4 md:mt-6">
+    <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="getting-started">
+      <h2 id="getting-started">Getting started</h2>
+      <p>Velora keeps a record of the money you earn, spend and move between your accounts, then uses that record to show where your money goes, what is coming up, and how your savings and investments are doing. Every amount is in Indian rupees.</p>
+
+      <h3>Meet Asha</h3>
+      <p>Every Help page follows one made-up person, Asha, so each page builds on the one before. Asha's money looks like this:</p>
+      <ul>
+        <li><strong>Salary:</strong> ₹85,000 from Acme Technologies lands in <strong>HDFC Savings</strong> on the 1st of every month.</li>
+        <li><strong>One credit card:</strong> the <strong>ICICI card</strong>, whose billing period closes on the 15th and which must be paid by the 5th. Asha pays it from HDFC Savings.</li>
+        <li><strong>A ₹5,000 SIP:</strong> on the 10th of every month, into the <strong>Sunrise Flexicap Fund</strong>, a flexi-cap mutual fund bought through a fund platform.</li>
+        <li><strong>A Goal:</strong> a ₹15,00,000 down payment on a house, in today's money, by December 2031.</li>
+      </ul>
+
+      <h3>Set things up one step at a time</h3>
+      <p>Each step uses what the step before it set up. You don't need every step: stop wherever Velora already does what you want.</p>
+      <ol>
+        <li><a href="{% url 'help_area' 'accounts' %}">Accounts</a>: add your bank accounts, cash and cards with what they held on the day you start, plus the Expense and Income Accounts you want to see your money under. Asha starts with HDFC Savings, the ICICI card, Cash, Salary and a dozen Expense Accounts such as Groceries and Rent.</li>
+        <li><a href="{% url 'help_area' 'transactions' %}">Transactions</a>: record money as it moves. Asha records lunch, groceries and cash taken out at the ATM.</li>
+        <li><a href="{% url 'help_area' 'schedules' %}">Schedules</a>: tell Velora what repeats, so it proposes each one for you. Asha adds salary, rent and a streaming Subscription.</li>
+        <li><a href="{% url 'help_area' 'budgets' %}">Budgets</a>: choose how much you plan to spend each month under the Expense Accounts you want to watch. Asha budgets ₹12,000 for Groceries.</li>
+        <li><a href="{% url 'help_area' 'investments' %}">Investments</a>: add the places you invest, what you hold there, and any SIPs. Asha adds the fund platform and the ₹5,000 SIP.</li>
+        <li><a href="{% url 'help_area' 'goals' %}">Goals</a>: count savings and Holdings toward what you're saving for. Asha counts the whole flexi-cap Holding toward the house.</li>
+      </ol>
+      <p>Velora's Help uses its own words for things, the same ones you see on every page. Each page ends with the words it uses, explained.</p>
+    </section>
+
+    <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="areas">
+      <h2 id="areas">Every area</h2>
+      <ul class="!list-none !pl-0">
+        {% for slug, title in areas.items %}
+          <li><a href="{% url 'help_area' slug %}">{{ title }}</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+{% endblock %}

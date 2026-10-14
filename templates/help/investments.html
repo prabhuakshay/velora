@@ -1,0 +1,121 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>Investments track your mutual fund, stock and ETF Holdings: how many units, what you paid for them, what they're worth at the latest Prices, and how they're doing. Each place you invest is an Investment Account, so money moving between it and your bank is an ordinary Transaction, while the units it holds are kept beside it as Holdings.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>One Investment Account per broker or platform, not per fund.</strong> Everything Asha holds through the fund platform lives in one Account, however many mutual fund Holdings it has.</li>
+    <li><strong>Choose Direct for a mutual fund platform</strong>, where each Buy is paid straight from your savings account and each Sell pays straight back. <strong>Choose Holds Cash for a stock broker</strong> that keeps money of its own between Buys and Sells. You can't change this later.</li>
+    <li><strong>Start from a recent date.</strong> Set the Opening Balance to what you've put in and not taken out: the Cost Basis of what it holds, plus any Cash. Then add your past Buys dated on or before that day, by hand or with an Investment Import. They build the Lots without moving any money.</li>
+    <li><strong>Make every SIP a Schedule,</strong> so each month's Buy arrives as a Draft with its units worked out.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I add my fund platform?</summary>
+    <ol>
+      <li>Open <a href="{% url 'account_list' 'asset' %}">Accounts</a> and choose <strong>New Asset Account</strong>.</li>
+      <li>Name it, such as "Fund platform", and set <strong>Investment Account</strong> to "Direct".</li>
+      <li>Set <strong>Pays from</strong> and <strong>Pays into</strong> to the bank its money comes from and goes back to.</li>
+      <li>Choose <strong>Add Account</strong>.</li>
+    </ol>
+    <p class="example">Asha's Fund platform is Direct, with Pays from and Pays into both "HDFC Savings".</p>
+  </details>
+  <details>
+    <summary>How do I record a Buy?</summary>
+    <ol>
+      <li>Open the Investment Account and its <strong>Holdings</strong> tab.</li>
+      <li>Choose <strong>Record an Investment Event</strong> and pick <strong>Type</strong> "Buy".</li>
+      <li>Enter the date, the ISIN, the <strong>Units</strong>, the <strong>Price</strong>, the <strong>Amount</strong> (units times Price) and any <strong>Charges</strong> such as brokerage, STT or stamp duty.</li>
+      <li>Choose <strong>Save</strong>.</li>
+    </ol>
+    <p>The ISIN is the 12-character code on the fund's or share's statement, such as INF… for a mutual fund. For one Velora doesn't know yet, also give its name.</p>
+    <p class="example">Asha buys 98.04 units of the Sunrise Flexicap Fund at ₹51.00, for ₹5,000.00. As the Account is Direct, Velora also records ₹5,000 moving from HDFC Savings to the Fund platform.</p>
+  </details>
+  <details>
+    <summary>How do I set up a SIP?</summary>
+    <ol>
+      <li>Choose <strong>New Schedule</strong> on <a href="{% url 'schedule_list' %}">Schedules</a>, due on your SIP date every month.</li>
+      <li>Add one Split from the Account's Pays from to the Investment Account, for the SIP amount.</li>
+      <li>Tick <strong>SIP</strong>, pick the <strong>Investment Account</strong> and enter the fund's <strong>ISIN</strong>.</li>
+    </ol>
+    <p>A SIP buys in a Direct Investment Account, and needs an ISIN Velora already knows.</p>
+    <p class="example">Asha's SIP: due on the 10th, From "HDFC Savings" To "Fund platform", ₹5,000, SIP ticked, Sunrise Flexicap Fund's ISIN. Each month on the 10th a Buy Draft appears. That day's Price comes out that night, so the next morning Velora fills in the units and the Draft is ready to post.</p>
+  </details>
+  <details>
+    <summary>Why does my SIP Draft say "Units needed"?</summary>
+    <p>Its units come from the first Price on or after the due date, and that Price only comes out the evening of the due date. Until then the Draft waits and can't be posted. The next morning Velora fills in the units, so a SIP due on a holiday uses the next working day's Price.</p>
+  </details>
+  <details>
+    <summary>How do I see the XIRR of one fund?</summary>
+    <p>On its Holding row. XIRR shows on the <a href="{% url 'investments_overview' %}">Investments</a> page for everything you hold, on each Investment Account, and on each Holding, in the Investments page's Holdings table and on an Investment Account's Holdings tab. It shows "—" until there's enough history to work it out.</p>
+  </details>
+  <details>
+    <summary>When do Prices update?</summary>
+    <p>Every night at 11 pm: mutual fund Prices from AMFI, stocks and ETFs from NSE. <strong>Refresh Prices</strong> on the Investments page fetches them now, along with any missing past Prices. An Instrument Velora doesn't know from either source has no automatic Price, so enter its Prices yourself on its page.</p>
+  </details>
+  <details>
+    <summary>Why is a Price marked Stale?</summary>
+    <p>Its latest Price is more than five days old. Velora keeps using it until a newer one arrives. That happens after a long market holiday, when a source was down for a few nights, or for an Instrument whose Prices you enter yourself. Try <strong>Refresh Prices</strong>. For an Instrument whose Prices you enter yourself, enter a new one on its page.</p>
+  </details>
+  <details>
+    <summary>How do I record a Sell?</summary>
+    <p>Record an Investment Event of Type "Sell". It takes units from your oldest Lots first, and its Realized Gain is what it brought in less what those units cost. Velora refuses a Sell of more units than you held on its date.</p>
+  </details>
+  <details>
+    <summary>How do I record a Dividend?</summary>
+    <p>Record an Investment Event of Type "Dividend" with the amount and an Income Account, such as "Dividends". Velora records it as an Income Transaction, into the Investment Account if it Holds Cash, or into its Pays into Account if it is Direct.</p>
+  </details>
+  <details>
+    <summary>Why doesn't my Realized Gain show as income?</summary>
+    <p>Velora works out gains from your Lots and shows them on the Investments pages, rather than recording them under an Income Account. Your income reports show what you earned; your Investments pages show how your Holdings did.</p>
+  </details>
+  <details>
+    <summary>How do I bring in my past history?</summary>
+    <p>Choose <strong>Import or export</strong> on the Investments page and <strong>Download the template</strong>. Fill in one row per Investment Event from your statements, and upload it. Velora checks every row and shows a preview; nothing is imported while any row has an error, and rows already recorded are skipped, so uploading the same file twice is safe.</p>
+  </details>
+  <details>
+    <summary>What happens if a fund house merges two schemes?</summary>
+    <p>Record an Investment Event of Type "Merger" with the new fund's ISIN. Your Lots move to the new fund with their dates and Cost Basis kept.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Investment Account</dt>
+  <dd>An Asset Account for one place you hold Instruments, such as a broker or a fund platform. It either Holds Cash or is Direct.</dd>
+  <dt>Holds Cash</dt>
+  <dd>An Investment Account that keeps money of its own between Buys and Sells, such as a stock broker.</dd>
+  <dt>Direct</dt>
+  <dd>An Investment Account with no money of its own, such as a fund platform: Buys are paid from its Pays from Account and Sells pay into its Pays into Account.</dd>
+  <dt>Cash</dt>
+  <dd>The money an Investment Account that Holds Cash hasn't put into Instruments.</dd>
+  <dt>Instrument</dt>
+  <dd>Something you can hold units of, known by its ISIN: a mutual fund, a stock or an ETF.</dd>
+  <dt>Price</dt>
+  <dd>What one unit of an Instrument was worth at the end of a day. It is Stale once more than five days old.</dd>
+  <dt>Investment Event</dt>
+  <dd>One dated thing that happened to your units: a Buy, Sell, Dividend, Stock Split, Bonus or Merger.</dd>
+  <dt>Buy, Sell and Dividend</dt>
+  <dd>A Buy adds units and starts a Lot; a Sell removes units from the oldest Lots first; a Dividend pays you money without changing units.</dd>
+  <dt>Stock Split, Bonus and Merger</dt>
+  <dd>A Stock Split multiplies your units by a ratio; a Bonus gives free units; a Merger turns one Instrument's units into another's.</dd>
+  <dt>Lot</dt>
+  <dd>Units you got in one Buy or Bonus, with their date and what they cost.</dd>
+  <dt>Holding</dt>
+  <dd>All the units of one Instrument you have in one Investment Account.</dd>
+  <dt>Cost Basis</dt>
+  <dd>What you paid, charges included, for the units you still hold. Also shown as Invested.</dd>
+  <dt>Market Value</dt>
+  <dd>What Holdings are worth at their latest Prices.</dd>
+  <dt>Unrealized Gain and Realized Gain</dt>
+  <dd>Unrealized Gain is Market Value less Cost Basis for units you still hold. Realized Gain is what a Sell brought in less what its units cost. Either is negative for a loss.</dd>
+  <dt>XIRR</dt>
+  <dd>Your yearly return, worked out from the date of every Buy, Sell and Dividend and today's Market Value, so money invested longer counts for more.</dd>
+  <dt>SIP</dt>
+  <dd>A Schedule that buys one Instrument for a set amount on each due date.</dd>
+  <dt>Investment Import</dt>
+  <dd>A CSV file of Investment Events in Velora's own format, applied all at once or not at all.</dd>
+{% endblock %}

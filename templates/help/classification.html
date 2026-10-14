@@ -1,0 +1,62 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>Classification is where you keep your Parties and Tags. A Party is who money goes to or comes from: a shop, an employer, a landlord or a friend. A Tag is a name you put on Splits to group them across Parties and Accounts, such as a trip. Each Party and Tag has its own page showing everything recorded with it.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>One Party per business or person,</strong> not per branch or app. Asha's grocery shopping at any Nature's Basket store is all Party "Nature's Basket".</li>
+    <li><strong>Use the name you'd search for,</strong> short and plain: "Acme Technologies", not "ACME TECH PVT LTD SAL CR".</li>
+    <li><strong>Keep Tags few and short-lived:</strong> a trip, a wedding, "reimbursable". What you spend on belongs in Expense Accounts, not Tags.</li>
+    <li><strong>Merge duplicates as soon as you spot them,</strong> so a Party's page shows everything.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I add a Party?</summary>
+    <p>Open <a href="{% url 'party_list' %}">Classification</a> and choose <strong>New Party</strong>. When a Quick Add's Draft names a Party you don't have yet, Velora creates it for you once you post the Draft.</p>
+  </details>
+  <details>
+    <summary>How do I see how much I spend with a Party?</summary>
+    <p>Open the Party. Its page shows what you've spent with it, or received from it, all time and this month, by month for the last year, and every Transaction. <strong>Search its Transactions</strong> opens them on Transactions with the Party filter set.</p>
+    <p class="example">Asha's Nature's Basket page shows ₹9,800 a month on average, and that most of it goes to Groceries.</p>
+  </details>
+  <details>
+    <summary>How do I group a trip's spending?</summary>
+    <ol>
+      <li>Open the <a href="{% url 'tag_list' %}">Tags</a> tab and choose <strong>New Tag</strong>, such as "Goa trip".</li>
+      <li>Tick it on each Split for the trip: hotel, flights, meals.</li>
+      <li>Open the Tag to see what the trip cost in all, whichever Expense Account each Split went to.</li>
+    </ol>
+  </details>
+  <details>
+    <summary>How do I fix two Parties that are really one?</summary>
+    <p>Open the one you don't want, choose <strong>More actions</strong>, then <strong>Merge into another</strong>, and pick the one to keep. Everything recorded with the first now has the second, and the first is gone.</p>
+    <p class="example">Asha has both "Natures Basket" and "Nature's Basket". Merging the first into the second moves its Transactions and Schedules across.</p>
+  </details>
+  <details>
+    <summary>What happens if I try to delete a Party I've used?</summary>
+    <p>Velora won't delete a Party that Transactions, Drafts or Schedules still use, as it would leave them without one. Merge it into another, or <strong>Hide</strong> it to keep it off new Transactions while its history stays.</p>
+  </details>
+  <details>
+    <summary>What happens if I delete a Tag I've used?</summary>
+    <p>Velora tells you how many Splits carry it, and offers to Merge it into another Tag or to <strong>Force delete</strong> it. Force delete takes the Tag off every Split; the Transactions themselves stay.</p>
+  </details>
+  <details>
+    <summary>What happens if I hide a Party or Tag?</summary>
+    <p>It leaves the list and is no longer offered on new Transactions. Past Transactions keep it, and you can still filter Transactions by it. Find it again under <strong>Hidden</strong> at the foot of the list, and <strong>Unhide</strong> it any time.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Party</dt>
+  <dd>Someone outside you that money is paid to or received from, such as a shop, employer, landlord or friend. The same Party can be on money in and money out.</dd>
+  <dt>Tag</dt>
+  <dd>A name of your own you put on Splits to group them across Parties and Accounts, such as a trip. It plays no part in Budgets.</dd>
+  <dt>Split</dt>
+  <dd>One part of a Transaction, moving an amount from one Account to another. Tags go on Splits, so one bill can be partly tagged.</dd>
+  <dt>Merge</dt>
+  <dd>Folding one Party into another, or one Tag into another. The first disappears and everything that pointed at it points at the second.</dd>
+{% endblock %}

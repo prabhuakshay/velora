@@ -12,7 +12,10 @@
       <h1 class="text-2xl font-bold tracking-tight">Tags{% if tags %} <span class="align-middle text-base font-semibold text-slate-400 tabular-nums">{{ tags|length }}</span>{% endif %}</h1>
       <p class="mt-0.5 text-sm text-slate-500">Group Splits across Parties and Accounts, such as a trip.</p>
     </div>
-    <a href="{% url 'tag_create' %}" class="btn-primary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}<span>New<span class="hidden sm:inline"> Tag</span></span></a>
+    <div class="flex shrink-0 items-center gap-1">
+      {% include "help/_button.html" with area="classification" title="Classification" %}
+      <a href="{% url 'tag_create' %}" class="btn-primary flex shrink-0 items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}<span>New<span class="hidden sm:inline"> Tag</span></span></a>
+    </div>
   </div>
 
   <div class="mt-4">{% include "partials/tabs.html" with label="Parties and Tags" %}</div>

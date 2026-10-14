@@ -15,6 +15,7 @@
       <h1 class="truncate text-xl font-semibold tracking-tight md:text-2xl">Statement due {{ statement.due_date|date:"j M Y" }}</h1>
       <p class="truncate text-sm text-slate-500">{{ card }} · {{ statement.period_start|date:"j M" }} to {{ statement.period_end|date:"j M Y" }}</p>
     </div>
+    {% include "help/_button.html" with area="cards" title="Cards" %}
     <nav class="-mr-2 flex shrink-0" aria-label="Other Statements">
       {% if older %}<a href="{% url 'statement_edit' older.pk %}" class="flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Older Statement, due {{ older.due_date|date:'j M Y' }}">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>{% else %}<span class="flex size-10 items-center justify-center text-slate-300" aria-hidden="true">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</span>{% endif %}
       {% if newer %}<a href="{% url 'statement_edit' newer.pk %}" class="flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Newer Statement, due {{ newer.due_date|date:'j M Y' }}">{% include "shell/icon.html" with name="chevron-right" class="size-5" %}</a>{% else %}<span class="flex size-10 items-center justify-center text-slate-300" aria-hidden="true">{% include "shell/icon.html" with name="chevron-right" class="size-5" %}</span>{% endif %}

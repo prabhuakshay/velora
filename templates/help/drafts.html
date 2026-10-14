@@ -1,0 +1,92 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>A Draft is a Transaction that waits for you before it is recorded. Velora makes Drafts for you: from a Quick Add line you type, from a Schedule on its due date, for a card's Statement, a SIP, a Card EMI's interest, or a row of an Investment Import. A Draft changes no Balance until you post it, so nothing reaches your records without you seeing it first.</p>
+  <p>Quick Add turns a short line of plain text, such as "lunch at Toit 850 on hdfc card", into a Draft, using an AI.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>Use Quick Add for everyday spending.</strong> Type it when you pay, and check the Draft when you next sit down.</li>
+    <li><strong>Clear the <a href="{% url 'draft_list' %}">Drafts</a> page once a day.</strong> The badge on Drafts counts what is waiting. Post what's right, edit what's nearly right, reject what's wrong.</li>
+    <li><strong>Name the Account the way you'd say it.</strong> "on icici card" or "from cash" helps the AI pick the right one.</li>
+    <li><strong>Start a Draft by hand for money you expect but can't record yet,</strong> such as a refund you've been promised. It needs only a date.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I write a Quick Add?</summary>
+    <p>Type a line in the Quick Add box at the top of <a href="{% url 'draft_list' %}">Drafts</a> and choose <strong>Add</strong>. On other pages, the floating + button opens the same box. On the Drafts page, press <kbd>/</kbd> to jump to it.</p>
+    <p class="example">Asha types "dinner at Truffles 1200 on icici card". A moment later a Draft appears: Party "Truffles", From "ICICI card", To "Eating out", ₹1,200, dated today.</p>
+    <p>Say who, how much and which Account. Add a date when it wasn't today, such as "yesterday" or "on 3 Oct".</p>
+  </details>
+  <details>
+    <summary>How do I post a Draft?</summary>
+    <p>Choose <strong>Post</strong> on it. To change something first, choose <strong>Edit</strong>: <strong>Save and post</strong> records it, and <strong>Save Draft</strong> keeps it waiting, gaps and all, for later.</p>
+  </details>
+  <details>
+    <summary>How do I post everything that's ready?</summary>
+    <p>Choose <strong>Post all ready</strong> above the list.</p>
+  </details>
+  <details>
+    <summary>Why didn't Post all ready post this Draft?</summary>
+    <p>It posts only Drafts dated today or earlier that are complete and not estimates. A Draft is left waiting when:</p>
+    <ul>
+      <li>it is missing an amount or an Account,</li>
+      <li>its amount is an estimate, such as a power bill Velora guessed from last month, or a card payment before you've entered the real Statement Amount,</li>
+      <li>it is dated after today.</li>
+    </ul>
+    <p>Open it, fill in what's missing, and choose <strong>Save and post</strong>.</p>
+  </details>
+  <details>
+    <summary>What happens if I post a Draft dated next week?</summary>
+    <p>It is recorded on today's date, not next week's: posting it says the money has moved now. A Draft dated ahead says "Posts today, not" its date to remind you. <strong>Post all ready</strong> leaves it to wait for its day.</p>
+  </details>
+  <details>
+    <summary>How do I start a Draft by hand?</summary>
+    <p>Choose <strong>Start by hand</strong> under the Quick Add box, or <strong>New Draft</strong> when Quick Add is off. Only the date is needed now; add the amounts and Accounts when you post it.</p>
+    <p class="example">A friend promises to pay Asha back ₹1,500 next Friday. Asha starts a Draft dated that Friday with the friend as its Party, and posts it when the money arrives.</p>
+  </details>
+  <details>
+    <summary>What happens when a Quick Add goes wrong?</summary>
+    <p>While the AI works, the Quick Add shows as Processing ("Drafting…"). If it can't make a valid Draft, it shows as Failed with the reason. You can then:</p>
+    <ul>
+      <li><strong>Resubmit</strong> it with edited text,</li>
+      <li><strong>Retry as is</strong>, to send the same text again,</li>
+      <li><strong>Discard</strong> it.</li>
+    </ul>
+    <p>One still Processing after five minutes is stuck, so it offers <strong>Retry</strong> and <strong>Discard</strong> too.</p>
+  </details>
+  <details>
+    <summary>What happens if I reject a Draft from a Schedule?</summary>
+    <p>That one Occurrence is marked Skipped, never Missed, and the Schedule carries on as before. Rejecting is how you skip one month of something that repeats.</p>
+  </details>
+  <details>
+    <summary>Why is there no Quick Add box?</summary>
+    <p>Quick Add needs an AI service, which whoever runs your Velora sets up. Without one, the Drafts page shows <strong>New Draft</strong> instead, and Drafts from Schedules, Statements and imports still arrive as usual.</p>
+  </details>
+  <details>
+    <summary>How much does the AI cost?</summary>
+    <p>Open <strong>AI cost and accuracy</strong> at the foot of the Drafts page. It shows this month's cost and the cost so far, in US dollars, retries and failures included, and how often a Draft was posted without edits.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Draft</dt>
+  <dd>A Transaction not yet posted. It shows where it came from, needs only a date until you post it, and changes no Balance until then.</dd>
+  <dt>Quick Add</dt>
+  <dd>A short line of text you write about a money event, which an AI reads to propose a Draft.</dd>
+  <dt>Processing</dt>
+  <dd>A Quick Add the AI is still working on. One still Processing after five minutes can be retried or discarded.</dd>
+  <dt>Failed</dt>
+  <dd>A Quick Add the AI couldn't turn into a valid Draft. Retry it, resubmit it with new text, or discard it.</dd>
+  <dt>Posted</dt>
+  <dd>A Quick Add whose Draft you recorded as a Transaction, with or without edits.</dd>
+  <dt>Rejected</dt>
+  <dd>A Quick Add you dropped. It is kept, but no longer waits for you.</dd>
+  <dt>Discard</dt>
+  <dd>Dropping a Failed Quick Add, which marks it Rejected.</dd>
+  <dt>AI call</dt>
+  <dd>One request Velora makes to the AI for a Quick Add, kept with what it cost.</dd>
+{% endblock %}

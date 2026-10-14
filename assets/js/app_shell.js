@@ -153,3 +153,12 @@ document.addEventListener("keydown", (e) => {
   e.preventDefault();
   box.focus();
 });
+
+// The "?" menu drops from its button, right-aligned to it. Popovers sit in the
+// top layer, out of the page's flow, so they can't be placed by CSS alone.
+document.addEventListener("beforetoggle", (e) => {
+  if (e.newState !== "open" || !e.target.matches?.("[data-help-menu]")) return;
+  const button = document.querySelector(`[popovertarget="${e.target.id}"]`).getBoundingClientRect();
+  e.target.style.top = `${button.bottom + 4}px`;
+  e.target.style.right = `${document.documentElement.clientWidth - button.right}px`;
+}, true);

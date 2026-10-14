@@ -7,7 +7,10 @@
 {% block main %}
   <div class="flex items-center justify-between gap-3">
     <h1 class="text-xl font-semibold tracking-tight md:text-2xl">Goals</h1>
-    <a href="{% url 'goal_create' %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Goal</a>
+    <div class="flex shrink-0 items-center gap-1">
+      {% include "help/_button.html" with area="goals" title="Goals" %}
+      <a href="{% url 'goal_create' %}" class="btn-primary flex items-center gap-1.5 py-2 text-sm">{% include "shell/icon.html" with name="plus" class="size-4" %}New Goal</a>
+    </div>
   </div>
 
   <ul class="mt-4 space-y-3 md:mt-6">

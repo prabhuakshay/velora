@@ -9,7 +9,10 @@
 {% block main_width %}max-w-2xl lg:max-w-6xl{% endblock %}
 
 {% block main %}
-  <h1 class="text-2xl font-bold tracking-tight">Budgets</h1>
+  <div class="flex items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold tracking-tight">Budgets</h1>
+    {% include "help/_button.html" with area="budgets" title="Budgets" %}
+  </div>
 
   <div class="mt-4 flex flex-col gap-4 lg:grid lg:grid-cols-[24rem_minmax(0,1fr)] lg:items-start lg:gap-6">
     <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6 lg:sticky lg:top-0" aria-labelledby="month-title">

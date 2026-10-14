@@ -1,0 +1,79 @@
+{% extends "help/_page.html" %}
+
+{% block what_for %}
+  <p>A Goal is something you're saving for, such as a house or a child's education, with an amount in today's money and a date. You count a share of your Asset Accounts and Holdings toward it, and Velora shows what that share is worth now, what it's expected to grow to by the date, and whether that's enough. Goals only show progress: they never move money or change a Balance.</p>
+{% endblock %}
+
+{% block setup %}
+  <ul>
+    <li><strong>One Goal per thing you're saving for,</strong> each with its own date. Money for a house in 2031 and an emergency fund for any day are two Goals.</li>
+    <li><strong>Enter the amount in today's money.</strong> Velora grows it by the inflation you give it, so you don't have to guess future prices.</li>
+    <li><strong>Count whole Holdings by percentage.</strong> A percentage follows the market up and down. Use a fixed amount only for a slice of a savings account.</li>
+    <li><strong>Link the SIPs and other Schedules that keep adding to it,</strong> so the Projection includes the money still to come.</li>
+    <li><strong>Be modest about the expected return.</strong> A lower figure that turns out right beats a high one that doesn't.</li>
+  </ul>
+{% endblock %}
+
+{% block how_do_i %}
+  <details>
+    <summary>How do I set up a Goal?</summary>
+    <ol>
+      <li>Open <a href="{% url 'goal_list' %}">Goals</a> and choose <strong>New Goal</strong>.</li>
+      <li>Enter a name, the <strong>Target (in today's money)</strong> and the <strong>Target date</strong>.</li>
+      <li>Check <strong>Inflation (% a year)</strong> and <strong>Expected return (% a year)</strong>; they start at 6% and 12%.</li>
+      <li>Under <strong>Linked Schedules</strong>, tick the SIPs that feed it.</li>
+      <li>Choose <strong>Save</strong>.</li>
+    </ol>
+    <p class="example">Asha's "House down payment": ₹15,00,000 by 31 December 2031, 6% inflation, 12% expected return, with the ₹5,000 Sunrise Flexicap Fund SIP linked.</p>
+  </details>
+  <details>
+    <summary>How do I count savings toward a Goal?</summary>
+    <ol>
+      <li>Open the Goal and choose <strong>Allocate</strong>.</li>
+      <li>In <strong>Allocate from</strong>, pick an Account or a Holding.</li>
+      <li>Enter a <strong>Percentage</strong>, or <strong>Or a fixed amount</strong>, not both.</li>
+    </ol>
+    <p class="example">Asha allocates 100% of the Sunrise Flexicap Fund Holding on the Fund platform, the same Holding the SIP buys, and a fixed ₹2,00,000 of HDFC Savings. With the Holding's Market Value at ₹1,10,000, Goal Progress is ₹3,10,000.</p>
+  </details>
+  <details>
+    <summary>Why is my Goal off track?</summary>
+    <p>The Goal shows "Behind by" an amount when its Projection, what Goal Progress and the linked Schedules are expected to grow to by the date, falls short of the target grown by inflation. To catch up, you can:</p>
+    <ul>
+      <li>add the <strong>Required Monthly Investment</strong> the Goal shows each month, such as by raising the SIP,</li>
+      <li>allocate more to it,</li>
+      <li>move the date later.</li>
+    </ul>
+    <p class="example">At 6% inflation, ₹15,00,000 today is about ₹20,30,000 by the end of 2031. Asha's ₹3,10,000 growing at 12%, plus the ₹5,000 SIP every month, comes to a Projection of about ₹9,80,000, so the Goal is Behind by about ₹10,50,000. Its Required Monthly Investment says Asha needs to add about ₹12,500 a month more, on top of the SIP.</p>
+  </details>
+  <details>
+    <summary>Why does my Goal show 100% but still say Behind?</summary>
+    <p>The bar measures Goal Progress against the target in today's money. Being on track compares the Projection with the target grown by inflation, which is larger.</p>
+  </details>
+  <details>
+    <summary>What happens to my Goal if I spend the money?</summary>
+    <p>A fixed-amount Allocation counts only what is still in the Account. If the Account falls below it, the Allocation shows as Capped and counts what's there, then recovers when the Balance does.</p>
+    <p>When an Account or Holding has several Allocations, percentages count before fixed amounts, and fixed amounts count oldest Allocation first. A newer Goal's fixed amount is the first to be Capped.</p>
+    <p class="example">Asha's ₹2,00,000 from HDFC Savings is Capped at ₹1,50,000 the month HDFC Savings drops to ₹1,50,000 after a holiday. When salary takes it back over ₹2,00,000, the Allocation counts in full again.</p>
+  </details>
+  <details>
+    <summary>Can two Goals count the same money?</summary>
+    <p>No. An Account's or Holding's Allocations never add up to more than all of it, so each rupee counts toward one Goal at most. What's left shows as unallocated.</p>
+  </details>
+  <details>
+    <summary>What happens to my Goal when Prices change?</summary>
+    <p>Holdings count at their latest Prices, so Goal Progress moves every night as the market does, without you doing anything.</p>
+  </details>
+{% endblock %}
+
+{% block terms %}
+  <dt>Goal</dt>
+  <dd>Something you're saving for, with an amount in today's money, a date, and the inflation and expected return you assume for it.</dd>
+  <dt>Allocation</dt>
+  <dd>The share of an Asset Account or Holding counted toward a Goal, as a percentage or a fixed amount.</dd>
+  <dt>Goal Progress</dt>
+  <dd>What a Goal's Allocations are worth now: Holdings at their Market Value, other Asset Accounts at their Balance.</dd>
+  <dt>Projection</dt>
+  <dd>What Goal Progress is expected to grow to by the date, at the expected return and with the linked Schedules carrying on. The Goal is on track when it reaches the target grown by inflation.</dd>
+  <dt>Required Monthly Investment</dt>
+  <dd>What you'd need to add every month, at the expected return, for the Projection to reach the target grown by inflation.</dd>
+{% endblock %}

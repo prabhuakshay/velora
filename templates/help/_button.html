@@ -1,0 +1,16 @@
+{% comment %}
+  The page header's "?" menu. Takes area (a Help page slug, or none for the
+  Help index) and title. A popover, like the account menu, so clicking away or
+  Escape closes it. A list, as guided tours will add entries beside Help.
+{% endcomment %}
+<button type="button" popovertarget="help-menu" class="flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Help" title="Help">{% include "shell/icon.html" with name="help" class="size-5" %}</button>
+<div id="help-menu" popover data-help-menu class="inset-auto m-0 w-56 rounded-xl border-0 bg-white p-1 text-sm text-slate-900 shadow-lg ring-1 shadow-slate-900/10 ring-slate-200">
+  <ul>
+    <li>
+      <a href="{% if area %}{% url 'help_area' area %}{% else %}{% url 'help_index' %}{% endif %}" class="group/item flex items-center gap-2.5 rounded-md px-2.5 py-2 font-medium text-slate-600 outline-hidden hover:bg-slate-50 hover:text-slate-900 focus-visible:bg-slate-100">
+        {% include "shell/icon.html" with name="help" class="size-4 text-slate-400 group-hover/item:text-slate-600" %}
+        <span class="flex-1">Help: {{ title }}</span>
+      </a>
+    </li>
+  </ul>
+</div>
