@@ -2,6 +2,7 @@ import re
 from datetime import date
 from email.message import Message
 from html import unescape
+from io import BytesIO
 from typing import TYPE_CHECKING
 from urllib.error import HTTPError, URLError
 
@@ -61,7 +62,9 @@ def test_the_overview_shows_what_the_nightly_run_fetched(
 
 
 def not_published() -> HTTPError:
-    return HTTPError("https://nse.example/file.zip", 404, "Not Found", Message(), None)
+    return HTTPError(
+        "https://nse.example/file.zip", 404, "Not Found", Message(), BytesIO()
+    )
 
 
 @pytest.mark.parametrize(
