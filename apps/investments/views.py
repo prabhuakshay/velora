@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
 from apps.home.charts import line
-from apps.investments.fetches import statuses
+from apps.investments.fetches import latest_files, statuses
 from apps.investments.forms import InvestmentEventForm, ManualPriceForm
 from apps.investments.history import last_each_month, value_chart, value_history
 from apps.investments.models import Instrument, InvestmentEvent
@@ -113,6 +113,7 @@ def account_holdings(request: HttpRequest, pk: int) -> HttpResponseBase:
             ),
             "tabs": investment_tabs(account, "account_holdings"),
             "today": timezone.localdate(),
+            "price_files": latest_files(),
         },
     )
 
@@ -201,6 +202,7 @@ def investments_overview(request: HttpRequest) -> HttpResponseBase:
             "history": history,
             "chart": value_chart(history),
             "price_statuses": statuses(),
+            "price_files": latest_files(),
         },
     )
 

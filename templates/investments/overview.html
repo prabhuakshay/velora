@@ -1,4 +1,5 @@
 {% extends "app_base.html" %}
+{% load holding_prices %}
 
 {% block title %}Investments · Velora{% endblock %}
 
@@ -105,7 +106,7 @@
               <tr>
                 <th scope="row" class="py-3 pr-3 pl-4 text-left font-medium md:pl-5">
                   <a href="{% url 'instrument_detail' held.row.instrument.pk %}" class="hover:underline">{{ held.row.instrument.name }}</a>
-                  {% if not held.row.price %}<span class="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-slate-600">No Price yet</span>{% elif held.row.stale %}<span class="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700" title="Price from {{ held.row.price.date|date:'j M Y' }}, more than five days old">Stale</span>{% endif %}
+                  <span class="mt-0.5 block text-xs font-normal text-slate-500">{% holding_price held.row %}</span>
                 </th>
                 <td class="px-3 py-3 text-slate-500"><a href="{% url 'account_holdings' held.account.pk %}" class="hover:underline">{{ held.account.name }}</a></td>
                 <td class="px-3 py-3 text-right tabular-nums">{% units held.row.units %}</td>
