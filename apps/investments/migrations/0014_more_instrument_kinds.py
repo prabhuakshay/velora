@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('investments', '0012_instrument_history_checked'),
+        ('investments', '0013_move_tejas_to_real_isin'),
     ]
 
     operations = [
