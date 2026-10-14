@@ -18,8 +18,7 @@ from django.core.exceptions import NON_FIELD_ERRORS
 from django.db import transaction as db_transaction
 
 from apps.accounts.models import Account
-from apps.investments import instruments
-from apps.investments.drafts import save_investment
+from apps.investments import events, instruments
 from apps.investments.export import COLUMNS
 from apps.investments.forms import InvestmentEventForm
 from apps.investments.instruments import Refusal
@@ -254,7 +253,7 @@ def _import(row: ImportRow) -> None:
     if row.errors:
         return
     if row.unmatched:
-        _propose_draft(form)
+        events.propose(form.save(commit=False), Draft.Source.INVESTMENT_IMPORT)
     else:
         form.save()
 
@@ -280,29 +279,6 @@ def _check_stated_price(row: ImportRow, kind: str) -> None:
         row.errors.append(
             f"price: Doesn't agree with units and amount, which give {expected}."
         )
-
-
-def _propose_draft(form: InvestmentEventForm) -> None:
-    """Save the checked event as a Draft carrying it, to post once reviewed."""
-    event = form.save(commit=False)
-    draft = Draft.objects.create(
-        source=Draft.Source.INVESTMENT_IMPORT,
-        date=event.date,
-        description=f"{event.get_kind_display()} {event.instrument}",
-    )
-    save_investment(
-        DraftInvestment(
-            draft=draft,
-            account=event.account,
-            instrument=event.instrument,
-            kind=event.kind,
-            units=event.units,
-            amount=event.amount,
-            charges=event.charges,
-            ref=event.ref,
-            note=event.note,
-        )
-    )
 
 
 def _define_merger_target(values: dict[str, str]) -> None:

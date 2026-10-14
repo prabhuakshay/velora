@@ -62,6 +62,13 @@ def route(
     return account.pk, account.invests_into_id, amount
 
 
+def description(event: InvestmentEvent) -> str:
+    """What the event's Transaction or Draft is called, such as Buy Nifty Fund."""
+    if event.kind == DIVIDEND:
+        return f"Dividend from {event.instrument}"
+    return f"{event.get_kind_display()} {event.instrument}"
+
+
 def transaction_forms(
     event: InvestmentEvent, income: Account | None = None
 ) -> TransactionForms | None:
@@ -76,15 +83,10 @@ def transaction_forms(
     linked = event.transaction or Transaction()
     old = list(linked.splits.all()) if linked.pk else []
     source, destination, amount = route(event, income)
-    description = (
-        f"Dividend from {event.instrument}"
-        if event.kind == DIVIDEND
-        else f"{event.get_kind_display()} {event.instrument}"
-    )
     data: dict[str, Any] = {
         "date": event.date.isoformat(),
         "party": linked.party_id or "",
-        "description": description,
+        "description": description(event),
         "splits-TOTAL_FORMS": len(old) + 1,
         "splits-INITIAL_FORMS": len(old),
     }

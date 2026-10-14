@@ -253,8 +253,10 @@ class Draft(models.Model):
             self.occurrence.settle(transaction)
         if self.statement:
             self.statement.add_payment(transaction)
-        if investment := getattr(self, "investment", None):
-            investment.record(transaction)
+        # Imported here because apps.investments.events imports Draft from here.
+        from apps.investments import events  # noqa: PLC0415
+
+        events.draft_posted(self, transaction)
 
     def reject(self) -> None:
         """Mark it rejected, and its Occurrence Skipped, never Missed."""

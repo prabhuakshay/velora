@@ -368,7 +368,7 @@ def test_a_later_dividend_with_no_transaction_waits_for_its_income_account(
     imported(signed_in, buy(), import_line("DIVIDEND", date="2026-03-04", amount="75"))
     post_drafts(signed_in)
 
-    assert "Dividend Nifty Fund ₹75.00" in drafts_text(signed_in)
+    assert "Dividend from Nifty Fund ₹75.00" in drafts_text(signed_in)
     assert not InvestmentEvent.objects.filter(kind="dividend").exists()
     assert "Balance ₹5,000.00" in account_text(signed_in, broker)
 

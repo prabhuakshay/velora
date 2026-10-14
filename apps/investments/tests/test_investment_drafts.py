@@ -231,11 +231,11 @@ def test_posting_a_buy_draft_queues_a_price_backfill(
 
 
 @pytest.mark.usefixtures("fund")
-def test_posting_a_dividend_draft_queues_no_backfill(signed_in: Client) -> None:
+def test_posting_a_dividend_draft_queues_a_backfill_too(signed_in: Client) -> None:
     dividends = make_account("Dividends", "income")
     draft = investment_draft(make_broker(), "dividend", income=dividends, amount="9")
 
     post(signed_in, draft)
 
     assert draft.status == Draft.Status.POSTED
-    assert not ProcrastinateJob.objects.exists()
+    assert ProcrastinateJob.objects.get().task_name == "investments.backfill_prices"

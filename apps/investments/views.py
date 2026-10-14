@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
 from apps.home.charts import line
+from apps.investments import events
 from apps.investments.fetches import (
     latest_files,
     latest_per_source,
@@ -33,9 +34,8 @@ from apps.investments.models import (
     PriceFetch,
     PriceSource,
 )
-from apps.investments.overselling import oversell_refusal
 from apps.investments.portfolio import COLUMNS, Column, portfolio, sorting
-from apps.investments.tasks import queue_backfill, queue_refresh
+from apps.investments.tasks import queue_refresh
 from apps.investments.valuation import Valuer
 from apps.users.privacy_mode import blocked_in_privacy_mode
 
@@ -235,7 +235,6 @@ def _event_form(
     form = InvestmentEventForm(request.POST or None, instance=event, account=account)
     if form.is_valid():
         saved = form.save()
-        queue_backfill()
         messages.success(request, f"Saved the {saved.get_kind_display()}.")
         return redirect("account_holdings", pk=account.pk)
     return render(
@@ -266,12 +265,9 @@ def investment_event_delete(request: HttpRequest, pk: int) -> HttpResponseBase:
     event = get_object_or_404(
         InvestmentEvent.objects.select_related("transaction"), pk=pk
     )
-    if refusal := oversell_refusal(event.account, leaving_out=pk):
+    if refusal := events.delete(event):
         messages.error(request, f"Can't delete it: {refusal}")
     else:
-        event.delete()
-        if event.transaction is not None:
-            event.transaction.delete()
         messages.success(request, f"Deleted the {event.get_kind_display()}.")
     return redirect("account_holdings", pk=event.account_id)
 

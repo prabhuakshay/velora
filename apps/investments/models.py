@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from decimal import Decimal
 
-    from apps.transactions.models import Transaction
+    from apps.quick_add.models import Draft
 
 STALE_AFTER = datetime.timedelta(days=5)
 
@@ -355,9 +355,17 @@ class DraftInvestment(models.Model):
             note=self.note,
         )
 
-    def record(self, transaction: Transaction) -> InvestmentEvent:
-        """Save the Investment Event the posted Draft became, linked to its money."""
-        event = self.event_on(transaction.date)
-        event.transaction = transaction
-        event.save()
-        return event
+    @classmethod
+    def carrying(cls, event: InvestmentEvent, draft: Draft) -> DraftInvestment:
+        """The details of a Draft that will record the event once posted, unsaved."""
+        return cls(
+            draft=draft,
+            account=event.account,
+            instrument=event.instrument,
+            kind=event.kind,
+            units=event.units,
+            amount=event.amount,
+            charges=event.charges,
+            ref=event.ref,
+            note=event.note,
+        )
