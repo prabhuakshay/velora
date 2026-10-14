@@ -243,3 +243,13 @@ def test_privacy_mode_hides_counts_in_the_status_partial(
     assert "Worked, •••• Prices stored" in unescape(
         page_text(status_partial(signed_in))
     )
+
+
+def test_the_polled_status_line_carries_the_failure_banner(
+    signed_in: Client, fake_prices: FakePriceSource
+) -> None:
+    fake_prices.nse = URLError("timed out")
+    with pytest.raises(PriceFetchError):
+        run_nightly_prices(TODAY)
+
+    assert 'data-fetch-failed="NSE"' in status_partial(signed_in)
