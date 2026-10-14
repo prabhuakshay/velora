@@ -159,6 +159,32 @@ def test_export_then_import_into_an_empty_database_round_trips(
     )
 
 
+def test_instruments_without_an_isin_round_trip_by_name(signed_in: Client) -> None:
+    broker = make_broker(opening="5000", opened=date(2026, 6, 1))
+    imported(
+        signed_in,
+        import_line("BUY", date="2026-02-01", isin="", instrument_name="Gold Coin",
+                    units="2", price="6000", amount="12000"),
+        import_line("SELL", date="2026-02-05", isin="", instrument_name="Gold Coin",
+                    units="0.5", price="6100", amount="3050"),
+        import_line("BUY", date="2026-02-01", units="10", price="100",
+                    amount="1000"),
+        import_line("MERGER", date="2026-03-02", instrument_name="Merged Gold"),
+    )  # fmt: skip
+    first = exported(signed_in)
+    Instrument.objects.update(kind="stock")
+    holdings = holdings_text(signed_in, broker)
+    InvestmentEvent.objects.all().delete()
+    Instrument.objects.all().delete()
+
+    imported(signed_in, *first.decode().splitlines()[1:])
+
+    assert exported(signed_in) == first
+    assert ",,Gold Coin,BUY," in first.decode()
+    assert ",Merged Gold,MERGER,,,,,,," in first.decode()
+    assert holdings_text(signed_in, broker) == holdings
+
+
 def test_confirming_an_import_queues_one_price_backfill(signed_in: Client) -> None:
     make_broker(opening="5000")
     rows = (
