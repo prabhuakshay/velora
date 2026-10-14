@@ -25,7 +25,7 @@ from apps.investments.forms import (
     ManualPriceForm,
 )
 from apps.investments.history import last_each_month, value_chart, value_history
-from apps.investments.instrument_field import matches
+from apps.investments.instruments import matches
 from apps.investments.models import (
     Instrument,
     InvestmentEvent,

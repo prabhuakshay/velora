@@ -6,15 +6,16 @@ exact name; the script under assets fills it from the matches as you type.
 Add new, taking a name, a kind and an optional ISIN, wins over the search.
 With neither, the ISIN and name are read the older way the CSV import still
 posts them: a known ISIN, or a name picking or creating an Instrument without
-one.
+one. Which Instrument each way picks is up to apps.investments.instruments.
 """
 
 from dataclasses import dataclass
 from typing import Any
 
 from django import forms
-from django.db.models import Q, QuerySet
 
+from apps.investments import instruments
+from apps.investments.instruments import Refusal
 from apps.investments.isin import is_valid_isin
 from apps.investments.models import Instrument
 
@@ -22,34 +23,8 @@ INVALID_ISIN = (
     "This isn't a valid ISIN. For an Instrument without one, leave the ISIN "
     "blank and enter its name."
 )
-UNKNOWN_ISIN = "Velora doesn't know this ISIN; enter the Instrument's name."
-NOT_KNOWN = "Velora doesn't know this ISIN."
-NO_ISIN = "Enter the ISIN, or the name of an Instrument without one."
-NO_MATCH = "No Instrument matches this. Pick one from the list, or add a new one."
-NO_NAME = "Enter the new Instrument's name."
-TAKEN = "There's already an Instrument without an ISIN named this; pick it instead."
-MATCHES = 10
-
-
-def matches(query: str) -> QuerySet[Instrument]:
-    """The first Instruments whose name has the query or whose ISIN starts with it."""
-    query = query.strip()
-    if not query:
-        return Instrument.objects.none()
-    return Instrument.objects.filter(
-        Q(name__icontains=query) | Q(isin__istartswith=query)
-    ).order_by("name")[:MATCHES]
-
-
-def find(text: str) -> Instrument | None:
-    """The Instrument a full ISIN or an exact name picks, if just one."""
-    if is_valid_isin(text.upper()):
-        return Instrument.objects.filter(isin=text.upper()).first()
-    named = Instrument.objects.filter(name__iexact=text)
-    without_isin = named.filter(isin=None).first()
-    if without_isin is not None:
-        return without_isin
-    return named.first() if named.count() == 1 else None
+# Where each Refusal shows; the rest show on the new Instrument's name.
+SHOWN_ON = {Refusal.NO_MATCH: "search", Refusal.NOT_KNOWN: "isin"}
 
 
 class IsinField(forms.CharField):
@@ -107,8 +82,7 @@ class InstrumentField:
     @staticmethod
     def save_if_new(instrument: Instrument | None) -> None:
         """Save an Instrument resolve() added, before what refers to it."""
-        if instrument is not None and not instrument.pk:
-            instrument.save()
+        instruments.save_if_new(instrument)
 
     def parts(self, form: forms.BaseForm) -> dict[str, forms.BoundField]:
         """The form's bound parts, by role, for the template to lay out."""
@@ -180,40 +154,18 @@ class InstrumentField:
         cleaned = form.cleaned_data
         if self.isin not in cleaned:
             return None
-        adding = cleaned.get(self.add_new)
         text = cleaned.get(self.search, "").strip()
-        if text and not adding:
-            return find(text) or _refused(form, self.search, NO_MATCH)
-        isin = cleaned[self.isin]
-        if isin and (known := Instrument.objects.filter(isin=isin).first()):
-            return known
-        name = cleaned.get(self.name, "").strip()
-        new = Instrument(
-            isin=isin or None, name=name, kind=cleaned.get(self.kind) or default_kind
-        )
-        return (self._added if adding else self._posted)(form, new)
-
-    def _added(self, form: forms.BaseForm, new: Instrument) -> Instrument | None:
-        if not new.name:
-            return _refused(form, self.name, NO_NAME)
-        if new.isin is None and _without_isin(new.name) is not None:
-            return _refused(form, self.name, TAKEN)
-        return new
-
-    def _posted(self, form: forms.BaseForm, new: Instrument) -> Instrument | None:
-        if new.isin and not self.creates_from_isin:
-            return _refused(form, self.isin, NOT_KNOWN)
-        if new.isin is None and (named := _without_isin(new.name)) is not None:
-            return named
-        if not new.name:
-            return _refused(form, self.name, UNKNOWN_ISIN if new.isin else NO_ISIN)
-        return new
-
-
-def _without_isin(name: str) -> Instrument | None:
-    return Instrument.objects.filter(isin=None, name__iexact=name).first()
-
-
-def _refused(form: forms.BaseForm, field: str, message: str) -> Instrument | None:
-    form.add_error(field, message)
-    return None
+        isin, name = cleaned[self.isin], cleaned.get(self.name, "")
+        kind = cleaned.get(self.kind) or default_kind
+        if cleaned.get(self.add_new):
+            picked = instruments.add(isin, name, kind)
+        elif text:
+            picked = instruments.find(text)
+        else:
+            picked = instruments.pick(
+                isin, name, kind, creates_from_isin=self.creates_from_isin
+            )
+        if isinstance(picked, Refusal):
+            form.add_error(getattr(self, SHOWN_ON.get(picked, "name")), picked)
+            return None
+        return picked

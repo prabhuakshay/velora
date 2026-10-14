@@ -18,9 +18,11 @@ from django.core.exceptions import NON_FIELD_ERRORS
 from django.db import transaction as db_transaction
 
 from apps.accounts.models import Account
+from apps.investments import instruments
 from apps.investments.drafts import save_investment
 from apps.investments.export import COLUMNS
 from apps.investments.forms import InvestmentEventForm
+from apps.investments.instruments import Refusal
 from apps.investments.isin import is_valid_isin
 from apps.investments.ledger import moves_ledger_money
 from apps.investments.matching import matching_transaction
@@ -203,19 +205,18 @@ def _recorded(row: ImportRow, account: Account, kind: str, when: datetime.date) 
             InvestmentEvent.objects.filter(ref=values["ref"]).exists()
             or drafts.filter(ref=values["ref"]).exists()
         )
-    isin = values["isin"].upper()
+    instrument = instruments.matching(
+        values["isin"], values["instrument_name"], prefix="instrument__"
+    )
     same = {
         "account": account,
         "kind": kind,
-        "instrument__isin": isin or None,
         "units": _decimal(values["units"]),
         "amount": _decimal(values["amount"]),
     }
-    if not isin:
-        same["instrument__name__iexact"] = values["instrument_name"]
     return (
-        InvestmentEvent.objects.filter(date=when, **same).exists()
-        or drafts.filter(draft__date=when, **same).exists()
+        InvestmentEvent.objects.filter(instrument, date=when, **same).exists()
+        or drafts.filter(instrument, draft__date=when, **same).exists()
     )
 
 
@@ -308,18 +309,18 @@ def _define_merger_target(values: dict[str, str]) -> None:
     """Create a Merger's unknown new Instrument with an ISIN, named by the row.
 
     A Merger's old Instrument is already held, so its instrument_name is free
-    to name the new one. Without a new ISIN, the form picks or creates the
-    Instrument without one by that name.
+    to name the new one, which takes the old one's kind. Without a new ISIN,
+    the form picks or creates the Instrument without one by that name.
     """
     isin = values["new_isin"].upper()
     name = values["instrument_name"]
-    if (
-        name
-        and is_valid_isin(isin)
-        and len(name) <= NAME_LENGTH
-        and not Instrument.objects.filter(isin=isin).exists()
-    ):
-        Instrument.objects.create(isin=isin, name=name, kind=Instrument.Kind.STOCK)
+    if not is_valid_isin(isin) or len(name) > NAME_LENGTH:
+        return
+    old = Instrument.objects.filter(isin=values["isin"].upper() or None).first()
+    kind = old.kind if old else Instrument.Kind.STOCK
+    target = instruments.add(isin, name, kind)
+    if not isinstance(target, Refusal):
+        instruments.save_if_new(target)
 
 
 def _form_data(values: dict[str, str], kind: str) -> dict[str, str]:
