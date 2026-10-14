@@ -1,0 +1,13 @@
+{# An InstrumentField: search, then Add new. instrument_search.js drives the matches. #}
+<div data-instrument-field data-instrument-search="{% url 'instrument_search' %}" class="space-y-3">
+  <div class="relative">
+    {% include "partials/field.html" with field=search %}
+    <div data-instrument-matches hidden class="absolute inset-x-0 z-20 mt-1 max-h-72 overflow-y-auto rounded-xl bg-white shadow-lg ring-1 ring-slate-200"></div>
+  </div>
+  {% include "schedules/_checkbox.html" with field=add_new %}
+  <div data-instrument-new{% if name.errors or kind.errors or isin.errors %} data-errors{% endif %} class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    {% include "partials/field.html" with field=name %}
+    {% include "partials/field.html" with field=kind %}
+    {% include "partials/field.html" with field=isin %}
+  </div>
+</div>

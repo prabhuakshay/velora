@@ -6,6 +6,7 @@
 
 {% block scripts %}
     <script src="{% static 'js/trade_price.js' %}" defer hx-preserve="true"></script>
+    <script src="{% static 'js/instrument_search.js' %}" defer hx-preserve="true"></script>
 {% endblock %}
 
 {% block main_width %}max-w-2xl{% endblock %}
@@ -29,22 +30,15 @@
         {% include "partials/field.html" with field=form.kind %}
         {% include "partials/field.html" with field=form.date %}
       </div>
-      {% include "partials/field.html" with field=form.isin %}
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {% include "partials/field.html" with field=form.instrument_name %}
-        {% include "partials/field.html" with field=form.instrument_kind %}
-      </div>
+      {% include "investments/_instrument_field.html" with search=form.instrument add_new=form.add_new name=form.instrument_name kind=form.instrument_kind isin=form.isin %}
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {% include "partials/field.html" with field=form.units %}
         {% include "partials/field.html" with field=form.amount %}
         {% include "partials/field.html" with field=form.charges %}
       </div>
       {% include "investments/_trade_price.html" with units=form.units amount=form.amount %}
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {% include "partials/field.html" with field=form.income_account %}
-        {% include "partials/field.html" with field=form.new_isin %}
-      </div>
-      {% include "partials/field.html" with field=form.new_instrument_name %}
+      {% include "partials/field.html" with field=form.income_account %}
+      {% include "investments/_instrument_field.html" with search=form.new_instrument add_new=form.new_add_new name=form.new_instrument_name kind=form.new_instrument_kind isin=form.new_isin %}
       {% include "partials/field.html" with field=form.note %}
     </section>
 

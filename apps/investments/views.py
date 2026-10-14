@@ -25,6 +25,7 @@ from apps.investments.forms import (
     ManualPriceForm,
 )
 from apps.investments.history import last_each_month, value_chart, value_history
+from apps.investments.instrument_field import matches
 from apps.investments.models import (
     Instrument,
     InvestmentEvent,
@@ -108,6 +109,17 @@ def _page(
             "more_prices": shown + PRICE_ROWS if more else None,
             "price_sources": PriceSource,
         },
+    )
+
+
+@login_required
+def instrument_search(request: HttpRequest) -> HttpResponseBase:
+    """The Instruments matching what's typed in an Instrument field."""
+    query = request.GET.get("q", "")
+    return render(
+        request,
+        "investments/_instrument_matches.html",
+        {"instruments": matches(query), "query": query.strip()},
     )
 
 
