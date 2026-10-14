@@ -53,3 +53,18 @@ def latest_files() -> dict[PriceSource, date]:
         if fetch and fetch.day_used:
             files[source] = fetch.day_used
     return files
+
+
+def failed_nightly() -> list[PriceFetch]:
+    """Each fetched Price Source's latest nightly Price Fetch, when it failed."""
+    latest = (
+        PriceFetch.objects.filter(
+            source=source, trigger=PriceFetch.Trigger.NIGHTLY
+        ).first()
+        for source in FETCHED
+    )
+    return [
+        fetch
+        for fetch in latest
+        if fetch is not None and fetch.outcome == PriceFetch.Outcome.FAILED
+    ]

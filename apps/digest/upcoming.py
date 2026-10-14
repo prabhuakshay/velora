@@ -31,10 +31,14 @@ RECONCILE_DAYS = 30
 
 @dataclass(frozen=True)
 class Section:
-    """A titled group of Items, such as Missed Occurrences."""
+    """A titled group of Items, such as Missed Occurrences.
+
+    A section without amounts shows none, not even ₹?.
+    """
 
     title: str
     items: list[Item]
+    amounts: bool = True
 
 
 def reminders(today: date) -> list[Item]:
