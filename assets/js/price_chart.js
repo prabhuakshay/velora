@@ -1,6 +1,4 @@
-// The Instrument page's Price chart: hover or tap for a day's Price, and the
-// 1M, 6M, 1Y and All buttons to zoom. Redraws the server's SVG from the
-// Prices the page embeds; Privacy Mode embeds none, so nothing runs there.
+// Privacy Mode embeds no Prices, so the chart stays as the server drew it.
 {
   const formats = {
     indian: new Intl.NumberFormat("en-IN", { minimumFractionDigits: 4, maximumFractionDigits: 4 }),

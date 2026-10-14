@@ -35,7 +35,7 @@
                 <td class="px-4 py-3 whitespace-nowrap md:px-5">{{ fetch.started_at|date:"j M Y, H:i" }}</td>
                 <td class="px-3 py-3">{{ fetch.get_trigger_display }}</td>
                 <td class="px-3 py-3">{{ fetch.source }}</td>
-                <td class="px-3 py-3 {% if fetch.outcome == 'failed' %}text-red-700{% elif fetch.outcome == 'ok' %}text-emerald-700{% endif %}">{{ fetch.get_outcome_display }}</td>
+                <td class="px-3 py-3 {% if fetch.outcome == fetch.Outcome.FAILED %}text-red-700{% elif fetch.outcome == fetch.Outcome.OK %}text-emerald-700{% endif %}">{{ fetch.get_outcome_display }}</td>
                 <td class="px-3 py-3 text-slate-500">{{ fetch.reason }}</td>
                 <td class="px-3 py-3 whitespace-nowrap text-slate-500">{% if fetch.range_start %}{{ fetch.range_start|date:"j M Y" }} to {{ fetch.range_end|date:"j M Y" }}{% elif fetch.day_used %}{{ fetch.day_used|date:"j M Y" }}{% if fetch.day_asked and fetch.day_used < fetch.day_asked %} ({{ fetch.day_asked|date:"j M" }} not out yet){% endif %}{% endif %}</td>
                 <td class="px-4 py-3 text-right tabular-nums md:px-5">{% count fetch.prices_stored %}</td>

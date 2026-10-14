@@ -24,7 +24,7 @@
                 <td class="whitespace-nowrap px-2 py-2 text-right tabular-nums {% if row.change < 0 %}text-red-600{% elif row.change > 0 %}text-emerald-600{% endif %}">{% if row.change is None %}—{% else %}{% if row.change > 0 %}+{% endif %}{% price row.change %}{% endif %}</td>
                 <td class="px-5 py-2 text-xs text-slate-500 md:px-6">{{ p.get_source_display }}{% if p.entered_at %} · entered {{ p.entered_at|date:"j M" }}{% endif %}{% if fetch %} · {{ p.date|date:"j M" }} file · fetched {{ fetch.finished_at|default:fetch.started_at|date:"j M H:i" }} by {{ fetch.get_trigger_display }}{% endif %}</td>
                 <td class="py-1 pr-5 md:pr-6">
-                  {% if p.source == "Manual" %}
+                  {% if p.source == price_sources.MANUAL %}
                     <div class="flex justify-end gap-1">
                       <a href="{% url 'price_edit' p.pk %}" aria-label="Edit the Price for {{ p.date|date:'j M Y' }}" class="flex size-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900">{% include "shell/icon.html" with name="pencil" class="size-4" %}</a>
                       <form method="post" action="{% url 'price_delete' p.pk %}" aria-label="Delete the Price for {{ p.date|date:'j M Y' }}">

@@ -106,7 +106,7 @@
               <tr>
                 <th scope="row" class="py-3 pr-3 pl-4 text-left font-medium md:pl-5">
                   <a href="{% url 'instrument_detail' held.row.instrument.pk %}" class="hover:underline">{{ held.row.instrument.name }}</a>
-                  <span class="mt-0.5 block text-xs font-normal text-slate-500">{% holding_price held.row %}</span>
+                  <span class="mt-0.5 block text-xs font-normal text-slate-500">{% holding_price held.row price_files %}</span>
                 </th>
                 <td class="px-3 py-3 text-slate-500"><a href="{% url 'account_holdings' held.account.pk %}" class="hover:underline">{{ held.account.name }}</a></td>
                 <td class="px-3 py-3 text-right tabular-nums">{% units held.row.units %}</td>

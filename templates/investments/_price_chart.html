@@ -1,4 +1,4 @@
-{% comment %}An Instrument's Price history: the line over every Price, and each month-end's Price for screen readers. price_chart.js adds hover and ranges over the embedded Prices.{% endcomment %}
+{% comment %}The SVG is hidden from screen readers, so they get each month-end's Price as a table.{% endcomment %}
 <section class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6" aria-labelledby="price-history-title">
   <h2 id="price-history-title" class="text-base font-semibold">Price history</h2>
   {% if user.privacy_mode %}

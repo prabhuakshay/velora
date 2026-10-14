@@ -12,7 +12,12 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Account
 from apps.home.charts import line
-from apps.investments.fetches import latest_files, recent, status_line
+from apps.investments.fetches import (
+    latest_files,
+    latest_per_source,
+    recent,
+    status_line,
+)
 from apps.investments.forms import (
     EditPriceForm,
     InvestmentEventForm,
@@ -46,21 +51,21 @@ PRICE_ROWS = 30
 
 
 @dataclass(frozen=True)
-class PriceRow:
+class PriceTableRow:
     """One row of an Instrument's Price table: a Price and its change."""
 
     price: Price
     change: Decimal | None
 
 
-def _price_rows(instrument: Instrument, shown: int) -> tuple[list[PriceRow], bool]:
+def _price_rows(instrument: Instrument, shown: int) -> tuple[list[PriceTableRow], bool]:
     """The newest Prices, each with its change from the one before, and if more."""
     # One extra Price gives the last row its change and says there are more.
     prices = list(
         instrument.prices.select_related("fetch").order_by("-date")[: shown + 1]
     )
     rows = [
-        PriceRow(price, price.price - before.price if before else None)
+        PriceTableRow(price, price.price - before.price if before else None)
         for price, before in zip(prices[:shown], [*prices[1:], None], strict=False)
     ]
     return rows, len(prices) > shown
@@ -78,7 +83,7 @@ def _page(
 ) -> HttpResponseBase:
     latest = instrument.latest_price()
     history: list[tuple[date, Decimal]] = []
-    rows: list[PriceRow] = []
+    rows: list[PriceTableRow] = []
     more = False
     shown = _shown(request)
     if not cast("User", request.user).privacy_mode:
@@ -95,11 +100,12 @@ def _page(
             "chart": line([p for _, p in history]) if len(history) > 1 else None,
             "month_ends": last_each_month(history),
             "chart_prices": [[day.isoformat(), f"{p:.4f}"] for day, p in history],
-            "last_fetch": PriceFetch.objects.filter(
-                source=instrument.price_source, outcome=PriceFetch.Outcome.OK
-            ).first(),
+            "last_fetch": latest_per_source(outcome=PriceFetch.Outcome.OK).get(
+                instrument.price_source
+            ),
             "price_rows": rows,
             "more_prices": shown + PRICE_ROWS if more else None,
+            "price_sources": PriceSource,
         },
     )
 
@@ -108,7 +114,11 @@ def _page(
 def instrument_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
     """The Instrument, its latest Price and, if priced by hand, a Price form."""
     instrument = get_object_or_404(Instrument, pk=pk)
-    form = ManualPriceForm(instrument=instrument) if instrument.manual_price else None
+    form = (
+        ManualPriceForm(instrument=instrument)
+        if instrument.price_source == PriceSource.MANUAL
+        else None
+    )
     return _page(request, instrument, form)
 
 

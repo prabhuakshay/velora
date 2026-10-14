@@ -79,6 +79,16 @@ def _missing(today: date) -> dict[PriceSource, tuple[dict[str, date], set[date]]
     return missing
 
 
+def _held_rows(
+    fetch: Callable[[date, date], list[price_source.PriceRow]],
+    isins: dict[str, date],
+    start: date,
+    end: date,
+) -> list[price_source.PriceRow]:
+    """The window's rows for the ISINs held, from when each was first held."""
+    return [r for r in fetch(start, end) if r.isin in isins and r.date >= isins[r.isin]]
+
+
 def backfill_prices(today: date) -> None:
     """Fetch and store the Prices held Instruments miss, up to today.
 
@@ -94,23 +104,10 @@ def backfill_prices(today: date) -> None:
         if name not in missing:
             continue
         isins, days = missing[name]
-
-        def rows(
-            start: date,
-            end: date,
-            fetch: Callable[[date, date], list[price_source.PriceRow]] = fetch,
-            isins: dict[str, date] = isins,
-        ) -> list[price_source.PriceRow]:
-            return [
-                r
-                for r in fetch(start, end)
-                if r.isin in isins and r.date >= isins[r.isin]
-            ]
-
         price_fetch = record(
             name,
             PriceFetch.Trigger.BACKFILL,
-            [partial(rows, start, end) for start, end in _windows(days)],
+            [partial(_held_rows, fetch, isins, *window) for window in _windows(days)],
             days=(min(days), max(days)),
         )
         if price_fetch.outcome == PriceFetch.Outcome.FAILED:

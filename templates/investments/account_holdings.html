@@ -61,7 +61,7 @@
                 <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.unrealized %}</td>
                 <td class="px-3 py-3 text-right tabular-nums">{% signed_amount row.realized %}</td>
                 <td class="px-3 py-3 text-right tabular-nums">{% amount row.dividends %}</td>
-                <td class="px-3 py-3 text-right text-slate-500">{% holding_price row %}</td>
+                <td class="px-3 py-3 text-right text-slate-500">{% holding_price row price_files %}</td>
                 <td class="px-4 py-3 text-right tabular-nums md:px-5">{% signed_percent row.xirr %}</td>
               </tr>
             {% endfor %}
