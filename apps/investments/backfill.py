@@ -9,7 +9,7 @@ from django.db.models import Min
 from django.db.models.functions import Least
 
 from apps.investments import price_source
-from apps.investments.models import Instrument, Price
+from apps.investments.models import Instrument, Price, PriceSource
 from apps.investments.nightly import PriceFetchError, store
 
 if TYPE_CHECKING:
@@ -22,16 +22,14 @@ WINDOW_DAYS = 31
 WEEKDAYS = 5
 
 
-def _sources() -> dict[str, Callable[[date, date], list[price_source.PriceRow]]]:
+def _sources() -> dict[
+    PriceSource, Callable[[date, date], list[price_source.PriceRow]]
+]:
     # Looked up on each run so tests can swap the client's functions.
     return {
-        "AMFI": price_source.amfi_history_rows,
-        "NSE": price_source.nse_history_rows,
+        PriceSource.AMFI: price_source.amfi_history_rows,
+        PriceSource.NSE: price_source.nse_history_rows,
     }
-
-
-def _source(kind: str) -> str:
-    return "AMFI" if kind == Instrument.Kind.MUTUAL_FUND else "NSE"
 
 
 def _weekdays(start: date, end: date) -> Iterator[date]:
@@ -54,27 +52,31 @@ def _windows(days: set[date]) -> Iterator[tuple[date, date]]:
     yield start, last
 
 
-def _missing(today: date) -> dict[str, tuple[dict[str, date], set[date]]]:
+def _missing(today: date) -> dict[PriceSource, tuple[dict[str, date], set[date]]]:
     """Per source, each ISIN held from when, and the weekdays some have no Price."""
     # An Instrument a Merger turns Lots into is held from the Merger's date.
-    firsts = {
-        pk: (isin, kind, first)
-        for pk, isin, kind, first in Instrument.objects.filter(manual_price=False)
-        .annotate(first=Least(Min("events__date"), Min("merged_into_events__date")))
-        .filter(first__isnull=False)
-        .values_list("pk", "isin", "kind", "first")
-    }
+    held = [
+        i
+        for i in Instrument.objects.annotate(
+            first=Least(Min("events__date"), Min("merged_into_events__date"))
+        ).filter(first__isnull=False)
+        if i.price_source != PriceSource.MANUAL
+    ]
     priced = set(
-        Price.objects.filter(instrument__in=firsts).values_list("instrument", "date")
+        Price.objects.filter(instrument__in=held).values_list("instrument", "date")
     )
-    missing: dict[str, tuple[dict[str, date], set[date]]] = defaultdict(
+    missing: dict[PriceSource, tuple[dict[str, date], set[date]]] = defaultdict(
         lambda: ({}, set())
     )
-    for pk, (isin, kind, first) in firsts.items():
-        days = {d for d in _weekdays(first, today) if (pk, d) not in priced}
+    for instrument in held:
+        days = {
+            d
+            for d in _weekdays(instrument.first, today)
+            if (instrument.pk, d) not in priced
+        }
         if days:
-            isins, gaps = missing[_source(kind)]
-            isins[isin] = first
+            isins, gaps = missing[instrument.price_source]
+            isins[instrument.isin] = instrument.first
             gaps.update(days)
     return missing
 
