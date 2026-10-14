@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from apps.accounts.tests.conftest import account_url, make_account, page_text
 from apps.accounts.tests.test_balance import opening, record
-from apps.investments.models import Instrument, InvestmentEvent
+from apps.investments.models import Instrument, InvestmentEvent, PriceSource
 from apps.investments.tests.conftest import (
     holdings_text,
     import_confirm,
@@ -261,13 +261,13 @@ def test_a_later_dividend_links_its_income_transaction(signed_in: Client) -> Non
     assert "Balance ₹5,075.00" in account_text(signed_in, broker)
 
 
-def test_an_unknown_isin_creates_a_manual_price_instrument(signed_in: Client) -> None:
+def test_an_unknown_isin_creates_an_instrument(signed_in: Client) -> None:
     make_broker(opening="5000")
 
     imported(signed_in, buy(isin=STOCK.lower(), instrument_name="Unlisted Co"))
 
     assert "Unlisted Co" in instrument_page(signed_in, STOCK)
-    assert Instrument.objects.get(isin=STOCK).manual_price
+    assert Instrument.objects.get(isin=STOCK).price_source == PriceSource.NSE
 
 
 def test_a_merger_can_name_its_new_instrument(signed_in: Client) -> None:
@@ -380,4 +380,4 @@ def test_a_draft_row_can_bring_an_unknown_instrument(signed_in: Client) -> None:
     )
 
     assert "Buy Unlisted Co in Kuvera" in drafts_text(signed_in)
-    assert Instrument.objects.get(isin=STOCK).manual_price
+    assert Instrument.objects.get(isin=STOCK).price_source == PriceSource.NSE

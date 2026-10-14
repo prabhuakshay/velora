@@ -165,3 +165,56 @@ def test_tejas_move_runs_twice_harmlessly() -> None:
             "isin", flat=True
         )
     ) == ["INE010J01012"]
+
+
+BEFORE_ISIN_CHECK = [("investments", "0014_more_instrument_kinds")]
+AFTER_ISIN_CHECK = [("investments", "0017_instrument_name_unique_without_isin")]
+
+
+@pytest.mark.usefixtures("_back_to_latest")
+@pytest.mark.django_db(transaction=True)
+def test_a_made_up_isin_is_cleared_and_the_instrument_keeps_its_records() -> None:
+    others = [
+        node
+        for node in MigrationExecutor(connection).loader.graph.leaf_nodes()
+        if node[0] != "investments"
+    ]
+    old = (
+        migrate(BEFORE_ISIN_CHECK).loader.project_state(others + BEFORE_ISIN_CHECK).apps
+    )
+    Instrument = old.get_model("investments", "Instrument")
+    Account = old.get_model("accounts", "Account")
+    gold = Instrument.objects.create(
+        isin="GOLD24K", name="Gold", kind="stock", manual_price=True
+    )
+    Instrument.objects.create(isin="GOLDCOIN", name="Gold", kind="stock")
+    Instrument.objects.create(isin="INE002A01018", name="Reliance", kind="stock")
+    broker = Account.objects.create(
+        name="Zerodha",
+        kind="asset",
+        opening_balance=0,
+        opening_balance_date=date(2026, 1, 1),
+        investment_mode="holds_cash",
+    )
+    old.get_model("investments", "InvestmentEvent").objects.create(
+        account=broker,
+        instrument=gold,
+        kind="buy",
+        date=date(2026, 3, 2),
+        units="10",
+        amount="60000",
+    )
+
+    new = migrate(AFTER_ISIN_CHECK).loader.project_state(others + AFTER_ISIN_CHECK).apps
+    Instrument = new.get_model("investments", "Instrument")
+
+    assert list(Instrument.objects.order_by("name").values_list("name", "isin")) == [
+        ("Gold", None),
+        ("Gold (GOLDCOIN)", None),
+        ("Reliance", "INE002A01018"),
+    ]
+    assert list(
+        new.get_model("investments", "InvestmentEvent").objects.values_list(
+            "instrument__name", "instrument__isin"
+        )
+    ) == [("Gold", None)]

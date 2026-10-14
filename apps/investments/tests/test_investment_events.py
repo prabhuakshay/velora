@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from apps.accounts.tests.conftest import account_url, page_text
 from apps.accounts.tests.test_balance import opening
-from apps.investments.models import Instrument, InvestmentEvent
+from apps.investments.models import Instrument, InvestmentEvent, PriceSource
 from apps.investments.tests.conftest import (
     add_price,
     event_data,
@@ -163,7 +163,7 @@ def test_a_sell_of_more_units_than_held_on_its_date_is_refused(
     assert InvestmentEvent.objects.filter(kind="sell").count() == 0
 
 
-def test_a_buy_with_an_unknown_isin_creates_a_manual_price_instrument(
+def test_a_buy_with_an_unknown_isin_creates_an_instrument_priced_by_its_source(
     signed_in: Client,
 ) -> None:
     broker = make_broker(opening="1000")
@@ -180,7 +180,7 @@ def test_a_buy_with_an_unknown_isin_creates_a_manual_price_instrument(
 
     instrument = Instrument.objects.get(isin="INE999999999")
     assert instrument.name == "Unlisted Co"
-    assert instrument.manual_price
+    assert instrument.price_source == PriceSource.NSE
     assert "Unlisted Co 1 ₹10.00" in holdings_text(signed_in, broker)
 
 

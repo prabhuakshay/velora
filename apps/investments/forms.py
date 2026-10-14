@@ -248,7 +248,6 @@ class InvestmentEventForm(forms.ModelForm[InvestmentEvent]):
             isin=isin,
             name=name,
             kind=self.cleaned_data.get("instrument_kind") or Instrument.Kind.STOCK,
-            manual_price=True,
         )
         return self.new_instrument
 

@@ -124,17 +124,14 @@ def test_a_price_more_than_five_days_old_is_stale(
     assert "Stale" in instrument_page(signed_in, FUND)
 
 
-def test_the_job_leaves_an_instrument_priced_by_hand_alone(
+def test_the_job_leaves_an_instrument_without_an_isin_alone(
     signed_in: Client, fake_prices: FakePriceSource
 ) -> None:
     today = timezone.localdate()
-    Instrument.objects.create(
-        isin=FUND, name="My fund", kind="mutual_fund", manual_price=True
-    )
+    gold = Instrument.objects.create(isin=None, name="My fund", kind="mutual_fund")
     fake_prices.amfi = [fund("101", today)]
 
     run_nightly_prices(today)
 
-    page = instrument_page(signed_in, FUND)
-    assert "My fund" in page
-    assert "No Price yet" in page
+    assert not gold.prices.exists()
+    assert Instrument.objects.get(isin=FUND).prices.exists()

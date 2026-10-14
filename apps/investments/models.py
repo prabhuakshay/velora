@@ -29,7 +29,8 @@ class PriceSource(models.TextChoices):
 class Instrument(models.Model):
     """Something held in units, such as a fund, stock, ETF, gold or a bond.
 
-    One with a manual Price is priced by hand; the nightly job leaves it alone.
+    It is identified by its ISIN or, without one, by its name. One without an
+    ISIN is priced by hand; the nightly job leaves it alone.
     """
 
     class Kind(models.TextChoices):
@@ -41,10 +42,9 @@ class Instrument(models.Model):
         REIT_INVIT = "reit_invit", "REIT/InvIT"
         OTHER = "other", "Other"
 
-    isin = models.CharField("ISIN", max_length=12, unique=True)
+    isin = models.CharField("ISIN", max_length=12, unique=True, null=True, blank=True)
     name = models.CharField(max_length=200)
     kind = models.CharField(max_length=20, choices=Kind.choices)
-    manual_price = models.BooleanField(default=False)
     # Days the backfill already read its source's archive for. A day in this
     # span still without a Price had no file or no row for it, so fetching it
     # again would find nothing.
@@ -53,14 +53,21 @@ class Instrument(models.Model):
 
     class Meta:
         ordering = ("name",)
+        constraints = (
+            models.UniqueConstraint(
+                fields=("name",),
+                condition=models.Q(isin__isnull=True),
+                name="instrument_name_unique_without_isin",
+            ),
+        )
 
     def __str__(self) -> str:
         return self.name
 
     @property
     def price_source(self) -> PriceSource:
-        """Where its Prices come from: Manual if priced by hand, else AMFI or NSE."""
-        if self.manual_price:
+        """Where its Prices come from: Manual without an ISIN, else AMFI or NSE."""
+        if not self.isin:
             return PriceSource.MANUAL
         if self.kind == self.Kind.MUTUAL_FUND:
             return PriceSource.AMFI

@@ -73,8 +73,8 @@ def test_export_import_and_posting_drafts_gives_back_the_same_portfolio(
 ) -> None:
     Instrument.objects.create(isin=FUND, name="Nifty Fund", kind="mutual_fund")
     Instrument.objects.create(isin=STOCK, name="Acme Ltd", kind="stock")
-    # An import creates unknown Instruments priced by hand, so start the same way.
-    Instrument.objects.update(manual_price=True)
+    # An import creates unknown Instruments as stocks, so start the same way.
+    Instrument.objects.update(kind="stock")
     bank = opening("Bank", "asset", "10000")
     broker = make_broker(opening="5000", opened=date(2026, 1, 1))
     kuvera = make_direct(bank, opened=date(2026, 1, 1))

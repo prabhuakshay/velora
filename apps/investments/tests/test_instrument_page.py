@@ -21,13 +21,39 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-ISIN = "INE000000001"
+ISIN = "INE002A01018"
 
 
-def make_instrument(*, manual_price: bool) -> Instrument:
-    return Instrument.objects.create(
-        isin=ISIN, name="Unlisted Co", kind="stock", manual_price=manual_price
-    )
+def make_instrument(isin: str | None = ISIN, kind: str = "stock") -> Instrument:
+    return Instrument.objects.create(isin=isin, name="Unlisted Co", kind=kind)
+
+
+def page(client: Client, instrument: Instrument) -> str:
+    response = client.get(reverse("instrument_detail", args=[instrument.pk]))
+    assert response.status_code == 200
+    return page_text(response.content.decode())
+
+
+def test_an_instrument_without_an_isin_is_priced_by_hand(signed_in: Client) -> None:
+    text = page(signed_in, make_instrument(isin=None))
+
+    assert "Stock · No ISIN" in text
+    assert "Price Source: Manual" in text
+    assert "Enter a Price" in text
+
+
+@pytest.mark.parametrize(
+    ("isin", "kind", "source"),
+    [(ISIN, "stock", "NSE"), ("INF209K01YM2", "mutual_fund", "AMFI")],
+)
+def test_an_instrument_with_an_isin_shows_it_and_its_source(
+    signed_in: Client, isin: str, kind: str, source: str
+) -> None:
+    text = page(signed_in, make_instrument(isin, kind))
+
+    assert f"· {isin}" in text
+    assert f"Price Source: {source}" in text
+    assert "Enter a Price" not in text
 
 
 def add_price_url(instrument: Instrument) -> str:
@@ -35,7 +61,7 @@ def add_price_url(instrument: Instrument) -> str:
 
 
 def test_a_price_entered_by_hand_becomes_the_latest(signed_in: Client) -> None:
-    instrument = make_instrument(manual_price=True)
+    instrument = make_instrument(isin=None)
     today = timezone.localdate()
 
     response = signed_in.post(
@@ -43,20 +69,19 @@ def test_a_price_entered_by_hand_becomes_the_latest(signed_in: Client) -> None:
     )
 
     assert response.status_code == 302
-    page = instrument_page(signed_in, ISIN)
-    assert f"₹1,234.5678 on {today:%-d %b %Y}" in page
+    assert f"₹1,234.5678 on {today:%-d %b %Y}" in page(signed_in, instrument)
 
 
 def test_a_second_price_for_the_same_day_replaces_the_first(
     signed_in: Client,
 ) -> None:
-    instrument = make_instrument(manual_price=True)
+    instrument = make_instrument(isin=None)
     today = timezone.localdate()
     signed_in.post(add_price_url(instrument), {"date": today, "price": "10"})
 
     signed_in.post(add_price_url(instrument), {"date": today, "price": "12"})
 
-    assert "₹12.0000" in instrument_page(signed_in, ISIN)
+    assert "₹12.0000" in page(signed_in, instrument)
 
 
 @pytest.mark.parametrize(
@@ -69,20 +94,20 @@ def test_a_second_price_for_the_same_day_replaces_the_first(
 def test_a_bad_price_is_refused(
     signed_in: Client, days_ahead: int, price: str, error: str
 ) -> None:
-    instrument = make_instrument(manual_price=True)
+    instrument = make_instrument(isin=None)
     when = timezone.localdate() + timedelta(days=days_ahead)
 
     response = signed_in.post(add_price_url(instrument), {"date": when, "price": price})
 
     assert response.status_code == 200
     assert error in page_text(response.content.decode())
-    assert "No Price yet" in instrument_page(signed_in, ISIN)
+    assert "No Price yet" in page(signed_in, instrument)
 
 
 def test_an_instrument_with_an_automatic_price_takes_none_by_hand(
     signed_in: Client,
 ) -> None:
-    instrument = make_instrument(manual_price=False)
+    instrument = make_instrument()
 
     assert "Enter a Price" not in instrument_page(signed_in, ISIN)
     response = signed_in.post(
@@ -94,7 +119,7 @@ def test_an_instrument_with_an_automatic_price_takes_none_by_hand(
 
 
 def test_privacy_mode_masks_the_price(signed_in: Client, user: User) -> None:
-    instrument = make_instrument(manual_price=False)
+    instrument = make_instrument()
     Price.objects.create(
         instrument=instrument, date=timezone.localdate(), price=Decimal("2950.15")
     )
@@ -110,7 +135,7 @@ def test_privacy_mode_masks_the_price(signed_in: Client, user: User) -> None:
 def test_entering_a_price_waits_for_privacy_mode_to_be_off(
     signed_in: Client, user: User
 ) -> None:
-    instrument = make_instrument(manual_price=True)
+    instrument = make_instrument(isin=None)
     user.privacy_mode = True
     user.save()
 
@@ -123,7 +148,7 @@ def test_entering_a_price_waits_for_privacy_mode_to_be_off(
 
 
 def test_the_price_follows_the_number_format(signed_in: Client, user: User) -> None:
-    instrument = make_instrument(manual_price=False)
+    instrument = make_instrument()
     Price.objects.create(
         instrument=instrument, date=timezone.localdate(), price=Decimal("1234567.5")
     )
@@ -136,7 +161,7 @@ def test_the_price_follows_the_number_format(signed_in: Client, user: User) -> N
 
 
 def test_the_page_needs_a_sign_in(client: Client) -> None:
-    make_instrument(manual_price=False)
+    make_instrument()
 
     assert client.get(instrument_url(ISIN)).status_code == 302
 
@@ -148,7 +173,7 @@ def price_history(client: Client) -> str:
 
 
 def test_the_page_charts_the_price_history(signed_in: Client) -> None:
-    instrument = make_instrument(manual_price=False)
+    instrument = make_instrument()
     for day, price in [
         ("2026-01-12", "10"),
         ("2026-01-30", "11"),
@@ -164,14 +189,14 @@ def test_the_page_charts_the_price_history(signed_in: Client) -> None:
 
 
 def test_a_single_price_draws_no_chart(signed_in: Client) -> None:
-    instrument = make_instrument(manual_price=False)
+    instrument = make_instrument()
     Price.objects.create(instrument=instrument, date="2026-01-12", price=Decimal(10))
 
     assert "<polyline" not in signed_in.get(instrument_url(ISIN)).content.decode()
 
 
 def test_privacy_mode_hides_the_price_chart(signed_in: Client, user: User) -> None:
-    instrument = make_instrument(manual_price=False)
+    instrument = make_instrument()
     Price.objects.create(instrument=instrument, date="2026-01-12", price=Decimal(10))
     Price.objects.create(instrument=instrument, date="2026-02-12", price=Decimal(11))
     user.privacy_mode = True
@@ -190,7 +215,7 @@ def chart_data(client: Client) -> object:
 
 
 def test_the_chart_embeds_every_price_for_hover_and_ranges(signed_in: Client) -> None:
-    instrument = make_instrument(manual_price=False)
+    instrument = make_instrument()
     Price.objects.create(instrument=instrument, date="2026-01-12", price=Decimal(10))
     Price.objects.create(
         instrument=instrument, date="2026-02-04", price=Decimal("12.5")
@@ -207,7 +232,7 @@ def test_the_chart_embeds_every_price_for_hover_and_ranges(signed_in: Client) ->
 
 
 def test_privacy_mode_embeds_no_chart_data(signed_in: Client, user: User) -> None:
-    instrument = make_instrument(manual_price=False)
+    instrument = make_instrument()
     Price.objects.create(instrument=instrument, date="2026-01-12", price=Decimal(10))
     Price.objects.create(instrument=instrument, date="2026-02-12", price=Decimal(11))
     user.privacy_mode = True

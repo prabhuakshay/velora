@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -125,8 +126,10 @@ def instrument_detail(request: HttpRequest, pk: int) -> HttpResponseBase:
 @login_required
 @blocked_in_privacy_mode
 def instrument_add_price(request: HttpRequest, pk: int) -> HttpResponseBase:
-    """Record a Price entered by hand; only for an Instrument with a manual Price."""
-    instrument = get_object_or_404(Instrument, pk=pk, manual_price=True)
+    """Record a Price entered by hand; only for a Manual Instrument."""
+    instrument = get_object_or_404(Instrument, pk=pk)
+    if instrument.price_source != PriceSource.MANUAL:
+        raise Http404
     form = ManualPriceForm(request.POST, instrument=instrument)
     if not form.is_valid():
         return _page(request, instrument, form)

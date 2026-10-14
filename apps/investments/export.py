@@ -70,14 +70,14 @@ def event_row(event: InvestmentEvent) -> list[str]:
     return [
         event.date.isoformat(),
         event.account.name,
-        event.instrument.isin,
+        event.instrument.isin or "",
         named.name if named else "",
         event.kind.upper(),
         _number(event.units),
         _number(event.trade_price),
         _number(event.amount),
         _number(event.charges or None),
-        event.new_instrument.isin if event.new_instrument else "",
+        (event.new_instrument.isin or "") if event.new_instrument else "",
         event.ref,
         event.note,
     ]

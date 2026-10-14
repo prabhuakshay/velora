@@ -85,7 +85,7 @@ def row(
     )
 
 
-def instrument_url(isin: str) -> str:
+def instrument_url(isin: str | None) -> str:
     return reverse("instrument_detail", args=[Instrument.objects.get(isin=isin).pk])
 
 

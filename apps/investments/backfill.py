@@ -3,7 +3,7 @@
 from collections import defaultdict
 from datetime import date, timedelta
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.db.models import Min
 from django.db.models.functions import Least
@@ -74,7 +74,7 @@ def _missing(today: date) -> dict[PriceSource, tuple[dict[str, date], set[date]]
         }
         if days:
             isins, gaps = missing[instrument.price_source]
-            isins[instrument.isin] = instrument.first
+            isins[cast("str", instrument.isin)] = instrument.first
             gaps.update(days)
     return missing
 

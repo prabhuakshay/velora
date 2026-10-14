@@ -4,18 +4,18 @@ from apps.investments.models import Instrument, PriceSource
 
 
 @pytest.mark.parametrize(
-    ("kind", "manual_price", "expected"),
+    ("kind", "isin", "expected"),
     [
-        ("mutual_fund", False, PriceSource.AMFI),
-        ("stock", False, PriceSource.NSE),
-        ("etf", False, PriceSource.NSE),
-        ("mutual_fund", True, PriceSource.MANUAL),
-        ("stock", True, PriceSource.MANUAL),
+        ("mutual_fund", "INF209K01YM2", PriceSource.AMFI),
+        ("stock", "INE002A01018", PriceSource.NSE),
+        ("etf", "INF204KB14I2", PriceSource.NSE),
+        ("mutual_fund", None, PriceSource.MANUAL),
+        ("stock", None, PriceSource.MANUAL),
     ],
 )
-def test_instrument_knows_where_its_prices_come_from(
-    kind: str, *, manual_price: bool, expected: PriceSource
+def test_the_isin_decides_where_prices_come_from(
+    kind: str, isin: str | None, expected: PriceSource
 ) -> None:
-    instrument = Instrument(kind=kind, manual_price=manual_price)
+    instrument = Instrument(kind=kind, isin=isin)
 
     assert instrument.price_source == expected

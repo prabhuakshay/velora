@@ -131,11 +131,18 @@ def test_a_failed_source_keeps_existing_prices_and_fills_the_other(
     assert prices(STOCK) == {day(2): "100.0000", day(3): "101.0000"}
 
 
-def test_instruments_not_held_or_priced_by_hand_are_left_alone(
+def test_instruments_not_held_or_without_an_isin_are_left_alone(
     fake_prices: FakePriceSource,
 ) -> None:
-    Instrument.objects.filter(isin=STOCK).update(manual_price=True)
-    buy(STOCK, day(2))
+    Instrument.objects.filter(isin=STOCK).update(isin=None)
+    InvestmentEvent.objects.create(
+        account=make_broker(opening="10000"),
+        instrument=Instrument.objects.get(isin=None),
+        kind="buy",
+        date=day(2),
+        units=1,
+        amount=10,
+    )
     fake_prices.history = [fund("10", day(2)), stock("100", day(2))]
 
     backfill_prices(today=day(2))
@@ -157,12 +164,12 @@ def test_an_instrument_held_through_a_merger_is_backfilled_from_the_merger(
         date=day(2),
     )
     fake_prices.history = [
-        row(new.isin, "New", "mutual_fund", "20", day(n)) for n in range(4)
+        row("INF000000009", "New", "mutual_fund", "20", day(n)) for n in range(4)
     ]
 
     backfill_prices(today=day(3))
 
-    assert set(prices(new.isin)) == {day(2), day(3)}
+    assert set(prices("INF000000009")) == {day(2), day(3)}
 
 
 def test_a_day_with_no_file_is_not_fetched_again(fake_prices: FakePriceSource) -> None:

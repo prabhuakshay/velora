@@ -317,9 +317,7 @@ def _define_merger_target(values: dict[str, str]) -> None:
         and len(name) <= NAME_LENGTH
         and not Instrument.objects.filter(isin=isin).exists()
     ):
-        Instrument.objects.create(
-            isin=isin, name=name, kind=Instrument.Kind.STOCK, manual_price=True
-        )
+        Instrument.objects.create(isin=isin, name=name, kind=Instrument.Kind.STOCK)
 
 
 def _form_data(values: dict[str, str], kind: str) -> dict[str, str]:

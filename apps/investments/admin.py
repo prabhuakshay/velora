@@ -6,8 +6,8 @@ from apps.investments.models import Instrument, InvestmentEvent
 
 @admin.register(Instrument)
 class InstrumentAdmin(admin.ModelAdmin[Instrument]):
-    list_display = ("name", "isin", "kind", "manual_price")
-    list_filter = ("kind", "manual_price")
+    list_display = ("name", "isin", "kind", "price_source")
+    list_filter = ("kind",)
     search_fields = ("name", "isin")
 
 

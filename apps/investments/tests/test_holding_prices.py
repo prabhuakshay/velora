@@ -31,8 +31,8 @@ STOCK = "INE002A01018"
 OTHER = "INE000000099"
 
 
-def holding(client: Client, isin: str, name: str, kind: str, **fields: bool) -> Account:
-    Instrument.objects.create(isin=isin, name=name, kind=kind, **fields)
+def holding(client: Client, isin: str, name: str, kind: str) -> Account:
+    Instrument.objects.create(isin=isin, name=name, kind=kind)
     account = make_broker()
     record_event(client, account, "buy", isin, units="2", amount="100")
     return account
@@ -80,8 +80,9 @@ def test_a_priced_holding_shows_its_price_date_and_source(signed_in: Client) -> 
 
 
 def test_an_unpriced_manual_holding_links_to_the_price_form(signed_in: Client) -> None:
-    account = holding(signed_in, STOCK, "Private Co", "stock", manual_price=True)
-    form = reverse("instrument_detail", args=[Instrument.objects.get(isin=STOCK).pk])
+    account = holding(signed_in, STOCK, "Private Co", "stock")
+    Instrument.objects.update(isin=None)
+    form = reverse("instrument_detail", args=[Instrument.objects.get().pk])
 
     assert "Priced by hand: add a Price" in overview_row(signed_in, "Private Co")
     assert "Priced by hand: add a Price" in holdings_row(
