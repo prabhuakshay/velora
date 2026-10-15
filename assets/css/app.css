@@ -32,6 +32,17 @@ html:has(#main) {
   overflow: hidden;
 }
 
+/*
+ * viewport-fit=cover lets iOS Safari draw the page under its status bar, so a
+ * phone sheet sized in dvh alone can reach above the top of the screen.
+ * Unlayered, so it caps each sheet's own max-h utility.
+ */
+@media (width < 48rem) {
+  dialog[data-dialog] {
+    max-height: min(94dvh, calc(100dvh - env(safe-area-inset-top) - 1rem));
+  }
+}
+
 /* Unlayered, like driver.css, so these win over its defaults. */
 .driver-popover.tour-card {
   @apply max-w-[min(20rem,calc(100vw-2rem))] min-w-0 rounded-2xl p-4 font-sans text-slate-900 shadow-lg ring-1 shadow-slate-900/10 ring-slate-200;
