@@ -1,0 +1,116 @@
+{% comment %}
+  The Transaction form, in the list's editor dialog (in_dialog) or on its own
+  page. In the dialog it posts with htmx and swaps itself back in until it
+  saves; the page's tour steps stay off it, as the list has its own tour.
+{% endcomment %}
+{% if editing_draft %}{% url 'draft_list' as cancel_url %}{% else %}{% firstof return_url as cancel_url %}{% endif %}
+<form data-transaction-editor method="post" enctype="multipart/form-data"{% if in_dialog %} action="{{ request.get_full_path }}" hx-post="{{ request.get_full_path }}" hx-encoding="multipart/form-data" hx-target="this" hx-swap="outerHTML"{% endif %}>
+  {% csrf_token %}
+  <header class="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:px-6">
+    {% if in_dialog %}
+      <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gold-100 text-gold-700" aria-hidden="true">{% include "shell/icon.html" with name=transaction|yesno:"pencil,plus" class="size-4" %}</span>
+    {% else %}
+      <a href="{{ cancel_url }}" class="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Back">{% include "shell/icon.html" with name="chevron-left" class="size-5" %}</a>
+    {% endif %}
+    <div class="min-w-0 flex-1">
+      <{{ in_dialog|yesno:"h2,h1" }} id="transaction-editor-title" class="truncate text-lg/tight font-semibold tracking-tight">{% if editing_draft %}Edit Draft{% elif transaction %}Edit Transaction{% else %}New Transaction{% endif %}</{{ in_dialog|yesno:"h2,h1" }}>
+      {% if editing_draft %}
+        <p class="flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
+          {% include "quick_add/_source.html" %}
+          <span class="truncate">{% firstof draft.party draft.new_party_name draft.description %}{% if draft.party or draft.new_party_name or draft.description %} · {% endif %}{{ draft.date|date:"j M Y" }}</span>
+        </p>
+      {% elif transaction %}
+        <p class="truncate text-xs text-slate-500">{% include "transactions/_transaction_title.html" %} · {{ transaction.date|date:"j M Y" }}</p>
+      {% else %}
+        <p class="truncate text-xs text-slate-500">Money in, out, or between Accounts</p>
+      {% endif %}
+    </div>
+    {% if in_dialog %}
+      <button type="button" data-dialog-close class="-mr-2 flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Close">{% include "shell/icon.html" with name="x" class="size-5" %}</button>
+    {% else %}
+      {% include "help/_button.html" with area="transactions" title="Transactions" tour="transaction-form" %}
+      {% if editing_draft %}
+        <button type="submit" form="reject-draft" class="-mr-2 flex h-10 items-center gap-1 rounded-full px-3 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-700 active:bg-red-100" title="Reject this Draft">{% include "shell/icon.html" with name="x" class="size-4" %}Reject</button>
+      {% elif transaction %}
+        <a href="{% url 'schedule_create' %}?transaction={{ transaction.pk }}" class="flex size-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200" aria-label="Make a Schedule from this Transaction" title="Make a Schedule from this Transaction">{% include "shell/icon.html" with name="repeat" class="size-5" %}</a>
+        <button type="button" data-dialog-open="delete-transaction-{{ transaction.pk }}" class="-mr-2 flex size-10 items-center justify-center rounded-full text-red-600 hover:bg-red-50 active:bg-red-100" aria-label="Delete Transaction" title="Delete Transaction">{% include "shell/icon.html" with name="trash" class="size-5" %}</button>
+      {% endif %}
+    {% endif %}
+  </header>
+
+  <div class="space-y-6 px-4 py-5 md:px-6">
+    {% if editing_draft and draft.quick_add %}
+      <p class="rounded-xl bg-gold-50 px-4 py-3 text-sm ring-1 ring-gold-200">
+        <span class="text-gold-700">You wrote</span>
+        <span class="mt-0.5 block text-base">“{% if user.privacy_mode %}Hidden in Privacy Mode{% else %}{{ draft.quick_add.text }}{% endif %}”</span>
+      </p>
+    {% endif %}
+    {% if posting_error or form.non_field_errors %}
+      <div class="space-y-2">
+        {% if posting_error %}<p role="alert" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">{{ posting_error }}</p>{% endif %}
+        {% include "partials/form_errors.html" %}
+      </div>
+    {% endif %}
+
+    <section {% if not in_dialog %}data-tour-step="1" data-tour-text="When it happened, the Party it was with, and a description." {% endif %}class="space-y-4" aria-labelledby="details-title">
+      <h3 id="details-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Details</h3>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {% include "partials/field.html" with field=form.date %}
+        {% include "partials/field.html" with field=form.party %}
+      </div>
+      {% if editing_draft %}<div data-new-party>{% include "partials/field.html" with field=new_party.new_party_name %}</div>{% endif %}
+      {% include "partials/field.html" with field=form.description %}
+    </section>
+
+    <section {% if not in_dialog %}data-tour-step="2" data-tour-text="Each Split takes an amount from one Account to another. Add more Splits to share one Transaction across Accounts." {% endif %}class="border-t border-slate-100 pt-6" aria-labelledby="splits-title">
+      <h3 id="splits-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Splits</h3>
+      <p class="mt-1 text-sm text-slate-500">Where the money came from and went. Add more to split one payment across Accounts.</p>
+      {{ formset.management_form }}
+      {% for error in formset.non_form_errors %}
+        <p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
+      {% endfor %}
+      <div id="splits" class="mt-4 space-y-3 [counter-reset:split]">
+        {% for split in formset %}
+          {% include "transactions/split_row.html" %}
+        {% endfor %}
+      </div>
+      <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-medium text-slate-600 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100"
+              hx-get="{% url 'transaction_split_row' %}"
+              hx-include="#id_splits-TOTAL_FORMS"
+              hx-target="#splits"
+              hx-swap="beforeend">{% include "shell/icon.html" with name="plus" class="size-4" %}Add split</button>
+    </section>
+
+    <section {% if not in_dialog %}data-tour-step="3" data-tour-text="Add photos or PDFs as Attachments." {% endif %}class="border-t border-slate-100 pt-6" aria-labelledby="attachments-title">
+      <h3 id="attachments-title" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Attachments</h3>
+      <div class="mt-4 space-y-3">
+        {% if form.remove_attachments.field.queryset %}{% include "transactions/attachment_list.html" with field=form.remove_attachments %}{% endif %}
+        {% for error in form.remove_attachments.errors %}
+          <p class="text-sm text-red-600">{{ error }}</p>
+        {% endfor %}
+        {% include "transactions/_file_drop.html" with field=form.attachments %}
+      </div>
+    </section>
+  </div>
+
+  <footer {% if not in_dialog %}data-tour-step="4" data-tour-text="The Total of the Splits, and Save to record it." {% endif %}class="sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:px-6 md:pb-4">
+    <div class="flex items-center gap-3">
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-xl font-semibold tracking-tight tabular-nums" data-split-total{% if editing_draft %} data-draft{% endif %} data-number-format="{{ user.number_format }}"{% if user.privacy_mode %} data-private{% endif %}>{% amount 0 %}</p>
+        <p class="truncate text-xs text-slate-500" data-split-count>Total</p>
+      </div>
+      {% if in_dialog %}
+        <button type="button" data-dialog-close class="btn-secondary hidden py-2.5 sm:block">Cancel</button>
+      {% else %}
+        <a href="{{ cancel_url }}" class="btn-secondary hidden py-2.5 sm:block">Cancel</a>
+      {% endif %}
+      {% if editing_draft %}
+        <button type="submit" name="action" value="save" class="btn-secondary py-2.5">Save Draft</button>
+        <button type="submit" name="action" value="post" class="btn-primary">Save and post</button>
+      {% else %}
+        <div class="w-28">{% include "partials/submit.html" with label="Save" %}</div>
+      {% endif %}
+    </div>
+    {% if editing_draft %}<p class="mt-2 text-xs text-slate-500">Save Draft keeps it waiting, gaps and all; Tags and Attachments are added only when it is posted.</p>{% endif %}
+  </footer>
+</form>

@@ -11,6 +11,8 @@
 
 {% block scripts %}
     <script src="{% static 'js/transaction_list.js' %}" defer hx-preserve="true"></script>
+    <script src="{% static 'js/transaction_form.js' %}" defer hx-preserve="true"></script>
+    <script src="{% static 'js/attachment_limit.js' %}" defer hx-preserve="true"></script>
 {% endblock %}
 
 {% block main_width %}{% endblock %}
@@ -23,7 +25,7 @@
           <h1 class="flex items-center gap-2 text-lg font-semibold tracking-tight">Transactions <span class="rounded-full bg-gold-100 px-2 py-0.5 text-xs font-semibold text-gold-700 tabular-nums">{{ page.paginator.count }}</span></h1>
           <div class="flex gap-1">
             {% if not user.privacy_mode %}<a href="{% url 'transaction_export' %}{{ export_query }}" hx-boost="false" download class="rounded-lg p-2 text-slate-500 hover:bg-gold-50 hover:text-gold-700" aria-label="Export CSV" title="Export CSV">{% include "shell/icon.html" with name="download" class="size-4" %}</a>{% endif %}
-            <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}" class="rounded-lg bg-brand p-2 text-on-brand shadow-sm hover:bg-brand-hover" aria-label="New Transaction" title="New Transaction">{% include "shell/icon.html" with name="plus" class="size-4" stroke="stroke-[2.5]" %}</a>
+            <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}?next={{ here|urlencode }}" hx-boost="false" data-transaction-editor-open class="rounded-lg bg-brand p-2 text-on-brand shadow-sm hover:bg-brand-hover" aria-label="New Transaction" title="New Transaction">{% include "shell/icon.html" with name="plus" class="size-4" stroke="stroke-[2.5]" %}</a>
           </div>
         </div>
         <form data-tour-step="1" data-tour-text="Search your Transactions, or open Filters to narrow the list." method="get" action="{% url 'transaction_list' %}" class="flex gap-2">
@@ -37,7 +39,7 @@
             {% include "shell/icon.html" with name="sliders" class="size-4" %}
             {% if filters.narrowing %}<span class="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-gold-500 text-[10px] font-semibold text-brand dark:text-on-brand">{{ filters.narrowing }}</span>{% endif %}
           </button>
-          <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}" class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand text-on-brand shadow-sm active:bg-brand-hover md:hidden" aria-label="New Transaction">{% include "shell/icon.html" with name="plus" class="size-5" stroke="stroke-[2.5]" %}</a>
+          <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}?next={{ here|urlencode }}" hx-boost="false" data-transaction-editor-open class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand text-on-brand shadow-sm active:bg-brand-hover md:hidden" aria-label="New Transaction">{% include "shell/icon.html" with name="plus" class="size-5" stroke="stroke-[2.5]" %}</a>
           {% include "help/_button.html" with area="transactions" title="Transactions" tour="transactions" %}
         </form>
         {% if filters.errors %}
@@ -94,7 +96,7 @@
             {% else %}
               <p class="mt-4 font-semibold">No Transactions yet.</p>
               <p class="mt-1 text-sm text-slate-500">Record one to see it here.</p>
-              <a href="{% url 'transaction_create' %}" class="btn-primary mt-5">New Transaction</a>
+              <a href="{% url 'transaction_create' %}?next={{ here|urlencode }}" hx-boost="false" data-transaction-editor-open class="btn-primary mt-5">New Transaction</a>
             {% endif %}
           </li>
         {% endfor %}
@@ -131,6 +133,14 @@
     </div>
     <div data-transaction-sheet-body class="pb-[env(safe-area-inset-bottom)] transition-opacity data-loading:opacity-50"></div>
   </dialog>
+
+  {% comment %}New and Edit: the form, fetched in on open. Persistent, so a stray click doesn't lose what was typed.{% endcomment %}
+  <dialog id="transaction-editor" data-dialog data-persistent aria-labelledby="transaction-editor-title" class="m-0 mt-auto max-h-[94dvh] min-h-[50dvh] w-full max-w-none overflow-y-auto overscroll-contain rounded-t-3xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-chrome/60 backdrop:backdrop-blur-sm md:m-auto md:max-h-[88dvh] md:min-h-0 md:max-w-2xl md:rounded-3xl">
+    <div data-transaction-editor-body class="transition-opacity data-loading:opacity-50"></div>
+  </dialog>
+  <template data-transaction-editor-loading>
+    <p class="flex h-64 items-center justify-center text-sm text-slate-400">Loading…</p>
+  </template>
 
   {% include "transactions/_filter_sheet.html" %}
 {% endblock %}

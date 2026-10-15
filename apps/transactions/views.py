@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
 from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from django.db.models import QuerySet
-    from django.http import HttpRequest, HttpResponse
+    from django.http import HttpRequest
     from django.http.response import HttpResponseBase
 
     from apps.users.models import User
@@ -141,8 +141,11 @@ def _save_transaction_forms(
         instance=instance,
         initial_splits=initial_splits,
     )
+    in_dialog = _in_dialog(request)
     if forms.is_valid():
         forms.save()
+        if in_dialog:
+            return HttpResponse(headers={"HX-Location": _return_url(request)})
         return redirect(_return_url(request))
     form, formset = forms.form, forms.formset
     if request.FILES:
@@ -152,13 +155,26 @@ def _save_transaction_forms(
         )
     return render(
         request,
-        "transactions/transaction_form.html",
+        "transactions/_transaction_form.html"
+        if in_dialog
+        else "transactions/transaction_form.html",
         {
             "form": form,
             "formset": formset,
             "transaction": instance if instance.pk else None,
             "return_url": _return_url(request),
+            "in_dialog": in_dialog,
         },
+    )
+
+
+def _in_dialog(request: HttpRequest) -> bool:
+    """Whether the list's editor dialog asked, rather than a page visit.
+
+    Boosted visits send HX-Request too, but want the whole page.
+    """
+    return bool(request.headers.get("HX-Request")) and not request.headers.get(
+        "HX-Boosted"
     )
 
 

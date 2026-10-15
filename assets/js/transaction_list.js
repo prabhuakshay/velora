@@ -91,6 +91,27 @@
     if (e.target.id === "transaction-sheet") current()?.focus();
   }, true);
 
+  // New and Edit open the form in a dialog over the list. It saves with htmx,
+  // then the server sends the list back. Without the form, as when Privacy
+  // Mode refuses an edit, the link's own page opens instead.
+  document.addEventListener("click", async (e) => {
+    const link = e.target.closest("[data-transaction-editor-open]");
+    const editor = document.getElementById("transaction-editor");
+    if (!link || !editor || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const body = editor.querySelector("[data-transaction-editor-body]");
+    body.replaceChildren(document.querySelector("[data-transaction-editor-loading]").content.cloneNode(true));
+    body.dataset.loading = "";
+    openDialog(editor);
+    try {
+      await htmx.ajax("GET", link.href, { source: link, target: body, swap: "innerHTML transition:false" });
+    } catch {
+      // Checked below.
+    }
+    delete body.dataset.loading;
+    if (!body.querySelector("[data-transaction-editor]")) location.assign(link.href);
+  });
+
   // Growing from phone to desktop: the pane was emptied when the sheet loaded.
   desktop.addEventListener("change", (e) => {
     const row = current();

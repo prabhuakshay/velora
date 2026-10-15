@@ -64,8 +64,10 @@ document.addEventListener("click", (e) => {
   }
   // The dialog clicked in, not the first open one, as a dialog can open over another.
   const dialog = e.target.closest("dialog[data-dialog][open]");
-  // A click on the dialog element itself is a click on its backdrop.
-  if (dialog && (e.target === dialog || e.target.closest("[data-dialog-close]") || e.target.closest("a"))) {
+  // A click on the dialog element itself is a click on its backdrop. A
+  // persistent dialog holds a form, so only its close buttons close it.
+  const stray = dialog && !("persistent" in dialog.dataset) && (e.target === dialog || e.target.closest("a"));
+  if (dialog && (stray || e.target.closest("[data-dialog-close]"))) {
     closeDialog(dialog);
   }
 });

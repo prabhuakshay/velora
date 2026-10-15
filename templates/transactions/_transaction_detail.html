@@ -20,7 +20,7 @@
         {% if transaction.investment_event %}
           <a href="{% url 'account_holdings' transaction.investment_event.account_id %}" class="btn-primary flex items-center justify-center gap-2 py-2.5 text-sm" title="Change it with its {{ transaction.investment_event.get_kind_display }} on the Holdings tab">{% include "shell/icon.html" with name="pencil" class="size-4" %}Holdings</a>
         {% else %}
-        <a href="{% url 'transaction_edit' transaction.pk %}?next={{ here|urlencode }}" class="btn-primary flex items-center justify-center gap-2 py-2.5 text-sm">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
+        <a href="{% url 'transaction_edit' transaction.pk %}?next={{ here|urlencode }}" hx-boost="false" data-transaction-editor-open class="btn-primary flex items-center justify-center gap-2 py-2.5 text-sm">{% include "shell/icon.html" with name="pencil" class="size-4" %}Edit</a>
         {% endif %}
         <a href="{% url 'schedule_create' %}?transaction={{ transaction.pk }}" class="btn-secondary flex items-center justify-center gap-2 py-2.5" title="Make a Schedule from this Transaction">{% include "shell/icon.html" with name="repeat" class="size-4" %}Schedule</a>
         {% if not transaction.investment_event %}
