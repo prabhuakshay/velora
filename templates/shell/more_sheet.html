@@ -14,17 +14,25 @@
           {% include "shell/icon.html" with name=item.icon class="size-5 text-slate-500" %}
           <span class="flex-1">{{ item.label }}</span>
           {% include "shell/badge.html" with key=item.badge class="rounded-full bg-slate-900 px-1.5 text-xs text-white tabular-nums" %}
-          {% if item.active %}<span class="size-2 rounded-full bg-slate-900" aria-hidden="true"></span>{% else %}{% include "shell/icon.html" with name="chevron-right" class="size-4 text-slate-400" %}{% endif %}
+          {% if item.active %}<span class="size-2 rounded-full bg-gold-500" aria-hidden="true"></span>{% else %}{% include "shell/icon.html" with name="chevron-right" class="size-4 text-slate-400" %}{% endif %}
         </a>
       {% endfor %}
     </div>
+    <section>
+      <h3 class="px-3.5 pb-1.5 text-xs font-medium text-slate-500">Appearance</h3>
+      <div class="theme-switch-sheet flex gap-1 rounded-xl bg-slate-100 p-1" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="light">{% include "shell/icon.html" with name="theme-light" class="size-4" stroke="stroke-[1.75]" %}Light</button>
+        <button type="button" data-theme-set="dark">{% include "shell/icon.html" with name="theme-dark" class="size-4" stroke="stroke-[1.75]" %}Dark</button>
+        <button type="button" data-theme-set="system">{% include "shell/icon.html" with name="theme-system" class="size-4" stroke="stroke-[1.75]" %}System</button>
+      </div>
+    </section>
     <section>
       <h3 class="truncate px-3.5 pb-1.5 text-xs font-medium text-slate-500">{{ user.email }}</h3>
       <div class="divide-y divide-slate-200 overflow-hidden rounded-xl bg-slate-100">
         {% for c in nav_profile.children %}
           <a href="{{ c.url }}" {% if c.active %}aria-current="page"{% endif %} class="flex min-h-12 items-center gap-3 px-3.5 active:bg-slate-200 {% if c.active %}font-semibold{% else %}font-medium{% endif %}">
             <span class="flex-1">{{ c.label }}</span>
-            {% if c.active %}<span class="size-2 rounded-full bg-slate-900" aria-hidden="true"></span>{% else %}{% include "shell/icon.html" with name="chevron-right" class="size-4 text-slate-400" %}{% endif %}
+            {% if c.active %}<span class="size-2 rounded-full bg-gold-500" aria-hidden="true"></span>{% else %}{% include "shell/icon.html" with name="chevron-right" class="size-4 text-slate-400" %}{% endif %}
           </a>
         {% endfor %}
       </div>

@@ -5,8 +5,8 @@
   out to fill the screen so only <main> scrolls, like an installed app.
   Stroke widths are picked at runtime, so they're named here for Tailwind to
   emit: stroke-[2.25] stroke-[1.75]
-  The title bar shares the page's slate-50, the colour iOS gives the status bar
-  of the installed app, so the two read as one bar. The tab bar trims the home
+  The title bar is the sidebar's plum, the theme-color iOS gives the status
+  bar of the installed app, so the two read as one bar. The tab bar trims the home
   indicator inset, as native tab bars sit closer to it than the full inset.
   Fixed to the screen rather than h-dvh: on iOS, opening the keyboard or a date
   picker shrinks 100dvh and scrolls the page, leaving the shell shifted up.
@@ -72,11 +72,14 @@
       </form>
     </div>
 
-    <header class="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
-      <p class="py-3 text-lg font-semibold tracking-tight">{{ nav_title }}</p>
+    <header class="flex shrink-0 items-center justify-between border-b border-chrome-line bg-chrome px-4 pt-[env(safe-area-inset-top)] text-chrome-fg md:hidden">
+      <div class="flex min-w-0 items-center gap-2.5">
+        <a href="{% url 'index' %}" aria-label="Home">{% include "shell/lotus.html" with class="size-6 text-gold-500" %}</a>
+        <p class="py-3 text-lg font-semibold tracking-tight">{{ nav_title }}</p>
+      </div>
       <div class="-mr-2 flex items-center">
-        {% include "shell/theme.html" with class="flex size-11 items-center justify-center rounded-full text-slate-500 active:bg-slate-200" %}
-        {% include "shell/privacy.html" with class="flex size-11 items-center justify-center rounded-full text-slate-500 active:bg-slate-200" %}
+        {% include "shell/theme.html" with class="flex size-11 items-center justify-center rounded-full text-chrome-muted active:bg-chrome-hover" %}
+        {% include "shell/privacy.html" with class="flex size-11 items-center justify-center rounded-full text-chrome-muted active:bg-chrome-hover" %}
       </div>
     </header>
     {% comment %}On desktop the page sits in one panel floating on the plum.{% endcomment %}
