@@ -6,10 +6,10 @@
   {% comment %}The line is one SVG; hover columns sit on top so each day's tooltip stays HTML. No inline styles, as the CSP blocks them.{% endcomment %}
   <div class="relative mt-4 {{ height|default:"h-40" }}">
     <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
-      <polygon points="{{ chart.area }}" class="fill-slate-100"/>
+      <polygon points="{{ chart.area }}" class="fill-gold-100"/>
       {% if chart.zero is not None %}<line x1="0" x2="{{ chart.width }}" y1="{{ chart.zero|stringformat:'.1f' }}" y2="{{ chart.zero|stringformat:'.1f' }}" class="stroke-slate-300" vector-effect="non-scaling-stroke"/>{% endif %}
       {% if chart.threshold is not None %}<line x1="0" x2="{{ chart.width }}" y1="{{ chart.threshold|stringformat:'.1f' }}" y2="{{ chart.threshold|stringformat:'.1f' }}" class="stroke-red-400" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>{% endif %}
-      <polyline points="{{ chart.points }}" fill="none" class="stroke-slate-900" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+      <polyline points="{{ chart.points }}" fill="none" class="stroke-gold-600" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
     </svg>
     <div class="absolute inset-0 flex">
       {% for column in chart.columns %}

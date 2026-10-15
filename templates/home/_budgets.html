@@ -2,7 +2,7 @@
 <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="budgets-title">
   <div class="flex items-baseline justify-between gap-3 px-4 pt-4 md:px-5">
     <h2 id="budgets-title" class="font-semibold">Budgets in {{ today|date:"F" }}</h2>
-    <a href="{% url 'budget_list' %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">All Budgets</a>
+    <a href="{% url 'budget_list' %}" class="text-xs font-medium text-slate-500 hover:text-gold-700">All Budgets</a>
   </div>
   <ul class="mt-2 divide-y divide-slate-100 pb-1">
     {% if budgets.overall %}

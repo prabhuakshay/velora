@@ -1,7 +1,7 @@
 <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="spending-title">
   <div class="flex items-baseline justify-between gap-3 px-4 pt-4 md:px-5">
     <h2 id="spending-title" class="font-semibold">Where it went in {{ today|date:"F" }}</h2>
-    <a href="{% url 'account_list' 'expense' %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">Expense Accounts</a>
+    <a href="{% url 'account_list' 'expense' %}" class="text-xs font-medium text-slate-500 hover:text-gold-700">Expense Accounts</a>
   </div>
   {% if spending %}
     {% if not user.privacy_mode %}

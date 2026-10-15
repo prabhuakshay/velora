@@ -1,27 +1,27 @@
 <section aria-labelledby="month-title">
   <div class="flex items-baseline justify-between gap-3">
     <h2 id="month-title" class="font-semibold">{{ today|date:"F" }} so far</h2>
-    <a href="{% url 'transaction_list' %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">All Transactions</a>
+    <a href="{% url 'transaction_list' %}" class="text-xs font-medium text-slate-500 hover:text-gold-700">All Transactions</a>
   </div>
-  <dl class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
-    <div class="min-w-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:p-4">
-      <dt class="text-xs font-medium text-slate-500">Earned</dt>
-      <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums">{% amount this_month.earned %}</dd>
+  <dl class="mt-2 grid grid-cols-2 gap-2 md:max-lg:grid-cols-4 md:gap-3 lg:gap-5 @3xl:grid-cols-4">
+    <div class="min-w-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:p-5">
+      <dt class="flex items-center justify-between gap-2 text-xs font-medium text-slate-500">Earned<span class="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gold-100 text-gold-700" aria-hidden="true">{% include "shell/icon.html" with name="trend" class="size-4" %}</span></dt>
+      <dd class="mt-1 truncate text-lg font-semibold md:text-xl tracking-tight tabular-nums">{% amount this_month.earned %}</dd>
       <dd class="mt-0.5 truncate text-xs text-slate-500">{% amount last_month.earned %} in {{ last_month.start|date:"M" }}</dd>
     </div>
-    <div class="min-w-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:p-4">
-      <dt class="text-xs font-medium text-slate-500">Spent</dt>
-      <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums">{% amount this_month.spent %}</dd>
+    <div class="min-w-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:p-5">
+      <dt class="flex items-center justify-between gap-2 text-xs font-medium text-slate-500">Spent<span class="flex size-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700" aria-hidden="true">{% include "shell/icon.html" with name="receipt" class="size-4" %}</span></dt>
+      <dd class="mt-1 truncate text-lg font-semibold md:text-xl tracking-tight tabular-nums">{% amount this_month.spent %}</dd>
       <dd class="mt-0.5 truncate text-xs text-slate-500">{% amount spent_by_now_last_month %} by {{ same_day_last_month|date:"j M" }}</dd>
     </div>
-    <div class="min-w-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:p-4">
-      <dt class="text-xs font-medium text-slate-500">Saved</dt>
-      <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums {% amount_color this_month.saved %}">{% amount this_month.saved %}</dd>
+    <div class="min-w-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:p-5">
+      <dt class="flex items-center justify-between gap-2 text-xs font-medium text-slate-500">Saved<span class="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gold-100 text-gold-700" aria-hidden="true">{% include "shell/icon.html" with name="wallet" class="size-4" %}</span></dt>
+      <dd class="mt-1 truncate text-lg font-semibold md:text-xl tracking-tight tabular-nums {% amount_color this_month.saved %}">{% amount this_month.saved %}</dd>
       <dd class="mt-0.5 truncate text-xs text-slate-500">Earned less spent</dd>
     </div>
-    <div class="min-w-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:p-4">
-      <dt class="text-xs font-medium text-slate-500">Savings rate</dt>
-      <dd class="mt-1 truncate text-lg font-semibold tracking-tight tabular-nums">{% if user.privacy_mode %}••%{% elif this_month.savings_rate is None %}—{% else %}<span class="{% if this_month.savings_rate < 0 %}text-red-600{% endif %}">{{ this_month.savings_rate }}%</span>{% endif %}</dd>
+    <div class="min-w-0 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 md:p-5">
+      <dt class="flex items-center justify-between gap-2 text-xs font-medium text-slate-500">Savings rate<span class="flex size-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700" aria-hidden="true">{% include "shell/icon.html" with name="pie" class="size-4" %}</span></dt>
+      <dd class="mt-1 truncate text-lg font-semibold md:text-xl tracking-tight tabular-nums">{% if user.privacy_mode %}••%{% elif this_month.savings_rate is None %}—{% else %}<span class="{% if this_month.savings_rate < 0 %}text-red-600{% endif %}">{{ this_month.savings_rate }}%</span>{% endif %}</dd>
       <dd class="mt-0.5 truncate text-xs text-slate-500">{% if user.privacy_mode or last_month.savings_rate is None %}Of what was earned{% else %}{{ last_month.savings_rate }}% in {{ last_month.start|date:"M" }}{% endif %}</dd>
     </div>
   </dl>

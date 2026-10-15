@@ -2,7 +2,7 @@
 <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" aria-labelledby="cards-title">
   <div class="flex items-baseline justify-between gap-3 px-4 pt-4 md:px-5">
     <h2 id="cards-title" class="font-semibold">Credit cards</h2>
-    <a href="{% url 'account_list' 'liability' %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">Liabilities</a>
+    <a href="{% url 'account_list' 'liability' %}" class="text-xs font-medium text-slate-500 hover:text-gold-700">Liabilities</a>
   </div>
   <ul class="mt-2 divide-y divide-slate-100 pb-1">
     {% for row in cards %}
@@ -30,7 +30,7 @@
           {% if row.limit_percent is not None and not user.privacy_mode %}
             <svg viewBox="0 0 100 4" preserveAspectRatio="none" class="mt-2 h-1 w-full overflow-hidden rounded-full" role="img" aria-label="{{ row.limit_percent }}% of the limit used">
               <rect width="100" height="4" class="fill-slate-100"/>
-              <rect width="{{ row.limit_percent }}" height="4" class="{% if row.limit_percent >= 90 %}fill-red-500{% elif row.limit_percent >= 70 %}fill-amber-500{% else %}fill-slate-700{% endif %}"/>
+              <rect width="{{ row.limit_percent }}" height="4" class="{% if row.limit_percent >= 90 %}fill-red-500{% elif row.limit_percent >= 70 %}fill-amber-500{% else %}fill-gold-500{% endif %}"/>
             </svg>
             <span class="mt-1 block text-xs text-slate-500">{{ row.limit_percent }}% of {% amount row.card.low_balance_threshold %} limit</span>
           {% endif %}

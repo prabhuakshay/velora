@@ -161,18 +161,35 @@ def test_cards_show_nothing_to_pay_for_a_zero_statement(signed_in: Client) -> No
     assert "overdue" not in text
 
 
-def test_net_worth_change_is_since_last_month_end() -> None:
+def test_net_worth_change_runs_from_the_start_of_the_range() -> None:
     bank = opening("Bank", "asset", "1000")
+    bank.opening_balance_date = date(2025, 1, 1)
+    bank.save()
     salary = make_account("Salary", "income")
+    move(date(2025, 3, 1), salary, bank, "500")
     move(date(2026, 6, 1), salary, bank, "250")
 
-    card = dashboard.net_worth_card(TODAY, 12, charted=True)
+    six_months = dashboard.net_worth_card(TODAY, 6, charted=True)
+    everything = dashboard.net_worth_card(TODAY, None, charted=True)
+
+    assert six_months.since == six_months.history[0][0]
+    assert six_months.change == 250
+    assert six_months.change_percent == Decimal("16.7")
+    assert everything.since == date(2025, 1, 31)
+    assert everything.change == 750
+    assert everything.history[-1] == (TODAY, Decimal(1750))
+    assert everything.chart is not None
+
+
+def test_net_worth_change_is_since_last_month_end_without_history() -> None:
+    bank = opening("Bank", "asset", "1000")
+    move(date(2026, 6, 1), make_account("Salary", "income"), bank, "250")
+
+    card = dashboard.net_worth_card(TODAY, 12, charted=False)
 
     assert card.since == date(2026, 5, 31)
     assert card.change == 250
     assert card.change_percent == 25
-    assert card.history[-1] == (TODAY, Decimal(1250))
-    assert card.chart is not None
 
 
 @pytest.mark.parametrize("months", [6, 12, None])

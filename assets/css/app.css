@@ -347,3 +347,8 @@ section:has(#id_is_sip:not(:checked)) [data-sip-fields] {
   --color-violet-800: #d2c5fa;
   --color-violet-900: #e4dcfc;
 }
+
+/* The Net Worth card is plum in both themes, where the usual red is too dark to read. */
+#net-worth .text-red-600 {
+  color: var(--color-red-300);
+}

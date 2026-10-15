@@ -2,8 +2,8 @@
   <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
     <h2 id="flow-title" class="font-semibold">Earned and spent</h2>
     <div class="flex items-center gap-3 text-xs text-slate-500">
-      <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-emerald-500" aria-hidden="true"></span>Earned</span>
-      <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-slate-800" aria-hidden="true"></span>Spent</span>
+      <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-gold-500" aria-hidden="true"></span>Earned</span>
+      <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-slate-700" aria-hidden="true"></span>Spent</span>
       <span>Last 12 months</span>
     </div>
   </div>
@@ -11,14 +11,14 @@
     <p class="mt-4 flex h-40 items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">Hidden in Privacy Mode</p>
   {% else %}
     {% comment %}One column per month, each its own SVG so the labels and tooltips stay HTML.{% endcomment %}
-    <div class="mt-4 flex h-40 items-stretch gap-1 sm:gap-2">
+    <div class="mt-4 flex h-40 items-stretch gap-1 sm:gap-2 lg:h-48">
       {% for column in flow_columns %}
         <div tabindex="0" class="group relative flex min-w-0 flex-1 flex-col outline-hidden">
           <div class="relative min-h-0 flex-1">
             <svg viewBox="0 0 10 100" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
               <rect x="0" y="0" width="10" height="100" class="fill-transparent group-hover:fill-slate-50 group-focus-visible:fill-slate-100"/>
-              {% if column.earned.height %}<rect x="0.5" y="{{ column.earned.y|stringformat:'.2f' }}" width="4.25" height="{{ column.earned.height|stringformat:'.2f' }}" class="fill-emerald-500"/>{% endif %}
-              {% if column.spent.height %}<rect x="5.25" y="{{ column.spent.y|stringformat:'.2f' }}" width="4.25" height="{{ column.spent.height|stringformat:'.2f' }}" class="fill-slate-800"/>{% endif %}
+              {% if column.earned.height %}<rect x="0.5" y="{{ column.earned.y|stringformat:'.2f' }}" width="4.25" height="{{ column.earned.height|stringformat:'.2f' }}" class="fill-gold-500"/>{% endif %}
+              {% if column.spent.height %}<rect x="5.25" y="{{ column.spent.y|stringformat:'.2f' }}" width="4.25" height="{{ column.spent.height|stringformat:'.2f' }}" class="fill-slate-700"/>{% endif %}
               <line x1="0" x2="10" y1="100" y2="100" class="stroke-slate-200" vector-effect="non-scaling-stroke"/>
             </svg>
           </div>

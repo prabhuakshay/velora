@@ -31,19 +31,20 @@ RECENT_SHOWN = 6
 BUDGETS_SHOWN = 5
 # Categorical slots in a fixed order, so an Expense Account keeps its colour
 # only within one month's ranking; Other is always the neutral last slot.
+# Picked around the logo's plum and rose gold, and mid-toned to read on both themes.
 SLOT_CLASSES = (
-    "fill-[#2a78d6]",
-    "fill-[#eb6834]",
-    "fill-[#1baf7a]",
-    "fill-[#eda100]",
-    "fill-[#e87ba4]",
+    "fill-[#8e5aa8]",
+    "fill-[#d9a58c]",
+    "fill-[#3f8f88]",
+    "fill-[#c2607f]",
+    "fill-[#cf9a3a]",
 )
 OTHER_CLASS = "fill-slate-300"
 
 
 @dataclass(frozen=True)
 class NetWorthCard:
-    """Net Worth now, how far it moved since last month-end, and its history."""
+    """Net Worth now, its history over the range and how far it moved across it."""
 
     now: NetWorth
     change: Decimal
@@ -53,7 +54,7 @@ class NetWorthCard:
 
     @property
     def change_percent(self) -> Decimal | None:
-        """The change as a share of last month-end's Net Worth."""
+        """The change as a share of Net Worth when it was measured from."""
         before = self.now.total - self.change
         if not before:
             return None
@@ -61,12 +62,17 @@ class NetWorthCard:
 
 
 def net_worth_card(today: date, months: int | None, *, charted: bool) -> NetWorthCard:
-    """Net Worth with its history over the last months, uncharted in Privacy Mode."""
-    since = month_start(today) - timedelta(days=1)
+    """Net Worth with its history over the last months, uncharted in Privacy Mode.
+
+    The change runs from the range's first point, so it follows the range picked;
+    with no history to start from, it runs from last month-end.
+    """
+    month_end = month_start(today) - timedelta(days=1)
     points: list[date] = []
     if charted:
-        start = None if months is None else months_after(since, -months)
+        start = None if months is None else months_after(month_end, -months)
         points = history_dates(today, start)
+    since = points[0] if len(points) > 1 else month_end
     values = net_worth_on([since, *points, today])
     now = values[today]
     history = [(when, values[when].total) for when in points]
