@@ -2,21 +2,22 @@
   The floating Quick Add button, above the tab bar on phones, and its sheet.
   The sent message shows in the status region outside the sheet once the sheet
   has closed: while it's modal the rest of the page is inert, so a screen
-  reader wouldn't announce it.
+  reader wouldn't announce it. The button has its own view transition layer,
+  or during a page change <main>'s layer paints over it until the swap ends.
 {% endcomment %}
-<div class="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 md:bottom-8">
+<div class="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 [view-transition-name:quick-add] md:bottom-8">
   <div id="quick-add-status" role="status" class="flex justify-center px-20"></div>
-  <template id="quick-add-sent"><p class="quick-add-sent rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-lg">Quick Add sent</p></template>
+  <template id="quick-add-sent"><p class="quick-add-sent flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-medium text-on-brand shadow-lg">{% include "shell/icon.html" with name="check" class="size-4" %}Quick Add sent</p></template>
   <button type="button" aria-label="Quick Add" data-dialog-open="quick-add" data-quick-add-button title="Quick Add" class="pointer-events-auto absolute right-4 bottom-0 flex size-14 items-center justify-center rounded-full bg-brand text-on-brand shadow-lg shadow-brand/30 ring-1 ring-gold-500/40 transition-transform outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 md:right-8">
     {% include "shell/icon.html" with name="plus" class="size-6" stroke="stroke-[2.5]" %}
   </button>
 </div>
-<dialog id="quick-add" data-dialog data-sheet aria-labelledby="quick-add-title" class="m-0 mt-auto w-full max-w-none rounded-t-2xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-black/50 md:m-auto md:max-w-md md:rounded-2xl">
-  <div class="px-4 pt-2 pb-2">
-    <div class="mx-auto mb-1 h-1 w-9 rounded-full bg-slate-300 md:hidden" aria-hidden="true"></div>
-    <div class="flex items-center justify-between">
-      <h2 id="quick-add-title" class="flex items-center gap-2 text-lg font-semibold tracking-tight">{% include "shell/icon.html" with name="sparkle" class="size-5 text-violet-500" %}Quick Add</h2>
-      <button type="button" data-dialog-close class="-mr-2 flex h-11 items-center rounded-full px-3 text-sm font-medium text-slate-600 active:bg-slate-200">Cancel</button>
+<dialog id="quick-add" data-dialog data-sheet aria-labelledby="quick-add-title" class="m-0 mt-auto w-full max-w-none overflow-hidden rounded-t-3xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-chrome/60 backdrop:backdrop-blur-sm md:m-auto md:max-w-lg md:rounded-3xl">
+  <div class="px-5 pt-2">
+    <div class="mx-auto h-1 w-9 rounded-full bg-slate-300 md:hidden" aria-hidden="true"></div>
+    <div class="mt-2 flex items-center justify-between md:mt-3">
+      <h2 id="quick-add-title" class="flex items-center gap-2 font-semibold tracking-tight">{% include "shell/icon.html" with name="sparkle" class="size-4 text-gold-600" %}Quick Add</h2>
+      <button type="button" data-dialog-close aria-label="Close" class="-mr-2 flex size-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200">{% include "shell/icon.html" with name="x" class="size-5" %}</button>
     </div>
   </div>
   {% include "quick_add/_quick_add_form.html" %}

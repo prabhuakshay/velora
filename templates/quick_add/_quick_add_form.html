@@ -4,12 +4,13 @@
   data-autofocus, not autofocus: htmx focuses a swapped-in autofocus, which
   would pop the phone keyboard as the sheet closes.
 {% endcomment %}
-<form data-quick-add method="post" action="{% url 'quick_add_create' %}" hx-post="{% url 'quick_add_create' %}" hx-swap="outerHTML" class="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+<form data-quick-add method="post" action="{% url 'quick_add_create' %}" hx-post="{% url 'quick_add_create' %}" hx-swap="outerHTML" class="px-5 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
   {% csrf_token %}
   <label for="fab-quick-add-text" class="sr-only">Quick Add</label>
-  <div class="flex items-center gap-2">
-    {% include "quick_add/_text_input.html" with id="fab-quick-add-text" value=text autofocus=True describedby="fab-quick-add-error" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" %}
-    <button type="submit" class="flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 active:scale-95 motion-reduce:active:scale-100">
+  {% comment %}The field and its button share one box, whose ring shows focus, so the text box reads as the sheet's one control.{% endcomment %}
+  <div class="flex items-center gap-2 rounded-2xl bg-slate-100 p-1.5 pl-4 ring-2 ring-transparent transition-[background-color,box-shadow] focus-within:bg-white focus-within:ring-gold-500">
+    {% include "quick_add/_text_input.html" with id="fab-quick-add-text" value=text autofocus=True describedby="fab-quick-add-error" class="min-w-0 flex-1 bg-transparent py-2.5 text-lg outline-none placeholder:text-slate-400" %}
+    <button type="submit" class="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 text-sm font-semibold text-on-brand shadow-sm transition-transform hover:bg-brand-hover active:scale-95 motion-reduce:active:scale-100">
       {% include "shell/icon.html" with name="plus" class="size-4" stroke="stroke-[2.5]" %}Add
     </button>
   </div>
@@ -17,5 +18,5 @@
     {% for error in errors %}<p class="mt-2">{{ error }}</p>{% endfor %}
     <p data-send-error hidden class="mt-2">Couldn’t send. Check your connection and try again.</p>
   </div>
-  <p class="mt-2 text-xs text-slate-500">The AI turns it into a Draft for you to approve.</p>
+  <p class="mt-3 text-xs text-slate-500">Say what, how much and from where. The AI turns it into a Draft for you to approve.</p>
 </form>

@@ -179,7 +179,10 @@ html:has(#main) {
   navigation: auto;
 }
 
-::view-transition-group(main) {
+::view-transition-group(main),
+::view-transition-group(quick-add),
+::view-transition-old(quick-add),
+::view-transition-new(quick-add) {
   animation-duration: 60ms;
 }
 
