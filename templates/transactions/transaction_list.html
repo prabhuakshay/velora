@@ -67,7 +67,7 @@
             <li class="day">{% if transaction.date == today %}Today{% elif transaction.date == yesterday %}Yesterday{% elif transaction.date.year == today.year %}{{ transaction.date|date:"D, j M" }}{% else %}{{ transaction.date|date:"D, j M Y" }}{% endif %}</li>
           {% endifchanged %}
           <li>
-            <a href="{% url 'transaction_detail' transaction.pk %}?next={{ here|urlencode }}" hx-boost="false" data-transaction="{{ transaction.pk }}" data-dialog-open="transaction-sheet" aria-controls="transaction-pane" {% if forloop.first %}aria-current="true"{% endif %}>
+            <a href="{% url 'transaction_detail' transaction.pk %}?next={{ here|urlencode }}" hx-boost="false" data-transaction="{{ transaction.pk }}" data-dialog-open="transaction-sheet" aria-controls="transaction-pane" {% if transaction == selected %}aria-current="true"{% endif %}>
               {% firstof transaction.party transaction.description transaction.splits.all.0.to_account as title %}
               <span class="avatar{% if not user.privacy_mode and transaction.is_income %} avatar-income{% endif %}" aria-hidden="true">{{ title|stringformat:"s"|first|upper }}</span>
               <span class="min-w-0 flex-1">
@@ -112,7 +112,7 @@
     </section>
 
     <section data-tour-step="4" data-tour-text="The Transaction you picked, shown in full." id="transaction-pane" data-transaction-pane class="hidden min-h-0 bg-slate-50 overflow-y-auto overscroll-contain transition-opacity data-loading:opacity-50 lg:block" aria-label="Selected Transaction">
-      {% with transaction=page.0 %}
+      {% with transaction=selected %}
         {% if transaction %}
           {% include "transactions/_transaction_panel.html" %}
         {% else %}

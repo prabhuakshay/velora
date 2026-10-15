@@ -3,12 +3,13 @@
 import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlsplit, urlunsplit
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
 from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -70,12 +71,21 @@ def _listed_transactions() -> QuerySet[Transaction]:
 
 @login_required
 def transaction_list(request: HttpRequest) -> HttpResponse:
-    """List the Transactions matching the filters, newest first, a page at a time."""
+    """List the Transactions matching the filters, newest first, a page at a time.
+
+    The selected Transaction, as after saving one in the editor dialog, is
+    shown if it's on the page; otherwise the first is.
+    """
     filters = TransactionFilterForm(
         request.GET, privacy_mode=cast("User", request.user).privacy_mode
     )
     query = request.GET.copy()
+    wanted = query.pop("selected", [""])[-1]
+    here = f"{request.path}?{query.urlencode()}" if query else request.path
+    chips = filters.chips(query)
     query.pop("page", None)
+    page = paginate(request, filters.apply(_listed_transactions()))
+    selected = next((t for t in page if str(t.pk) == wanted), page[0] if page else None)
     today = timezone.localdate()
     return render(
         request,
@@ -83,12 +93,13 @@ def transaction_list(request: HttpRequest) -> HttpResponse:
         {
             "today": today,
             "yesterday": today - timedelta(days=1),
-            "page": paginate(request, filters.apply(_listed_transactions())),
+            "page": page,
+            "selected": selected,
             "filters": filters,
-            "chips": filters.chips(request.GET),
+            "chips": chips,
             "extra_query": f"&{query.urlencode()}" if query else "",
             "export_query": f"?{query.urlencode()}" if query else "",
-            "here": request.get_full_path(),
+            "here": here,
         },
     )
 
@@ -143,9 +154,11 @@ def _save_transaction_forms(
     )
     in_dialog = _in_dialog(request)
     if forms.is_valid():
-        forms.save()
+        saved = forms.save()
         if in_dialog:
-            return HttpResponse(headers={"HX-Location": _return_url(request)})
+            return HttpResponse(
+                headers={"HX-Location": _selecting(_return_url(request), saved.pk)}
+            )
         return redirect(_return_url(request))
     form, formset = forms.form, forms.formset
     if request.FILES:
@@ -166,6 +179,14 @@ def _save_transaction_forms(
             "in_dialog": in_dialog,
         },
     )
+
+
+def _selecting(url: str, pk: int) -> str:
+    """The URL with the saved Transaction selected, so the list shows it."""
+    parts = urlsplit(url)
+    query = QueryDict(parts.query, mutable=True)
+    query["selected"] = str(pk)
+    return urlunsplit(parts._replace(query=query.urlencode()))
 
 
 def _in_dialog(request: HttpRequest) -> bool:

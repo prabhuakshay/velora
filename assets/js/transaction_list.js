@@ -112,6 +112,13 @@
     if (!body.querySelector("[data-transaction-editor]")) location.assign(link.href);
   });
 
+  // A Transaction saved in the dialog comes back selected, maybe far down the list.
+  const reveal = () => current()?.scrollIntoView({ block: "nearest" });
+  document.addEventListener("htmx:load", (e) => {
+    if (e.target.contains(current())) reveal();
+  });
+  reveal();
+
   // Growing from phone to desktop: the pane was emptied when the sheet loaded.
   desktop.addEventListener("change", (e) => {
     const row = current();

@@ -53,9 +53,35 @@ def test_saving_in_the_dialog_sends_the_list_back(signed_in: Client) -> None:
         headers=DIALOG,
     )
 
+    saved = Transaction.objects.get()
     assert response.status_code == 200
-    assert response["HX-Location"] == back
-    assert Transaction.objects.count() == 1
+    assert response["HX-Location"] == f"{back}&selected={saved.pk}"
+
+
+def test_the_list_shows_the_selected_transaction(signed_in: Client) -> None:
+    older = recorded("Rent")
+    recorded("Food")
+
+    body = signed_in.get(
+        f"{reverse('transaction_list')}?q=o&selected={older.pk}"
+    ).content.decode()
+
+    assert f'data-transaction-detail="{older.pk}"' in body
+    row = body.split(f'data-transaction="{older.pk}"', 1)[1].split(">", 1)[0]
+    assert 'aria-current="true"' in row
+    # Rows and filter chips go back to the list without it.
+    assert "selected%3D" not in body
+    assert '<a href="?" class="inline-flex' in body
+
+
+def test_an_unlisted_selection_shows_the_first(signed_in: Client) -> None:
+    first = recorded("Rent")
+
+    body = signed_in.get(
+        f"{reverse('transaction_list')}?selected=999999"
+    ).content.decode()
+
+    assert f'data-transaction-detail="{first.pk}"' in body
 
 
 def test_an_invalid_save_in_the_dialog_shows_the_form_again(
