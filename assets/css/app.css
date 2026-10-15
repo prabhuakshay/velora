@@ -155,6 +155,25 @@ html:has(#main) {
     }
   }
 
+  /* The Transaction list's rows, styled here so the page stays inside its weight budget. */
+  .transaction-rows {
+    & [data-transaction] {
+      @apply flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-hidden active:bg-slate-100 md:hover:bg-slate-50 md:focus-visible:bg-slate-50 lg:border-l-2 lg:border-transparent lg:aria-[current=true]:border-gold-500 lg:aria-[current=true]:bg-gold-50;
+    }
+
+    & .avatar {
+      @apply flex size-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-600;
+    }
+
+    & .avatar-income {
+      @apply bg-gold-100 text-gold-700;
+    }
+
+    & .day {
+      @apply bg-slate-50 px-4 pt-3 pb-1.5 text-xs font-semibold tracking-[0.14em] text-gold-600 uppercase md:sticky md:top-0 md:z-1 md:bg-slate-50/95 md:backdrop-blur;
+    }
+  }
+
   .field-control :is(input, select, textarea) {
     @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base focus:border-slate-900 focus:ring-2 focus:ring-slate-900 focus:outline-hidden;
   }
@@ -286,6 +305,8 @@ section:has(#id_is_sip:not(:checked)) [data-sip-fields] {
   --color-chrome-line: #ffffff17;
   --color-chrome-hover: #ffffff0d;
   --color-chrome-active: #ffffff17;
+  /* Behind the cards: a step darker than them, so each card stands out. */
+  --color-canvas: #f1eaef;
 }
 
 :root {
@@ -305,8 +326,6 @@ section:has(#id_is_sip:not(:checked)) [data-sip-fields] {
 [data-theme="dark"] {
   color-scheme: dark;
   --color-brand: #d9a58c;
-  /* Behind the cards: a step darker than them, so each card stands out. */
-  --color-canvas: #f1eaef;
   --color-brand-hover: #e6bba6;
   --color-on-brand: #24142b;
   --color-gold-50: #2a1a22;
@@ -315,6 +334,7 @@ section:has(#id_is_sip:not(:checked)) [data-sip-fields] {
   --color-gold-600: #e2b49e;
   --color-gold-700: #ecc7b5;
   --color-chrome: #160c1a;
+  --color-canvas: #160c1a;
   --color-white: #20152a;
   --color-slate-50: #160c1a;
   --color-slate-100: #2a1e32;
@@ -334,7 +354,6 @@ section:has(#id_is_sip:not(:checked)) [data-sip-fields] {
   --color-red-700: #f58f8f;
   --color-red-800: #f9b4b4;
   --color-red-900: #fbd0d0;
-  --color-canvas: #160c1a;
   --color-amber-50: #2a1f14;
   --color-amber-100: #3a2b17;
   --color-amber-200: #5a431e;

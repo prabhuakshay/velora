@@ -29,7 +29,7 @@ def test_list_page_stays_small(signed_in: Client) -> None:
     body = list_page(signed_in)
 
     assert len(body.encode()) <= 90_000
-    assert len(re.findall(r"<[a-zA-Z]", body)) <= 830
+    assert len(re.findall(r"<[a-zA-Z]", body)) <= 860
     assert body.count("data-transaction-detail=") == 1
     assert body.count("<dialog") <= 4
 

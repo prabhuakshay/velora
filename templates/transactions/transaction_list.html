@@ -16,14 +16,14 @@
 {% block main_width %}{% endblock %}
 
 {% block main %}
-  <div class="md:grid md:h-[calc(100dvh-4rem)] md:grid-cols-1 lg:grid-cols-[22rem_1fr] md:overflow-hidden md:rounded-2xl md:bg-white md:shadow-sm md:ring-1 md:ring-slate-200 xl:grid-cols-[26rem_1fr] 2xl:grid-cols-[30rem_1fr]">
+  <div class="md:grid md:h-[calc(100dvh-8rem-2px)] md:grid-cols-1 lg:grid-cols-[22rem_1fr] md:overflow-hidden md:rounded-2xl md:bg-white md:shadow-sm md:ring-1 md:ring-slate-200 xl:grid-cols-[26rem_1fr] 2xl:grid-cols-[30rem_1fr]">
     <section class="flex min-h-0 flex-col lg:border-r lg:border-slate-200" aria-label="Transactions">
-      <div class="sticky -top-4 z-10 -mx-4 border-b border-slate-200 bg-slate-50/90 px-4 pt-2 pb-3 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-4 md:backdrop-blur-none">
+      <div class="sticky -top-4 z-10 -mx-4 border-b border-slate-200 bg-canvas/90 px-4 pt-2 pb-3 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-4 md:backdrop-blur-none">
         <div class="mb-3 hidden items-center justify-between md:flex">
-          <h1 class="text-lg font-semibold tracking-tight">Transactions <span class="ml-1 text-sm font-normal text-slate-400 tabular-nums">{{ page.paginator.count }}</span></h1>
+          <h1 class="flex items-center gap-2 text-lg font-semibold tracking-tight">Transactions <span class="rounded-full bg-gold-100 px-2 py-0.5 text-xs font-semibold text-gold-700 tabular-nums">{{ page.paginator.count }}</span></h1>
           <div class="flex gap-1">
-            {% if not user.privacy_mode %}<a href="{% url 'transaction_export' %}{{ export_query }}" hx-boost="false" download class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Export CSV" title="Export CSV">{% include "shell/icon.html" with name="download" class="size-4" %}</a>{% endif %}
-            <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}" class="rounded-lg bg-slate-900 p-2 text-white hover:bg-slate-700" aria-label="New Transaction" title="New Transaction">{% include "shell/icon.html" with name="plus" class="size-4" %}</a>
+            {% if not user.privacy_mode %}<a href="{% url 'transaction_export' %}{{ export_query }}" hx-boost="false" download class="rounded-lg p-2 text-slate-500 hover:bg-gold-50 hover:text-gold-700" aria-label="Export CSV" title="Export CSV">{% include "shell/icon.html" with name="download" class="size-4" %}</a>{% endif %}
+            <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}" class="rounded-lg bg-brand p-2 text-on-brand shadow-sm hover:bg-brand-hover" aria-label="New Transaction" title="New Transaction">{% include "shell/icon.html" with name="plus" class="size-4" stroke="stroke-[2.5]" %}</a>
           </div>
         </div>
         <form data-tour-step="1" data-tour-text="Search your Transactions, or open Filters to narrow the list." method="get" action="{% url 'transaction_list' %}" class="flex gap-2">
@@ -31,13 +31,13 @@
           <label class="relative min-w-0 flex-1">
             <span class="sr-only">{{ filters.q.label }}</span>
             {% include "shell/icon.html" with name="search" class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" %}
-            <input type="search" name="q" value="{{ filters.q.value|default:'' }}" placeholder="Search" enterkeyhint="search" class="h-10 w-full rounded-xl bg-slate-200/60 pr-3 pl-9 text-base placeholder:text-slate-500 focus:bg-white focus:ring-2 focus:ring-slate-900 focus:outline-hidden md:h-9 md:rounded-lg md:bg-slate-100 md:text-sm">
+            <input type="search" name="q" value="{{ filters.q.value|default:'' }}" placeholder="Search" enterkeyhint="search" class="h-10 w-full rounded-xl bg-slate-200/60 pr-3 pl-9 text-base ring-2 ring-transparent transition-[background-color,box-shadow] placeholder:text-slate-500 focus:bg-white focus:ring-gold-500 focus:outline-hidden md:h-9 md:bg-slate-100 md:text-sm">
           </label>
-          <button type="button" data-dialog-open="transaction-filters" class="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-200/60 text-slate-700 active:bg-slate-300 md:size-9 md:rounded-lg md:bg-slate-100 md:hover:bg-slate-200" aria-label="Filters">
+          <button type="button" data-dialog-open="transaction-filters" class="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-200/60 text-slate-700 active:bg-slate-300 md:size-9 md:bg-slate-100 md:hover:bg-gold-50 md:hover:text-gold-700" aria-label="Filters">
             {% include "shell/icon.html" with name="sliders" class="size-4" %}
-            {% if filters.narrowing %}<span class="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-slate-900 text-[10px] font-semibold text-white">{{ filters.narrowing }}</span>{% endif %}
+            {% if filters.narrowing %}<span class="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-gold-500 text-[10px] font-semibold text-brand dark:text-on-brand">{{ filters.narrowing }}</span>{% endif %}
           </button>
-          <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}" class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white active:bg-slate-700 md:hidden" aria-label="New Transaction">{% include "shell/icon.html" with name="plus" class="size-5" %}</a>
+          <a data-tour-step="3" data-tour-text="Record a new Transaction. Its Splits say which Accounts the money came from and went to." href="{% url 'transaction_create' %}" class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand text-on-brand shadow-sm active:bg-brand-hover md:hidden" aria-label="New Transaction">{% include "shell/icon.html" with name="plus" class="size-5" stroke="stroke-[2.5]" %}</a>
           {% include "help/_button.html" with area="transactions" title="Transactions" tour="transactions" %}
         </form>
         {% if filters.errors %}
@@ -46,30 +46,35 @@
         {% if chips %}
           <div class="-mx-4 mt-3 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0 [&::-webkit-scrollbar]:hidden">
             {% for label, query in chips %}
-              <a href="{{ query }}" class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 py-1.5 pr-2 pl-3 text-xs font-medium text-white active:bg-slate-700 md:hover:bg-slate-700" aria-label="Remove filter {{ label }}">
-                {{ label }}{% include "shell/icon.html" with name="x" class="size-3.5 text-white/70" %}
+              <a href="{{ query }}" class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gold-100 py-1.5 pr-2 pl-3 text-xs font-medium text-gold-700 ring-1 ring-gold-200 active:bg-gold-200 md:hover:bg-gold-200" aria-label="Remove filter {{ label }}">
+                {{ label }}{% include "shell/icon.html" with name="x" class="size-3.5 opacity-70" %}
               </a>
             {% endfor %}
           </div>
           <p class="mt-2 flex items-center justify-between text-xs text-slate-500">
             <span>{{ page.paginator.count }} matching Transaction{{ page.paginator.count|pluralize }}</span>
-            <a href="{% url 'transaction_list' %}" class="font-medium underline-offset-2 hover:text-slate-900 hover:underline">Clear</a>
+            <a href="{% url 'transaction_list' %}" class="font-medium underline-offset-2 hover:text-gold-700 hover:underline">Clear</a>
           </p>
         {% endif %}
       </div>
 
       {% comment %}hx-sync: selecting a row aborts the last row's fetch, so a slow response can't replace a newer one.{% endcomment %}
-      <ul data-tour-step="2" data-tour-text="Every Transaction, newest first. Tap one to see it in full." hx-sync="this:replace" class="-mx-4 divide-y divide-slate-100 bg-white md:mx-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
+      <ul data-tour-step="2" data-tour-text="Every Transaction, newest first. Tap one to see it in full." hx-sync="this:replace" class="transaction-rows -mx-4 divide-y divide-slate-100 bg-white md:mx-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
         {% for transaction in page %}
+          {% ifchanged transaction.date %}
+            <li class="day">{% if transaction.date == today %}Today{% elif transaction.date == yesterday %}Yesterday{% elif transaction.date.year == today.year %}{{ transaction.date|date:"D, j M" }}{% else %}{{ transaction.date|date:"D, j M Y" }}{% endif %}</li>
+          {% endifchanged %}
           <li>
-            <a href="{% url 'transaction_detail' transaction.pk %}?next={{ here|urlencode }}" hx-boost="false" data-transaction="{{ transaction.pk }}" data-dialog-open="transaction-sheet" aria-controls="transaction-pane" {% if forloop.first %}aria-current="true"{% endif %} class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-hidden active:bg-slate-100 md:hover:bg-slate-50 md:focus-visible:bg-slate-50 lg:border-l-2 lg:border-transparent lg:aria-[current=true]:border-slate-900 lg:aria-[current=true]:bg-slate-100">
+            <a href="{% url 'transaction_detail' transaction.pk %}?next={{ here|urlencode }}" hx-boost="false" data-transaction="{{ transaction.pk }}" data-dialog-open="transaction-sheet" aria-controls="transaction-pane" {% if forloop.first %}aria-current="true"{% endif %}>
+              {% firstof transaction.party transaction.description transaction.splits.all.0.to_account as title %}
+              <span class="avatar{% if not user.privacy_mode and transaction.is_income %} avatar-income{% endif %}" aria-hidden="true">{{ title|stringformat:"s"|first|upper }}</span>
               <span class="min-w-0 flex-1">
                 <span class="flex items-baseline justify-between gap-3">
                   <span class="truncate font-medium">{% include "transactions/_transaction_title.html" %}</span>
                   <span class="shrink-0 text-sm font-semibold">{% include "transactions/_transaction_total.html" %}</span>
                 </span>
                 <span class="mt-0.5 flex items-center justify-between gap-3 text-xs text-slate-500">
-                  <span class="truncate">{{ transaction.date|date:"j M Y" }} · {% with split=transaction.splits.all.0 count=transaction.splits.all|length %}{{ split.from_account }} → {{ split.to_account }}{% if count > 1 %} +{{ count|add:"-1" }}{% endif %}{% endwith %}</span>
+                  <span class="truncate">{% with split=transaction.splits.all.0 count=transaction.splits.all|length %}{{ split.from_account }} → {{ split.to_account }}{% if count > 1 %} +{{ count|add:"-1" }}{% endif %}{% endwith %}</span>
                   {% if transaction.attachment_count %}
                     <span class="flex shrink-0 items-center gap-0.5 text-slate-400" aria-label="{{ transaction.attachment_count }} Attachment{{ transaction.attachment_count|pluralize }}" title="{{ transaction.attachment_count }} Attachment{{ transaction.attachment_count|pluralize }}">
                       {% include "shell/icon.html" with name="paperclip" class="size-3.5" %}<span class="tabular-nums" aria-hidden="true">{{ transaction.attachment_count }}</span>
@@ -82,7 +87,7 @@
           </li>
         {% empty %}
           <li class="flex flex-col items-center px-6 py-16 text-center">
-            <span class="flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">{% include "shell/icon.html" with name="receipt" class="size-6" %}</span>
+            <span class="flex size-12 items-center justify-center rounded-2xl bg-gold-100 text-gold-700">{% include "shell/icon.html" with name="receipt" class="size-6" %}</span>
             {% if filters.active %}
               <p class="mt-4 font-semibold">No Transactions match.</p>
               <p class="mt-1 text-sm text-slate-500">Try fewer filters or a different search.</p>
@@ -98,14 +103,14 @@
 
       {% if page.paginator.num_pages > 1 %}
         <nav class="mt-3 flex items-center justify-between text-sm md:mt-0 md:border-t md:border-slate-200 md:px-4 md:py-2" aria-label="Pages">
-          {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{{ extra_query }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-slate-100">{% include "shell/icon.html" with name="chevron-left" class="size-4" %}Newer</a>{% else %}<span></span>{% endif %}
+          {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{{ extra_query }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-gold-50 hover:text-gold-700">{% include "shell/icon.html" with name="chevron-left" class="size-4" %}Newer</a>{% else %}<span></span>{% endif %}
           <span class="text-xs text-slate-400 tabular-nums">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
-          {% if page.has_next %}<a href="?page={{ page.next_page_number }}{{ extra_query }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-slate-100">Older{% include "shell/icon.html" with name="chevron-right" class="size-4" %}</a>{% else %}<span></span>{% endif %}
+          {% if page.has_next %}<a href="?page={{ page.next_page_number }}{{ extra_query }}" class="flex items-center gap-1 rounded-lg px-2 py-1.5 font-medium text-slate-600 hover:bg-gold-50 hover:text-gold-700">Older{% include "shell/icon.html" with name="chevron-right" class="size-4" %}</a>{% else %}<span></span>{% endif %}
         </nav>
       {% endif %}
     </section>
 
-    <section data-tour-step="4" data-tour-text="The Transaction you picked, shown in full." id="transaction-pane" data-transaction-pane class="hidden min-h-0 overflow-y-auto overscroll-contain transition-opacity data-loading:opacity-50 lg:block" aria-label="Selected Transaction">
+    <section data-tour-step="4" data-tour-text="The Transaction you picked, shown in full." id="transaction-pane" data-transaction-pane class="hidden min-h-0 bg-slate-50 overflow-y-auto overscroll-contain transition-opacity data-loading:opacity-50 lg:block" aria-label="Selected Transaction">
       {% with transaction=page.0 %}
         {% if transaction %}
           {% include "transactions/_transaction_panel.html" %}
@@ -120,8 +125,8 @@
     </template>
   </div>
 
-  <dialog id="transaction-sheet" data-dialog data-sheet aria-label="Transaction" class="m-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto overscroll-contain rounded-t-2xl bg-white p-0 text-base text-slate-900 shadow-2xl backdrop:bg-black/50 md:m-auto md:max-h-[85dvh] md:max-w-xl md:rounded-2xl lg:hidden">
-    <div class="sticky top-0 z-10 flex justify-end bg-white/95 px-4 pt-2 backdrop-blur">
+  <dialog id="transaction-sheet" data-dialog data-sheet aria-label="Transaction" class="m-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto overscroll-contain rounded-t-3xl bg-slate-50 p-0 text-base text-slate-900 shadow-2xl backdrop:bg-chrome/60 backdrop:backdrop-blur-sm md:m-auto md:max-h-[85dvh] md:max-w-xl md:rounded-3xl lg:hidden">
+    <div class="sticky top-0 z-10 flex justify-end bg-slate-50/95 px-4 pt-2 backdrop-blur">
       <div class="absolute top-2 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-slate-300 md:hidden" aria-hidden="true"></div>
       <button type="button" data-dialog-close class="mt-1 -mr-2 flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 active:bg-slate-200">Done</button>
     </div>

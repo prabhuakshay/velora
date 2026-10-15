@@ -1,6 +1,7 @@
 """Views for recording and reviewing Transactions."""
 
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib import messages
@@ -10,6 +11,7 @@ from django.db.models import Count, OuterRef, Prefetch, Subquery, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from apps.accounts.models import Account
@@ -74,10 +76,13 @@ def transaction_list(request: HttpRequest) -> HttpResponse:
     )
     query = request.GET.copy()
     query.pop("page", None)
+    today = timezone.localdate()
     return render(
         request,
         "transactions/transaction_list.html",
         {
+            "today": today,
+            "yesterday": today - timedelta(days=1),
             "page": paginate(request, filters.apply(_listed_transactions())),
             "filters": filters,
             "chips": filters.chips(request.GET),

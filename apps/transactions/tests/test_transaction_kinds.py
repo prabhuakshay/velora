@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-INCOME_BADGE = 'text-emerald-700">Income</span>'
-TRANSFER_BADGE = 'text-sky-700">Transfer</span>'
+INCOME_BADGE = 'text-gold-700">Income</span>'
+TRANSFER_BADGE = 'text-slate-600">Transfer</span>'
 
 
 def record(*moves: tuple[Account, Account]) -> Transaction:
