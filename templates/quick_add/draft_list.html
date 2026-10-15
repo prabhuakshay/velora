@@ -6,7 +6,7 @@
 
 {% block main %}
   {% comment %}Pinned while the list scrolls, so a Quick Add is always one tap away.{% endcomment %}
-  <div class="sticky -top-4 z-20 -mx-4 bg-slate-50/95 px-4 pt-4 pb-3 backdrop-blur md:-top-8 md:-mx-10 md:px-10 md:pt-8">
+  <div class="sticky -top-4 z-20 -mx-4 bg-canvas/95 px-4 pt-4 pb-3 backdrop-blur md:-top-8 md:-mx-10 md:px-10 md:pt-8">
     {% if quick_add_enabled %}
       <form data-tour-step="1" data-tour-text="Quick Add: write what you spent in plain words, such as “lunch 850 on hdfc card”, and the AI turns it into a Draft." method="post" action="{% url 'quick_add_create' %}" class="rounded-2xl bg-slate-900 p-2 text-white shadow-lg shadow-slate-900/10 ring-slate-500 focus-within:ring-2">
         {% csrf_token %}

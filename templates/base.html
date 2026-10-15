@@ -32,7 +32,7 @@
     {% block scripts %}{% endblock %}
     {% include "partials/forget_post.html" %}
   </head>
-  <body class="min-h-screen bg-slate-50 text-slate-900 antialiased" hx-boost="true" hx-ext="head-support">
+  <body class="min-h-screen bg-canvas text-slate-900 antialiased" hx-boost="true" hx-ext="head-support">
     {% comment %}
       Not on <body>: boosting swaps only its contents, so a header there would
       keep the token from before login rotated it.

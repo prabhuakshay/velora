@@ -305,6 +305,8 @@ section:has(#id_is_sip:not(:checked)) [data-sip-fields] {
 [data-theme="dark"] {
   color-scheme: dark;
   --color-brand: #d9a58c;
+  /* Behind the cards: a step darker than them, so each card stands out. */
+  --color-canvas: #f1eaef;
   --color-brand-hover: #e6bba6;
   --color-on-brand: #24142b;
   --color-gold-50: #2a1a22;
@@ -332,6 +334,7 @@ section:has(#id_is_sip:not(:checked)) [data-sip-fields] {
   --color-red-700: #f58f8f;
   --color-red-800: #f9b4b4;
   --color-red-900: #fbd0d0;
+  --color-canvas: #160c1a;
   --color-amber-50: #2a1f14;
   --color-amber-100: #3a2b17;
   --color-amber-200: #5a431e;
