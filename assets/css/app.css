@@ -183,6 +183,16 @@ html:has(#main) {
   animation-duration: 60ms;
 }
 
+/* A theme switch crossfades the whole screen, slower than a page change. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme-switching]::view-transition-group(*),
+  html[data-theme-switching]::view-transition-old(*),
+  html[data-theme-switching]::view-transition-new(*) {
+    animation-duration: 350ms;
+    animation-timing-function: ease-in-out;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),

@@ -22,7 +22,12 @@ function setTheme(pref) {
   try {
     localStorage.setItem("theme", pref);
   } catch {}
-  applyTheme(pref);
+  if (!document.startViewTransition) return applyTheme(pref);
+  // Marks the transition as a theme change, so app.css slows the crossfade
+  // that page changes keep short.
+  root.dataset.themeSwitching = "";
+  const transition = document.startViewTransition(() => applyTheme(pref));
+  transition.finished.finally(() => delete root.dataset.themeSwitching);
 }
 
 applyTheme();
