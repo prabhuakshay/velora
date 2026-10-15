@@ -21,27 +21,46 @@ def navigation(request: HttpRequest) -> dict[str, Any]:
         active = path == url if exact else path.startswith(url)
         return {"label": label, "url": url, "active": active, "badge": badge}
 
-    def top(
-        icon: str, label: str, url: str, *, exact: bool = False, badge: str = ""
+    def top(  # noqa: PLR0913
+        icon: str,
+        label: str,
+        url: str,
+        *,
+        exact: bool = False,
+        badge: str = "",
+        section: str = "",
     ) -> dict[str, Any]:
-        return leaf(label, url, exact=exact, badge=badge) | {"icon": icon}
+        # `section` starts a new heading in the sidebar at this item.
+        return leaf(label, url, exact=exact, badge=badge) | {
+            "icon": icon,
+            "section": section,
+        }
 
     nav = [
-        top("home", label="Home", url=reverse("index"), exact=True),
+        top("home", label="Home", url=reverse("index"), exact=True, section="Daily"),
         top("list", label="Transactions", url=reverse("transaction_list")),
         top("inbox", label="Drafts", url=reverse("draft_list"), badge="drafts"),
         top(
-            "repeat", label="Schedules", url=reverse("schedule_list"), badge="schedules"
+            "repeat",
+            label="Schedules",
+            url=reverse("schedule_list"),
+            badge="schedules",
+            section="Planning",
         ),
         top("card", label="Subscriptions", url=reverse("subscription_list")),
         top("trend", label="Forecast", url=reverse("forecast")),
         top("target", label="Budgets", url=reverse("budget_list")),
-        top("wallet", label="Accounts", url=reverse("account_list", args=["asset"]))
+        top(
+            "wallet",
+            label="Accounts",
+            url=reverse("account_list", args=["asset"]),
+            section="Wealth",
+        )
         # The kind tabs on the page switch kinds, so any kind counts as here.
         | {"active": path.startswith("/accounts/")},
         top("pie", label="Investments", url=reverse("investments_overview")),
         top("flag", label="Goals", url=reverse("goal_list")),
-        top("tag", label="Classification", url=reverse("party_list"))
+        top("tag", label="Classification", url=reverse("party_list"), section="Setup")
         # The Parties and Tags tabs on the page switch lists, so both count as here.
         | {"active": path.startswith(("/parties/", "/tags/"))},
         top("help", label="Help", url=reverse("help_index")),

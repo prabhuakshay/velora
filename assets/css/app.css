@@ -73,7 +73,7 @@ html:has(#main) {
 
 @layer components {
   .btn-primary {
-    @apply rounded-lg bg-slate-900 px-4 py-2.5 font-medium text-white hover:bg-slate-700;
+    @apply rounded-lg bg-brand px-4 py-2.5 font-medium text-on-brand shadow-xs hover:bg-brand-hover;
   }
 
   .btn-secondary {
@@ -227,4 +227,104 @@ section:has(#id_is_subscription:not(:checked)) [data-subscription-fields] {
 /* Likewise its SIP fields. */
 section:has(#id_is_sip:not(:checked)) [data-sip-fields] {
   display: none;
+}
+
+/*
+ * The palette follows the logo, a rose-gold lotus on deep plum. Slate is
+ * remapped to plum-tinted neutrals, so every page picks up the brand without
+ * template changes; dark mode flips that scale end to end.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --color-brand: #24142b;
+  --color-brand-hover: #3d2547;
+  --color-on-brand: #fbf3ef;
+  --color-gold-50: #fbf4f0;
+  --color-gold-100: #f6e7df;
+  --color-gold-200: #ecd0c2;
+  --color-gold-400: #e2b69f;
+  --color-gold-500: #d9a58c;
+  --color-gold-600: #b97a5f;
+  --color-gold-700: #8f5a43;
+  /* The plum sidebar around the page. */
+  --color-chrome: #24142b;
+  --color-chrome-fg: #f3ebf1;
+  --color-chrome-muted: #a8939f;
+  --color-chrome-line: #ffffff17;
+  --color-chrome-hover: #ffffff0d;
+  --color-chrome-active: #ffffff17;
+}
+
+:root {
+  --color-slate-50: #faf7f8;
+  --color-slate-100: #f3eef1;
+  --color-slate-200: #e8e0e5;
+  --color-slate-300: #d4c8cf;
+  --color-slate-400: #a5959f;
+  --color-slate-500: #7e6e79;
+  --color-slate-600: #61525d;
+  --color-slate-700: #4a3b47;
+  --color-slate-800: #352838;
+  --color-slate-900: #24142b;
+  --color-slate-950: #170c1b;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-brand: #d9a58c;
+  --color-brand-hover: #e6bba6;
+  --color-on-brand: #24142b;
+  --color-gold-50: #2a1a22;
+  --color-gold-100: #352129;
+  --color-gold-200: #4d3138;
+  --color-gold-600: #e2b49e;
+  --color-gold-700: #ecc7b5;
+  --color-chrome: #160c1a;
+  --color-white: #20152a;
+  --color-slate-50: #160c1a;
+  --color-slate-100: #2a1e32;
+  --color-slate-200: #372a3f;
+  --color-slate-300: #4a3b52;
+  --color-slate-400: #7a6a80;
+  --color-slate-500: #9d8fa2;
+  --color-slate-600: #bcb0bf;
+  --color-slate-700: #d8cfda;
+  --color-slate-800: #ebe5ec;
+  --color-slate-900: #f6f1f6;
+  --color-slate-950: #fdfafd;
+  --color-red-50: #2c1519;
+  --color-red-100: #3b1b20;
+  --color-red-200: #5a2a30;
+  --color-red-600: #f26b6b;
+  --color-red-700: #f58f8f;
+  --color-red-800: #f9b4b4;
+  --color-red-900: #fbd0d0;
+  --color-amber-50: #2a1f14;
+  --color-amber-100: #3a2b17;
+  --color-amber-200: #5a431e;
+  --color-amber-600: #e8a93c;
+  --color-amber-700: #f2c065;
+  --color-amber-800: #f7d48f;
+  --color-amber-900: #fae3b5;
+  --color-emerald-50: #13231f;
+  --color-emerald-100: #172f27;
+  --color-emerald-200: #21473a;
+  --color-emerald-600: #4fd1a1;
+  --color-emerald-700: #6fdcb3;
+  --color-emerald-800: #9de8cb;
+  --color-sky-50: #141f2c;
+  --color-sky-100: #18293a;
+  --color-sky-200: #223f57;
+  --color-sky-600: #5bb6ea;
+  --color-sky-700: #7cc6f0;
+  --color-sky-800: #a7d8f5;
+  --color-sky-900: #cfe9f9;
+  --color-violet-50: #221a30;
+  --color-violet-100: #2c2142;
+  --color-violet-200: #3e3062;
+  --color-violet-600: #a58cf5;
+  --color-violet-700: #bba7f7;
+  --color-violet-800: #d2c5fa;
+  --color-violet-900: #e4dcfc;
 }

@@ -1,0 +1,14 @@
+{% comment %}Theme switch: a light / dark / system control on the sidebar, or one button that cycles them.{% endcomment %}
+{% if segmented %}
+  <div class="flex rounded-lg border border-chrome-line bg-chrome-hover p-0.5" role="group" aria-label="Theme">
+    <button type="button" data-theme-set="light" class="flex h-7 flex-1 items-center justify-center rounded-md text-chrome-muted transition-colors hover:text-chrome-fg in-data-[theme-pref=light]:bg-chrome-active in-data-[theme-pref=light]:text-gold-500" aria-label="Light" title="Light">{% include "shell/icon.html" with name="theme-light" class="size-4" stroke="stroke-[1.75]" %}</button>
+    <button type="button" data-theme-set="dark" class="flex h-7 flex-1 items-center justify-center rounded-md text-chrome-muted transition-colors hover:text-chrome-fg in-data-[theme-pref=dark]:bg-chrome-active in-data-[theme-pref=dark]:text-gold-500" aria-label="Dark" title="Dark">{% include "shell/icon.html" with name="theme-dark" class="size-4" stroke="stroke-[1.75]" %}</button>
+    <button type="button" data-theme-set="system" class="flex h-7 flex-1 items-center justify-center rounded-md text-chrome-muted transition-colors hover:text-chrome-fg in-data-[theme-pref=system]:bg-chrome-active in-data-[theme-pref=system]:text-gold-500" aria-label="System" title="System">{% include "shell/icon.html" with name="theme-system" class="size-4" stroke="stroke-[1.75]" %}</button>
+  </div>
+{% else %}
+  <button type="button" data-theme-cycle class="{{ class }}" aria-label="Switch theme" title="Switch theme (light, dark, system)">
+    {% include "shell/icon.html" with name="theme-light" class="hidden size-5 in-data-[theme-pref=light]:block" stroke="stroke-[1.75]" %}
+    {% include "shell/icon.html" with name="theme-dark" class="hidden size-5 in-data-[theme-pref=dark]:block" stroke="stroke-[1.75]" %}
+    {% include "shell/icon.html" with name="theme-system" class="hidden size-5 in-data-[theme-pref=system]:block" stroke="stroke-[1.75]" %}
+  </button>
+{% endif %}

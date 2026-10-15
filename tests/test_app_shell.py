@@ -63,7 +63,7 @@ def test_more_tab_is_active_on_a_page_that_lives_in_the_more_sheet(
     body = signed_in.get(reverse("tag_list")).content.decode()
     more_tab = body[: body.index("More\n")].rsplit("<button", 1)[1]
 
-    assert "text-slate-900" in more_tab
+    assert "text-gold-600" in more_tab
     assert f'href="{reverse("party_list")}" aria-current="page"' in body
 
 

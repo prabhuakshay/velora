@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% comment %}
-  Desktop: sidebar. Phone: title bar, bottom tab bar and the More sheet, laid
+  Desktop: plum sidebar, with the page in an inset panel. Phone: title bar, bottom tab bar and the More sheet, laid
   out to fill the screen so only <main> scrolls, like an installed app.
   Stroke widths are picked at runtime, so they're named here for Tailwind to
   emit: stroke-[2.25] stroke-[1.75]
@@ -14,87 +14,103 @@
 {% block content %}
   {% comment %}Counts are callables; resolve each once, not per badge.{% endcomment %}
   {% with draft_count=draft_count suggested_schedule_count=suggested_schedule_count %}
-  <div class="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left scale-x-0 bg-slate-900 opacity-0 in-data-[loading]:scale-x-90 in-data-[loading]:opacity-100 in-data-[loading]:transition-[scale,opacity] in-data-[loading]:delay-150 in-data-[loading]:duration-[4s] in-data-[loading]:ease-out motion-reduce:hidden" aria-hidden="true"></div>
-  <a href="#main" class="fixed top-2 left-2 z-50 -translate-y-16 rounded-lg bg-white px-3 py-2 text-sm font-medium ring-2 ring-slate-900 focus:translate-y-0">Skip to main content</a>
-  <div class="fixed inset-0 flex touch-manipulation flex-col overscroll-none bg-slate-50 [-webkit-tap-highlight-color:transparent] md:flex-row">
-    <aside class="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white text-sm md:flex">
-      <div class="flex h-14 items-center justify-between px-4">
-        <a href="{% url 'index' %}" class="flex items-center gap-2 text-base font-semibold tracking-tight">
-          <img src="{% static 'icons/icon.svg' %}" alt="" class="size-6">
-          Velora
+  <div class="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left scale-x-0 bg-gold-500 opacity-0 in-data-[loading]:scale-x-90 in-data-[loading]:opacity-100 in-data-[loading]:transition-[scale,opacity] in-data-[loading]:delay-150 in-data-[loading]:duration-[4s] in-data-[loading]:ease-out motion-reduce:hidden" aria-hidden="true"></div>
+  <a href="#main" class="fixed top-2 left-2 z-50 -translate-y-16 rounded-lg bg-white px-3 py-2 text-sm font-medium ring-2 ring-gold-500 focus:translate-y-0">Skip to main content</a>
+  <div class="fixed inset-0 flex touch-manipulation flex-col overscroll-none bg-slate-50 [-webkit-tap-highlight-color:transparent] md:flex-row md:bg-chrome">
+    <aside class="hidden w-60 shrink-0 flex-col text-sm md:flex">
+      <div class="flex h-14 items-center px-5">
+        <a href="{% url 'index' %}" class="flex items-center gap-2.5">
+          {% include "shell/lotus.html" with class="size-7 text-gold-500" %}
+          <span class="text-[17px] font-semibold tracking-[0.12em] text-gold-400 uppercase">Velora</span>
         </a>
-        {% include "shell/privacy.html" with class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" %}
       </div>
-      <nav class="flex flex-1 flex-col gap-0.5 px-2 pb-2" aria-label="Main">
+      <nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3" aria-label="Main">
         {% for item in nav_all %}
-          <a href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %} class="group flex items-center gap-2.5 rounded-md px-2.5 py-2 font-medium transition-colors outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 {% if item.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-            {% include "shell/icon.html" with name=item.icon class="size-4 text-slate-400 group-hover:text-slate-600 group-aria-[current=page]:text-slate-900" %}
+          {% if item.section %}
+            <p class="px-2.5 pt-4 pb-1.5 text-[10px] font-medium tracking-[0.14em] text-chrome-muted/70 uppercase first:pt-1">{{ item.section }}</p>
+          {% endif %}
+          <a href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %} class="group relative flex h-8 items-center gap-2.5 rounded-md px-2.5 font-medium transition-colors outline-hidden focus-visible:ring-2 focus-visible:ring-gold-500 {% if item.active %}bg-chrome-active text-chrome-fg before:absolute before:inset-y-1.5 before:-left-3 before:w-0.5 before:rounded-r-full before:bg-gold-500{% else %}text-chrome-muted hover:bg-chrome-hover hover:text-chrome-fg{% endif %}">
+            {% include "shell/icon.html" with name=item.icon class="size-4 group-aria-[current=page]:text-gold-500" stroke="stroke-[1.75]" %}
             <span class="flex-1">{{ item.label }}</span>
-            {% include "shell/badge.html" with key=item.badge class="rounded-full bg-slate-900 px-1.5 text-xs text-white tabular-nums" %}
+            {% include "shell/badge.html" with key=item.badge class="rounded-full bg-gold-500 px-1.5 text-[11px] font-semibold text-brand tabular-nums dark:text-on-brand" %}
           </a>
         {% endfor %}
       </nav>
-      <div class="border-t border-slate-200 p-2">
+      <div class="space-y-2 border-t border-chrome-line p-3">
+        {% include "shell/theme.html" with segmented=True %}
         {% comment %}
           A popover, so clicking away or Escape closes it without JS. Pinned to
           the sidebar's foot, which always sits at the bottom of the screen.
         {% endcomment %}
-        <button type="button" data-nav-profile popovertarget="account-menu"{% if nav_profile.active %} data-current="true"{% endif %} class="group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors outline-hidden hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-900 data-current:bg-slate-100">
-          <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-sm font-semibold text-white uppercase" aria-hidden="true">{{ user.full_name|default:user.email|slice:":1" }}</span>
+        <button type="button" data-nav-profile popovertarget="account-menu"{% if nav_profile.active %} data-current="true"{% endif %} class="group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors outline-hidden hover:bg-chrome-hover focus-visible:ring-2 focus-visible:ring-gold-500 data-current:bg-chrome-active">
+          <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-400 to-gold-600 text-xs font-semibold text-brand uppercase ring-2 ring-chrome-line dark:text-on-brand" aria-hidden="true">{{ user.full_name|default:user.email|slice:":1" }}</span>
           <span class="min-w-0 flex-1 leading-tight">
-            <span class="block truncate font-medium text-slate-900">{{ user.full_name|default:"Account" }}</span>
-            <span class="block truncate text-xs text-slate-500">{{ user.email }}</span>
+            <span class="block truncate font-medium text-chrome-fg">{{ user.full_name|default:"Account" }}</span>
+            <span class="block truncate text-xs text-chrome-muted">{{ user.email }}</span>
           </span>
-          {% include "shell/icon.html" with name="selector" class="size-4 text-slate-400 group-hover:text-slate-600" %}
+          {% include "shell/icon.html" with name="selector" class="size-4 text-chrome-muted" %}
         </button>
-        <div id="account-menu" popover class="inset-auto bottom-[4.25rem] left-2 m-0 w-56 translate-y-1 rounded-xl border-0 bg-white p-1 text-sm text-slate-900 opacity-0 shadow-lg ring-1 shadow-slate-900/10 ring-slate-200 transition-[opacity,translate,display,overlay] transition-discrete duration-150 ease-out open:translate-y-0 open:opacity-100 starting:open:translate-y-1 starting:open:opacity-0 motion-reduce:transition-none">
-          <div>
-            {% for c in nav_profile.children %}
-              <a href="{{ c.url }}" {% if c.active %}aria-current="page"{% endif %} class="group/item flex items-center gap-2.5 rounded-md px-2.5 py-2 font-medium outline-hidden focus-visible:bg-slate-100 {% if c.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-                {% include "shell/icon.html" with name=c.icon class="size-4 text-slate-400 group-hover/item:text-slate-600 group-aria-[current=page]/item:text-slate-900" %}
-                <span class="flex-1">{{ c.label }}</span>
-                {% if c.active %}{% include "shell/icon.html" with name="check" class="size-4 text-slate-900" %}{% endif %}
-              </a>
-            {% endfor %}
-          </div>
-          <form method="post" action="{% url 'logout' %}" class="mt-1 border-t border-slate-100 pt-1">
-            {% csrf_token %}
-            <button type="submit" class="group/item flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left font-medium text-slate-600 outline-hidden hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700">
-              {% include "shell/icon.html" with name="logout" class="size-4 text-slate-400 group-hover/item:text-red-700 group-focus-visible/item:text-red-700" %}
-              Log out
-            </button>
-          </form>
-        </div>
       </div>
     </aside>
+    {% comment %}Outside the sidebar, so the menu is a page surface rather than plum chrome.{% endcomment %}
+    <div id="account-menu" popover class="inset-auto bottom-16 left-3 m-0 w-60 translate-y-1 rounded-xl border border-slate-200 bg-white p-1 text-sm text-slate-900 opacity-0 shadow-lg shadow-slate-900/10 transition-[opacity,translate,display,overlay] transition-discrete duration-150 ease-out open:translate-y-0 open:opacity-100 starting:open:translate-y-1 starting:open:opacity-0 motion-reduce:transition-none dark:shadow-black/40">
+      <div>
+        {% for c in nav_profile.children %}
+          <a href="{{ c.url }}" {% if c.active %}aria-current="page"{% endif %} class="group/item flex items-center gap-2.5 rounded-md px-2.5 py-2 font-medium outline-hidden focus-visible:bg-slate-100 {% if c.active %}bg-slate-100 text-slate-900{% else %}text-slate-600 hover:bg-slate-100 hover:text-slate-900{% endif %}">
+            {% include "shell/icon.html" with name=c.icon class="size-4 text-slate-400 group-hover/item:text-slate-600 group-aria-[current=page]/item:text-gold-600" %}
+            <span class="flex-1">{{ c.label }}</span>
+            {% if c.active %}{% include "shell/icon.html" with name="check" class="size-4 text-gold-600" %}{% endif %}
+          </a>
+        {% endfor %}
+      </div>
+      <form method="post" action="{% url 'logout' %}" class="mt-1 border-t border-slate-200 pt-1">
+        {% csrf_token %}
+        <button type="submit" class="group/item flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left font-medium text-slate-600 outline-hidden hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700">
+          {% include "shell/icon.html" with name="logout" class="size-4 text-slate-400 group-hover/item:text-red-700 group-focus-visible/item:text-red-700" %}
+          Log out
+        </button>
+      </form>
+    </div>
 
     <header class="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
       <p class="py-3 text-lg font-semibold tracking-tight">{{ nav_title }}</p>
-      {% include "shell/privacy.html" with class="-mr-2 flex size-11 items-center justify-center rounded-full text-slate-500 active:bg-slate-200" %}
-    </header>
-    <main id="main" class="min-w-0 flex-1 [view-transition-name:main] overflow-y-auto overscroll-contain px-4 py-4 md:px-10 md:py-8">
-      <div class="{% block main_width %}max-w-3xl{% endblock %}">
-        {% for message in messages %}
-          <p role="{% if message.level_tag == 'error' or message.level_tag == 'warning' %}alert{% else %}status{% endif %}" class="mb-4 rounded-lg px-3 py-2 text-sm ring-1 {% if message.level_tag == 'error' %}bg-red-50 text-red-800 ring-red-200{% elif message.level_tag == 'warning' %}bg-amber-50 text-amber-800 ring-amber-200{% elif message.level_tag == 'success' %}bg-emerald-50 text-emerald-800 ring-emerald-200{% else %}bg-sky-50 text-sky-800 ring-sky-200{% endif %}">{{ message }}</p>
-        {% endfor %}
-        {% block main %}
-          <div class="max-w-md rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            {% block card %}{% endblock %}
-          </div>
-        {% endblock %}
+      <div class="-mr-2 flex items-center">
+        {% include "shell/theme.html" with class="flex size-11 items-center justify-center rounded-full text-slate-500 active:bg-slate-200" %}
+        {% include "shell/privacy.html" with class="flex size-11 items-center justify-center rounded-full text-slate-500 active:bg-slate-200" %}
       </div>
-    </main>
+    </header>
+    {% comment %}On desktop the page sits in one panel floating on the plum.{% endcomment %}
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col md:py-2 md:pr-2">
+      <div class="flex min-h-0 flex-1 flex-col md:overflow-hidden md:rounded-xl md:border md:border-chrome-line md:bg-white md:shadow-lg md:shadow-black/20">
+        <div class="hidden h-12 shrink-0 items-center justify-between border-b border-slate-200 px-6 md:flex">
+          <p class="text-sm text-slate-400">Velora <span class="px-1 text-slate-300">/</span> <b class="font-medium text-slate-900">{{ nav_title }}</b></p>
+          {% include "shell/privacy.html" with class="flex size-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900" %}
+        </div>
+        <main id="main" class="min-h-0 min-w-0 flex-1 [view-transition-name:main] overflow-y-auto overscroll-contain px-4 py-4 md:px-10 md:py-8">
+          <div class="{% block main_width %}max-w-3xl{% endblock %}">
+            {% for message in messages %}
+              <p role="{% if message.level_tag == 'error' or message.level_tag == 'warning' %}alert{% else %}status{% endif %}" class="mb-4 rounded-lg px-3 py-2 text-sm ring-1 {% if message.level_tag == 'error' %}bg-red-50 text-red-800 ring-red-200{% elif message.level_tag == 'warning' %}bg-amber-50 text-amber-800 ring-amber-200{% elif message.level_tag == 'success' %}bg-emerald-50 text-emerald-800 ring-emerald-200{% else %}bg-sky-50 text-sky-800 ring-sky-200{% endif %}">{{ message }}</p>
+            {% endfor %}
+            {% block main %}
+              <div class="max-w-md rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                {% block card %}{% endblock %}
+              </div>
+            {% endblock %}
+          </div>
+        </main>
+      </div>
+    </div>
     <nav class="flex shrink-0 border-t border-slate-200 bg-white/90 pb-[max(0.25rem,calc(env(safe-area-inset-bottom)-0.75rem))] backdrop-blur-lg md:hidden" aria-label="Tabs">
       {% for item in nav_tabs %}
-        <a href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %} class="flex h-12 flex-1 flex-col items-center justify-center gap-1 text-[10px] leading-none font-medium transition-[color,opacity] active:opacity-60 {% if item.active %}text-slate-900{% else %}text-slate-500{% endif %}">
+        <a href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %} class="flex h-12 flex-1 flex-col items-center justify-center gap-1 text-[10px] leading-none font-medium transition-[color,opacity] active:opacity-60 {% if item.active %}text-gold-600{% else %}text-slate-500{% endif %}">
           <span class="relative">
             {% include "shell/icon.html" with name=item.icon class="size-5" stroke=item.active|yesno:"stroke-[2.25],stroke-[1.75]" %}
-            {% include "shell/badge.html" with key=item.badge class="absolute -top-1 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] leading-none font-semibold text-white tabular-nums" %}
+            {% include "shell/badge.html" with key=item.badge class="absolute -top-1 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-gold-600 px-1 text-[9px] leading-none font-semibold text-white tabular-nums" %}
           </span>
           {{ item.label }}
         </a>
       {% endfor %}
-      <button type="button" data-dialog-open="more" class="flex h-12 flex-1 flex-col items-center justify-center gap-1 text-[10px] leading-none font-medium transition-[color,opacity] active:opacity-60 {% if nav_more_active %}text-slate-900{% else %}text-slate-500{% endif %}">
+      <button type="button" data-dialog-open="more" class="flex h-12 flex-1 flex-col items-center justify-center gap-1 text-[10px] leading-none font-medium transition-[color,opacity] active:opacity-60 {% if nav_more_active %}text-gold-600{% else %}text-slate-500{% endif %}">
         {% include "shell/icon.html" with name="grid" class="size-5" stroke=nav_more_active|yesno:"stroke-[2.25],stroke-[1.75]" %}
         More
       </button>
