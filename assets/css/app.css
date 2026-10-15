@@ -161,6 +161,11 @@ html:has(#main) {
       @apply flex w-full items-center gap-3 px-4 py-3 text-left transition-colors outline-hidden active:bg-slate-100 md:hover:bg-slate-50 md:focus-visible:bg-slate-50 lg:border-l-2 lg:border-transparent lg:aria-[current=true]:border-gold-500 lg:aria-[current=true]:bg-gold-50;
     }
 
+    /* The chevron a row opens with, drawn in CSS rather than an SVG per row. */
+    & [data-transaction]::after {
+      @apply mr-1 size-2 shrink-0 rotate-45 border-t-2 border-r-2 border-slate-300 content-[''] lg:hidden;
+    }
+
     & .avatar {
       @apply flex size-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-600;
     }
