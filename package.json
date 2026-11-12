@@ -7,7 +7,7 @@
     "vendor": "rm -rf static/js static/icons && mkdir -p static/js && cat node_modules/htmx.org/dist/htmx.min.js node_modules/htmx-ext-head-support/dist/head-support.min.js > static/js/htmx.min.js && cp node_modules/driver.js/dist/driver.js.iife.js static/js/driver.js"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "4.3.3",
+    "@tailwindcss/cli": "4.3.5",
     "driver.js": "1.8.0",
     "htmx-ext-head-support": "2.0.5",
     "htmx.org": "2.0.11",
