@@ -30,7 +30,7 @@ RUN mkdir -p /app/node_modules /cache/npm \
 CMD ["sh", "-c", "npm ci --no-audit --no-fund && npm run watch"]
 
 
-FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS dev
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS dev
 
 COPY --from=uv /uv /usr/local/bin/
 
@@ -74,7 +74,7 @@ COPY apps/ apps/
 RUN npm run build
 
 
-FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS builder
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS builder
 
 COPY --from=uv /uv /usr/local/bin/
 
@@ -91,7 +91,7 @@ RUN --mount=type=cache,target=/cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
 
-FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS prod
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS prod
 
 # Bytecode is precompiled below and the root filesystem is read-only, so
 # workers must not retry writing .pyc files on every import.
